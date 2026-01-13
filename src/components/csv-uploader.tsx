@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 
@@ -14,6 +15,8 @@ type SelectedCell = {
     rowIndex: number;
     colIndex: number;
 };
+
+type SelectionMode = 'range' | 'specific' | 'manual';
 
 // Helper function to convert column index to letter
 const columnToLetter = (colIndex: number): string => {
@@ -45,6 +48,7 @@ export default function CsvUploader() {
   const [rowRange, setRowRange] = useState({ start: 1, end: 0 });
   const [colRange, setColRange] = useState({ start: 'A', end: 'A' });
   const [specificCellsInput, setSpecificCellsInput] = useState('');
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('range');
 
   const parsedSpecificCells = useMemo(() => {
     const cells: SelectedCell[] = [];
@@ -128,58 +132,60 @@ export default function CsvUploader() {
     setSpecificCellsInput('');
     setRowRange({ start: 1, end: 0 });
     setColRange({ start: 'A', end: 'A' });
+    setSelectionMode('range');
     if (inputRef.current) {
       inputRef.current.value = '';
     }
   };
 
   const handleUploadClick = () => {
-    if (file) {
-      const combinedSelection = new Set<string>();
+    if (!file) return;
 
-      // 1. Add cells from row and column ranges
-      const startRow = Math.max(0, rowRange.start - 1);
-      const endRow = Math.min(data.length - 1, rowRange.end - 1);
-      const startCol = Math.max(0, letterToColumn(colRange.start.toUpperCase()));
-      const endCol = Math.min(headers.length - 1, letterToColumn(colRange.end.toUpperCase()));
+    const combinedSelection = new Set<string>();
 
-      if (rowRange.end > 0 && colRange.end) {
-        for (let i = startRow; i <= endRow; i++) {
-          for (let j = startCol; j <= endCol; j++) {
-            combinedSelection.add(`${i},${j}`);
-          }
+    if (selectionMode === 'range') {
+        const startRow = Math.max(0, rowRange.start - 1);
+        const endRow = Math.min(data.length - 1, rowRange.end - 1);
+        const startCol = Math.max(0, letterToColumn(colRange.start.toUpperCase()));
+        const endCol = Math.min(headers.length - 1, letterToColumn(colRange.end.toUpperCase()));
+
+        if (rowRange.end > 0 && colRange.end) {
+            for (let i = startRow; i <= endRow; i++) {
+                for (let j = startCol; j <= endCol; j++) {
+                    combinedSelection.add(`${i},${j}`);
+                }
+            }
         }
-      }
-
-      // 2. Add individually clicked cells
-      selectedCells.forEach(cell => {
-          combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
-      });
-      
-      // 3. Add specifically typed cells
-      parsedSpecificCells.forEach(cell => {
-        combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
-      });
-      
-      const selectedData = Array.from(combinedSelection).map(coord => {
-        const [rowIndex, colIndex] = coord.split(',').map(Number);
-        if (data[rowIndex] && data[rowIndex][colIndex] !== undefined) {
-            return {
-                header: headers[colIndex],
-                value: data[rowIndex][colIndex],
-                rowIndex,
-                colIndex,
-            };
-        }
-        return null;
-      }).filter(item => item !== null);
-
-      console.log('Selected cells data:', selectedData);
-      alert(`Simulating upload for: ${file.name} with ${selectedData.length} cells selected.`);
+    } else if (selectionMode === 'specific') {
+        parsedSpecificCells.forEach(cell => {
+            combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+        });
+    } else if (selectionMode === 'manual') {
+        selectedCells.forEach(cell => {
+            combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+        });
     }
+
+    const selectedData = Array.from(combinedSelection).map(coord => {
+      const [rowIndex, colIndex] = coord.split(',').map(Number);
+      if (data[rowIndex] && data[rowIndex][colIndex] !== undefined) {
+          return {
+              header: headers[colIndex],
+              value: data[rowIndex][colIndex],
+              rowIndex,
+              colIndex,
+          };
+      }
+      return null;
+    }).filter(item => item !== null);
+
+    console.log('Selected cells data:', selectedData);
+    alert(`Simulating upload for: ${file.name} with ${selectedData.length} cells selected.`);
   };
   
   const handleCellClick = (rowIndex: number, colIndex: number) => {
+    if (selectionMode !== 'manual') return;
+    
     setSelectedCells(prev => {
       const index = prev.findIndex(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
       if (index > -1) {
@@ -190,24 +196,21 @@ export default function CsvUploader() {
     });
   };
   
-  const isCellSelected = (rowIndex: number, colIndex: number) => {
-    // 1. Check manual click selection
-    if (selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex)) {
-      return true;
+  const isCellSelected = (rowIndex: number, colIndex: number): boolean => {
+    switch (selectionMode) {
+      case 'range':
+        const isInRowRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
+        const startCol = letterToColumn(colRange.start.toUpperCase());
+        const endCol = letterToColumn(colRange.end.toUpperCase());
+        const isInColRange = colIndex >= startCol && colIndex <= endCol;
+        return isInRowRange && isInColRange;
+      case 'specific':
+        return parsedSpecificCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
+      case 'manual':
+        return selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
+      default:
+        return false;
     }
-    
-    // 2. Check specific cell input
-    if(parsedSpecificCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex)) {
-      return true;
-    }
-
-    // 3. Check range selection
-    const isInRowRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
-    const startCol = letterToColumn(colRange.start.toUpperCase());
-    const endCol = letterToColumn(colRange.end.toUpperCase());
-    const isInColRange = colIndex >= startCol && colIndex <= endCol;
-
-    return isInRowRange && isInColRange;
   }
 
 
@@ -265,12 +268,30 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
                     <p className="text-sm text-muted-foreground">
-                      Define rangos, celdas específicas o haz clic en la tabla para seleccionar datos.
+                      Elige un modo y define qué celdas quieres cargar.
                     </p>
                   </div>
                   
                   <div className="space-y-4 p-4 border rounded-lg">
-                    <div className="space-y-2">
+                    <RadioGroup value={selectionMode} onValueChange={(value) => setSelectionMode(value as SelectionMode)} className="mb-4">
+                      <Label className="font-semibold">Modo de Selección</Label>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="range" id="r-range" />
+                        <Label htmlFor="r-range">Rango</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="specific" id="r-specific" />
+                        <Label htmlFor="r-specific">Celdas Específicas</Label>
+                      </div>
+                       <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="manual" id="r-manual" />
+                        <Label htmlFor="r-manual">Manual (clic)</Label>
+                      </div>
+                    </RadioGroup>
+
+                    <Separator />
+
+                    <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
                       <Label htmlFor="start-row" className="font-semibold">Rango de Filas</Label>
                       <div className="flex items-center gap-2">
                         <Input
@@ -295,11 +316,9 @@ export default function CsvUploader() {
                           aria-label="Fila final"
                         />
                       </div>
-                    </div>
+                    </fieldset>
                     
-                    <Separator />
-
-                    <div className="space-y-2">
+                    <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
                       <Label htmlFor="start-col" className="font-semibold">Rango de Columnas</Label>
                       <div className="flex items-center gap-2">
                         <Input
@@ -320,11 +339,11 @@ export default function CsvUploader() {
                           aria-label="Columna final"
                         />
                       </div>
-                    </div>
+                    </fieldset>
 
                     <Separator />
 
-                    <div className="space-y-2">
+                    <fieldset className="space-y-2" disabled={selectionMode !== 'specific'}>
                         <Label htmlFor="specific-cells" className="font-semibold">Celdas Específicas</Label>
                         <Input
                             id="specific-cells"
@@ -335,7 +354,7 @@ export default function CsvUploader() {
                             className="w-full"
                             aria-label="Celdas específicas separadas por coma"
                         />
-                    </div>
+                    </fieldset>
                   </div>
                 </div>
 
@@ -343,7 +362,7 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Previsualización y Selección Manual</h3>
                      <p className="text-sm text-muted-foreground">
-                      Los datos seleccionados se resaltarán. Haz clic en una celda para seleccionarla o deseleccionarla individualmente.
+                      Los datos seleccionados se resaltarán. {selectionMode === 'manual' ? 'Haz clic en una celda para seleccionarla.' : ''}
                     </p>
                   </div>
                   <div className="relative overflow-auto border rounded-lg max-h-96">
@@ -351,19 +370,20 @@ export default function CsvUploader() {
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
                                   {headers.map((header, index) => (
-                                      <TableHead key={index}>{columnToLetter(index)}</TableHead>
+                                      <TableHead key={index}>{columnToLetter(index)} ({header})</TableHead>
                                   ))}
                               </TableRow>
                           </TableHeader>
                           <TableBody>
                               {data.map((row, rowIndex) => (
-                                  <TableRow key={rowIndex} className="border-b">
+                                  <TableRow key={rowIndex}>
                                       {row.map((cell, cellIndex) => (
                                           <TableCell 
                                               key={cellIndex}
                                               onClick={() => handleCellClick(rowIndex, cellIndex)}
                                               className={cn(
-                                                  'transition-colors cursor-pointer border',
+                                                  'transition-colors border',
+                                                  selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
                                                   { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
                                               )}
                                           >
