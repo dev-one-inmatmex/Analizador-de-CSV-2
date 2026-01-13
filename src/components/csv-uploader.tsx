@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,6 +10,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { processCsvData } from '@/ai/flows/process-csv-flow';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
+import type { ProcessCsvDataInput } from '@/ai/schemas/csv-schemas';
+
 
 type SelectedCell = {
     rowIndex: number;
@@ -49,6 +53,10 @@ export default function CsvUploader() {
   const [colRange, setColRange] = useState({ start: 'A', end: 'A' });
   const [specificCellsInput, setSpecificCellsInput] = useState('');
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('range');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   const parsedSpecificCells = useMemo(() => {
     const cells: SelectedCell[] = [];
@@ -138,7 +146,7 @@ export default function CsvUploader() {
     }
   };
 
-  const handleUploadClick = () => {
+  const handleUploadClick = async () => {
     if (!file) return;
 
     const combinedSelection = new Set<string>();
@@ -158,7 +166,9 @@ export default function CsvUploader() {
         }
     } else if (selectionMode === 'specific') {
         parsedSpecificCells.forEach(cell => {
-            combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+            if (cell.rowIndex < data.length && cell.colIndex < headers.length) {
+              combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+            }
         });
     } else if (selectionMode === 'manual') {
         selectedCells.forEach(cell => {
@@ -170,17 +180,32 @@ export default function CsvUploader() {
       const [rowIndex, colIndex] = coord.split(',').map(Number);
       if (data[rowIndex] && data[rowIndex][colIndex] !== undefined) {
           return {
-              header: headers[colIndex],
+              header: headers[colIndex] || `Column ${columnToLetter(colIndex)}`,
               value: data[rowIndex][colIndex],
-              rowIndex,
-              colIndex,
+              row: rowIndex + 1,
+              column: columnToLetter(colIndex),
           };
       }
       return null;
-    }).filter(item => item !== null);
+    }).filter((item): item is { header: string; value: string; row: number; column: string; } => item !== null);
 
-    console.log('Selected cells data:', selectedData);
-    alert(`Simulating upload for: ${file.name} with ${selectedData.length} cells selected.`);
+    if (selectedData.length === 0) {
+        setResult('No se seleccionaron celdas para cargar.');
+        setIsAlertOpen(true);
+        return;
+    }
+
+    setIsLoading(true);
+    try {
+        const analysis = await processCsvData({ cells: selectedData });
+        setResult(analysis);
+    } catch (error) {
+        console.error('Error processing CSV data:', error);
+        setResult('Ocurrió un error al procesar los datos.');
+    } finally {
+        setIsLoading(false);
+        setIsAlertOpen(true);
+    }
   };
   
   const handleCellClick = (rowIndex: number, colIndex: number) => {
@@ -200,10 +225,11 @@ export default function CsvUploader() {
     switch (selectionMode) {
       case 'range':
         const isInRowRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
+        if (!isInRowRange) return false;
         const startCol = letterToColumn(colRange.start.toUpperCase());
         const endCol = letterToColumn(colRange.end.toUpperCase());
         const isInColRange = colIndex >= startCol && colIndex <= endCol;
-        return isInRowRange && isInColRange;
+        return isInColRange;
       case 'specific':
         return parsedSpecificCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
       case 'manual':
@@ -215,6 +241,7 @@ export default function CsvUploader() {
 
 
   return (
+    <>
     <Card className="w-full max-w-5xl">
       <CardHeader>
         <CardTitle>Cargar Documento CSV</CardTitle>
@@ -362,15 +389,15 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Previsualización y Selección Manual</h3>
                      <p className="text-sm text-muted-foreground">
-                      Los datos seleccionados se resaltarán. {selectionMode === 'manual' ? 'Haz clic en una celda para seleccionarla.' : ''}
+                      Los datos seleccionados se resaltarán. {selectionMode === 'manual' ? 'Haz clic en una celda para seleccionarla/deseleccionarla.' : ''}
                     </p>
                   </div>
-                  <div className="relative overflow-auto border rounded-lg max-h-96">
+                  <div className="relative overflow-auto border rounded-lg max-h-[24rem]">
                       <Table>
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
                                   {headers.map((header, index) => (
-                                      <TableHead key={index}>{columnToLetter(index)} ({header})</TableHead>
+                                      <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header})</TableHead>
                                   ))}
                               </TableRow>
                           </TableHeader>
@@ -382,7 +409,7 @@ export default function CsvUploader() {
                                               key={cellIndex}
                                               onClick={() => handleCellClick(rowIndex, cellIndex)}
                                               className={cn(
-                                                  'transition-colors border',
+                                                  'transition-colors border whitespace-nowrap',
                                                   selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
                                                   { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
                                               )}
@@ -399,13 +426,30 @@ export default function CsvUploader() {
               </div>
 
 
-              <Button onClick={handleUploadClick} disabled={!file} className="w-full mt-4">
-                Cargar datos seleccionados
+              <Button onClick={handleUploadClick} disabled={!file || isLoading} className="w-full mt-4">
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isLoading ? 'Procesando...' : 'Cargar datos seleccionados'}
               </Button>
             </>
           )}
         </div>
       </CardContent>
     </Card>
+    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Resultado del Análisis</AlertDialogTitle>
+                <AlertDialogDescription>
+                    <div className="mt-2 text-sm text-foreground max-h-80 overflow-y-auto">
+                        <pre className="whitespace-pre-wrap">{result}</pre>
+                    </div>
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setIsAlertOpen(false)}>Cerrar</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
