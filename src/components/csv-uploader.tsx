@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { UploadCloud, File as FileIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -238,11 +238,11 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
                     <p className="text-sm text-muted-foreground">
-                      Usa estas opciones para una selección rápida por rangos o haz clic en celdas individuales en la tabla.
+                      Usa estas opciones para una selección rápida o haz clic en celdas individuales.
                     </p>
                   </div>
                   
-                  <div className="space-y-4 p-4 border rounded-lg max-h-[32rem] overflow-hidden flex flex-col">
+                  <div className="space-y-4 p-4 border rounded-lg max-h-96 overflow-hidden flex flex-col">
                     <div className="space-y-2">
                       <Label className="font-semibold">Rango de Filas</Label>
                       <div className="flex items-center gap-2">
@@ -297,13 +297,13 @@ export default function CsvUploader() {
                       Haz clic en celdas individuales o selecciona filas completas.
                     </p>
                   </div>
-                  <div className="relative overflow-auto border rounded-lg max-h-[32rem]">
+                  <div className="relative overflow-auto border rounded-lg max-h-96">
                       <Table>
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
                                   <TableHead className="w-[50px]">
                                     <Checkbox
-                                        checked={selectedRows.length === data.length ? true : selectedRows.length === 0 ? false : 'indeterminate'}
+                                        checked={data.length > 0 && selectedRows.length === data.length ? true : selectedRows.length === 0 ? false : 'indeterminate'}
                                         onCheckedChange={handleSelectAllRows}
                                         aria-label="Seleccionar todas las filas"
                                     />
