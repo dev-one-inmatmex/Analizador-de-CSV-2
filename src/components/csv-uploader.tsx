@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { UploadCloud, File as FileIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,7 @@ export default function CsvUploader() {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [rowRange, setRowRange] = useState({ start: 1, end: 0 });
+  const [selectedRows, setSelectedRows] = useState<number[]>([]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,6 +73,7 @@ export default function CsvUploader() {
     setHeaders([]);
     setSelectedCells([]);
     setSelectedColumns([]);
+    setSelectedRows([]);
     setRowRange({ start: 1, end: 0 });
     if (inputRef.current) {
       inputRef.current.value = '';
@@ -101,6 +103,13 @@ export default function CsvUploader() {
             }
         });
       }
+
+      // Add cells from fully selected rows
+      selectedRows.forEach(rowIndex => {
+        headers.forEach((_, colIndex) => {
+            combinedSelection.add(`${rowIndex},${colIndex}`);
+        });
+      });
       
       const selectedData = Array.from(combinedSelection).map(coord => {
         const [rowIndex, colIndex] = coord.split(',').map(Number);
@@ -143,16 +152,35 @@ export default function CsvUploader() {
         : [...prev, header]
     );
   };
+  
+  const handleRowToggle = (rowIndex: number) => {
+    setSelectedRows(prev =>
+      prev.includes(rowIndex)
+        ? prev.filter(r => r !== rowIndex)
+        : [...prev, rowIndex]
+    );
+  };
+  
+  const handleSelectAllRows = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      setSelectedRows(data.map((_, i) => i));
+    } else {
+      setSelectedRows([]);
+    }
+  };
 
   const isCellSelected = (rowIndex: number, colIndex: number) => {
     const isIndividuallySelected = selectedCells.some(
         cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex
     );
+    
+    if (isIndividuallySelected) return true;
 
     const isInRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
     const isColumnSelected = selectedColumns.includes(headers[colIndex]);
+    const isRowSelected = selectedRows.includes(rowIndex);
 
-    return isIndividuallySelected || (isInRange && isColumnSelected);
+    return isRowSelected || (isInRange && isColumnSelected);
   }
 
 
@@ -266,13 +294,20 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Previsualización y Selección Manual</h3>
                      <p className="text-sm text-muted-foreground">
-                      Haz clic en celdas individuales para añadirlas o quitarlas de la selección.
+                      Haz clic en celdas individuales o selecciona filas completas.
                     </p>
                   </div>
                   <div className="relative overflow-auto border rounded-lg max-h-[32rem]">
                       <Table>
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
+                                  <TableHead className="w-[50px]">
+                                    <Checkbox
+                                        checked={selectedRows.length === data.length ? true : selectedRows.length === 0 ? false : 'indeterminate'}
+                                        onCheckedChange={handleSelectAllRows}
+                                        aria-label="Seleccionar todas las filas"
+                                    />
+                                  </TableHead>
                                   {headers.map((header, index) => (
                                       <TableHead key={index}>{header}</TableHead>
                                   ))}
@@ -280,7 +315,14 @@ export default function CsvUploader() {
                           </TableHeader>
                           <TableBody>
                               {data.map((row, rowIndex) => (
-                                  <TableRow key={rowIndex} className="border-b">
+                                  <TableRow key={rowIndex} className="border-b" data-state={selectedRows.includes(rowIndex) ? 'selected' : 'unselected'}>
+                                      <TableCell>
+                                        <Checkbox
+                                            checked={selectedRows.includes(rowIndex)}
+                                            onCheckedChange={() => handleRowToggle(rowIndex)}
+                                            aria-label={`Seleccionar fila ${rowIndex + 1}`}
+                                        />
+                                      </TableCell>
                                       {row.map((cell, cellIndex) => (
                                           <TableCell 
                                               key={cellIndex}
