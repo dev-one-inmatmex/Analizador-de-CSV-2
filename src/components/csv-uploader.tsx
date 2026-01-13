@@ -214,7 +214,7 @@ export default function CsvUploader() {
                     </p>
                   </div>
                   
-                  <div className="space-y-4 p-4 border rounded-lg">
+                  <div className="space-y-4 p-4 border rounded-lg max-h-[32rem] overflow-hidden flex flex-col">
                     <div className="space-y-2">
                       <Label className="font-semibold">Rango de Filas</Label>
                       <div className="flex items-center gap-2">
@@ -244,9 +244,9 @@ export default function CsvUploader() {
                     
                     <Separator />
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1 flex flex-col min-h-0">
                        <Label className="font-semibold">Columnas</Label>
-                       <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                       <div className="space-y-2 overflow-y-auto pr-2 flex-1">
                         {headers.map((header, index) => (
                            <div key={index} className="flex items-center gap-2">
                              <Checkbox
@@ -269,7 +269,7 @@ export default function CsvUploader() {
                       Haz clic en celdas individuales para añadirlas o quitarlas de la selección.
                     </p>
                   </div>
-                  <div className="relative overflow-auto border rounded-lg">
+                  <div className="relative overflow-auto border rounded-lg max-h-[32rem]">
                       <Table>
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
