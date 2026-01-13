@@ -205,7 +205,7 @@ export default function CsvUploader() {
                 </Button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                 <div className="md:col-span-1 space-y-4">
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
@@ -269,7 +269,7 @@ export default function CsvUploader() {
                       Haz clic en celdas individuales para añadirlas o quitarlas de la selección.
                     </p>
                   </div>
-                  <div className="relative max-h-[50vh] overflow-auto border rounded-lg">
+                  <div className="relative overflow-auto border rounded-lg">
                       <Table>
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
