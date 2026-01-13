@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 
@@ -16,14 +15,36 @@ type SelectedCell = {
     colIndex: number;
 };
 
+// Helper function to convert column letter to index
+const columnToLetter = (colIndex: number): string => {
+    let letter = '';
+    let temp = colIndex;
+    while (temp >= 0) {
+        letter = String.fromCharCode((temp % 26) + 65) + letter;
+        temp = Math.floor(temp / 26) - 1;
+    }
+    return letter;
+};
+
+// Helper function to convert column letter to index
+const letterToColumn = (letter: string): number => {
+    let column = 0;
+    const length = letter.length;
+    for (let i = 0; i < length; i++) {
+        column += (letter.charCodeAt(i) - 64) * Math.pow(26, length - i - 1);
+    }
+    return column - 1;
+};
+
+
 export default function CsvUploader() {
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [data, setData] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [rowRange, setRowRange] = useState({ start: 1, end: 0 });
+  const [colRange, setColRange] = useState({ start: 'A', end: 'A' });
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,10 +62,21 @@ export default function CsvUploader() {
       const rows = text.split('\n').map(row => row.split(','));
       const headerRow = rows[0];
       const dataRows = rows.slice(1);
-      setHeaders(headerRow);
-      setData(dataRows);
-      setSelectedColumns(headerRow);
-      setRowRange({ start: 1, end: dataRows.length });
+      
+      const maxLength = Math.max(headerRow.length, ...dataRows.map(r => r.length));
+      const paddedHeaders = [...headerRow];
+      while(paddedHeaders.length < maxLength) paddedHeaders.push('');
+      
+      const paddedData = dataRows.map(row => {
+          const newRow = [...row];
+          while(newRow.length < maxLength) newRow.push('');
+          return newRow;
+      });
+
+      setHeaders(paddedHeaders);
+      setData(paddedData);
+      setRowRange({ start: 1, end: paddedData.length });
+      setColRange({ start: 'A', end: columnToLetter(paddedHeaders.length - 1) })
     };
     reader.readAsText(file);
   };
@@ -71,8 +103,8 @@ export default function CsvUploader() {
     setData([]);
     setHeaders([]);
     setSelectedCells([]);
-    setSelectedColumns([]);
     setRowRange({ start: 1, end: 0 });
+    setColRange({ start: 'A', end: 'A' });
     if (inputRef.current) {
       inputRef.current.value = '';
     }
@@ -89,19 +121,18 @@ export default function CsvUploader() {
           combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
       });
 
-      // Add cells from selected rows and columns
+      // Add cells from selected row and column ranges
       const startRow = Math.max(0, rowRange.start - 1);
       const endRow = Math.min(data.length - 1, rowRange.end - 1);
+      
+      const startCol = Math.max(0, letterToColumn(colRange.start.toUpperCase()));
+      const endCol = Math.min(headers.length - 1, letterToColumn(colRange.end.toUpperCase()));
 
-      if (rowRange.end > 0) {
-        const columnIndices = selectedColumns.map(col => headers.indexOf(col));
-
+      if (rowRange.end > 0 && colRange.end) {
         for (let i = startRow; i <= endRow; i++) {
-          columnIndices.forEach(j => {
-              if (j !== -1) {
-                  combinedSelection.add(`${i},${j}`);
-              }
-          });
+          for (let j = startCol; j <= endCol; j++) {
+            combinedSelection.add(`${i},${j}`);
+          }
         }
       }
       
@@ -122,15 +153,7 @@ export default function CsvUploader() {
       alert(`Simulating upload for: ${file.name} with ${selectedData.length} cells selected.`);
     }
   };
-
-  const handleColumnToggle = (header: string) => {
-    setSelectedColumns(prev => 
-      prev.includes(header)
-        ? prev.filter(h => h !== header)
-        : [...prev, header]
-    );
-  };
-
+  
   const handleCellClick = (rowIndex: number, colIndex: number) => {
     setSelectedCells(prev => {
       const index = prev.findIndex(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
@@ -143,13 +166,18 @@ export default function CsvUploader() {
   };
   
   const isCellSelected = (rowIndex: number, colIndex: number) => {
+    // Check manual selection
     const isManuallySelected = selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
     if (isManuallySelected) return true;
 
-    const isColumnSelected = selectedColumns.includes(headers[colIndex]);
-    const isInRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
+    // Check range selection
+    const isInRowRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
+    
+    const startCol = letterToColumn(colRange.start.toUpperCase());
+    const endCol = letterToColumn(colRange.end.toUpperCase());
+    const isInColRange = colIndex >= startCol && colIndex <= endCol;
 
-    return isInRange && isColumnSelected;
+    return isInRowRange && isInColRange;
   }
 
 
@@ -207,13 +235,13 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
                     <p className="text-sm text-muted-foreground">
-                      Usa estas opciones para seleccionar los datos por rango y columnas.
+                      Define rangos para filas y columnas, o haz clic en celdas individuales para seleccionarlas.
                     </p>
                   </div>
                   
-                  <div className="space-y-4 p-4 border rounded-lg max-h-96 overflow-hidden flex flex-col">
+                  <div className="space-y-4 p-4 border rounded-lg">
                     <div className="space-y-2">
-                      <Label className="font-semibold">Rango de Filas</Label>
+                      <Label htmlFor="start-row" className="font-semibold">Rango de Filas</Label>
                       <div className="flex items-center gap-2">
                         <Input
                           id="start-row"
@@ -241,20 +269,27 @@ export default function CsvUploader() {
                     
                     <Separator />
 
-                    <div className="space-y-2 flex-1 flex flex-col min-h-0">
-                       <Label className="font-semibold">Columnas</Label>
-                       <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                        {headers.map((header, index) => (
-                           <div key={index} className="flex items-center gap-2">
-                             <Checkbox
-                               id={`col-select-${index}`}
-                               checked={selectedColumns.includes(header)}
-                               onCheckedChange={() => handleColumnToggle(header)}
-                             />
-                             <label htmlFor={`col-select-${index}`} className="text-sm cursor-pointer select-none">{header}</label>
-                           </div>
-                        ))}
-                       </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="start-col" className="font-semibold">Rango de Columnas</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="start-col"
+                          type="text"
+                          value={colRange.start}
+                          onChange={e => setColRange(c => ({...c, start: e.target.value}))}
+                          className="w-full"
+                          aria-label="Columna inicial"
+                        />
+                        <span className="text-muted-foreground">-</span>
+                        <Input
+                          id="end-col"
+                          type="text"
+                          value={colRange.end}
+                          onChange={e => setColRange(c => ({...c, end: e.target.value}))}
+                          className="w-full"
+                          aria-label="Columna final"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -271,19 +306,19 @@ export default function CsvUploader() {
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
                                   {headers.map((header, index) => (
-                                      <TableHead key={index}>{header}</TableHead>
+                                      <TableHead key={index}>{columnToLetter(index)}</TableHead>
                                   ))}
                               </TableRow>
                           </TableHeader>
                           <TableBody>
                               {data.map((row, rowIndex) => (
-                                  <TableRow key={rowIndex} className="border-b">
+                                  <TableRow key={rowIndex}>
                                       {row.map((cell, cellIndex) => (
                                           <TableCell 
                                               key={cellIndex}
                                               onClick={() => handleCellClick(rowIndex, cellIndex)}
                                               className={cn(
-                                                  'transition-colors cursor-pointer',
+                                                  'transition-colors cursor-pointer border',
                                                   { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
                                               )}
                                           >
