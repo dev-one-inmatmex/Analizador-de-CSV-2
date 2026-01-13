@@ -161,24 +161,14 @@ export default function CsvUploader() {
     );
   };
   
-  const handleSelectAllRows = (checked: boolean | 'indeterminate') => {
-    if (checked === true) {
-      setSelectedRows(data.map((_, i) => i));
-    } else {
-      setSelectedRows([]);
-    }
-  };
-
   const isCellSelected = (rowIndex: number, colIndex: number) => {
-    const isIndividuallySelected = selectedCells.some(
-        cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex
-    );
+    if (selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex)) {
+        return true;
+    }
     
-    if (isIndividuallySelected) return true;
-
-    const isInRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
-    const isColumnSelected = selectedColumns.includes(headers[colIndex]);
     const isRowSelected = selectedRows.includes(rowIndex);
+    const isColumnSelected = selectedColumns.includes(headers[colIndex]);
+    const isInRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
 
     return isRowSelected || (isInRange && isColumnSelected);
   }
@@ -301,13 +291,7 @@ export default function CsvUploader() {
                       <Table>
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
-                                  <TableHead className="w-[50px]">
-                                    <Checkbox
-                                        checked={data.length > 0 && selectedRows.length === data.length ? true : selectedRows.length === 0 ? false : 'indeterminate'}
-                                        onCheckedChange={handleSelectAllRows}
-                                        aria-label="Seleccionar todas las filas"
-                                    />
-                                  </TableHead>
+                                  <TableHead className="w-[50px]"></TableHead>
                                   {headers.map((header, index) => (
                                       <TableHead key={index}>{header}</TableHead>
                                   ))}
