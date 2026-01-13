@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { processCsvData } from '@/ai/flows/process-csv-flow';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
-import type { ProcessCsvDataInput, ProcessCsvDataOutput } from '@/ai/schemas/csv-schemas';
+import type { ProcessCsvDataOutput } from '@/ai/schemas/csv-schemas';
 
 
 type SelectedCell = {
@@ -245,10 +245,13 @@ export default function CsvUploader() {
     const { headers, rows } = result.table;
     const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+        ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Add BOM for Excel compatibility
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
     const link = document.createElement('a');
     if (link.href) {
         URL.revokeObjectURL(link.href);
@@ -320,7 +323,7 @@ export default function CsvUploader() {
                     </p>
                   </div>
                   
-                  <div className="space-y-4 p-4 border rounded-lg">
+                  <div className="space-y-4 p-4 border rounded-lg max-h-[24rem] overflow-y-auto">
                     <RadioGroup value={selectionMode} onValueChange={(value) => setSelectionMode(value as SelectionMode)} className="mb-4">
                       <Label className="font-semibold">Modo de Selección</Label>
                       <div className="flex items-center space-x-2">
@@ -502,7 +505,7 @@ export default function CsvUploader() {
             <AlertDialogFooter>
                 {typeof result !== 'string' && result && (
                     <Button variant="outline" onClick={handleDownload}>
-                        <Download className="mr-2" />
+                        <Download className="mr-2 h-4 w-4" />
                         Descargar CSV
                     </Button>
                 )}
