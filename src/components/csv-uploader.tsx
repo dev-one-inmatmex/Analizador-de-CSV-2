@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 type SelectedCell = {
     rowIndex: number;
@@ -145,7 +146,7 @@ export default function CsvUploader() {
         cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex
     );
 
-    const isInRange = rowIndex >= rowRange.start - 1 && rowIndex <= rowRange.end - 1;
+    const isInRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
     const isColumnSelected = selectedColumns.includes(headers[colIndex]);
 
     return isIndividuallySelected || (isInRange && isColumnSelected);
@@ -153,7 +154,7 @@ export default function CsvUploader() {
 
 
   return (
-    <Card className="w-full max-w-4xl">
+    <Card className="w-full max-w-5xl">
       <CardHeader>
         <CardTitle>Cargar Documento CSV</CardTitle>
         <CardDescription>
@@ -161,7 +162,7 @@ export default function CsvUploader() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           {!file && (
             <div
               className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer border-border hover:bg-accent hover:border-primary transition-colors"
@@ -200,84 +201,105 @@ export default function CsvUploader() {
                   <span className="sr-only">Eliminar archivo</span>
                 </Button>
               </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-1 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium">Controles de Selección</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Usa estas opciones para una selección rápida por rangos.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <div className="space-y-2">
+                      <Label className="font-semibold">Rango de Filas</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="start-row"
+                          type="number"
+                          min="1"
+                          max={data.length}
+                          value={rowRange.start}
+                          onChange={e => setRowRange(r => ({ ...r, start: parseInt(e.target.value, 10) || 1 }))}
+                          className="w-full"
+                          aria-label="Fila inicial"
+                        />
+                        <span className="text-muted-foreground">-</span>
+                        <Input
+                          id="end-row"
+                          type="number"
+                          min={rowRange.start}
+                          max={data.length}
+                          value={rowRange.end}
+                          onChange={e => setRowRange(r => ({ ...r, end: parseInt(e.target.value, 10) || data.length }))}
+                          className="w-full"
+                          aria-label="Fila final"
+                        />
+                      </div>
+                    </div>
+                    
+                    <Separator />
 
-              <div className="space-y-4">
-                 <div>
-                  <h3 className="text-lg font-medium mb-2">Seleccionar Datos</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Define un rango de filas, selecciona columnas, o haz clic en celdas individuales.
-                  </p>
+                    <div className="space-y-2">
+                       <Label className="font-semibold">Columnas</Label>
+                       <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                        {headers.map((header, index) => (
+                           <div key={index} className="flex items-center gap-2">
+                             <Checkbox
+                               id={`col-select-${index}`}
+                               checked={selectedColumns.includes(header)}
+                               onCheckedChange={() => handleColumnToggle(header)}
+                             />
+                             <label htmlFor={`col-select-${index}`} className="text-sm cursor-pointer select-none">{header}</label>
+                           </div>
+                        ))}
+                       </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="start-row">Fila inicial</Label>
-                    <Input
-                      id="start-row"
-                      type="number"
-                      min="1"
-                      max={data.length}
-                      value={rowRange.start}
-                      onChange={e => setRowRange(r => ({ ...r, start: parseInt(e.target.value, 10) || 1 }))}
-                      className="w-20"
-                    />
+                <div className="md:col-span-2 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium">Previsualización y Selección Manual</h3>
+                     <p className="text-sm text-muted-foreground">
+                      Haz clic en celdas individuales para añadirlas o quitarlas de la selección.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="end-row">Fila final</Label>
-                    <Input
-                      id="end-row"
-                      type="number"
-                      min="1"
-                      max={data.length}
-                      value={rowRange.end}
-                      onChange={e => setRowRange(r => ({ ...r, end: parseInt(e.target.value, 10) || data.length }))}
-                      className="w-20"
-                    />
+                  <div className="relative max-h-[50vh] overflow-auto border rounded-lg">
+                      <Table>
+                          <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                              <TableRow>
+                                  {headers.map((header, index) => (
+                                      <TableHead key={index}>{header}</TableHead>
+                                  ))}
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {data.map((row, rowIndex) => (
+                                  <TableRow key={rowIndex}>
+                                      {row.map((cell, cellIndex) => (
+                                          <TableCell 
+                                              key={cellIndex}
+                                              className={cn(
+                                                  'cursor-pointer transition-colors',
+                                                  { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
+                                              )}
+                                              onClick={() => handleCellClick(rowIndex, cellIndex)}
+                                          >
+                                              {cell}
+                                          </TableCell>
+                                      ))}
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
                   </div>
-                </div>
-                
-                <div className="relative max-h-96 overflow-auto border rounded-lg">
-                    <Table>
-                        <TableHeader className="sticky top-0 bg-background z-10">
-                            <TableRow>
-                                {headers.map((header, index) => (
-                                    <TableHead key={index}>
-                                        <div className="flex items-center gap-2">
-                                            <Checkbox
-                                                id={`col-${index}`}
-                                                checked={selectedColumns.includes(header)}
-                                                onCheckedChange={() => handleColumnToggle(header)}
-                                            />
-                                            <label htmlFor={`col-${index}`} className="cursor-pointer select-none">{header}</label>
-                                        </div>
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.map((row, rowIndex) => (
-                                <TableRow key={rowIndex}>
-                                    {row.map((cell, cellIndex) => (
-                                        <TableCell 
-                                            key={cellIndex}
-                                            className={cn(
-                                                'cursor-pointer',
-                                                { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
-                                            )}
-                                            onClick={() => handleCellClick(rowIndex, cellIndex)}
-                                        >
-                                            {cell}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
                 </div>
               </div>
 
 
-              <Button onClick={handleUploadClick} disabled={!file} className="w-full">
+              <Button onClick={handleUploadClick} disabled={!file} className="w-full mt-4">
                 Cargar datos seleccionados
               </Button>
             </>
