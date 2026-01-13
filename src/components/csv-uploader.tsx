@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { UploadCloud, File as FileIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,7 @@ type SelectedCell = {
     colIndex: number;
 };
 
-// Helper function to convert column letter to index
+// Helper function to convert column index to letter
 const columnToLetter = (colIndex: number): string => {
     let letter = '';
     let temp = colIndex;
@@ -36,7 +36,6 @@ const letterToColumn = (letter: string): number => {
     return column - 1;
 };
 
-
 export default function CsvUploader() {
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +44,30 @@ export default function CsvUploader() {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [rowRange, setRowRange] = useState({ start: 1, end: 0 });
   const [colRange, setColRange] = useState({ start: 'A', end: 'A' });
+  const [specificCellsInput, setSpecificCellsInput] = useState('');
 
+  const parsedSpecificCells = useMemo(() => {
+    const cells: SelectedCell[] = [];
+    if (!specificCellsInput) return cells;
+
+    const parts = specificCellsInput.split(',').map(p => p.trim().toUpperCase());
+    
+    parts.forEach(part => {
+        const match = part.match(/^([A-Z]+)(\d+)$/);
+        if (match) {
+            const colLetter = match[1];
+            const rowNumber = parseInt(match[2], 10);
+            const colIndex = letterToColumn(colLetter);
+            const rowIndex = rowNumber - 1;
+
+            if (colIndex >= 0 && rowIndex >= 0) {
+                cells.push({ rowIndex, colIndex });
+            }
+        }
+    });
+
+    return cells;
+  }, [specificCellsInput]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -76,7 +98,7 @@ export default function CsvUploader() {
       setHeaders(paddedHeaders);
       setData(paddedData);
       setRowRange({ start: 1, end: paddedData.length });
-      setColRange({ start: 'A', end: columnToLetter(paddedHeaders.length - 1) })
+      setColRange({ start: 'A', end: columnToLetter(paddedHeaders.length - 1) });
     };
     reader.readAsText(file);
   };
@@ -103,6 +125,7 @@ export default function CsvUploader() {
     setData([]);
     setHeaders([]);
     setSelectedCells([]);
+    setSpecificCellsInput('');
     setRowRange({ start: 1, end: 0 });
     setColRange({ start: 'A', end: 'A' });
     if (inputRef.current) {
@@ -112,19 +135,11 @@ export default function CsvUploader() {
 
   const handleUploadClick = () => {
     if (file) {
-      console.log('Uploading:', file.name);
-
       const combinedSelection = new Set<string>();
 
-      // Add individually selected cells
-      selectedCells.forEach(cell => {
-          combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
-      });
-
-      // Add cells from selected row and column ranges
+      // 1. Add cells from row and column ranges
       const startRow = Math.max(0, rowRange.start - 1);
       const endRow = Math.min(data.length - 1, rowRange.end - 1);
-      
       const startCol = Math.max(0, letterToColumn(colRange.start.toUpperCase()));
       const endCol = Math.min(headers.length - 1, letterToColumn(colRange.end.toUpperCase()));
 
@@ -135,6 +150,16 @@ export default function CsvUploader() {
           }
         }
       }
+
+      // 2. Add individually clicked cells
+      selectedCells.forEach(cell => {
+          combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+      });
+      
+      // 3. Add specifically typed cells
+      parsedSpecificCells.forEach(cell => {
+        combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+      });
       
       const selectedData = Array.from(combinedSelection).map(coord => {
         const [rowIndex, colIndex] = coord.split(',').map(Number);
@@ -166,13 +191,18 @@ export default function CsvUploader() {
   };
   
   const isCellSelected = (rowIndex: number, colIndex: number) => {
-    // Check manual selection
-    const isManuallySelected = selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
-    if (isManuallySelected) return true;
-
-    // Check range selection
-    const isInRowRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
+    // 1. Check manual click selection
+    if (selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex)) {
+      return true;
+    }
     
+    // 2. Check specific cell input
+    if(parsedSpecificCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex)) {
+      return true;
+    }
+
+    // 3. Check range selection
+    const isInRowRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
     const startCol = letterToColumn(colRange.start.toUpperCase());
     const endCol = letterToColumn(colRange.end.toUpperCase());
     const isInColRange = colIndex >= startCol && colIndex <= endCol;
@@ -235,7 +265,7 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
                     <p className="text-sm text-muted-foreground">
-                      Define rangos para filas y columnas, o haz clic en celdas individuales para seleccionarlas.
+                      Define rangos, celdas específicas o haz clic en la tabla para seleccionar datos.
                     </p>
                   </div>
                   
@@ -276,7 +306,7 @@ export default function CsvUploader() {
                           id="start-col"
                           type="text"
                           value={colRange.start}
-                          onChange={e => setColRange(c => ({...c, start: e.target.value}))}
+                          onChange={e => setColRange(c => ({...c, start: e.target.value.toUpperCase()}))}
                           className="w-full"
                           aria-label="Columna inicial"
                         />
@@ -285,11 +315,26 @@ export default function CsvUploader() {
                           id="end-col"
                           type="text"
                           value={colRange.end}
-                          onChange={e => setColRange(c => ({...c, end: e.target.value}))}
+                          onChange={e => setColRange(c => ({...c, end: e.target.value.toUpperCase()}))}
                           className="w-full"
                           aria-label="Columna final"
                         />
                       </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                        <Label htmlFor="specific-cells" className="font-semibold">Celdas Específicas</Label>
+                        <Input
+                            id="specific-cells"
+                            type="text"
+                            placeholder="Ej: A1, B5, C10"
+                            value={specificCellsInput}
+                            onChange={e => setSpecificCellsInput(e.target.value)}
+                            className="w-full"
+                            aria-label="Celdas específicas separadas por coma"
+                        />
                     </div>
                   </div>
                 </div>
@@ -312,7 +357,7 @@ export default function CsvUploader() {
                           </TableHeader>
                           <TableBody>
                               {data.map((row, rowIndex) => (
-                                  <TableRow key={rowIndex}>
+                                  <TableRow key={rowIndex} className="border-b">
                                       {row.map((cell, cellIndex) => (
                                           <TableCell 
                                               key={cellIndex}
