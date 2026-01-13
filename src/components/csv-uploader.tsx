@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { processCsvData } from '@/ai/flows/process-csv-flow';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
 import type { ProcessCsvDataOutput } from '@/ai/schemas/csv-schemas';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type SelectedCell = {
@@ -397,36 +398,36 @@ export default function CsvUploader() {
                       Los datos seleccionados se resaltarán. {selectionMode === 'manual' ? 'Haz clic en una celda para seleccionarla/deseleccionarla.' : ''}
                     </p>
                   </div>
-                  <div className="relative overflow-auto border rounded-lg max-h-[24rem] mt-2">
-                      <Table>
-                          <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
-                              <TableRow>
-                                  {headers.map((header, index) => (
-                                      <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header})</TableHead>
-                                  ))}
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {data.map((row, rowIndex) => (
-                                  <TableRow key={rowIndex}>
-                                      {row.map((cell, cellIndex) => (
-                                          <TableCell 
-                                              key={cellIndex}
-                                              onClick={() => handleCellClick(rowIndex, cellIndex)}
-                                              className={cn(
-                                                  'transition-colors border whitespace-nowrap',
-                                                  selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
-                                                  { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
-                                              )}
-                                          >
-                                              {cell}
-                                          </TableCell>
-                                      ))}
-                                  </TableRow>
-                              ))}
-                          </TableBody>
-                      </Table>
-                  </div>
+                  <ScrollArea className="border rounded-lg max-h-[24rem] mt-2 whitespace-nowrap">
+                    <Table>
+                        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                            <TableRow>
+                                {headers.map((header, index) => (
+                                    <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header})</TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {data.map((row, rowIndex) => (
+                                <TableRow key={rowIndex}>
+                                    {row.map((cell, cellIndex) => (
+                                        <TableCell 
+                                            key={cellIndex}
+                                            onClick={() => handleCellClick(rowIndex, cellIndex)}
+                                            className={cn(
+                                                'transition-colors border whitespace-nowrap',
+                                                selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
+                                                { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
+                                            )}
+                                        >
+                                            {cell}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                  </ScrollArea>
               <Button onClick={handleUploadClick} disabled={!file || isLoading} className="w-full mt-6 text-lg py-6">
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {isLoading ? 'Analizando...' : 'Analizar Datos Seleccionados'}
@@ -453,7 +454,7 @@ export default function CsvUploader() {
                                   <Separator />
                                   <div>
                                       <h3 className="font-semibold text-lg mb-2">Datos Seleccionados</h3>
-                                      <div className="overflow-auto border rounded-lg">
+                                      <ScrollArea className="border rounded-lg whitespace-nowrap">
                                           <Table>
                                               <TableHeader>
                                                   <TableRow>
@@ -472,7 +473,7 @@ export default function CsvUploader() {
                                                   ))}
                                               </TableBody>
                                           </Table>
-                                      </div>
+                                      </ScrollArea>
                                   </div>
                               </div>
                           ) : null}
