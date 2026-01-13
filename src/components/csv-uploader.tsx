@@ -398,36 +398,38 @@ export default function CsvUploader() {
                       Los datos seleccionados se resaltarán. {selectionMode === 'manual' ? 'Haz clic en una celda para seleccionarla/deseleccionarla.' : ''}
                     </p>
                   </div>
-                  <ScrollArea className="border rounded-lg max-h-[24rem] mt-2 whitespace-nowrap">
-                    <Table>
-                        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
-                            <TableRow>
-                                {headers.map((header, index) => (
-                                    <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header})</TableHead>
-                                ))}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.map((row, rowIndex) => (
-                                <TableRow key={rowIndex}>
-                                    {row.map((cell, cellIndex) => (
-                                        <TableCell 
-                                            key={cellIndex}
-                                            onClick={() => handleCellClick(rowIndex, cellIndex)}
-                                            className={cn(
-                                                'transition-colors border whitespace-nowrap',
-                                                selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
-                                                { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
-                                            )}
-                                        >
-                                            {cell}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                  </ScrollArea>
+                  <div className="relative mt-2 border rounded-lg">
+                    <div className="w-full overflow-auto max-h-[24rem]">
+                      <Table>
+                          <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                              <TableRow>
+                                  {headers.map((header, index) => (
+                                      <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header})</TableHead>
+                                  ))}
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {data.map((row, rowIndex) => (
+                                  <TableRow key={rowIndex}>
+                                      {row.map((cell, cellIndex) => (
+                                          <TableCell 
+                                              key={cellIndex}
+                                              onClick={() => handleCellClick(rowIndex, cellIndex)}
+                                              className={cn(
+                                                  'transition-colors border whitespace-nowrap',
+                                                  selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
+                                                  { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
+                                              )}
+                                          >
+                                              {cell}
+                                          </TableCell>
+                                      ))}
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                    </div>
+                  </div>
               <Button onClick={handleUploadClick} disabled={!file || isLoading} className="w-full mt-6 text-lg py-6">
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {isLoading ? 'Analizando...' : 'Analizar Datos Seleccionados'}
