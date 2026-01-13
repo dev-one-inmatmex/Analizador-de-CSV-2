@@ -4,19 +4,21 @@ import { useState, useRef, useMemo } from 'react';
 import { UploadCloud, File as FileIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+
+
+type SelectedCell = {
+    rowIndex: number;
+    colIndex: number;
+};
 
 export default function CsvUploader() {
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [data, setData] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
-  const [startRow, setStartRow] = useState<number>(0);
-  const [endRow, setEndRow] = useState<number>(0);
+  const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,14 +34,8 @@ export default function CsvUploader() {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       const rows = text.split('\n').map(row => row.split(','));
-      const fileHeaders = rows[0];
-      setHeaders(fileHeaders);
-      const allColumns = new Set(fileHeaders);
-      setSelectedColumns(allColumns);
-      const fileData = rows.slice(1);
-      setData(fileData);
-      setStartRow(1);
-      setEndRow(fileData.length);
+      setHeaders(rows[0]);
+      setData(rows.slice(1));
     };
     reader.readAsText(file);
   };
@@ -65,9 +61,7 @@ export default function CsvUploader() {
     setFile(null);
     setData([]);
     setHeaders([]);
-    setSelectedColumns(new Set());
-    setStartRow(0);
-    setEndRow(0);
+    setSelectedCells([]);
     if (inputRef.current) {
       inputRef.current.value = '';
     }
@@ -77,31 +71,38 @@ export default function CsvUploader() {
     if (file) {
       // Replace with your actual upload logic
       console.log('Uploading:', file.name);
-      console.log('Selected columns:', Array.from(selectedColumns));
-      console.log('Selected rows:', `from ${startRow} to ${endRow}`);
-      alert(`Simulating upload for: ${file.name}`);
+      const selectedData = selectedCells.map(cell => ({
+        header: headers[cell.colIndex],
+        value: data[cell.rowIndex][cell.colIndex],
+        rowIndex: cell.rowIndex,
+        colIndex: cell.colIndex,
+      }));
+      console.log('Selected cells data:', selectedData);
+      alert(`Simulating upload for: ${file.name} with ${selectedCells.length} cells selected.`);
     }
   };
 
-  const handleColumnSelectionChange = (header: string) => {
-    const newSelectedColumns = new Set(selectedColumns);
-    if (newSelectedColumns.has(header)) {
-      newSelectedColumns.delete(header);
-    } else {
-      newSelectedColumns.add(header);
-    }
-    setSelectedColumns(newSelectedColumns);
+  const handleCellClick = (rowIndex: number, colIndex: number) => {
+    setSelectedCells(prevSelectedCells => {
+        const isSelected = prevSelectedCells.some(
+            cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex
+        );
+
+        if (isSelected) {
+            return prevSelectedCells.filter(
+                cell => !(cell.rowIndex === rowIndex && cell.colIndex === colIndex)
+            );
+        } else {
+            return [...prevSelectedCells, {rowIndex, colIndex}];
+        }
+    });
   };
 
-  const filteredData = useMemo(() => {
-    const start = Math.max(0, startRow - 1);
-    const end = Math.min(data.length, endRow);
-    return data.slice(start, end);
-  }, [data, startRow, endRow]);
-
-  const filteredHeaders = useMemo(() => {
-    return headers.filter(header => selectedColumns.has(header));
-  }, [headers, selectedColumns]);
+  const isCellSelected = (rowIndex: number, colIndex: number) => {
+    return selectedCells.some(
+        cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex
+    );
+  }
 
 
   return (
@@ -154,50 +155,11 @@ export default function CsvUploader() {
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Seleccionar Columnas</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 border p-4 rounded-md">
-                    {headers.map((header) => (
-                      <div key={header} className="flex items-center gap-2">
-                        <Checkbox
-                          id={header}
-                          checked={selectedColumns.has(header)}
-                          onCheckedChange={() => handleColumnSelectionChange(header)}
-                        />
-                        <Label htmlFor={header} className="truncate">{header}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                    <h3 className="text-lg font-medium mb-2">Seleccionar Filas</h3>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="startRow">Desde</Label>
-                            <Input
-                                id="startRow"
-                                type="number"
-                                value={startRow}
-                                onChange={(e) => setStartRow(Number(e.target.value))}
-                                min="1"
-                                max={data.length}
-                                className="w-24"
-                            />
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="endRow">Hasta</Label>
-                            <Input
-                                id="endRow"
-                                type="number"
-                                value={endRow}
-                                onChange={(e) => setEndRow(Number(e.target.value))}
-                                min="1"
-                                max={data.length}
-                                className="w-24"
-                            />
-                        </div>
-                    </div>
+                 <div>
+                  <h3 className="text-lg font-medium mb-2">Seleccionar Celdas</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Haz clic en las celdas para seleccionarlas o deseleccionarlas.
+                  </p>
                 </div>
                 
                 <div className="relative max-h-96 overflow-auto border rounded-lg">
@@ -205,15 +167,24 @@ export default function CsvUploader() {
                         <TableHeader className="sticky top-0 bg-background">
                             <TableRow>
                                 {headers.map((header, index) => (
-                                    selectedColumns.has(header) ? <TableHead key={index}>{header}</TableHead> : null
+                                    <TableHead key={index}>{header}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredData.map((row, rowIndex) => (
+                            {data.map((row, rowIndex) => (
                                 <TableRow key={rowIndex}>
                                     {row.map((cell, cellIndex) => (
-                                        selectedColumns.has(headers[cellIndex]) ? <TableCell key={cellIndex}>{cell}</TableCell> : null
+                                        <TableCell 
+                                            key={cellIndex}
+                                            className={cn(
+                                                'cursor-pointer',
+                                                { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
+                                            )}
+                                            onClick={() => handleCellClick(rowIndex, cellIndex)}
+                                        >
+                                            {cell}
+                                        </TableCell>
                                     ))}
                                 </TableRow>
                             ))}
@@ -224,7 +195,7 @@ export default function CsvUploader() {
 
 
               <Button onClick={handleUploadClick} disabled={!file} className="w-full">
-                Cargar archivo
+                Cargar datos seleccionados
               </Button>
             </>
           )}
