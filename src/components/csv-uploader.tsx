@@ -280,7 +280,7 @@ export default function CsvUploader() {
                           </TableHeader>
                           <TableBody>
                               {data.map((row, rowIndex) => (
-                                  <TableRow key={rowIndex}>
+                                  <TableRow key={rowIndex} className="border-b">
                                       {row.map((cell, cellIndex) => (
                                           <TableCell 
                                               key={cellIndex}
