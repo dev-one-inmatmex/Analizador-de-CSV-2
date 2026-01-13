@@ -107,7 +107,10 @@ export default function CsvUploader() {
       // Add cells from fully selected rows
       selectedRows.forEach(rowIndex => {
         headers.forEach((_, colIndex) => {
-            combinedSelection.add(`${rowIndex},${colIndex}`);
+            // Only add if the column is also selected
+            if (selectedColumns.includes(headers[colIndex])) {
+              combinedSelection.add(`${rowIndex},${colIndex}`);
+            }
         });
       });
       
@@ -170,7 +173,7 @@ export default function CsvUploader() {
     const isColumnSelected = selectedColumns.includes(headers[colIndex]);
     const isInRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
 
-    return isRowSelected || (isInRange && isColumnSelected);
+    return isRowSelected && isColumnSelected || (isInRange && isColumnSelected && !isRowSelected);
   }
 
 
@@ -228,7 +231,7 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
                     <p className="text-sm text-muted-foreground">
-                      Usa estas opciones para una selección rápida o haz clic en celdas individuales.
+                      Usa estas opciones para una selección rápida.
                     </p>
                   </div>
                   
@@ -284,7 +287,7 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Previsualización y Selección Manual</h3>
                      <p className="text-sm text-muted-foreground">
-                      Haz clic en celdas individuales o selecciona filas completas.
+                      Selecciona filas completas con la casilla de verificación.
                     </p>
                   </div>
                   <div className="relative overflow-auto border rounded-lg max-h-96">
@@ -311,10 +314,9 @@ export default function CsvUploader() {
                                           <TableCell 
                                               key={cellIndex}
                                               className={cn(
-                                                  'cursor-pointer transition-colors',
+                                                  'transition-colors',
                                                   { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
                                               )}
-                                              onClick={() => handleCellClick(rowIndex, cellIndex)}
                                           >
                                               {cell}
                                           </TableCell>
