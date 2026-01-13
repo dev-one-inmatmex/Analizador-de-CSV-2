@@ -22,7 +22,6 @@ type SelectedCell = {
 
 type SelectionMode = 'range' | 'specific' | 'manual';
 
-// Helper function to convert column index to letter
 const columnToLetter = (colIndex: number): string => {
     let letter = '';
     let temp = colIndex;
@@ -33,8 +32,8 @@ const columnToLetter = (colIndex: number): string => {
     return letter;
 };
 
-// Helper function to convert column letter to index
 const letterToColumn = (letter: string): number => {
+    if (!letter) return -1;
     let column = 0;
     const length = letter.length;
     for (let i = 0; i < length; i++) {
@@ -65,7 +64,6 @@ export default function CsvUploader() {
     const parts = specificCellsInput.split(',').map(p => p.trim().toUpperCase());
     
     parts.forEach(part => {
-        // Match for single cell, e.g., A5
         const singleCellMatch = part.match(/^([A-Z]+)(\d+)$/);
         if (singleCellMatch) {
             const colLetter = singleCellMatch[1];
@@ -76,10 +74,9 @@ export default function CsvUploader() {
             if (colIndex >= 0 && rowIndex >= 0) {
                 cells.push({ rowIndex, colIndex });
             }
-            return; // Continue to next part
+            return;
         }
         
-        // Match for cell range, e.g., A3-A16
         const rangeMatch = part.match(/^([A-Z]+)(\d+)-([A-Z]+)(\d+)$/);
         if (rangeMatch) {
             const startColLetter = rangeMatch[1];
@@ -134,25 +131,20 @@ export default function CsvUploader() {
       setHeaders(paddedHeaders);
       setData(paddedData);
       setRowRange({ start: 1, end: paddedData.length });
-      setColRange({ start: 'A', end: columnToLetter(paddedHeaders.length - 1) });
+      setColRange({ start: 'A', end: columnToLetter(paddedHeaders.length > 0 ? paddedHeaders.length - 1 : 0) });
     };
     reader.readAsText(file);
   };
 
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  };
-
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => event.preventDefault();
+  
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
       const droppedFile = event.dataTransfer.files[0];
       setFile(droppedFile);
       parseCsv(droppedFile);
-      if (inputRef.current) {
-        inputRef.current.value = '';
-      }
+      if (inputRef.current) inputRef.current.value = '';
     }
   };
 
@@ -165,14 +157,11 @@ export default function CsvUploader() {
     setRowRange({ start: 1, end: 0 });
     setColRange({ start: 'A', end: 'A' });
     setSelectionMode('range');
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
+    if (inputRef.current) inputRef.current.value = '';
   };
 
   const handleUploadClick = async () => {
     if (!file) return;
-
     const combinedSelection = new Set<string>();
 
     if (selectionMode === 'range') {
@@ -272,15 +261,12 @@ export default function CsvUploader() {
         headers.join(','),
         ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
     ].join('\n');
-
-    // Add BOM for Excel compatibility
+    
     const bom = '\uFEFF';
     const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
     
     const link = document.createElement('a');
-    if (link.href) {
-        URL.revokeObjectURL(link.href);
-    }
+    if (link.href) URL.revokeObjectURL(link.href);
     link.href = URL.createObjectURL(blob);
     link.download = 'datos_seleccionados.csv';
     document.body.appendChild(link);
@@ -290,19 +276,25 @@ export default function CsvUploader() {
 
 
   return (
-    <>
-    <Card className="w-full max-w-5xl">
-      <CardHeader>
-        <CardTitle>Cargar Documento CSV</CardTitle>
-        <CardDescription>
-          Arrastra y suelta tu archivo CSV aquí o haz clic para seleccionarlo.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-6">
-          {!file && (
+    <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <header className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Analizador de CSV</h1>
+          <p className="text-muted-foreground">
+              Sube tu archivo CSV, selecciona los datos que deseas analizar y deja que la IA haga el resto.
+          </p>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cargar Documento CSV</CardTitle>
+          <CardDescription>
+            Arrastra y suelta tu archivo CSV aquí o haz clic para seleccionarlo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!file ? (
             <div
-              className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer border-border hover:bg-accent hover:border-primary transition-colors"
+              className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-secondary/50 border-border hover:bg-secondary hover:border-primary transition-colors"
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onClick={() => inputRef.current?.click()}
@@ -322,126 +314,90 @@ export default function CsvUploader() {
                 onChange={handleFileChange}
               />
             </div>
-          )}
-
-          {file && (
-            <>
-              <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
-                <div className="flex items-center gap-3">
-                  <FileIcon className="w-6 h-6 text-foreground" />
-                  <span className="text-sm font-medium text-foreground truncate max-w-xs">
-                    {file.name}
-                  </span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleRemoveFile}>
-                  <X className="w-4 h-4" />
-                  <span className="sr-only">Eliminar archivo</span>
-                </Button>
+          ) : (
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
+              <div className="flex items-center gap-3">
+                <FileIcon className="w-6 h-6 text-foreground" />
+                <span className="text-sm font-medium text-foreground truncate max-w-xs">
+                  {file.name}
+                </span>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-                <div className="md:col-span-1 space-y-4">
-                  <div>
-                    <h3 className="text-lg font-medium">Controles de Selección</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Elige un modo y define qué celdas quieres cargar.
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-4 p-4 border rounded-lg max-h-[24rem] overflow-y-auto">
-                    <RadioGroup value={selectionMode} onValueChange={(value) => setSelectionMode(value as SelectionMode)} className="mb-4">
-                      <Label className="font-semibold">Modo de Selección</Label>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="range" id="r-range" />
-                        <Label htmlFor="r-range">Rango</Label>
+              <Button variant="ghost" size="icon" onClick={handleRemoveFile}>
+                <X className="w-4 h-4" />
+                <span className="sr-only">Eliminar archivo</span>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {file && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Controles de Selección</CardTitle>
+              <CardDescription>
+                Elige un modo y define qué celdas quieres analizar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                  <Label className="text-base font-semibold">Modo de Selección</Label>
+                  <RadioGroup value={selectionMode} onValueChange={(value) => setSelectionMode(value as SelectionMode)} className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                          <RadioGroupItem value="range" id="r-range" className="peer sr-only" />
+                          <Label htmlFor="r-range" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                              Rango
+                          </Label>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="specific" id="r-specific" />
-                        <Label htmlFor="r-specific">Celdas Específicas</Label>
+                      <div>
+                          <RadioGroupItem value="specific" id="r-specific" className="peer sr-only" />
+                          <Label htmlFor="r-specific" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                              Celdas Específicas
+                          </Label>
                       </div>
-                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="manual" id="r-manual" />
-                        <Label htmlFor="r-manual">Manual (clic)</Label>
+                      <div>
+                          <RadioGroupItem value="manual" id="r-manual" className="peer sr-only" />
+                          <Label htmlFor="r-manual" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                              Manual (clic)
+                          </Label>
                       </div>
-                    </RadioGroup>
+                  </RadioGroup>
+              </div>
 
-                    <Separator />
-
-                    <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
                       <Label htmlFor="start-row" className="font-semibold">Rango de Filas</Label>
                       <div className="flex items-center gap-2">
-                        <Input
-                          id="start-row"
-                          type="number"
-                          min="1"
-                          max={data.length}
-                          value={rowRange.start}
-                          onChange={e => setRowRange(r => ({ ...r, start: parseInt(e.target.value, 10) || 1 }))}
-                          className="w-full"
-                          aria-label="Fila inicial"
-                        />
-                        <span className="text-muted-foreground">-</span>
-                        <Input
-                          id="end-row"
-                          type="number"
-                          min={rowRange.start}
-                          max={data.length}
-                          value={rowRange.end}
-                          onChange={e => setRowRange(r => ({ ...r, end: parseInt(e.target.value, 10) || data.length }))}
-                          className="w-full"
-                          aria-label="Fila final"
-                        />
+                          <Input id="start-row" type="number" min="1" max={data.length} value={rowRange.start} onChange={e => setRowRange(r => ({ ...r, start: parseInt(e.target.value, 10) || 1 }))} aria-label="Fila inicial" />
+                          <span className="text-muted-foreground">-</span>
+                          <Input id="end-row" type="number" min={rowRange.start} max={data.length} value={rowRange.end} onChange={e => setRowRange(r => ({ ...r, end: parseInt(e.target.value, 10) || data.length }))} aria-label="Fila final" />
                       </div>
-                    </fieldset>
-                    
-                    <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
+                  </fieldset>
+                  
+                  <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
                       <Label htmlFor="start-col" className="font-semibold">Rango de Columnas</Label>
                       <div className="flex items-center gap-2">
-                        <Input
-                          id="start-col"
-                          type="text"
-                          value={colRange.start}
-                          onChange={e => setColRange(c => ({...c, start: e.target.value.toUpperCase()}))}
-                          className="w-full"
-                          aria-label="Columna inicial"
-                        />
-                        <span className="text-muted-foreground">-</span>
-                        <Input
-                          id="end-col"
-                          type="text"
-                          value={colRange.end}
-                          onChange={e => setColRange(c => ({...c, end: e.target.value.toUpperCase()}))}
-                          className="w-full"
-                          aria-label="Columna final"
-                        />
+                          <Input id="start-col" type="text" value={colRange.start} onChange={e => setColRange(c => ({...c, start: e.target.value.toUpperCase()}))} aria-label="Columna inicial" />
+                          <span className="text-muted-foreground">-</span>
+                          <Input id="end-col" type="text" value={colRange.end} onChange={e => setColRange(c => ({...c, end: e.target.value.toUpperCase()}))} aria-label="Columna final" />
                       </div>
-                    </fieldset>
+                  </fieldset>
 
-                    <Separator />
-
-                    <fieldset className="space-y-2" disabled={selectionMode !== 'specific'}>
-                        <Label htmlFor="specific-cells" className="font-semibold">Celdas Específicas</Label>
-                        <Input
-                            id="specific-cells"
-                            type="text"
-                            placeholder="Ej: A1, B5, C10-C20"
-                            value={specificCellsInput}
-                            onChange={e => setSpecificCellsInput(e.target.value)}
-                            className="w-full"
-                            aria-label="Celdas específicas separadas por coma"
-                        />
-                    </fieldset>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 space-y-4">
-                  <div>
+                  <fieldset className="space-y-2 md:col-span-2" disabled={selectionMode !== 'specific'}>
+                      <Label htmlFor="specific-cells" className="font-semibold">Celdas Específicas (ej: A1, B5, C10-C20)</Label>
+                      <Input id="specific-cells" type="text" placeholder="A1, B5, C10-C20" value={specificCellsInput} onChange={e => setSpecificCellsInput(e.target.value)} aria-label="Celdas específicas separadas por coma" />
+                  </fieldset>
+              </div>
+            </CardContent>
+            <CardContent>
+                <div className="space-y-2">
                     <h3 className="text-lg font-medium">Previsualización y Selección Manual</h3>
                      <p className="text-sm text-muted-foreground">
                       Los datos seleccionados se resaltarán. {selectionMode === 'manual' ? 'Haz clic en una celda para seleccionarla/deseleccionarla.' : ''}
                     </p>
                   </div>
-                  <div className="relative overflow-auto border rounded-lg max-h-[24rem]">
+                  <div className="relative overflow-auto border rounded-lg max-h-[24rem] mt-2">
                       <Table>
                           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                               <TableRow>
@@ -460,7 +416,7 @@ export default function CsvUploader() {
                                               className={cn(
                                                   'transition-colors border whitespace-nowrap',
                                                   selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
-                                                  { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
+                                                  { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
                                               )}
                                           >
                                               {cell}
@@ -471,73 +427,69 @@ export default function CsvUploader() {
                           </TableBody>
                       </Table>
                   </div>
-                </div>
-              </div>
-
-
-              <Button onClick={handleUploadClick} disabled={!file || isLoading} className="w-full mt-4">
+              <Button onClick={handleUploadClick} disabled={!file || isLoading} className="w-full mt-6 text-lg py-6">
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {isLoading ? 'Procesando...' : 'Cargar datos seleccionados'}
+                {isLoading ? 'Analizando...' : 'Analizar Datos Seleccionados'}
               </Button>
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-    <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent className="max-w-3xl">
-            <AlertDialogHeader>
-                <AlertDialogTitle>Resultado del Análisis</AlertDialogTitle>
-                <AlertDialogDescription asChild>
-                    <div className="mt-2 text-sm text-foreground max-h-[70vh] overflow-y-auto">
-                        {typeof result === 'string' ? (
-                            <pre className="whitespace-pre-wrap">{result}</pre>
-                        ) : result ? (
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="font-semibold text-lg mb-2">Análisis de IA</h3>
-                                    <p className="whitespace-pre-wrap">{result.analysis}</p>
-                                </div>
-                                <Separator />
-                                <div>
-                                    <h3 className="font-semibold text-lg mb-2">Datos Seleccionados</h3>
-                                    <div className="overflow-auto border rounded-lg">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    {result.table.headers.map((header, index) => (
-                                                        <TableHead key={index}>{header}</TableHead>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {result.table.rows.map((row, rowIndex) => (
-                                                    <TableRow key={rowIndex}>
-                                                        {row.map((cell, cellIndex) => (
-                                                            <TableCell key={cellIndex}>{cell}</TableCell>
-                                                        ))}
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                {typeof result !== 'string' && result && (
-                    <Button variant="outline" onClick={handleDownload}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Descargar CSV
-                    </Button>
-                )}
-                <AlertDialogAction onClick={() => setIsAlertOpen(false)}>Cerrar</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-    </>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+          <AlertDialogContent className="max-w-3xl">
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Resultado del Análisis</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                      <div className="mt-2 text-sm text-foreground max-h-[70vh] overflow-y-auto">
+                          {typeof result === 'string' ? (
+                              <pre className="whitespace-pre-wrap">{result}</pre>
+                          ) : result ? (
+                              <div className="space-y-4">
+                                  <div>
+                                      <h3 className="font-semibold text-lg mb-2">Análisis de IA</h3>
+                                      <p className="whitespace-pre-wrap">{result.analysis}</p>
+                                  </div>
+                                  <Separator />
+                                  <div>
+                                      <h3 className="font-semibold text-lg mb-2">Datos Seleccionados</h3>
+                                      <div className="overflow-auto border rounded-lg">
+                                          <Table>
+                                              <TableHeader>
+                                                  <TableRow>
+                                                      {result.table.headers.map((header, index) => (
+                                                          <TableHead key={index}>{header}</TableHead>
+                                                      ))}
+                                                  </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                  {result.table.rows.map((row, rowIndex) => (
+                                                      <TableRow key={rowIndex}>
+                                                          {row.map((cell, cellIndex) => (
+                                                              <TableCell key={cellIndex}>{cell}</TableCell>
+                                                          ))}
+                                                      </TableRow>
+                                                  ))}
+                                              </TableBody>
+                                          </Table>
+                                      </div>
+                                  </div>
+                              </div>
+                          ) : null}
+                      </div>
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  {typeof result !== 'string' && result && (
+                      <Button variant="outline" onClick={handleDownload}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Descargar CSV
+                      </Button>
+                  )}
+                  <AlertDialogAction onClick={() => setIsAlertOpen(false)}>Cerrar</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
