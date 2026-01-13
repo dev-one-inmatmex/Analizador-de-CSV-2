@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { processCsvData } from '@/ai/flows/process-csv-flow';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
-import type { ProcessCsvDataInput } from '@/ai/schemas/csv-schemas';
+import type { ProcessCsvDataInput, ProcessCsvDataOutput } from '@/ai/schemas/csv-schemas';
 
 
 type SelectedCell = {
@@ -55,7 +55,7 @@ export default function CsvUploader() {
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('range');
 
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<ProcessCsvDataOutput | string | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   const parsedSpecificCells = useMemo(() => {
@@ -436,12 +436,45 @@ export default function CsvUploader() {
       </CardContent>
     </Card>
     <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-3xl">
             <AlertDialogHeader>
                 <AlertDialogTitle>Resultado del Análisis</AlertDialogTitle>
-                <AlertDialogDescription>
-                    <div className="mt-2 text-sm text-foreground max-h-80 overflow-y-auto">
-                        <pre className="whitespace-pre-wrap">{result}</pre>
+                <AlertDialogDescription asChild>
+                    <div className="mt-2 text-sm text-foreground max-h-[70vh] overflow-y-auto">
+                        {typeof result === 'string' ? (
+                            <pre className="whitespace-pre-wrap">{result}</pre>
+                        ) : result ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="font-semibold text-lg mb-2">Análisis de IA</h3>
+                                    <p className="whitespace-pre-wrap">{result.analysis}</p>
+                                </div>
+                                <Separator />
+                                <div>
+                                    <h3 className="font-semibold text-lg mb-2">Datos Seleccionados</h3>
+                                    <div className="overflow-auto border rounded-lg">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    {result.table.headers.map((header, index) => (
+                                                        <TableHead key={index}>{header}</TableHead>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {result.table.rows.map((row, rowIndex) => (
+                                                    <TableRow key={rowIndex}>
+                                                        {row.map((cell, cellIndex) => (
+                                                            <TableCell key={cellIndex}>{cell}</TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 </AlertDialogDescription>
             </AlertDialogHeader>

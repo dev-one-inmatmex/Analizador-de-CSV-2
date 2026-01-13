@@ -3,6 +3,8 @@
  * 
  * - ProcessCsvDataInputSchema - El esquema para la entrada de la función processCsvData.
  * - ProcessCsvDataInput - El tipo para la entrada de la función processCsvData.
+ * - ProcessCsvDataOutputSchema - El esquema para la salida de la función processCsvData.
+ * - ProcessCsvDataOutput - El tipo para la salida de la función processCsvData.
  */
 
 import { z } from 'genkit';
@@ -18,3 +20,15 @@ export const ProcessCsvDataInputSchema = z.object({
   cells: z.array(CellDataSchema).describe('Un array de los datos de las celdas seleccionadas.'),
 });
 export type ProcessCsvDataInput = z.infer<typeof ProcessCsvDataInputSchema>;
+
+
+const TableDataSchema = z.object({
+    headers: z.array(z.string()).describe('Los encabezados de la tabla.'),
+    rows: z.array(z.array(z.string())).describe('Las filas de datos de la tabla, que coinciden con los encabezados.'),
+});
+
+export const ProcessCsvDataOutputSchema = z.object({
+    analysis: z.string().describe('Un breve análisis o resumen de los datos seleccionados.'),
+    table: TableDataSchema.describe('Los datos seleccionados formateados como una tabla.')
+});
+export type ProcessCsvDataOutput = z.infer<typeof ProcessCsvDataOutputSchema>;
