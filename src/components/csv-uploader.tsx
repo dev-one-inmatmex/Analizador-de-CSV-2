@@ -65,15 +65,39 @@ export default function CsvUploader() {
     const parts = specificCellsInput.split(',').map(p => p.trim().toUpperCase());
     
     parts.forEach(part => {
-        const match = part.match(/^([A-Z]+)(\d+)$/);
-        if (match) {
-            const colLetter = match[1];
-            const rowNumber = parseInt(match[2], 10);
+        // Match for single cell, e.g., A5
+        const singleCellMatch = part.match(/^([A-Z]+)(\d+)$/);
+        if (singleCellMatch) {
+            const colLetter = singleCellMatch[1];
+            const rowNumber = parseInt(singleCellMatch[2], 10);
             const colIndex = letterToColumn(colLetter);
             const rowIndex = rowNumber - 1;
 
             if (colIndex >= 0 && rowIndex >= 0) {
                 cells.push({ rowIndex, colIndex });
+            }
+            return; // Continue to next part
+        }
+        
+        // Match for cell range, e.g., A3-A16
+        const rangeMatch = part.match(/^([A-Z]+)(\d+)-([A-Z]+)(\d+)$/);
+        if (rangeMatch) {
+            const startColLetter = rangeMatch[1];
+            const startRowNumber = parseInt(rangeMatch[2], 10);
+            const endColLetter = rangeMatch[3];
+            const endRowNumber = parseInt(rangeMatch[4], 10);
+
+            const startCol = letterToColumn(startColLetter);
+            const endCol = letterToColumn(endColLetter);
+            const startRow = startRowNumber - 1;
+            const endRow = endRowNumber - 1;
+
+            if (startCol >= 0 && startRow >= 0 && endCol >= 0 && endRow >= 0) {
+                for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
+                    for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
+                        cells.push({ rowIndex: r, colIndex: c });
+                    }
+                }
             }
         }
     });
@@ -157,7 +181,7 @@ export default function CsvUploader() {
         const startCol = Math.max(0, letterToColumn(colRange.start.toUpperCase()));
         const endCol = Math.min(headers.length - 1, letterToColumn(colRange.end.toUpperCase()));
 
-        if (rowRange.end > 0 && colRange.end) {
+        if (rowRange.end > 0 && colRange.end && startCol <= endCol && startRow <= endRow) {
             for (let i = startRow; i <= endRow; i++) {
                 for (let j = startCol; j <= endCol; j++) {
                     combinedSelection.add(`${i},${j}`);
@@ -224,12 +248,13 @@ export default function CsvUploader() {
   const isCellSelected = (rowIndex: number, colIndex: number): boolean => {
     switch (selectionMode) {
       case 'range':
-        const isInRowRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
-        if (!isInRowRange) return false;
+        const startRow = rowRange.start - 1;
+        const endRow = rowRange.end - 1;
+        if (rowIndex < startRow || rowIndex > endRow) return false;
+        
         const startCol = letterToColumn(colRange.start.toUpperCase());
         const endCol = letterToColumn(colRange.end.toUpperCase());
-        const isInColRange = colIndex >= startCol && colIndex <= endCol;
-        return isInColRange;
+        return colIndex >= startCol && colIndex <= endCol;
       case 'specific':
         return parsedSpecificCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
       case 'manual':
@@ -399,7 +424,7 @@ export default function CsvUploader() {
                         <Input
                             id="specific-cells"
                             type="text"
-                            placeholder="Ej: A1, B5, C10"
+                            placeholder="Ej: A1, B5, C10-C20"
                             value={specificCellsInput}
                             onChange={e => setSpecificCellsInput(e.target.value)}
                             className="w-full"
