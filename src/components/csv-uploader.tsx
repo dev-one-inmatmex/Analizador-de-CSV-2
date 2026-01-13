@@ -91,15 +91,18 @@ export default function CsvUploader() {
 
       // Add cells from selected rows and columns
       const startRow = Math.max(0, rowRange.start - 1);
-      const endRow = Math.min(data.length -1 , rowRange.end - 1);
-      const columnIndices = selectedColumns.map(col => headers.indexOf(col));
+      const endRow = Math.min(data.length - 1, rowRange.end - 1);
 
-      for (let i = startRow; i <= endRow; i++) {
-        columnIndices.forEach(j => {
-            if (j !== -1) {
-                combinedSelection.add(`${i},${j}`);
-            }
-        });
+      if (rowRange.end > 0) {
+        const columnIndices = selectedColumns.map(col => headers.indexOf(col));
+
+        for (let i = startRow; i <= endRow; i++) {
+          columnIndices.forEach(j => {
+              if (j !== -1) {
+                  combinedSelection.add(`${i},${j}`);
+              }
+          });
+        }
       }
       
       const selectedData = Array.from(combinedSelection).map(coord => {
@@ -127,8 +130,22 @@ export default function CsvUploader() {
         : [...prev, header]
     );
   };
+
+  const handleCellClick = (rowIndex: number, colIndex: number) => {
+    setSelectedCells(prev => {
+      const index = prev.findIndex(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
+      if (index > -1) {
+        return prev.filter((_, i) => i !== index);
+      } else {
+        return [...prev, { rowIndex, colIndex }];
+      }
+    });
+  };
   
   const isCellSelected = (rowIndex: number, colIndex: number) => {
+    const isManuallySelected = selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
+    if (isManuallySelected) return true;
+
     const isColumnSelected = selectedColumns.includes(headers[colIndex]);
     const isInRange = rowIndex >= rowRange.start - 1 && rowIndex < rowRange.end;
 
@@ -190,7 +207,7 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
                     <p className="text-sm text-muted-foreground">
-                      Usa estas opciones para seleccionar los datos.
+                      Usa estas opciones para seleccionar los datos por rango y columnas.
                     </p>
                   </div>
                   
@@ -244,9 +261,9 @@ export default function CsvUploader() {
 
                 <div className="md:col-span-2 space-y-4">
                   <div>
-                    <h3 className="text-lg font-medium">Previsualización</h3>
+                    <h3 className="text-lg font-medium">Previsualización y Selección Manual</h3>
                      <p className="text-sm text-muted-foreground">
-                      Los datos seleccionados se resaltarán.
+                      Los datos seleccionados se resaltarán. Haz clic en una celda para seleccionarla o deseleccionarla individualmente.
                     </p>
                   </div>
                   <div className="relative overflow-auto border rounded-lg max-h-96">
@@ -264,8 +281,9 @@ export default function CsvUploader() {
                                       {row.map((cell, cellIndex) => (
                                           <TableCell 
                                               key={cellIndex}
+                                              onClick={() => handleCellClick(rowIndex, cellIndex)}
                                               className={cn(
-                                                  'transition-colors',
+                                                  'transition-colors cursor-pointer',
                                                   { 'bg-accent text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
                                               )}
                                           >
