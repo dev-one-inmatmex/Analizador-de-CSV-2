@@ -104,13 +104,16 @@ export default function CsvUploader() {
       
       const selectedData = Array.from(combinedSelection).map(coord => {
         const [rowIndex, colIndex] = coord.split(',').map(Number);
-        return {
-            header: headers[colIndex],
-            value: data[rowIndex][colIndex],
-            rowIndex,
-            colIndex,
-        };
-      });
+        if (data[rowIndex] && data[rowIndex][colIndex] !== undefined) {
+            return {
+                header: headers[colIndex],
+                value: data[rowIndex][colIndex],
+                rowIndex,
+                colIndex,
+            };
+        }
+        return null;
+      }).filter(item => item !== null);
 
       console.log('Selected cells data:', selectedData);
       alert(`Simulating upload for: ${file.name} with ${selectedData.length} cells selected.`);
@@ -207,7 +210,7 @@ export default function CsvUploader() {
                   <div>
                     <h3 className="text-lg font-medium">Controles de Selección</h3>
                     <p className="text-sm text-muted-foreground">
-                      Usa estas opciones para una selección rápida por rangos.
+                      Usa estas opciones para una selección rápida por rangos o haz clic en celdas individuales en la tabla.
                     </p>
                   </div>
                   
