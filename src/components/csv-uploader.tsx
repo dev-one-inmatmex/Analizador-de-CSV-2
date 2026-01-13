@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2 } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -238,6 +238,27 @@ export default function CsvUploader() {
         return false;
     }
   }
+
+  const handleDownload = () => {
+    if (typeof result === 'string' || !result) return;
+
+    const { headers, rows } = result.table;
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.href) {
+        URL.revokeObjectURL(link.href);
+    }
+    link.href = URL.createObjectURL(blob);
+    link.download = 'datos_seleccionados.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
 
   return (
@@ -479,6 +500,12 @@ export default function CsvUploader() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
+                {typeof result !== 'string' && result && (
+                    <Button variant="outline" onClick={handleDownload}>
+                        <Download className="mr-2" />
+                        Descargar CSV
+                    </Button>
+                )}
                 <AlertDialogAction onClick={() => setIsAlertOpen(false)}>Cerrar</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
