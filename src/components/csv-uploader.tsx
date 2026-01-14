@@ -277,9 +277,8 @@ export default function CsvUploader() {
 
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="w-full max-w-7xl mx-auto space-y-6">
       <header className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Analizador de CSV</h1>
           <p className="text-muted-foreground">
               Sube tu archivo CSV, selecciona los datos que deseas analizar y deja que la IA haga el resto.
           </p>
@@ -456,7 +455,8 @@ export default function CsvUploader() {
                                   <Separator />
                                   <div>
                                       <h3 className="font-semibold text-lg mb-2">Datos Seleccionados</h3>
-                                      <ScrollArea className="border rounded-lg whitespace-nowrap">
+                                      <div className="relative mt-2 border rounded-lg">
+                                        <div className="w-full overflow-auto max-h-[24rem]">
                                           <Table>
                                               <TableHeader>
                                                   <TableRow>
@@ -475,7 +475,8 @@ export default function CsvUploader() {
                                                   ))}
                                               </TableBody>
                                           </Table>
-                                      </ScrollArea>
+                                          </div>
+                                      </div>
                                   </div>
                               </div>
                           ) : null}
