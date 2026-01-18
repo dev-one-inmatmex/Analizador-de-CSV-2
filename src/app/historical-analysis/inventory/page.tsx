@@ -4,7 +4,7 @@
 import { ArrowLeft, Package, DollarSign, Archive, TrendingDown, Warehouse } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Cell, Tooltip, XAxis, YAxis, Line, LineChart, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis, Line, LineChart } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -186,7 +186,7 @@ export default function InventoryAnalysisPage() {
                         <CartesianGrid horizontal={false} />
                         <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={100} />
                         <XAxis type="number" hide />
-                        <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent hideLabel />} />
+                        <ChartTooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent hideLabel />} />
                         <Bar dataKey="stock" fill="hsl(var(--primary))" radius={4} />
                     </BarChart>
                   </ChartContainer>
@@ -257,5 +257,3 @@ export default function InventoryAnalysisPage() {
     </div>
   );
 }
-
-    

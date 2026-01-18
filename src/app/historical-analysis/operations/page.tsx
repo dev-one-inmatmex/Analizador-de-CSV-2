@@ -4,14 +4,13 @@
 import { ArrowLeft, Zap, ListChecks, Building, Timer } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
-  ChartLegend,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
@@ -223,5 +222,3 @@ export default function OperationsAnalysisPage() {
     </div>
   );
 }
-
-    
