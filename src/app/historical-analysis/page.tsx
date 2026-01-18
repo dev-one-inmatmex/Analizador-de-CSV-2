@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, Zap } from 'lucide-react';
 
 export default function HistoricalAnalysisPage() {
   return (
@@ -24,6 +24,7 @@ export default function HistoricalAnalysisPage() {
           <Link href="/historical-analysis/sales" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
+                <BarChart3 className="mb-2 h-8 w-8 text-muted-foreground" />
                 <CardTitle>Análisis de Ventas</CardTitle>
                 <CardDescription>
                   Información detallada sobre el rendimiento de las ventas.
@@ -42,6 +43,7 @@ export default function HistoricalAnalysisPage() {
           <Link href="/historical-analysis/inventory" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
+                <Package className="mb-2 h-8 w-8 text-muted-foreground" />
                 <CardTitle>Análisis de Inventario</CardTitle>
                 <CardDescription>
                   Análisis de movimientos y existencias basado en el Excel de Siggo.
@@ -58,6 +60,7 @@ export default function HistoricalAnalysisPage() {
           <Link href="/historical-analysis/operations" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
+                <Zap className="mb-2 h-8 w-8 text-muted-foreground" />
                 <CardTitle>Rendimiento Operativo</CardTitle>
                 <CardDescription>
                   Medición del rendimiento diario por empresa desde la BBDD de etiquetas.
