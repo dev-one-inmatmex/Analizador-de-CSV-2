@@ -1,10 +1,11 @@
 'use client';
 
-import { ArrowLeft, Star, User, Building, TrendingUp, DollarSign } from 'lucide-react';
+import { ArrowLeft, Star, User, Building, TrendingUp, DollarSign, Package, Users, Clock } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -14,6 +15,21 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+
 
 // Chart Configs
 const chartConfigSalesByCompany = {
@@ -65,6 +81,29 @@ const unitsByPeriodData = [
   { date: '05-oct', MTM: 90, TAL: 70, OMESKA: 120 },
   { date: '06-oct', MTM: 170, TAL: 60, OMESKA: 40 },
 ];
+
+const topProductsData = [
+    { product: 'SKU-001', name: 'Producto A', sales: 150, percentage: 45, change: 5.2 },
+    { product: 'SKU-002', name: 'Producto B', sales: 90, percentage: 27, change: -1.8 },
+    { product: 'SKU-003', name: 'Producto C', sales: 50, percentage: 15, change: 2.3 },
+    { product: 'SKU-004', name: 'Producto D', sales: 40, percentage: 13, change: 0.5 },
+];
+
+const userPerformanceData = [
+    { user: 'dana', sales: 320, averageTime: '0.32 min/v', status: 'active' },
+    { user: 'alex', sales: 280, averageTime: '0.45 min/v', status: 'active' },
+    { user: 'juan', sales: 150, averageTime: '0.60 min/v', status: 'active' },
+    { user: 'sara', sales: 80, averageTime: '0.75 min/v', status: 'inactive' },
+];
+
+const recentSalesData = [
+    { product: 'Producto A', user: 'dana', company: 'MTM', amount: 55.00, time: 'Hace 2 minutos' },
+    { product: 'Producto B', user: 'alex', company: 'TAL', amount: 30.50, time: 'Hace 5 minutos' },
+    { product: 'Producto C', user: 'dana', company: 'OMESKA', amount: 20.00, time: 'Hace 8 minutos' },
+    { product: 'Producto A', user: 'juan', company: 'MTM', amount: 110.00, time: 'Hace 12 minutos' },
+    { product: 'Producto D', user: 'alex', company: 'TAL', amount: 15.00, time: 'Hace 15 minutos' },
+];
+
 
 export default function SalesAnalysisPage() {
   const dailyGoalData = React.useMemo(() => {
@@ -142,68 +181,162 @@ export default function SalesAnalysisPage() {
           </Card>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-12 lg:col-span-3">
-            <CardHeader>
-              <CardTitle>Ventas por Empresa</CardTitle>
-              <CardDescription>Distribución de ventas en el último mes.</CardDescription>
-            </CardHeader>
-            <CardContent className="pl-2">
-              <ChartContainer config={chartConfigSalesByCompany} className="mx-auto aspect-square h-[300px]">
-                <PieChart>
-                  <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                  <Pie data={salesByCompanyData} dataKey="sales" nameKey="company" innerRadius={60} strokeWidth={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
-                    {salesByCompanyData.map((entry) => (
-                      <Cell key={entry.company} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <ChartLegend content={<ChartLegendContent nameKey="company" />} />
-                </PieChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
+            <TabsTrigger value="details">Análisis Detallado</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="col-span-12 lg:col-span-3">
+                    <CardHeader>
+                    <CardTitle>Ventas por Empresa</CardTitle>
+                    <CardDescription>Distribución de ventas en el último mes.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pl-2">
+                    <ChartContainer config={chartConfigSalesByCompany} className="mx-auto aspect-square h-[300px]">
+                        <PieChart>
+                        <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                        <Pie data={salesByCompanyData} dataKey="sales" nameKey="company" innerRadius={60} strokeWidth={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
+                            {salesByCompanyData.map((entry) => (
+                            <Cell key={entry.company} fill={entry.fill} />
+                            ))}
+                        </Pie>
+                        <ChartLegend content={<ChartLegendContent nameKey="company" />} />
+                        </PieChart>
+                    </ChartContainer>
+                    </CardContent>
+                </Card>
 
-          <Card className="col-span-12 lg:col-span-4">
-            <CardHeader>
-              <CardTitle>Meta Diaria por Empresa</CardTitle>
-              <CardDescription>Progreso de las ventas diarias contra la meta.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfigDailyGoal} className="h-[300px] w-full">
-                <BarChart data={dailyGoalData} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend />
-                  <YAxis dataKey="company" type="category" tickLine={false} axisLine={false} width={60} />
-                  <XAxis dataKey="goal" type="number" hide />
-                  <Bar dataKey="achieved" name="Alcanzado" stackId="a" fill="var(--color-achieved)" radius={[4, 4, 4, 4]} />
-                  <Bar dataKey="remaining" name="Restante" stackId="a" fill="var(--color-remaining)" radius={[4, 4, 4, 4]} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+                <Card className="col-span-12 lg:col-span-4">
+                    <CardHeader>
+                    <CardTitle>Meta Diaria por Empresa</CardTitle>
+                    <CardDescription>Progreso de las ventas diarias contra la meta.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                    <ChartContainer config={chartConfigDailyGoal} className="h-[300px] w-full">
+                        <BarChart data={dailyGoalData} layout="vertical" margin={{ left: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <ChartLegend />
+                        <YAxis dataKey="company" type="category" tickLine={false} axisLine={false} width={60} />
+                        <XAxis dataKey="goal" type="number" hide />
+                        <Bar dataKey="achieved" name="Alcanzado" stackId="a" fill="var(--color-achieved)" radius={[4, 4, 4, 4]} />
+                        <Bar dataKey="remaining" name="Restante" stackId="a" fill="var(--color-remaining)" radius={[4, 4, 4, 4]} />
+                        </BarChart>
+                    </ChartContainer>
+                    </CardContent>
+                </Card>
 
-          <Card className="col-span-12">
-            <CardHeader>
-              <CardTitle>Unidades por Periodo (Últimos 7 días)</CardTitle>
-              <CardDescription>Tendencia de ventas de las principales empresas.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfigUnitsByPeriod} className="h-[300px] w-full">
-                <LineChart data={unitsByPeriodData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                  <CartesianGrid vertical={false} />
-                  <YAxis />
-                  <XAxis dataKey="date" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend />
-                  <Line type="monotone" dataKey="MTM" stroke="var(--color-MTM)" strokeWidth={2} dot={true} />
-                  <Line type="monotone" dataKey="TAL" stroke="var(--color-TAL)" strokeWidth={2} dot={true} />
-                  <Line type="monotone" dataKey="OMESKA" stroke="var(--color-OMESKA)" strokeWidth={2} dot={true} />
-                </LineChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </div>
+                <Card className="col-span-12">
+                    <CardHeader>
+                    <CardTitle>Unidades por Periodo (Últimos 7 días)</CardTitle>
+                    <CardDescription>Tendencia de ventas de las principales empresas.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                    <ChartContainer config={chartConfigUnitsByPeriod} className="h-[300px] w-full">
+                        <LineChart data={unitsByPeriodData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <CartesianGrid vertical={false} />
+                        <YAxis />
+                        <XAxis dataKey="date" />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <ChartLegend />
+                        <Line type="monotone" dataKey="MTM" stroke="var(--color-MTM)" strokeWidth={2} dot={true} />
+                        <Line type="monotone" dataKey="TAL" stroke="var(--color-TAL)" strokeWidth={2} dot={true} />
+                        <Line type="monotone" dataKey="OMESKA" stroke="var(--color-OMESKA)" strokeWidth={2} dot={true} />
+                        </LineChart>
+                    </ChartContainer>
+                    </CardContent>
+                </Card>
+            </div>
+          </TabsContent>
+          <TabsContent value="details" className="space-y-4">
+             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Ventas Recientes</CardTitle>
+                        <CardDescription>Últimas transacciones registradas en el sistema.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                <TableHead>Producto</TableHead>
+                                <TableHead>Usuario</TableHead>
+                                <TableHead>Empresa</TableHead>
+                                <TableHead className="text-right">Monto</TableHead>
+                                <TableHead className="text-right">Hora</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {recentSalesData.map((sale, index) => (
+                                <TableRow key={index}>
+                                    <TableCell className="font-medium">{sale.product}</TableCell>
+                                    <TableCell>{sale.user}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className="text-xs">{sale.company}</Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sale.amount)}</TableCell>
+                                    <TableCell className="text-right">{sale.time}</TableCell>
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+                <div className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Top Productos</CardTitle>
+                            <CardDescription>Productos con mayor volumen de ventas.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Producto</TableHead>
+                                        <TableHead className="text-right">Ventas</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {topProductsData.map((prod) => (
+                                        <TableRow key={prod.product}>
+                                            <TableCell className="font-medium">{prod.name}</TableCell>
+                                            <TableCell className="text-right">{prod.sales}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Rendimiento por Usuario</CardTitle>
+                            <CardDescription>Eficiencia y actividad de los vendedores.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                <TableRow>
+                                    <TableHead>Usuario</TableHead>
+                                    <TableHead className="text-right">Ventas</TableHead>
+                                </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {userPerformanceData.map((user) => (
+                                        <TableRow key={user.user}>
+                                            <TableCell className="font-medium">{user.user}</TableCell>
+                                            <TableCell className="text-right">{user.sales}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
