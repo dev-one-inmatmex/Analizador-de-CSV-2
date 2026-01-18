@@ -1,10 +1,97 @@
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+
+'use client';
+
+import { ArrowLeft, Package, DollarSign, Archive, TrendingDown, Warehouse } from 'lucide-react';
 import Link from 'next/link';
+import * as React from 'react';
+import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, Cell, Tooltip, XAxis, YAxis, Line, LineChart, ResponsiveContainer } from 'recharts';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+
+
+// --- MOCK DATA ---
+
+const kpiData = {
+  inventoryValue: 125430.50,
+  activeSKUs: 345,
+  lowStockItems: 18,
+  turnoverRate: 4.2,
+};
+
+const stockByCategoryData = [
+  { category: 'Electrónica', value: 45000, color: 'hsl(var(--chart-1))' },
+  { category: 'Ropa', value: 32000, color: 'hsl(var(--chart-2))' },
+  { category: 'Hogar', value: 28000, color: 'hsl(var(--chart-3))' },
+  { category: 'Juguetes', value: 15430.50, color: 'hsl(var(--chart-4))' },
+  { category: 'Otros', value: 5000, color: 'hsl(var(--chart-5))' },
+];
+
+const topProductsByStockData = [
+  { name: 'Laptop Pro X', stock: 150 },
+  { name: 'Camisa Casual', stock: 300 },
+  { name: 'Sofá Moderno', stock: 50 },
+  { name: 'Figura de Acción', stock: 500 },
+  { name: 'Taza de Café', stock: 800 },
+];
+
+const inventoryMovementData = [
+  { date: 'Hace 7d', entradas: 400, salidas: 240 },
+  { date: 'Hace 6d', entradas: 300, salidas: 139 },
+  { date: 'Hace 5d', entradas: 200, salidas: 380 },
+  { date: 'Hace 4d', entradas: 278, salidas: 190 },
+  { date: 'Hace 3d', entradas: 189, salidas: 480 },
+  { date: 'Hace 2d', entradas: 239, salidas: 380 },
+  { date: 'Ayer', entradas: 349, salidas: 430 },
+];
+
+const inventoryDetailData = [
+  { sku: 'LPX-001', product: 'Laptop Pro X', category: 'Electrónica', stock: 150, unitValue: 800, status: 'En Stock' },
+  { sku: 'CAM-032', product: 'Camisa Casual', category: 'Ropa', stock: 300, unitValue: 25, status: 'En Stock' },
+  { sku: 'SOF-001', product: 'Sofá Moderno', category: 'Hogar', stock: 50, unitValue: 400, status: 'En Stock' },
+  { sku: 'JUG-015', product: 'Figura de Acción', category: 'Juguetes', stock: 500, unitValue: 15, status: 'En Stock' },
+  { sku: 'TAZ-001', product: 'Taza de Café', category: 'Otros', stock: 800, unitValue: 5, status: 'En Stock' },
+  { sku: 'CEL-005', product: 'Celular Gen 5', category: 'Electrónica', stock: 8, unitValue: 600, status: 'Bajo Stock' },
+  { sku: 'PAN-007', product: 'Pantalón de Mezclilla', category: 'Ropa', stock: 12, unitValue: 40, status: 'Bajo Stock' },
+];
+
+
+const chartConfigCategory = {
+  value: { label: 'Valor' },
+  ...Object.fromEntries(stockByCategoryData.map(d => [d.category, { label: d.category, color: d.color }]))
+};
+
+const chartConfigMovement = {
+  entradas: { label: 'Entradas', color: 'hsl(var(--chart-2))' },
+  salidas: { label: 'Salidas', color: 'hsl(var(--chart-1))' },
+};
+
 
 export default function InventoryAnalysisPage() {
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background">
+    <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <Link href="/historical-analysis" passHref>
@@ -16,18 +103,159 @@ export default function InventoryAnalysisPage() {
           <h1 className="text-xl font-bold tracking-tight">Análisis de Inventario</h1>
         </div>
       </header>
-      <main className="flex flex-1 flex-col items-center justify-center p-4 text-center">
-        <div className="space-y-4">
-            <h2 className="text-2xl font-bold">Página en Construcción</h2>
-            <p className="text-muted-foreground">
-                Esta sección contendrá las herramientas para el análisis de inventario:
-            </p>
-            <ul className="list-disc list-inside text-left mx-auto max-w-md">
-                <li>Análisis de movimientos de producto.</li>
-                <li>Control y visualización de existencias actuales.</li>
-            </ul>
+
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Valor Total del Inventario</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.inventoryValue)}</div>
+              <p className="text-xs text-muted-foreground">Valor actual de todas las existencias</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">SKUs Activos</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpiData.activeSKUs}</div>
+              <p className="text-xs text-muted-foreground">Número de productos únicos en inventario</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Items con Bajo Stock</CardTitle>
+              <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpiData.lowStockItems}</div>
+              <p className="text-xs text-muted-foreground">Productos que necesitan reabastecimiento</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rotación de Inventario</CardTitle>
+              <Warehouse className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{kpiData.turnoverRate}</div>
+              <p className="text-xs text-muted-foreground">Veces que el inventario se renueva al mes</p>
+            </CardContent>
+          </Card>
         </div>
+
+        <Tabs defaultValue="overview">
+          <TabsList>
+            <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
+            <TabsTrigger value="details">Detalle de Inventario</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+              <Card className="col-span-12 lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Valor del Inventario por Categoría</CardTitle>
+                  <CardDescription>Distribución del valor monetario de las existencias.</CardDescription>
+                </CardHeader>
+                <CardContent className="pl-2">
+                  <ChartContainer config={chartConfigCategory} className="mx-auto aspect-square h-[300px]">
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent nameKey="value" hideLabel />} />
+                      <Pie data={stockByCategoryData} dataKey="value" nameKey="category" innerRadius={60}>
+                         {stockByCategoryData.map((entry) => (
+                          <Cell key={`cell-${entry.category}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                       <ChartLegend content={<ChartLegendContent nameKey="category" />} />
+                    </PieChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="col-span-12 lg:col-span-4">
+                <CardHeader>
+                  <CardTitle>Top 5 Productos con más Stock</CardTitle>
+                  <CardDescription>Productos con la mayor cantidad de unidades disponibles.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={{}} className="h-[300px] w-full">
+                    <BarChart data={topProductsByStockData} layout="vertical" margin={{ left: 20 }}>
+                        <CartesianGrid horizontal={false} />
+                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={100} />
+                        <XAxis type="number" hide />
+                        <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent hideLabel />} />
+                        <Bar dataKey="stock" fill="hsl(var(--primary))" radius={4} />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="col-span-12">
+                <CardHeader>
+                  <CardTitle>Movimiento de Inventario (Últimos 7 días)</CardTitle>
+                  <CardDescription>Comparativa de unidades entrantes y salientes.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfigMovement} className="h-[300px] w-full">
+                    <LineChart data={inventoryMovementData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                      <CartesianGrid vertical={false} />
+                      <YAxis />
+                      <XAxis dataKey="date" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend />
+                      <Line type="monotone" dataKey="entradas" stroke="var(--color-entradas)" strokeWidth={2} dot={true} />
+                      <Line type="monotone" dataKey="salidas" stroke="var(--color-salidas)" strokeWidth={2} dot={true} />
+                    </LineChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          <TabsContent value="details" className="space-y-4">
+            <Card>
+              <CardHeader>
+                  <CardTitle>Detalle de Inventario</CardTitle>
+                  <CardDescription>Lista completa de todos los productos en existencia.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Table>
+                      <TableHeader>
+                          <TableRow>
+                              <TableHead>SKU</TableHead>
+                              <TableHead>Producto</TableHead>
+                              <TableHead>Categoría</TableHead>
+                              <TableHead className="text-right">Existencias</TableHead>
+                              <TableHead className="text-right">Valor Unitario</TableHead>
+                              <TableHead className="text-right">Valor Total</TableHead>
+                              <TableHead className="text-center">Estado</TableHead>
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {inventoryDetailData.map((item) => (
+                              <TableRow key={item.sku}>
+                                  <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                                  <TableCell className="font-medium">{item.product}</TableCell>
+                                  <TableCell>{item.category}</TableCell>
+                                  <TableCell className="text-right">{item.stock}</TableCell>
+                                  <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.unitValue)}</TableCell>
+                                  <TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.stock * item.unitValue)}</TableCell>
+                                  <TableCell className="text-center">
+                                      <Badge variant={item.status === 'Bajo Stock' ? 'destructive' : 'secondary'}>{item.status}</Badge>
+                                  </TableCell>
+                              </TableRow>
+                          ))}
+                      </TableBody>
+                  </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
 }
+
+    
