@@ -32,10 +32,7 @@ import {
 
 
 // Chart Configs
-const chartConfigSalesByCompany = {
-  sales: {
-    label: 'Ventas',
-  },
+const companyConfig = {
   MTM: {
     label: 'MTM',
     color: 'hsl(var(--chart-1))',
@@ -50,22 +47,26 @@ const chartConfigSalesByCompany = {
   },
 };
 
+const chartConfigSalesByCompany = {
+  sales: {
+    label: 'Ventas',
+  },
+  ...companyConfig,
+};
+
 const chartConfigDailyGoal = {
-  achieved: { label: 'Alcanzado', color: 'hsl(var(--primary))' },
+  ...companyConfig,
   remaining: { label: 'Restante', color: 'hsl(var(--secondary))' },
 };
 
-const chartConfigUnitsByPeriod = {
-  MTM: { label: 'MTM', color: 'hsl(var(--chart-1))' },
-  TAL: { label: 'TAL', color: 'hsl(var(--chart-2))' },
-  OMESKA: { label: 'OMESKA', color: 'hsl(var(--chart-3))' },
-};
+const chartConfigUnitsByPeriod = { ...companyConfig };
+
 
 // Data
 const salesByCompanyData = [
-  { company: 'MTM', sales: 44, fill: 'hsl(var(--chart-1))' },
-  { company: 'TAL', sales: 13, fill: 'hsl(var(--chart-2))' },
-  { company: 'OMESKA', sales: 43, fill: 'hsl(var(--chart-3))' },
+  { company: 'MTM', sales: 44 },
+  { company: 'TAL', sales: 13 },
+  { company: 'OMESKA', sales: 43 },
 ];
 
 const dailyGoalDataRaw = [
@@ -108,7 +109,9 @@ const recentSalesData = [
 export default function SalesAnalysisPage() {
   const dailyGoalData = React.useMemo(() => {
     return dailyGoalDataRaw.map((d) => ({
-      ...d,
+      company: d.company,
+      goal: d.goal,
+      [d.company]: d.achieved,
       remaining: Math.max(0, d.goal - d.achieved),
     }));
   }, []);
@@ -199,7 +202,7 @@ export default function SalesAnalysisPage() {
                         <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
                         <Pie data={salesByCompanyData} dataKey="sales" nameKey="company" innerRadius={60} strokeWidth={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
                             {salesByCompanyData.map((entry) => (
-                            <Cell key={entry.company} fill={entry.fill} />
+                                <Cell key={entry.company} fill={`var(--color-${entry.company})`} />
                             ))}
                         </Pie>
                         <ChartLegend content={<ChartLegendContent nameKey="company" />} />
@@ -221,7 +224,9 @@ export default function SalesAnalysisPage() {
                         <ChartLegend />
                         <YAxis dataKey="company" type="category" tickLine={false} axisLine={false} width={60} />
                         <XAxis dataKey="goal" type="number" hide />
-                        <Bar dataKey="achieved" name="Alcanzado" stackId="a" fill="var(--color-achieved)" radius={[4, 4, 4, 4]} />
+                        <Bar dataKey="MTM" name="MTM" stackId="a" fill="var(--color-MTM)" radius={[4, 4, 4, 4]} />
+                        <Bar dataKey="TAL" name="TAL" stackId="a" fill="var(--color-TAL)" radius={[4, 4, 4, 4]} />
+                        <Bar dataKey="OMESKA" name="OMESKA" stackId="a" fill="var(--color-OMESKA)" radius={[4, 4, 4, 4]} />
                         <Bar dataKey="remaining" name="Restante" stackId="a" fill="var(--color-remaining)" radius={[4, 4, 4, 4]} />
                         </BarChart>
                     </ChartContainer>
