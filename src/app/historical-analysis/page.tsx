@@ -27,7 +27,7 @@ export default function HistoricalAnalysisPage() {
                 <BarChart3 className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Ventas</CardTitle>
                 <CardDescription>
-                  Analiza patrones de ventas, identifica tus productos más importantes y entiende el comportamiento de compra de tus clientes.
+                  Analiza patrones de ventas para identificar tus productos más importantes (Pareto), entender el consumo por empresa y descubrir tu producto estrella.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -45,7 +45,7 @@ export default function HistoricalAnalysisPage() {
                 <Package className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Inventario</CardTitle>
                 <CardDescription>
-                  Gestiona y visualiza el ciclo de vida de tu inventario, desde las entradas de materia prima hasta las existencias actuales.
+                  Gestiona el ciclo de vida de tu materia prima. Visualiza entradas, salidas y existencias actuales para optimizar tu stock y evitar quiebres.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -62,7 +62,7 @@ export default function HistoricalAnalysisPage() {
                 <Zap className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Rendimiento Operativo</CardTitle>
                 <CardDescription>
-                  Mide la eficiencia de tus operaciones diarias, monitorizando el rendimiento por equipo y por empresa en tiempo real.
+                  Mide la productividad de tu equipo. Monitoriza la eficiencia de las operaciones diarias, comparando el rendimiento real contra los objetivos.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -79,7 +79,7 @@ export default function HistoricalAnalysisPage() {
                 <ClipboardList className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Productos</CardTitle>
                 <CardDescription>
-                  Analiza el ciclo de vida de tus productos terminados, desde su elaboración hasta su consumo, para optimizar el stock.
+                  Enfócate en el producto terminado. Analiza su ciclo de vida desde la elaboración hasta el consumo para optimizar la producción y la rotación.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -97,7 +97,7 @@ export default function HistoricalAnalysisPage() {
                 <BrainCircuit className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Predicción de Tendencias</CardTitle>
                 <CardDescription>
-                  Anticipa la demanda futura y los patrones de compra estacionales utilizando modelos de inteligencia artificial.
+                  Utiliza IA para mirar al futuro. Anticipa la demanda, identifica patrones estacionales y prevé qué productos serán populares en los próximos meses.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -114,7 +114,7 @@ export default function HistoricalAnalysisPage() {
                 <GitCompareArrows className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Ventas por Mayor y Menor</CardTitle>
                 <CardDescription>
-                  Segmenta tus ventas para identificar productos de nicho, optimizar estrategias de precios y entender la dinámica de ventas por volumen.
+                  Segmenta tus ventas por volumen para diferenciar entre grandes compradores y minoristas, optimizando precios y estrategias para cada uno.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -125,7 +125,7 @@ export default function HistoricalAnalysisPage() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/historical-analysis/access-management" className="block hover:no-underline">
+          <Link href="/historical-analysis/access-management" className="block hover:no-underline md:col-span-2">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
                 <Users className="mb-2 h-8 w-8 text-primary" />
