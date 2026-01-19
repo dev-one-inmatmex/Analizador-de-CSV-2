@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckSquare, Filter, Calendar as CalendarIcon, ClipboardList, Play, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Filter, Calendar as CalendarIcon, ClipboardList, Play, CheckCircle2, Users, Timer } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format } from 'date-fns';
@@ -52,10 +52,10 @@ export default function VirtualCheckPage() {
         <Card>
             <CardHeader className="flex flex-row items-center gap-4">
                 <Filter className="h-6 w-6 text-muted-foreground" />
-                <div><CardTitle>Filtros de Tareas</CardTitle><CardDescription>Filtra las tareas por fecha, proceso o estado.</CardDescription></div>
+                <div><CardTitle>Filtros de Tareas</CardTitle><CardDescription>Filtra las tareas por fecha, proceso, estado o usuario.</CardDescription></div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-2">
                         <Label htmlFor="date">Fecha</Label>
                         <Popover>
@@ -63,8 +63,9 @@ export default function VirtualCheckPage() {
                           <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={date} onSelect={(d) => setDate(d || new Date())} initialFocus /></PopoverContent>
                         </Popover>
                     </div>
-                    <div className="space-y-2"><Label htmlFor="process">Proceso</Label><Select defaultValue="all"><SelectTrigger id="process"><SelectValue placeholder="Seleccionar proceso" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="empaque">Empaque</SelectItem><SelectItem value="etiquetado">Etiquetado</SelectItem></SelectContent></Select></div>
+                    <div className="space-y-2"><Label htmlFor="process">Proceso</Label><Select defaultValue="all"><SelectTrigger id="process"><SelectValue placeholder="Seleccionar proceso" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="empaque">Empaque</SelectItem><SelectItem value="etiquetado">Etiquetado</SelectItem><SelectItem value="recepcion">Recepción</SelectItem></SelectContent></Select></div>
                     <div className="space-y-2"><Label htmlFor="status">Estado</Label><Select defaultValue="all"><SelectTrigger id="status"><SelectValue placeholder="Seleccionar estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="pending">Pendiente</SelectItem><SelectItem value="in_progress">En Progreso</SelectItem><SelectItem value="completed">Completado</SelectItem></SelectContent></Select></div>
+                    <div className="space-y-2"><Label htmlFor="user">Usuario</Label><Select defaultValue="all"><SelectTrigger id="user"><SelectValue placeholder="Seleccionar usuario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="laura">Laura Fernández</SelectItem><SelectItem value="carlos">Carlos Reyes</SelectItem></SelectContent></Select></div>
                 </div>
             </CardContent>
         </Card>
@@ -74,16 +75,35 @@ export default function VirtualCheckPage() {
                 <h2 className="text-xl font-semibold">Resumen de Actividad del Día</h2>
                 <p className="text-muted-foreground">Progreso de las tareas operativas para la fecha seleccionada.</p>
             </div>
-            <Card className="mb-4">
-                <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                       <CardTitle>Progreso Total de Tareas</CardTitle>
-                       <span className="text-lg font-semibold">{kpiData.tasksCompletedToday} / {kpiData.totalTasks}</span>
-                    </div>
-                    <CardDescription className="mb-2">({((kpiData.tasksCompletedToday / kpiData.totalTasks) * 100).toFixed(0)}% completado)</CardDescription>
-                    <Progress value={(kpiData.tasksCompletedToday / kpiData.totalTasks) * 100} className="w-full" />
-                </CardContent>
-            </Card>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Progreso Total</CardTitle><CheckSquare className="h-4 w-4 text-muted-foreground" /></CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{((kpiData.tasksCompletedToday / kpiData.totalTasks) * 100).toFixed(0)}%</div>
+                        <p className="text-xs text-muted-foreground">{kpiData.tasksCompletedToday} de {kpiData.totalTasks} tareas completadas</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tareas Pendientes</CardTitle><ClipboardList className="h-4 w-4 text-muted-foreground" /></CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData.tasksPending}</div>
+                        <p className="text-xs text-muted-foreground">Esperando para ser iniciadas</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tiempo Promedio</CardTitle><Timer className="h-4 w-4 text-muted-foreground" /></CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData.avgCompletionTime} min</div>
+                        <p className="text-xs text-muted-foreground">Duración media por tarea completada</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader><CardTitle>Progreso</CardTitle></CardHeader>
+                    <CardContent className="pt-2">
+                        <Progress value={(kpiData.tasksCompletedToday / kpiData.totalTasks) * 100} aria-label="Progreso de tareas" />
+                    </CardContent>
+                </Card>
+            </div>
         </div>
         
         <Card>
@@ -96,7 +116,7 @@ export default function VirtualCheckPage() {
                   <TableRow key={task.id}>
                     <TableCell className="font-medium">{task.process}</TableCell>
                     <TableCell>{task.user}</TableCell>
-                    <TableCell><Badge variant={task.status === 'Completado' ? 'default' : task.status === 'En Progreso' ? 'secondary' : 'outline'} className={cn(task.status === 'Completado' && 'bg-green-600/80')}>{task.status}</Badge></TableCell>
+                    <TableCell><Badge variant={task.status === 'Completado' ? 'default' : task.status === 'En Progreso' ? 'secondary' : 'outline'} className={cn(task.status === 'Completado' && 'bg-green-600/80 hover:bg-green-700/80')}>{task.status}</Badge></TableCell>
                     <TableCell>{task.duration}</TableCell>
                     <TableCell className="text-right">
                         {task.status === 'Pendiente' && <Button variant="outline" size="sm"><Play className="mr-2 h-4 w-4"/>Iniciar Tarea</Button>}
