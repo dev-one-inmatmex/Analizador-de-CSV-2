@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter } from 'lucide-react';
+import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
