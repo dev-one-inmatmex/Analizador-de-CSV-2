@@ -1,12 +1,15 @@
 'use client';
 
-import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users } from 'lucide-react';
+import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, Calendar as CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
+import { addDays, format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
@@ -15,6 +18,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -29,8 +35,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 
 // Chart Configs
@@ -90,6 +95,10 @@ const recentSalesData = [
 
 
 export default function SalesAnalysisPage() {
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: new Date(2023, 9, 2),
+    to: new Date(2023, 9, 6),
+  });
   const dailyGoalData = React.useMemo(() => {
     return dailyGoalDataRaw.map((d) => ({
       company: d.company,
@@ -128,17 +137,42 @@ export default function SalesAnalysisPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     <div className="space-y-2">
                         <Label htmlFor="date-range">Rango de Fechas</Label>
-                        <Select defaultValue="30days">
-                            <SelectTrigger id="date-range" className="w-full">
-                                <SelectValue placeholder="Seleccionar rango" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="today">Hoy</SelectItem>
-                                <SelectItem value="7days">Últimos 7 días</SelectItem>
-                                <SelectItem value="30days">Últimos 30 días</SelectItem>
-                                <SelectItem value="month">Este mes</SelectItem>
-                            </SelectContent>
-                        </Select>
+                         <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="date"
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !date && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {date?.from ? (
+                                date.to ? (
+                                  <>
+                                    {format(date.from, "LLL dd, y")} -{" "}
+                                    {format(date.to, "LLL dd, y")}
+                                  </>
+                                ) : (
+                                  format(date.from, "LLL dd, y")
+                                )
+                              ) : (
+                                <span>Seleccionar fecha</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              initialFocus
+                              mode="range"
+                              defaultMonth={date?.from}
+                              selected={date}
+                              onSelect={setDate}
+                              numberOfMonths={2}
+                            />
+                          </PopoverContent>
+                        </Popover>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="company">Empresa</Label>

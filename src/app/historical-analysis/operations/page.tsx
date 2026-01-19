@@ -1,18 +1,24 @@
 'use client';
 
-import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter } from 'lucide-react';
+import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, Calendar as CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
+import { addDays, format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -27,8 +33,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 
 // --- MOCK DATA ---
@@ -73,6 +78,11 @@ const recentOperationsData = [
 
 
 export default function OperationsAnalysisPage() {
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: addDays(new Date(), -7),
+    to: new Date(),
+  });
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
@@ -99,17 +109,42 @@ export default function OperationsAnalysisPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     <div className="space-y-2">
                         <Label htmlFor="date-range">Rango de Fechas</Label>
-                        <Select defaultValue="today">
-                            <SelectTrigger id="date-range" className="w-full">
-                                <SelectValue placeholder="Seleccionar rango" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="today">Hoy</SelectItem>
-                                <SelectItem value="yesterday">Ayer</SelectItem>
-                                <SelectItem value="last8hours">Últimas 8 horas</SelectItem>
-                                <SelectItem value="last7days">Últimos 7 días</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="date"
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !date && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {date?.from ? (
+                                date.to ? (
+                                  <>
+                                    {format(date.from, "LLL dd, y")} -{" "}
+                                    {format(date.to, "LLL dd, y")}
+                                  </>
+                                ) : (
+                                  format(date.from, "LLL dd, y")
+                                )
+                              ) : (
+                                <span>Seleccionar fecha</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              initialFocus
+                              mode="range"
+                              defaultMonth={date?.from}
+                              selected={date}
+                              onSelect={setDate}
+                              numberOfMonths={2}
+                            />
+                          </PopoverContent>
+                        </Popover>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="company">Empresa</Label>
