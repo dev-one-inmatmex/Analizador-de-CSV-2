@@ -2,13 +2,15 @@
 
 import { ArrowLeft, Users, UserPlus, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
+import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 
 // --- MOCK DATA ---
 const usersData = [
@@ -18,13 +20,40 @@ const usersData = [
   { id: 'usr_004', name: 'Pedro Morales', email: 'pedro.morales@example.com', role: 'Operador', status: 'Inactivo', lastLogin: 'Hace 2 semanas' },
 ];
 
-const rolesData = {
-    'Administrador': ['Ventas', 'Inventario', 'Operaciones', 'Productos', 'Tendencias', 'Mayor/Menor', 'Accesos', 'Check Virtual'],
-    'Analista': ['Ventas', 'Inventario', 'Operaciones', 'Productos', 'Tendencias', 'Mayor/Menor'],
-    'Operador': ['Check Virtual', 'Inventario (vista)'],
-};
-
 export default function AccessManagementPage() {
+    const allPermissions = [
+        { id: 'sales', label: 'Análisis de Ventas', description: 'Acceso completo al dashboard de ventas.' },
+        { id: 'inventory', label: 'Análisis de Inventario', description: 'Ver y gestionar el inventario.' },
+        { id: 'operations', label: 'Rendimiento Operativo', description: 'Monitorizar la eficiencia operativa.' },
+        { id: 'products', label: 'Análisis de Productos', description: 'Analizar el ciclo de vida de productos.' },
+        { id: 'trends', label: 'Predicción de Tendencias', description: 'Acceder a las predicciones de la IA.' },
+        { id: 'major-minor', label: 'Ventas por Mayor y Menor', description: 'Segmentar y analizar ventas por volumen.' },
+        { id: 'access-management', label: 'Gestión de Accesos', description: 'Administrar usuarios y roles (solo admin).' },
+        { id: 'virtual-check', label: 'Check Virtual', description: 'Usar y gestionar el check virtual de procesos.' },
+    ];
+    const roles = ['Administrador', 'Analista', 'Operador'];
+
+    const [permissions, setPermissions] = React.useState<{ [key: string]: Set<string> }>({
+        Administrador: new Set(allPermissions.map(p => p.id)),
+        Analista: new Set(['sales', 'inventory', 'operations', 'products', 'trends', 'major-minor']),
+        Operador: new Set(['virtual-check', 'inventory']),
+    });
+
+    const handlePermissionChange = (role: string, permissionId: string, checked: boolean) => {
+        setPermissions(prev => {
+            const newRolePermissions = new Set(prev[role]);
+            if (checked) {
+                newRolePermissions.add(permissionId);
+            } else {
+                newRolePermissions.delete(permissionId);
+            }
+            return {
+                ...prev,
+                [role]: newRolePermissions,
+            };
+        });
+    };
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
@@ -91,24 +120,51 @@ export default function AccessManagementPage() {
             </Card>
           </TabsContent>
           <TabsContent value="roles">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(rolesData).map(([role, permissions]) => (
-                <Card key={role}>
-                    <CardHeader>
-                        <CardTitle>{role}</CardTitle>
-                        <CardDescription>Este rol tiene acceso a {permissions.length} módulos.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-2">
-                        {permissions.map((perm) => (
-                            <div key={perm} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                               <span>{perm}</span>
-                               <Badge variant="secondary">Permitido</Badge>
-                            </div>
-                        ))}
-                    </CardContent>
-                </Card>
-              ))}
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Configuración de Roles y Permisos</CardTitle>
+                    <CardDescription>
+                    Activa o desactiva el acceso a los módulos para cada rol. Los cambios no se guardarán permanentemente en esta demo.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="overflow-x-auto">
+                        <Table className="min-w-full">
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[350px] min-w-[350px]">Módulo / Permiso</TableHead>
+                                    {roles.map(role => (
+                                        <TableHead key={role} className="w-40 text-center">{role}</TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {allPermissions.map(permission => (
+                                    <TableRow key={permission.id}>
+                                        <TableCell>
+                                            <div className="font-medium">{permission.label}</div>
+                                            <div className="text-sm text-muted-foreground">{permission.description}</div>
+                                        </TableCell>
+                                        {roles.map(role => (
+                                            <TableCell key={role} className="text-center">
+                                                <Switch
+                                                    checked={permissions[role as keyof typeof permissions].has(permission.id)}
+                                                    onCheckedChange={(checked) => handlePermissionChange(role, permission.id, checked)}
+                                                    aria-label={`Permiso de ${permission.label} para ${role}`}
+                                                    disabled={role === 'Administrador'}
+                                                />
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+                <CardFooter className="flex justify-end">
+                    <Button>Guardar Cambios</Button>
+                </CardFooter>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
