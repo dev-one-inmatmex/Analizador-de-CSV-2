@@ -20,6 +20,10 @@ type SelectedCell = {
     colIndex: number;
 };
 
+type SpecificCellItem = 
+    | { type: 'cell', rowIndex: number, colIndex: number }
+    | { type: 'range', startRow: number, startCol: number, endRow: number, endCol: number };
+
 type SelectionMode = 'range' | 'specific' | 'manual';
 
 const columnToLetter = (colIndex: number): string => {
@@ -57,26 +61,15 @@ export default function CsvUploader() {
   const [result, setResult] = useState<ProcessCsvDataOutput | string | null>(null);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
 
-  const parsedSpecificCells = useMemo(() => {
-    const cells: SelectedCell[] = [];
-    if (!specificCellsInput) return cells;
+  const parsedSpecificItems = useMemo((): SpecificCellItem[] => {
+    const items: SpecificCellItem[] = [];
+    if (!specificCellsInput) return items;
 
     const parts = specificCellsInput.split(',').map(p => p.trim().toUpperCase());
     
     parts.forEach(part => {
-        const singleCellMatch = part.match(/^([A-Z]+)(\d+)$/);
-        if (singleCellMatch) {
-            const colLetter = singleCellMatch[1];
-            const rowNumber = parseInt(singleCellMatch[2], 10);
-            const colIndex = letterToColumn(colLetter);
-            const rowIndex = rowNumber - 1;
+        if (!part) return;
 
-            if (colIndex >= 0 && rowIndex >= 0) {
-                cells.push({ rowIndex, colIndex });
-            }
-            return;
-        }
-        
         const rangeMatch = part.match(/^([A-Z]+)(\d+)-([A-Z]+)(\d+)$/);
         if (rangeMatch) {
             const startColLetter = rangeMatch[1];
@@ -90,17 +83,37 @@ export default function CsvUploader() {
             const endRow = endRowNumber - 1;
 
             if (startCol >= 0 && startRow >= 0 && endCol >= 0 && endRow >= 0) {
-                for (let r = Math.min(startRow, endRow); r <= Math.max(startRow, endRow); r++) {
-                    for (let c = Math.min(startCol, endCol); c <= Math.max(startCol, endCol); c++) {
-                        cells.push({ rowIndex: r, colIndex: c });
-                    }
-                }
+                 items.push({ 
+                    type: 'range',
+                    startRow: Math.min(startRow, endRow), 
+                    startCol: Math.min(startCol, endCol), 
+                    endRow: Math.max(startRow, endRow),
+                    endCol: Math.max(startCol, endCol)
+                });
             }
+            return;
+        }
+
+        const singleCellMatch = part.match(/^([A-Z]+)(\d+)$/);
+        if (singleCellMatch) {
+            const colLetter = singleCellMatch[1];
+            const rowNumber = parseInt(singleCellMatch[2], 10);
+            const colIndex = letterToColumn(colLetter);
+            const rowIndex = rowNumber - 1;
+
+            if (colIndex >= 0 && rowIndex >= 0) {
+                items.push({ type: 'cell', rowIndex, colIndex });
+            }
+            return;
         }
     });
 
-    return cells;
+    return items;
   }, [specificCellsInput]);
+
+  const manualSelectedSet = useMemo(() => 
+    new Set(selectedCells.map(cell => `${cell.rowIndex},${cell.colIndex}`))
+  , [selectedCells]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -179,14 +192,24 @@ export default function CsvUploader() {
             }
         }
     } else if (selectionMode === 'specific') {
-        parsedSpecificCells.forEach(cell => {
-            if (cell.rowIndex < data.length && cell.colIndex < headers.length) {
-              combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+        parsedSpecificItems.forEach(item => {
+            if (item.type === 'cell') {
+                if (item.rowIndex < data.length && item.colIndex < headers.length) {
+                    combinedSelection.add(`${item.rowIndex},${item.colIndex}`);
+                }
+            } else if (item.type === 'range') {
+                for (let r = item.startRow; r <= item.endRow; r++) {
+                    for (let c = item.startCol; c <= item.endCol; c++) {
+                         if (r < data.length && c < headers.length) {
+                            combinedSelection.add(`${r},${c}`);
+                         }
+                    }
+                }
             }
         });
     } else if (selectionMode === 'manual') {
-        selectedCells.forEach(cell => {
-            combinedSelection.add(`${cell.rowIndex},${cell.colIndex}`);
+        manualSelectedSet.forEach(coord => {
+            combinedSelection.add(coord);
         });
     }
 
@@ -245,10 +268,19 @@ export default function CsvUploader() {
         const startCol = letterToColumn(colRange.start.toUpperCase());
         const endCol = letterToColumn(colRange.end.toUpperCase());
         return colIndex >= startCol && colIndex <= endCol;
+      
       case 'specific':
-        return parsedSpecificCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
+        return parsedSpecificItems.some(item => {
+            if (item.type === 'cell') {
+                return item.rowIndex === rowIndex && item.colIndex === colIndex;
+            }
+            return rowIndex >= item.startRow && rowIndex <= item.endRow &&
+                   colIndex >= item.startCol && colIndex <= item.endCol;
+        });
+
       case 'manual':
-        return selectedCells.some(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
+        return manualSelectedSet.has(`${rowIndex},${colIndex}`);
+      
       default:
         return false;
     }
@@ -278,12 +310,6 @@ export default function CsvUploader() {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
-      <header className="space-y-2 text-center">
-        <p className="text-muted-foreground md:text-lg">
-          Sube tu archivo CSV, selecciona los datos que deseas analizar y deja que la IA haga el resto.
-        </p>
-      </header>
-
       <Card>
         <CardHeader>
           <CardTitle>Cargar Documento CSV</CardTitle>
