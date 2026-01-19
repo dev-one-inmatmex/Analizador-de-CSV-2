@@ -449,7 +449,7 @@ export default function CsvUploader() {
                                           key={cellIndex}
                                           onClick={() => handleCellClick(rowIndex, cellIndex)}
                                           className={cn(
-                                              'transition-colors border whitespace-nowrap',
+                                              'transition-colors border',
                                               selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
                                               { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
                                           )}
