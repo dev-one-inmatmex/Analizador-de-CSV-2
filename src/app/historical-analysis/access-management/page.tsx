@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 
 // --- MOCK DATA ---
 const initialUsersData = [
@@ -50,6 +51,8 @@ export default function AccessManagementPage() {
     const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
     const [newRole, setNewRole] = React.useState('');
+    const [newName, setNewName] = React.useState('');
+    const [newEmail, setNewEmail] = React.useState('');
 
 
     const [permissions, setPermissions] = React.useState<{ [key: string]: Set<string> }>({
@@ -73,15 +76,17 @@ export default function AccessManagementPage() {
         });
     };
 
-    const handleEditRoleClick = (user: User) => {
+    const handleEditUserClick = (user: User) => {
         setSelectedUser(user);
+        setNewName(user.name);
+        setNewEmail(user.email);
         setNewRole(user.role);
         setIsEditDialogOpen(true);
     };
 
-    const handleRoleUpdate = () => {
-        if (selectedUser && newRole) {
-            setUsers(users.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u));
+    const handleUserUpdate = () => {
+        if (selectedUser) {
+            setUsers(users.map(u => u.id === selectedUser.id ? { ...u, name: newName, email: newEmail, role: newRole } : u));
             setIsEditDialogOpen(false);
             setSelectedUser(null);
         }
@@ -140,7 +145,7 @@ export default function AccessManagementPage() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEditRoleClick(user)}>Editar Rol</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditUserClick(user)}>Editar Usuario</DropdownMenuItem>
                               <DropdownMenuItem>Reenviar Invitación</DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive">Desactivar Usuario</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -205,12 +210,20 @@ export default function AccessManagementPage() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Editar Rol de Usuario</DialogTitle>
+                    <DialogTitle>Editar Usuario</DialogTitle>
                     <DialogDescription>
-                        Selecciona el nuevo rol para <span className="font-medium">{selectedUser?.name}</span>.
+                        Modifica los datos y el rol para <span className="font-medium">{selectedUser?.name}</span>.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
+                <div className="py-4 space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-name">Nombre Completo</Label>
+                        <Input id="edit-name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-email">Correo Electrónico</Label>
+                        <Input id="edit-email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="role-select">Rol de Usuario</Label>
                         <Select value={newRole} onValueChange={setNewRole}>
@@ -229,7 +242,7 @@ export default function AccessManagementPage() {
                     <DialogClose asChild>
                         <Button variant="outline">Cancelar</Button>
                     </DialogClose>
-                    <Button onClick={handleRoleUpdate}>Guardar Cambios</Button>
+                    <Button onClick={handleUserUpdate}>Guardar Cambios</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
