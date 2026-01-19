@@ -278,7 +278,7 @@ export default function SalesAnalysisPage() {
             <TabsTrigger value="details">Análisis Detallado</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card>
                     <CardHeader>
                     <CardTitle>Ventas por Empresa</CardTitle>
@@ -321,7 +321,7 @@ export default function SalesAnalysisPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="md:col-span-2">
+                <Card className="lg:col-span-2">
                     <CardHeader>
                     <CardTitle>Unidades por Periodo</CardTitle>
                     <CardDescription>Tendencia de ventas de las principales empresas en los últimos días del periodo.</CardDescription>

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Package, DollarSign, Archive, TrendingDown, Warehouse, Filter, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, TrendingDown, Warehouse, Filter, Calendar as CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format } from 'date-fns';
@@ -264,7 +264,7 @@ export default function InventoryAnalysisPage() {
             <TabsTrigger value="details">Detalle de Inventario</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Valor por Categoría</CardTitle>
@@ -303,7 +303,7 @@ export default function InventoryAnalysisPage() {
                 </CardContent>
               </Card>
 
-              <Card className="md:col-span-2">
+              <Card className="lg:col-span-2">
                 <CardHeader>
                   <CardTitle>Movimiento de Inventario (Últimos 7 días)</CardTitle>
                   <CardDescription>Comparativa de unidades entrantes y salientes.</CardDescription>

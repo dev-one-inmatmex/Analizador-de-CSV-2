@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BarChart3, Package, Zap } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, Zap, ClipboardList } from 'lucide-react';
 
 export default function HistoricalAnalysisPage() {
   return (
@@ -20,11 +20,11 @@ export default function HistoricalAnalysisPage() {
         <p className="text-muted-foreground">
           Selecciona una de las siguientes opciones para analizar datos históricos de diferentes fuentes.
         </p>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
           <Link href="/historical-analysis/sales" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
-                <BarChart3 className="mb-2 h-8 w-8 text-muted-foreground" />
+                <BarChart3 className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Ventas</CardTitle>
                 <CardDescription>
                   Información detallada sobre el rendimiento de las ventas.
@@ -35,7 +35,6 @@ export default function HistoricalAnalysisPage() {
                   <ListItem>Análisis de Pareto para identificar productos clave.</ListItem>
                   <ListItem>Consumo de productos por empresa.</ListItem>
                   <ListItem>Identificación de producto estrella.</ListItem>
-                  <ListItem>Porcentaje de participación por empresa y SKU.</ListItem>
                 </List>
               </CardContent>
             </Card>
@@ -43,10 +42,10 @@ export default function HistoricalAnalysisPage() {
           <Link href="/historical-analysis/inventory" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
-                <Package className="mb-2 h-8 w-8 text-muted-foreground" />
+                <Package className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Inventario</CardTitle>
                 <CardDescription>
-                  Análisis de movimientos y existencias basado en el Excel de Siggo.
+                  Análisis de movimientos y existencias de la materia prima.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -60,16 +59,34 @@ export default function HistoricalAnalysisPage() {
           <Link href="/historical-analysis/operations" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
-                <Zap className="mb-2 h-8 w-8 text-muted-foreground" />
+                <Zap className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Rendimiento Operativo</CardTitle>
                 <CardDescription>
-                  Medición del rendimiento diario por empresa desde la BBDD de etiquetas.
+                  Medición del rendimiento diario por empresa y usuario.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <List>
                   <ListItem>Extrae datos de la base de datos de etiquetas.</ListItem>
                   <ListItem>Mide el rendimiento del día por cada empresa.</ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/historical-analysis/products" className="block hover:no-underline">
+            <Card className="h-full transition-shadow hover:shadow-lg">
+              <CardHeader>
+                <ClipboardList className="mb-2 h-8 w-8 text-primary" />
+                <CardTitle>Análisis de Productos</CardTitle>
+                <CardDescription>
+                  Depuración y análisis del ciclo de vida de los productos.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <List>
+                  <ListItem>Visualización de stock y su duración.</ListItem>
+                  <ListItem>Histórico de movimientos y consumo.</ListItem>
+                  <ListItem>Análisis de fechas de elaboración.</ListItem>
                 </List>
               </CardContent>
             </Card>
