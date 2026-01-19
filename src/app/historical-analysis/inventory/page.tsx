@@ -1,7 +1,6 @@
-
 'use client';
 
-import { ArrowLeft, Package, DollarSign, Archive, TrendingDown, Warehouse } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, Archive, TrendingDown, Warehouse, Filter } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis, Line, LineChart } from 'recharts';
@@ -30,7 +29,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 // --- MOCK DATA ---
 
@@ -92,7 +93,7 @@ const chartConfigMovement = {
 export default function InventoryAnalysisPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <Link href="/historical-analysis" passHref>
             <Button variant="outline" size="icon">
@@ -105,47 +106,104 @@ export default function InventoryAnalysisPage() {
       </header>
 
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor Total del Inventario</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+        <Card>
+            <CardHeader className="flex flex-row items-center gap-4">
+                <Filter className="h-6 w-6 text-muted-foreground" />
+                <div>
+                    <CardTitle>Filtros de Inventario</CardTitle>
+                    <CardDescription>Filtra por categoría, estado de stock o busca un producto específico.</CardDescription>
+                </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.inventoryValue)}</div>
-              <p className="text-xs text-muted-foreground">Valor actual de todas las existencias en almacén.</p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="space-y-2">
+                        <Label htmlFor="category">Categoría</Label>
+                        <Select defaultValue="all">
+                            <SelectTrigger id="category" className="w-full">
+                                <SelectValue placeholder="Seleccionar categoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas</SelectItem>
+                                <SelectItem value="electronica">Electrónica</SelectItem>
+                                <SelectItem value="ropa">Ropa</SelectItem>
+                                <SelectItem value="hogar">Hogar</SelectItem>
+                                <SelectItem value="juguetes">Juguetes</SelectItem>
+                                <SelectItem value="otros">Otros</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="stock-status">Estado de Stock</Label>
+                        <Select defaultValue="all">
+                            <SelectTrigger id="stock-status" className="w-full">
+                                <SelectValue placeholder="Seleccionar estado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos</SelectItem>
+                                <SelectItem value="in_stock">En Stock</SelectItem>
+                                <SelectItem value="low_stock">Bajo Stock</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2 lg:col-span-1">
+                        <Label htmlFor="search">Buscar SKU o Producto</Label>
+                        <Input id="search" placeholder="Ej: LPX-001..." />
+                    </div>
+                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
+                        <Button className="w-full">Aplicar Filtros</Button>
+                        <Button variant="outline" className="w-full">Limpiar</Button>
+                    </div>
+                </div>
             </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">SKUs Activos</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpiData.activeSKUs}</div>
-              <p className="text-xs text-muted-foreground">Número de productos únicos gestionados.</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Items con Bajo Stock</CardTitle>
-              <TrendingDown className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpiData.lowStockItems}</div>
-              <p className="text-xs text-muted-foreground">Productos que necesitan reabastecimiento urgente.</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rotación de Inventario</CardTitle>
-              <Warehouse className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpiData.turnoverRate}</div>
-              <p className="text-xs text-muted-foreground">Eficiencia de renovación del inventario (mensual).</p>
-            </CardContent>
-          </Card>
+        </Card>
+
+        <div>
+            <div className="mb-4">
+                <h2 className="text-xl font-semibold">Resumen de Inventario</h2>
+                <p className="text-muted-foreground">Indicadores clave sobre la salud actual de tu inventario.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Valor Total del Inventario</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.inventoryValue)}</div>
+                  <p className="text-xs text-muted-foreground">Valor actual de todas las existencias.</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">SKUs Activos</CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{kpiData.activeSKUs}</div>
+                  <p className="text-xs text-muted-foreground">Número de productos únicos gestionados.</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Items con Bajo Stock</CardTitle>
+                  <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{kpiData.lowStockItems}</div>
+                  <p className="text-xs text-muted-foreground">Productos que necesitan reabastecimiento.</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Rotación de Inventario</CardTitle>
+                  <Warehouse className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{kpiData.turnoverRate}</div>
+                  <p className="text-xs text-muted-foreground">Eficiencia de renovación (mensual).</p>
+                </CardContent>
+              </Card>
+            </div>
         </div>
 
         <Tabs defaultValue="overview">
@@ -157,8 +215,8 @@ export default function InventoryAnalysisPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
               <Card className="col-span-12 lg:col-span-3">
                 <CardHeader>
-                  <CardTitle>Valor del Inventario por Categoría</CardTitle>
-                  <CardDescription>Distribución del valor monetario de las existencias.</CardDescription>
+                  <CardTitle>Valor por Categoría</CardTitle>
+                  <CardDescription>Distribución del valor monetario de las existencias por categoría.</CardDescription>
                 </CardHeader>
                 <CardContent className="pl-2">
                   <ChartContainer config={chartConfigCategory} className="mx-auto aspect-square h-[300px]">
@@ -178,7 +236,7 @@ export default function InventoryAnalysisPage() {
               <Card className="col-span-12 lg:col-span-4">
                 <CardHeader>
                   <CardTitle>Top 5 Productos con más Stock</CardTitle>
-                  <CardDescription>Productos con la mayor cantidad de unidades disponibles.</CardDescription>
+                  <CardDescription>Productos con la mayor cantidad de unidades disponibles actualmente.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={{}} className="h-[300px] w-full">
@@ -195,8 +253,8 @@ export default function InventoryAnalysisPage() {
 
               <Card className="col-span-12">
                 <CardHeader>
-                  <CardTitle>Movimiento de Inventario</CardTitle>
-                  <CardDescription>Comparativa de unidades entrantes y salientes en los últimos 7 días.</CardDescription>
+                  <CardTitle>Movimiento de Inventario (Últimos 7 días)</CardTitle>
+                  <CardDescription>Comparativa de unidades entrantes y salientes.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfigMovement} className="h-[300px] w-full">
@@ -217,8 +275,8 @@ export default function InventoryAnalysisPage() {
           <TabsContent value="details" className="space-y-4">
             <Card>
               <CardHeader>
-                  <CardTitle>Detalle de Inventario</CardTitle>
-                  <CardDescription>Lista completa de todos los productos en existencia, con su valor y estado.</CardDescription>
+                  <CardTitle>Detalle Completo del Inventario</CardTitle>
+                  <CardDescription>Lista de todos los productos en existencia, con su valor y estado actual.</CardDescription>
               </CardHeader>
               <CardContent>
                   <Table>

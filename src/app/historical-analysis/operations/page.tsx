@@ -1,7 +1,6 @@
-
 'use client';
 
-import { ArrowLeft, Zap, ListChecks, Building, Timer } from 'lucide-react';
+import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
@@ -28,6 +27,8 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 // --- MOCK DATA ---
@@ -74,7 +75,7 @@ const recentOperationsData = [
 export default function OperationsAnalysisPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <Link href="/historical-analysis" passHref>
             <Button variant="outline" size="icon">
@@ -86,47 +87,115 @@ export default function OperationsAnalysisPage() {
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Rendimiento Promedio (Hoy)</CardTitle>
-                    <Zap className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{kpiData.avgPerformance}%</div>
-                    <p className="text-xs text-muted-foreground">Eficiencia general contra el objetivo.</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Etiquetas Procesadas</CardTitle>
-                    <ListChecks className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{kpiData.labelsProcessed.toLocaleString('es-MX')}</div>
-                    <p className="text-xs text-muted-foreground">Volumen de etiquetas en la jornada actual.</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Empresa más Productiva</CardTitle>
-                    <Building className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{kpiData.topCompany}</div>
-                    <p className="text-xs text-muted-foreground">Mayor volumen de etiquetas por hora.</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tiempo Promedio/Etiqueta</CardTitle>
-                    <Timer className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{kpiData.avgTimePerLabel} seg</div>
-                    <p className="text-xs text-muted-foreground">Tiempo medio para procesar una sola etiqueta.</p>
-                </CardContent>
-            </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center gap-4">
+                <Filter className="h-6 w-6 text-muted-foreground" />
+                <div>
+                    <CardTitle>Filtros de Rendimiento</CardTitle>
+                    <CardDescription>Analiza el rendimiento por fecha, empresa o usuario.</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Rango de Fechas</Label>
+                        <Select defaultValue="today">
+                            <SelectTrigger id="date-range" className="w-full">
+                                <SelectValue placeholder="Seleccionar rango" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="today">Hoy</SelectItem>
+                                <SelectItem value="yesterday">Ayer</SelectItem>
+                                <SelectItem value="last8hours">Últimas 8 horas</SelectItem>
+                                <SelectItem value="last7days">Últimos 7 días</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="company">Empresa</Label>
+                        <Select defaultValue="all">
+                            <SelectTrigger id="company" className="w-full">
+                                <SelectValue placeholder="Seleccionar empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas</SelectItem>
+                                <SelectItem value="MTM">MTM</SelectItem>
+                                <SelectItem value="TAL">TAL</SelectItem>
+                                <SelectItem value="OMESKA">OMESKA</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="user">Usuario</Label>
+                        <Select defaultValue="all">
+                            <SelectTrigger id="user" className="w-full">
+                                <SelectValue placeholder="Seleccionar usuario" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos</SelectItem>
+                                <SelectItem value="carlos">carlos</SelectItem>
+                                <SelectItem value="laura">laura</SelectItem>
+                                <SelectItem value="pedro">pedro</SelectItem>
+                                <SelectItem value="ana">ana</SelectItem>
+                                <SelectItem value="luis">luis</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
+                        <Button className="w-full">Aplicar Filtros</Button>
+                        <Button variant="outline" className="w-full">Limpiar</Button>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+
+        <div>
+            <div className="mb-4">
+                <h2 className="text-xl font-semibold">Resumen Operativo</h2>
+                <p className="text-muted-foreground">Indicadores de rendimiento clave para el periodo seleccionado.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Rendimiento Promedio</CardTitle>
+                        <Zap className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData.avgPerformance}%</div>
+                        <p className="text-xs text-muted-foreground">Eficiencia general contra el objetivo.</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Etiquetas Procesadas</CardTitle>
+                        <ListChecks className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData.labelsProcessed.toLocaleString('es-MX')}</div>
+                        <p className="text-xs text-muted-foreground">Volumen total de la jornada.</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Empresa más Productiva</CardTitle>
+                        <Building className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData.topCompany}</div>
+                        <p className="text-xs text-muted-foreground">Mayor volumen de etiquetas/hora.</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Tiempo Promedio/Etiqueta</CardTitle>
+                        <Timer className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData.avgTimePerLabel} seg</div>
+                        <p className="text-xs text-muted-foreground">Tiempo medio para procesar una etiqueta.</p>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
 
         <Tabs defaultValue="overview">
@@ -164,8 +233,8 @@ export default function OperationsAnalysisPage() {
                 </Card>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Actividad Operativa</CardTitle>
-                        <CardDescription>Volumen de etiquetas procesadas por hora en las últimas 8 horas.</CardDescription>
+                        <CardTitle>Actividad Operativa por Hora</CardTitle>
+                        <CardDescription>Volumen de etiquetas procesadas por hora en el periodo seleccionado.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={{ labels: { label: 'Etiquetas', color: 'hsl(var(--primary))' } }} className="h-[300px] w-full">
@@ -212,7 +281,7 @@ export default function OperationsAnalysisPage() {
                                       </TableCell>
                                       <TableCell>{op.task}</TableCell>
                                       <TableCell className="text-right">{op.quantity}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground">{op.time}</TableCell>
+                                      <TableCell className="text-right text-sm text-muted-foreground">{op.time}</TableCell>
                                   </TableRow>
                               ))}
                           </TableBody>

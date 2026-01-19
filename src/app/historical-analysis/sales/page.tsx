@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Star, User, Building, TrendingUp, DollarSign, Package, Users, Clock } from 'lucide-react';
+import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
@@ -29,36 +29,19 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 // Chart Configs
 const companyConfig = {
-  MTM: {
-    label: 'MTM',
-    color: 'hsl(var(--chart-1))',
-  },
-  TAL: {
-    label: 'TAL',
-    color: 'hsl(var(--chart-2))',
-  },
-  OMESKA: {
-    label: 'OMESKA',
-    color: 'hsl(var(--chart-3))',
-  },
+  MTM: { label: 'MTM', color: 'hsl(var(--chart-1))' },
+  TAL: { label: 'TAL', color: 'hsl(var(--chart-2))' },
+  OMESKA: { label: 'OMESKA', color: 'hsl(var(--chart-3))' },
 };
 
-const chartConfigSalesByCompany = {
-  sales: {
-    label: 'Ventas',
-  },
-  ...companyConfig,
-};
-
-const chartConfigDailyGoal = {
-  ...companyConfig,
-  remaining: { label: 'Restante', color: 'hsl(var(--secondary))' },
-};
-
+const chartConfigSalesByCompany = { sales: { label: 'Ventas' }, ...companyConfig };
+const chartConfigDailyGoal = { ...companyConfig, remaining: { label: 'Restante', color: 'hsl(var(--secondary))' } };
 const chartConfigUnitsByPeriod = { ...companyConfig };
 
 
@@ -118,7 +101,7 @@ export default function SalesAnalysisPage() {
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <Link href="/historical-analysis" passHref>
             <Button variant="outline" size="icon">
@@ -131,57 +114,126 @@ export default function SalesAnalysisPage() {
       </header>
 
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ventas del Mes</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        <Card>
+            <CardHeader className="flex flex-row items-center gap-4">
+                <Filter className="h-6 w-6 text-muted-foreground" />
+                <div>
+                    <CardTitle>Filtros de Análisis</CardTitle>
+                    <CardDescription>
+                        Usa los filtros para refinar los datos que se muestran en los gráficos y tablas.
+                    </CardDescription>
+                </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">887</div>
-              <p className="text-xs text-muted-foreground">+20.1% desde el mes pasado</p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Rango de Fechas</Label>
+                        <Select defaultValue="30days">
+                            <SelectTrigger id="date-range" className="w-full">
+                                <SelectValue placeholder="Seleccionar rango" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="today">Hoy</SelectItem>
+                                <SelectItem value="7days">Últimos 7 días</SelectItem>
+                                <SelectItem value="30days">Últimos 30 días</SelectItem>
+                                <SelectItem value="month">Este mes</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="company">Empresa</Label>
+                        <Select defaultValue="all">
+                            <SelectTrigger id="company" className="w-full">
+                                <SelectValue placeholder="Seleccionar empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas las empresas</SelectItem>
+                                <SelectItem value="MTM">MTM</SelectItem>
+                                <SelectItem value="TAL">TAL</SelectItem>
+                                <SelectItem value="OMESKA">OMESKA</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="user">Usuario</Label>
+                        <Select defaultValue="all">
+                            <SelectTrigger id="user" className="w-full">
+                                <SelectValue placeholder="Seleccionar usuario" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los usuarios</SelectItem>
+                                <SelectItem value="dana">dana</SelectItem>
+                                <SelectItem value="alex">alex</SelectItem>
+                                <SelectItem value="juan">juan</SelectItem>
+                                <SelectItem value="sara">sara</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
+                        <Button className="w-full">Aplicar Filtros</Button>
+                        <Button variant="outline" className="w-full">Limpiar</Button>
+                    </div>
+                </div>
             </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Productos Estrella</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">3</div>
-              <p className="text-xs text-muted-foreground">Top productos más vendidos</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ventas (Hoy)</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">25</div>
-              <p className="text-xs text-muted-foreground">Unidades vendidas hoy</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Empresa Principal</CardTitle>
-              <Building className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">MTM</div>
-              <p className="text-xs text-muted-foreground">Mayor volumen de ventas</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Usuario más Activo</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">dana</div>
-              <p className="text-xs text-muted-foreground">0.32 min/venta</p>
-            </CardContent>
-          </Card>
+        </Card>
+
+        <div>
+            <div className="mb-4">
+                <h2 className="text-xl font-semibold">Resumen General</h2>
+                <p className="text-muted-foreground">Indicadores clave de rendimiento para el periodo seleccionado.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ventas del Mes</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">887</div>
+                  <p className="text-xs text-muted-foreground">+20.1% desde el mes pasado</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Productos Estrella</CardTitle>
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">3</div>
+                  <p className="text-xs text-muted-foreground">Top productos más vendidos</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ventas (Hoy)</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">25</div>
+                  <p className="text-xs text-muted-foreground">Unidades vendidas hoy</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Empresa Principal</CardTitle>
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">MTM</div>
+                  <p className="text-xs text-muted-foreground">Mayor volumen de ventas</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Usuario más Activo</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">dana</div>
+                  <p className="text-xs text-muted-foreground">0.32 min/venta</p>
+                </CardContent>
+              </Card>
+            </div>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
@@ -194,7 +246,7 @@ export default function SalesAnalysisPage() {
                 <Card className="col-span-12 lg:col-span-3">
                     <CardHeader>
                     <CardTitle>Ventas por Empresa</CardTitle>
-                    <CardDescription>Distribución de ventas en el último mes.</CardDescription>
+                    <CardDescription>Distribución porcentual de las ventas totales entre empresas.</CardDescription>
                     </CardHeader>
                     <CardContent className="pl-2">
                     <ChartContainer config={chartConfigSalesByCompany} className="mx-auto aspect-square h-[300px]">
@@ -214,7 +266,7 @@ export default function SalesAnalysisPage() {
                 <Card className="col-span-12 lg:col-span-4">
                     <CardHeader>
                     <CardTitle>Meta Diaria por Empresa</CardTitle>
-                    <CardDescription>Progreso de las ventas diarias contra la meta.</CardDescription>
+                    <CardDescription>Progreso de las ventas diarias contra la meta establecida para cada empresa.</CardDescription>
                     </CardHeader>
                     <CardContent>
                     <ChartContainer config={chartConfigDailyGoal} className="h-[300px] w-full">
@@ -236,7 +288,7 @@ export default function SalesAnalysisPage() {
                 <Card className="col-span-12">
                     <CardHeader>
                     <CardTitle>Unidades por Periodo</CardTitle>
-                    <CardDescription>Tendencia de ventas de las principales empresas en los últimos 7 días.</CardDescription>
+                    <CardDescription>Tendencia de ventas de las principales empresas en los últimos días del periodo.</CardDescription>
                     </CardHeader>
                     <CardContent>
                     <ChartContainer config={chartConfigUnitsByPeriod} className="h-[300px] w-full">
@@ -260,7 +312,7 @@ export default function SalesAnalysisPage() {
                 <Card className="lg:col-span-2">
                     <CardHeader>
                         <CardTitle>Ventas Recientes</CardTitle>
-                        <CardDescription>Últimas transacciones registradas en el sistema.</CardDescription>
+                        <CardDescription>Últimas transacciones registradas en el sistema según los filtros aplicados.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -282,7 +334,7 @@ export default function SalesAnalysisPage() {
                                         <Badge variant="outline" className="text-xs">{sale.company}</Badge>
                                     </TableCell>
                                     <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sale.amount)}</TableCell>
-                                    <TableCell className="text-right">{sale.time}</TableCell>
+                                    <TableCell className="text-right text-sm text-muted-foreground">{sale.time}</TableCell>
                                 </TableRow>
                                 ))}
                             </TableBody>
