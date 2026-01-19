@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BarChart3, Package, Zap, ClipboardList, BrainCircuit, GitCompareArrows, Users, CheckSquare } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, Zap, ClipboardList, BrainCircuit, GitCompareArrows, Users } from 'lucide-react';
 
 export default function HistoricalAnalysisPage() {
   return (
@@ -138,23 +138,6 @@ export default function HistoricalAnalysisPage() {
                 <List>
                   <ListItem>Definir roles (admin, operador, etc.).</ListItem>
                   <ListItem>Controlar acceso a dashboards y funciones.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/historical-analysis/virtual-check" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <CheckSquare className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Check Virtual</CardTitle>
-                <CardDescription>
-                  Implementa un sistema de seguimiento y validación virtual para agilizar y asegurar la calidad de tus procesos operativos.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Seguimiento de tareas en tiempo real.</ListItem>
-                  <ListItem>Validación virtual de pasos de producción.</ListItem>
                 </List>
               </CardContent>
             </Card>
