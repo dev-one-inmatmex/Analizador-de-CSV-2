@@ -278,8 +278,8 @@ export default function SalesAnalysisPage() {
             <TabsTrigger value="details">Análisis Detallado</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-12 lg:col-span-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Card>
                     <CardHeader>
                     <CardTitle>Ventas por Empresa</CardTitle>
                     <CardDescription>Distribución porcentual de las ventas totales entre empresas.</CardDescription>
@@ -299,7 +299,7 @@ export default function SalesAnalysisPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="col-span-12 lg:col-span-4">
+                <Card>
                     <CardHeader>
                     <CardTitle>Meta Diaria por Empresa</CardTitle>
                     <CardDescription>Progreso de las ventas diarias contra la meta establecida para cada empresa.</CardDescription>
@@ -321,7 +321,7 @@ export default function SalesAnalysisPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="col-span-12">
+                <Card className="md:col-span-2">
                     <CardHeader>
                     <CardTitle>Unidades por Periodo</CardTitle>
                     <CardDescription>Tendencia de ventas de las principales empresas en los últimos días del periodo.</CardDescription>

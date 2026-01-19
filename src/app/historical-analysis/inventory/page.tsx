@@ -264,8 +264,8 @@ export default function InventoryAnalysisPage() {
             <TabsTrigger value="details">Detalle de Inventario</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="col-span-12 lg:col-span-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Card>
                 <CardHeader>
                   <CardTitle>Valor por Categoría</CardTitle>
                   <CardDescription>Distribución del valor monetario de las existencias por categoría.</CardDescription>
@@ -285,7 +285,7 @@ export default function InventoryAnalysisPage() {
                 </CardContent>
               </Card>
 
-              <Card className="col-span-12 lg:col-span-4">
+              <Card>
                 <CardHeader>
                   <CardTitle>Top 5 Productos con más Stock</CardTitle>
                   <CardDescription>Productos con la mayor cantidad de unidades disponibles actualmente.</CardDescription>
@@ -303,7 +303,7 @@ export default function InventoryAnalysisPage() {
                 </CardContent>
               </Card>
 
-              <Card className="col-span-12">
+              <Card className="md:col-span-2">
                 <CardHeader>
                   <CardTitle>Movimiento de Inventario (Últimos 7 días)</CardTitle>
                   <CardDescription>Comparativa de unidades entrantes y salientes.</CardDescription>
