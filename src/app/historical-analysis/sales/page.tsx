@@ -37,6 +37,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Chart Configs
@@ -96,10 +97,54 @@ const recentSalesData = [
 
 
 export default function SalesAnalysisPage() {
+  const { toast } = useToast();
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: new Date(2023, 9, 2),
     to: new Date(2023, 9, 6),
   });
+  const [company, setCompany] = React.useState('all');
+  const [user, setUser] = React.useState('all');
+
+  const [displayedRecentSales, setDisplayedRecentSales] = React.useState(recentSalesData);
+  const [displayedUserPerformance, setDisplayedUserPerformance] = React.useState(userPerformanceData);
+
+  const handleApplyFilters = () => {
+    toast({
+        title: "Filtros aplicados",
+        description: "Los datos de ventas han sido actualizados."
+    });
+    
+    const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
+
+    let filteredSales = [...recentSalesData];
+    if (company !== 'all') {
+        filteredSales = filteredSales.filter(s => s.company === company);
+    }
+    if (user !== 'all') {
+        filteredSales = filteredSales.filter(s => s.user === user);
+    }
+    setDisplayedRecentSales(shuffle(filteredSales));
+
+    let filteredUsers = [...userPerformanceData];
+    if (user !== 'all') {
+        filteredUsers = filteredUsers.filter(u => u.user === user);
+    }
+    setDisplayedUserPerformance(shuffle(filteredUsers));
+  };
+
+  const handleClearFilters = () => {
+      toast({
+          title: "Filtros limpiados",
+          description: "Mostrando todos los datos originales."
+      });
+      setDate({ from: new Date(2023, 9, 2), to: new Date(2023, 9, 6) });
+      setCompany('all');
+      setUser('all');
+      setDisplayedRecentSales(recentSalesData);
+      setDisplayedUserPerformance(userPerformanceData);
+  };
+
+
   const dailyGoalData = React.useMemo(() => {
     return dailyGoalDataRaw.map((d) => ({
       company: d.company,
@@ -184,7 +229,7 @@ export default function SalesAnalysisPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="company">Empresa</Label>
-                        <Select defaultValue="all">
+                        <Select value={company} onValueChange={setCompany}>
                             <SelectTrigger id="company" className="w-full">
                                 <SelectValue placeholder="Seleccionar empresa" />
                             </SelectTrigger>
@@ -198,7 +243,7 @@ export default function SalesAnalysisPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="user">Usuario</Label>
-                        <Select defaultValue="all">
+                        <Select value={user} onValueChange={setUser}>
                             <SelectTrigger id="user" className="w-full">
                                 <SelectValue placeholder="Seleccionar usuario" />
                             </SelectTrigger>
@@ -212,8 +257,8 @@ export default function SalesAnalysisPage() {
                         </Select>
                     </div>
                     <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-3">
-                        <Button className="w-full">Aplicar Filtros</Button>
-                        <Button variant="outline" className="w-full">Limpiar</Button>
+                        <Button className="w-full" onClick={handleApplyFilters}>Aplicar Filtros</Button>
+                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
                     </div>
                 </div>
             </CardContent>
@@ -368,7 +413,7 @@ export default function SalesAnalysisPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {recentSalesData.map((sale, index) => (
+                                {displayedRecentSales.map((sale, index) => (
                                 <TableRow key={index}>
                                     <TableCell className="font-medium">{sale.product}</TableCell>
                                     <TableCell>{sale.user}</TableCell>
@@ -422,7 +467,7 @@ export default function SalesAnalysisPage() {
                                 </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {userPerformanceData.map((user) => (
+                                    {displayedUserPerformance.map((user) => (
                                         <TableRow key={user.user}>
                                             <TableCell className="font-medium">{user.user}</TableCell>
                                             <TableCell className="text-right">{user.sales}</TableCell>

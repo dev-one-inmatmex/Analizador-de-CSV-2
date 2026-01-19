@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, BrainCircuit, TrendingUp, Calendar as CalendarIcon, Filter, LineChart as LineChartIcon, BarChart3, Bot, LogOut } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, TrendingUp, Calendar as CalendarIcon, Filter, LineChart as LineChartIcon, BarChart3, Bot, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format, addMonths } from 'date-fns';
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -25,15 +26,15 @@ const kpiData = {
   seasonalPeak: 'Diciembre',
 };
 
-const salesHistory = Array.from({ length: 12 }, (_, i) => ({
+const generateSalesHistory = () => Array.from({ length: 12 }, (_, i) => ({
   date: format(addMonths(new Date(), -11 + i), 'MMM yy', { locale: es }),
   ventas: Math.floor(Math.random() * 200000) + 100000,
 }));
 
-const salesPrediction = Array.from({ length: 6 }, (_, i) => ({
+const generateSalesPrediction = (history: {date: string, ventas: number}[]) => Array.from({ length: 6 }, (_, i) => ({
   date: format(addMonths(new Date(), i), 'MMM yy', { locale: es }),
-  ventas: i === 0 ? salesHistory[11].ventas : undefined, // Start from last historical point
-  prediccion: Math.floor(Math.random() * 150000) + (salesHistory[11].ventas * (1 + (i * 0.05))),
+  ventas: i === 0 ? history[11].ventas : undefined, // Start from last historical point
+  prediccion: Math.floor(Math.random() * 150000) + (history[11].ventas * (1 + (i * 0.05))),
 }));
 
 const predictionByCategoryData = [
@@ -51,10 +52,43 @@ const detailedPredictions = [
 ];
 
 export default function TrendsPredictionPage() {
+  const { toast } = useToast();
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: addMonths(new Date(), -11),
     to: addMonths(new Date(), 5),
   });
+  const [category, setCategory] = React.useState('all');
+  const [isLoading, setIsLoading] = React.useState(false);
+  
+  const [salesHistory, setSalesHistory] = React.useState(generateSalesHistory());
+  const [salesPrediction, setSalesPrediction] = React.useState(() => generateSalesPrediction(salesHistory));
+
+  const handleGeneratePrediction = () => {
+      setIsLoading(true);
+      toast({
+          title: "Generando nueva predicción...",
+          description: "La IA está analizando los datos. Esto puede tardar un momento."
+      });
+      setTimeout(() => {
+          const newHistory = generateSalesHistory();
+          setSalesHistory(newHistory);
+          setSalesPrediction(generateSalesPrediction(newHistory));
+          setIsLoading(false);
+          toast({
+              title: "¡Predicción actualizada!",
+              description: "Los gráficos y datos ahora muestran la nueva proyección de la IA."
+          });
+      }, 1500);
+  };
+
+  const handleClearFilters = () => {
+    setDate({ from: addMonths(new Date(), -11), to: addMonths(new Date(), 5) });
+    setCategory('all');
+    toast({
+        title: "Filtros limpiados",
+        description: "Se han restaurado los filtros a sus valores por defecto."
+    });
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -106,7 +140,7 @@ export default function TrendsPredictionPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="category">Categoría de Producto</Label>
-                        <Select defaultValue="all">
+                        <Select value={category} onValueChange={setCategory}>
                             <SelectTrigger id="category"><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todas</SelectItem>
@@ -117,8 +151,11 @@ export default function TrendsPredictionPage() {
                         </Select>
                     </div>
                     <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
-                        <Button className="w-full">Generar Predicción</Button>
-                        <Button variant="outline" className="w-full">Limpiar</Button>
+                        <Button className="w-full" onClick={handleGeneratePrediction} disabled={isLoading}>
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                            {isLoading ? 'Generando...' : 'Generar Predicción'}
+                        </Button>
+                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
                     </div>
                 </div>
             </CardContent>

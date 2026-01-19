@@ -36,6 +36,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 // --- MOCK DATA ---
@@ -82,10 +83,55 @@ const productDetailData = [
 
 
 export default function ProductsAnalysisPage() {
+  const { toast } = useToast();
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -7),
     to: new Date(),
   });
+  const [product, setProduct] = React.useState('all');
+
+  const [kpis, setKpis] = React.useState(kpiData);
+  const [displayedMovement, setDisplayedMovement] = React.useState(stockMovementData);
+  const [displayedDetails, setDisplayedDetails] = React.useState(productDetailData);
+
+  const handleApplyFilters = () => {
+    toast({
+        title: "Filtros aplicados",
+        description: "Los datos de productos han sido actualizados."
+    });
+
+    let filteredDetails = [...productDetailData];
+    if (product !== 'all') {
+        filteredDetails = filteredDetails.filter(p => p.sku === product);
+    }
+    setDisplayedDetails(filteredDetails.sort(() => Math.random() - 0.5));
+
+    setKpis(prev => ({
+        ...prev,
+        currentStock: Math.floor(prev.currentStock * (Math.random() * 0.4 + 0.8)),
+        avgConsumption: Math.floor(prev.avgConsumption * (Math.random() * 0.2 + 0.9)),
+    }));
+    
+    setDisplayedMovement(prev => prev.map(m => ({
+        ...m,
+        stock: Math.floor(m.stock * (Math.random() * 0.3 + 0.8)),
+        entradas: Math.floor(m.entradas * (Math.random() * 0.5 + 0.7)),
+        salidas: Math.floor(m.salidas * (Math.random() * 0.5 + 0.7)),
+    })));
+  };
+
+  const handleClearFilters = () => {
+    toast({
+        title: "Filtros limpiados",
+        description: "Mostrando todos los datos originales."
+    });
+    setDate({ from: addDays(new Date(), -7), to: new Date() });
+    setProduct('all');
+
+    setKpis(kpiData);
+    setDisplayedMovement(stockMovementData);
+    setDisplayedDetails(productDetailData);
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -160,7 +206,7 @@ export default function ProductsAnalysisPage() {
                     </div>
                     <div className="space-y-2 lg:col-span-1">
                         <Label htmlFor="product">Producto</Label>
-                        <Select defaultValue="all">
+                        <Select value={product} onValueChange={setProduct}>
                             <SelectTrigger id="product" className="w-full">
                                 <SelectValue placeholder="Seleccionar producto" />
                             </SelectTrigger>
@@ -175,8 +221,8 @@ export default function ProductsAnalysisPage() {
                         </Select>
                     </div>
                     <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-1">
-                        <Button className="w-full">Aplicar Filtros</Button>
-                        <Button variant="outline" className="w-full">Limpiar</Button>
+                        <Button className="w-full" onClick={handleApplyFilters}>Aplicar Filtros</Button>
+                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
                     </div>
                 </div>
             </CardContent>
@@ -194,7 +240,7 @@ export default function ProductsAnalysisPage() {
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpiData.currentStock.toLocaleString('es-MX')} Unidades</div>
+                  <div className="text-2xl font-bold">{kpis.currentStock.toLocaleString('es-MX')} Unidades</div>
                   <p className="text-xs text-muted-foreground">Cantidad total de productos disponibles.</p>
                 </CardContent>
               </Card>
@@ -204,7 +250,7 @@ export default function ProductsAnalysisPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpiData.avgConsumption.toLocaleString('es-MX')} Unidades</div>
+                  <div className="text-2xl font-bold">{kpis.avgConsumption.toLocaleString('es-MX')} Unidades</div>
                   <p className="text-xs text-muted-foreground">Media de unidades consumidas por día.</p>
                 </CardContent>
               </Card>
@@ -214,7 +260,7 @@ export default function ProductsAnalysisPage() {
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpiData.estimatedDuration} días</div>
+                  <div className="text-2xl font-bold">{kpis.estimatedDuration} días</div>
                   <p className="text-xs text-muted-foreground">Tiempo hasta agotar el stock actual.</p>
                 </CardContent>
               </Card>
@@ -224,7 +270,7 @@ export default function ProductsAnalysisPage() {
                   <Gauge className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpiData.maxConsumption.toLocaleString('es-MX')} Unidades</div>
+                  <div className="text-2xl font-bold">{kpis.maxConsumption.toLocaleString('es-MX')} Unidades</div>
                   <p className="text-xs text-muted-foreground">Pico de consumo registrado en un día.</p>
                 </CardContent>
               </Card>
@@ -245,7 +291,7 @@ export default function ProductsAnalysisPage() {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfigMovement} className="h-[350px] w-full">
-                    <LineChart data={stockMovementData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                    <LineChart data={displayedMovement} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                       <CartesianGrid vertical={false} />
                       <YAxis />
                       <XAxis dataKey="date" />
@@ -295,7 +341,7 @@ export default function ProductsAnalysisPage() {
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {productDetailData.map((item) => (
+                          {displayedDetails.map((item) => (
                               <TableRow key={item.sku}>
                                   <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                                   <TableCell className="font-medium">{item.product}</TableCell>

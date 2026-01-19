@@ -35,6 +35,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 // --- MOCK DATA ---
@@ -79,10 +80,58 @@ const recentOperationsData = [
 
 
 export default function OperationsAnalysisPage() {
+  const { toast } = useToast();
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -7),
     to: new Date(),
   });
+  const [company, setCompany] = React.useState('all');
+  const [user, setUser] = React.useState('all');
+  
+  const [kpis, setKpis] = React.useState(kpiData);
+  const [displayedOperations, setDisplayedOperations] = React.useState(recentOperationsData);
+  const [displayedHourly, setDisplayedHourly] = React.useState(hourlyPerformanceData);
+  
+  const handleApplyFilters = () => {
+    toast({
+      title: 'Filtros aplicados',
+      description: 'Los datos de operaciones han sido actualizados.',
+    });
+
+    const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
+
+    let filteredOps = [...recentOperationsData];
+    if (company !== 'all') {
+        filteredOps = filteredOps.filter(op => op.company === company);
+    }
+    if (user !== 'all') {
+        filteredOps = filteredOps.filter(op => op.user === user);
+    }
+    setDisplayedOperations(shuffle(filteredOps));
+    
+    setKpis(prev => ({
+        ...prev,
+        avgPerformance: prev.avgPerformance * (Math.random() * 0.1 + 0.95), // +/- 5%
+        labelsProcessed: Math.floor(prev.labelsProcessed * (Math.random() * 0.4 + 0.8)),
+    }));
+    
+    setDisplayedHourly(prev => prev.map(h => ({ ...h, labels: Math.floor(h.labels * (Math.random() * 0.4 + 0.8)) })));
+  };
+
+  const handleClearFilters = () => {
+    toast({
+      title: 'Filtros limpiados',
+      description: 'Mostrando todos los datos originales.',
+    });
+    setDate({ from: addDays(new Date(), -7), to: new Date() });
+    setCompany('all');
+    setUser('all');
+
+    setKpis(kpiData);
+    setDisplayedOperations(recentOperationsData);
+    setDisplayedHourly(hourlyPerformanceData);
+  };
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -156,7 +205,7 @@ export default function OperationsAnalysisPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="company">Empresa</Label>
-                        <Select defaultValue="all">
+                        <Select value={company} onValueChange={setCompany}>
                             <SelectTrigger id="company" className="w-full">
                                 <SelectValue placeholder="Seleccionar empresa" />
                             </SelectTrigger>
@@ -170,7 +219,7 @@ export default function OperationsAnalysisPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="user">Usuario</Label>
-                        <Select defaultValue="all">
+                        <Select value={user} onValueChange={setUser}>
                             <SelectTrigger id="user" className="w-full">
                                 <SelectValue placeholder="Seleccionar usuario" />
                             </SelectTrigger>
@@ -185,8 +234,8 @@ export default function OperationsAnalysisPage() {
                         </Select>
                     </div>
                     <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-3">
-                        <Button className="w-full">Aplicar Filtros</Button>
-                        <Button variant="outline" className="w-full">Limpiar</Button>
+                        <Button className="w-full" onClick={handleApplyFilters}>Aplicar Filtros</Button>
+                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
                     </div>
                 </div>
             </CardContent>
@@ -204,7 +253,7 @@ export default function OperationsAnalysisPage() {
                         <Zap className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpiData.avgPerformance}%</div>
+                        <div className="text-2xl font-bold">{kpis.avgPerformance.toFixed(1)}%</div>
                         <p className="text-xs text-muted-foreground">Eficiencia general contra el objetivo.</p>
                     </CardContent>
                 </Card>
@@ -214,7 +263,7 @@ export default function OperationsAnalysisPage() {
                         <ListChecks className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpiData.labelsProcessed.toLocaleString('es-MX')}</div>
+                        <div className="text-2xl font-bold">{kpis.labelsProcessed.toLocaleString('es-MX')}</div>
                         <p className="text-xs text-muted-foreground">Volumen total de la jornada.</p>
                     </CardContent>
                 </Card>
@@ -224,7 +273,7 @@ export default function OperationsAnalysisPage() {
                         <Building className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpiData.topCompany}</div>
+                        <div className="text-2xl font-bold">{kpis.topCompany}</div>
                         <p className="text-xs text-muted-foreground">Mayor volumen de etiquetas/hora.</p>
                     </CardContent>
                 </Card>
@@ -234,7 +283,7 @@ export default function OperationsAnalysisPage() {
                         <Timer className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpiData.avgTimePerLabel} seg</div>
+                        <div className="text-2xl font-bold">{kpis.avgTimePerLabel} seg</div>
                         <p className="text-xs text-muted-foreground">Tiempo medio para procesar una etiqueta.</p>
                     </CardContent>
                 </Card>
@@ -281,7 +330,7 @@ export default function OperationsAnalysisPage() {
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={{ labels: { label: 'Etiquetas', color: 'hsl(var(--primary))' } }} className="h-[300px] w-full">
-                            <LineChart data={hourlyPerformanceData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <LineChart data={displayedHourly} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid vertical={false} />
                                 <YAxis />
                                 <XAxis dataKey="hour" />
@@ -311,7 +360,7 @@ export default function OperationsAnalysisPage() {
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {recentOperationsData.map((op, index) => (
+                              {displayedOperations.map((op, index) => (
                                   <TableRow key={index}>
                                       <TableCell className="font-medium">{op.user}</TableCell>
                                       <TableCell>

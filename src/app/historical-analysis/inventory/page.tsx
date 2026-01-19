@@ -38,6 +38,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 // --- MOCK DATA ---
@@ -98,10 +99,68 @@ const chartConfigMovement = {
 
 
 export default function InventoryAnalysisPage() {
+  const { toast } = useToast();
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -7),
     to: new Date(),
   });
+  const [category, setCategory] = React.useState('all');
+  const [stockStatus, setStockStatus] = React.useState('all');
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const [kpis, setKpis] = React.useState(kpiData);
+  const [displayedInventoryDetail, setDisplayedInventoryDetail] = React.useState(inventoryDetailData);
+  const [displayedMovement, setDisplayedMovement] = React.useState(inventoryMovementData);
+
+  const handleApplyFilters = () => {
+    toast({
+      title: 'Filtros aplicados',
+      description: 'Los datos del dashboard han sido actualizados con tu selección.',
+    });
+
+    // Simulate filtering by shuffling and slicing data
+    const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
+
+    let filteredDetails = [...inventoryDetailData];
+
+    if (category !== 'all') {
+      filteredDetails = filteredDetails.filter(item => item.category.toLowerCase() === category);
+    }
+    if (stockStatus !== 'all') {
+        const status = stockStatus === 'in_stock' ? 'En Stock' : 'Bajo Stock';
+        filteredDetails = filteredDetails.filter(item => item.status === status);
+    }
+    if (searchQuery) {
+        filteredDetails = filteredDetails.filter(item => item.product.toLowerCase().includes(searchQuery.toLowerCase()) || item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+
+    setDisplayedInventoryDetail(shuffle(filteredDetails));
+    
+    setKpis(prev => ({
+        ...prev,
+        inventoryValue: prev.inventoryValue * (Math.random() * 0.4 + 0.8), // Fluctuate by +/- 20%
+        activeSKUs: Math.floor(prev.activeSKUs * (Math.random() * 0.4 + 0.8)),
+        lowStockItems: Math.floor(prev.lowStockItems * (Math.random() * 0.4 + 0.8)),
+    }));
+
+    setDisplayedMovement(prev => prev.map(d => ({ ...d, entradas: Math.floor(d.entradas * (Math.random() * 0.4 + 0.8)), salidas: Math.floor(d.salidas * (Math.random() * 0.4 + 0.8)) })))
+  };
+
+  const handleClearFilters = () => {
+    toast({
+      title: 'Filtros limpiados',
+      description: 'Mostrando todos los datos originales.',
+    });
+    setDate({ from: addDays(new Date(), -7), to: new Date() });
+    setCategory('all');
+    setStockStatus('all');
+    setSearchQuery('');
+
+    // Reset data to original
+    setKpis(kpiData);
+    setDisplayedMovement(inventoryMovementData);
+    setDisplayedInventoryDetail(inventoryDetailData);
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -176,13 +235,13 @@ export default function InventoryAnalysisPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="category">Categoría</Label>
-                        <Select defaultValue="all">
+                        <Select value={category} onValueChange={setCategory}>
                             <SelectTrigger id="category" className="w-full">
                                 <SelectValue placeholder="Seleccionar categoría" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todas</SelectItem>
-                                <SelectItem value="electronica">Electrónica</SelectItem>
+                                <SelectItem value="electrónica">Electrónica</SelectItem>
                                 <SelectItem value="ropa">Ropa</SelectItem>
                                 <SelectItem value="hogar">Hogar</SelectItem>
                                 <SelectItem value="juguetes">Juguetes</SelectItem>
@@ -192,7 +251,7 @@ export default function InventoryAnalysisPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="stock-status">Estado de Stock</Label>
-                        <Select defaultValue="all">
+                        <Select value={stockStatus} onValueChange={setStockStatus}>
                             <SelectTrigger id="stock-status" className="w-full">
                                 <SelectValue placeholder="Seleccionar estado" />
                             </SelectTrigger>
@@ -205,11 +264,11 @@ export default function InventoryAnalysisPage() {
                     </div>
                     <div className="space-y-2 sm:col-span-2 lg:col-span-2">
                         <Label htmlFor="search">Buscar SKU o Producto</Label>
-                        <Input id="search" placeholder="Ej: LPX-001..." />
+                        <Input id="search" placeholder="Ej: LPX-001..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
                     <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
-                        <Button className="w-full">Aplicar Filtros</Button>
-                        <Button variant="outline" className="w-full">Limpiar</Button>
+                        <Button className="w-full" onClick={handleApplyFilters}>Aplicar Filtros</Button>
+                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
                     </div>
                 </div>
             </CardContent>
@@ -227,7 +286,7 @@ export default function InventoryAnalysisPage() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.inventoryValue)}</div>
+                  <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.inventoryValue)}</div>
                   <p className="text-xs text-muted-foreground">Valor actual de todas las existencias.</p>
                 </CardContent>
               </Card>
@@ -237,7 +296,7 @@ export default function InventoryAnalysisPage() {
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpiData.activeSKUs}</div>
+                  <div className="text-2xl font-bold">{kpis.activeSKUs}</div>
                   <p className="text-xs text-muted-foreground">Número de productos únicos gestionados.</p>
                 </CardContent>
               </Card>
@@ -247,7 +306,7 @@ export default function InventoryAnalysisPage() {
                   <TrendingDown className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpiData.lowStockItems}</div>
+                  <div className="text-2xl font-bold">{kpis.lowStockItems}</div>
                   <p className="text-xs text-muted-foreground">Productos que necesitan reabastecimiento.</p>
                 </CardContent>
               </Card>
@@ -257,7 +316,7 @@ export default function InventoryAnalysisPage() {
                   <Warehouse className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{kpiData.turnoverRate}</div>
+                  <div className="text-2xl font-bold">{kpis.turnoverRate}</div>
                   <p className="text-xs text-muted-foreground">Eficiencia de renovación (mensual).</p>
                 </CardContent>
               </Card>
@@ -316,7 +375,7 @@ export default function InventoryAnalysisPage() {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfigMovement} className="h-[300px] w-full">
-                    <LineChart data={inventoryMovementData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                    <LineChart data={displayedMovement} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                       <CartesianGrid vertical={false} />
                       <YAxis />
                       <XAxis dataKey="date" />
@@ -350,7 +409,7 @@ export default function InventoryAnalysisPage() {
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {inventoryDetailData.map((item) => (
+                          {displayedInventoryDetail.map((item) => (
                               <TableRow key={item.sku}>
                                   <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                                   <TableCell className="font-medium">{item.product}</TableCell>
