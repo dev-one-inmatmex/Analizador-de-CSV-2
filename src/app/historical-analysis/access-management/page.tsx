@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Users, UserPlus, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Users, UserPlus, MoreHorizontal, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
@@ -102,11 +102,17 @@ export default function AccessManagementPage() {
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Gestión de Accesos y Roles</h1>
         </div>
-        <Link href="/historical-analysis/access-management/new-user" passHref>
-            <Button><UserPlus className="mr-2 h-4 w-4" /> Añadir Nuevo Usuario</Button>
-        </Link>
+        <div className="flex items-center gap-4">
+            <Link href="/historical-analysis/access-management/new-user" passHref>
+                <Button><UserPlus className="mr-2 h-4 w-4" /> Añadir Nuevo Usuario</Button>
+            </Link>
+            <Button variant="outline">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+            </Button>
+        </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 lg:p-8">
         <Tabs defaultValue="users">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="users">Usuarios</TabsTrigger>
