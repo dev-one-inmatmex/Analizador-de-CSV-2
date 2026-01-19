@@ -107,8 +107,8 @@ export default function OperationsAnalysisPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                    <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                         <Label htmlFor="date-range">Rango de Fechas</Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -178,7 +178,7 @@ export default function OperationsAnalysisPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
+                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-3">
                         <Button className="w-full">Aplicar Filtros</Button>
                         <Button variant="outline" className="w-full">Limpiar</Button>
                     </div>
