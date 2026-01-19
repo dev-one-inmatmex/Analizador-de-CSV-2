@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Package, TrendingUp, Filter, Calendar as CalendarIcon, Clock, Gauge, BarChartHorizontal } from 'lucide-react';
+import { ArrowLeft, Package, TrendingUp, Filter, Calendar as CalendarIcon, Clock, Gauge, BarChartHorizontal, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format } from 'date-fns';
@@ -98,6 +98,12 @@ export default function ProductsAnalysisPage() {
             </Button>
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Análisis de Productos</h1>
+        </div>
+        <div>
+            <Button variant="outline">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+            </Button>
         </div>
       </header>
 

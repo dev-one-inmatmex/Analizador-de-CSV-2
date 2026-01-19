@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, BrainCircuit, TrendingUp, Calendar as CalendarIcon, Filter, LineChart as LineChartIcon, BarChart3, Bot } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, TrendingUp, Calendar as CalendarIcon, Filter, LineChart as LineChartIcon, BarChart3, Bot, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format, addMonths } from 'date-fns';
@@ -67,6 +67,12 @@ export default function TrendsPredictionPage() {
             </Button>
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Predicción de Tendencias</h1>
+        </div>
+        <div>
+            <Button variant="outline">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+            </Button>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">

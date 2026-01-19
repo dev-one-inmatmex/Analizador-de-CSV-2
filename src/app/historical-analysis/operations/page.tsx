@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, Calendar as CalendarIcon, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format } from 'date-fns';
@@ -95,6 +95,12 @@ export default function OperationsAnalysisPage() {
             </Button>
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Rendimiento Operativo</h1>
+        </div>
+        <div>
+            <Button variant="outline">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+            </Button>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
