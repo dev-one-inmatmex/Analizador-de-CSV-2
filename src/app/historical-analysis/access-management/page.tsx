@@ -27,7 +27,7 @@ export default function AccessManagementPage() {
             </div>
             <CardTitle className="mt-4">Página en Construcción</CardTitle>
             <CardDescription>
-              La funcionalidad para la segmentación de roles y la gestión de permisos de usuario está en desarrollo. ¡Vuelve pronto!
+              Aquí podrás definir roles de usuario (como administrador, operador o analista) y asignar permisos específicos para controlar quién puede ver y editar cada sección de la aplicación. Esta funcionalidad está en desarrollo.
             </CardDescription>
           </CardHeader>
           <CardContent>

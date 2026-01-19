@@ -27,7 +27,7 @@ export default function HistoricalAnalysisPage() {
                 <BarChart3 className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Ventas</CardTitle>
                 <CardDescription>
-                  Información detallada sobre el rendimiento de las ventas.
+                  Analiza patrones de ventas, identifica tus productos más importantes y entiende el comportamiento de compra de tus clientes.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -45,7 +45,7 @@ export default function HistoricalAnalysisPage() {
                 <Package className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Inventario</CardTitle>
                 <CardDescription>
-                  Análisis de movimientos y existencias de la materia prima.
+                  Gestiona y visualiza el ciclo de vida de tu inventario, desde las entradas de materia prima hasta las existencias actuales.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -62,7 +62,7 @@ export default function HistoricalAnalysisPage() {
                 <Zap className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Rendimiento Operativo</CardTitle>
                 <CardDescription>
-                  Medición del rendimiento diario por empresa y usuario.
+                  Mide la eficiencia de tus operaciones diarias, monitorizando el rendimiento por equipo y por empresa en tiempo real.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -79,7 +79,7 @@ export default function HistoricalAnalysisPage() {
                 <ClipboardList className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Productos</CardTitle>
                 <CardDescription>
-                  Depuración y análisis del ciclo de vida de los productos.
+                  Analiza el ciclo de vida de tus productos terminados, desde su elaboración hasta su consumo, para optimizar el stock.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -97,7 +97,7 @@ export default function HistoricalAnalysisPage() {
                 <BrainCircuit className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Predicción de Tendencias</CardTitle>
                 <CardDescription>
-                  Usa IA para predecir futuras tendencias de compra y demanda.
+                  Anticipa la demanda futura y los patrones de compra estacionales utilizando modelos de inteligencia artificial.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -114,7 +114,7 @@ export default function HistoricalAnalysisPage() {
                 <GitCompareArrows className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Ventas por Mayor y Menor</CardTitle>
                 <CardDescription>
-                  Análisis detallado de ventas de alto y bajo volumen.
+                  Segmenta tus ventas para identificar productos de nicho, optimizar estrategias de precios y entender la dinámica de ventas por volumen.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -131,7 +131,7 @@ export default function HistoricalAnalysisPage() {
                 <Users className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Gestión de Accesos</CardTitle>
                 <CardDescription>
-                  Segmentación de roles y permisos para usuarios del sistema.
+                  Define y administra roles de usuario para controlar el acceso a diferentes dashboards y funcionalidades de la aplicación.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -148,7 +148,7 @@ export default function HistoricalAnalysisPage() {
                 <CheckSquare className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Check Virtual</CardTitle>
                 <CardDescription>
-                  Herramientas para agilizar y verificar procesos operativos.
+                  Implementa un sistema de seguimiento y validación virtual para agilizar y asegurar la calidad de tus procesos operativos.
                 </CardDescription>
               </CardHeader>
               <CardContent>

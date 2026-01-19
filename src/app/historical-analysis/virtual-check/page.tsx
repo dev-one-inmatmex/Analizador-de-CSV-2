@@ -27,7 +27,7 @@ export default function VirtualCheckPage() {
             </div>
             <CardTitle className="mt-4">Página en Construcción</CardTitle>
             <CardDescription>
-              Las herramientas para la agilización y verificación de procesos operativos están en desarrollo. ¡Vuelve pronto para ver los avances!
+              En esta sección podrás implementar un sistema de seguimiento y validación de tareas en tiempo real. Agiliza tus procesos operativos y asegura la calidad con checklists virtuales. La funcionalidad está en desarrollo.
             </CardDescription>
           </CardHeader>
           <CardContent>

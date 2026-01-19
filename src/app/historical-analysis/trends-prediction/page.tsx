@@ -27,7 +27,7 @@ export default function TrendsPredictionPage() {
             </div>
             <CardTitle className="mt-4">Página en Construcción</CardTitle>
             <CardDescription>
-              Esta funcionalidad para predecir tendencias de compra está siendo desarrollada. ¡Vuelve pronto para ver los avances!
+              Próximamente, esta sección utilizará inteligencia artificial para analizar tus datos históricos y predecir futuras tendencias de ventas, demanda de productos y patrones estacionales. La funcionalidad está en desarrollo.
             </CardDescription>
           </CardHeader>
           <CardContent>

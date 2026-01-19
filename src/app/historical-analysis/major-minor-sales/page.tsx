@@ -27,7 +27,7 @@ export default function MajorMinorSalesPage() {
             </div>
             <CardTitle className="mt-4">Página en Construcción</CardTitle>
             <CardDescription>
-              Esta sección para el análisis detallado de ventas por volumen está en desarrollo. ¡Vuelve pronto para ver los avances!
+              Esta sección te permitirá diferenciar y analizar las ventas por volumen, identificando patrones en compras mayoristas y minoristas para optimizar estrategias de precios y stock. La funcionalidad está en desarrollo.
             </CardDescription>
           </CardHeader>
           <CardContent>
