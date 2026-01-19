@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BarChart3, Package, Zap, ClipboardList } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, Zap, ClipboardList, BrainCircuit, GitCompareArrows, Users, CheckSquare } from 'lucide-react';
 
 export default function HistoricalAnalysisPage() {
   return (
@@ -18,9 +18,9 @@ export default function HistoricalAnalysisPage() {
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <p className="text-muted-foreground">
-          Selecciona una de las siguientes opciones para analizar datos históricos de diferentes fuentes.
+          Selecciona una de las siguientes opciones para analizar datos históricos y explorar nuevas funcionalidades.
         </p>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Link href="/historical-analysis/sales" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
@@ -91,7 +91,85 @@ export default function HistoricalAnalysisPage() {
               </CardContent>
             </Card>
           </Link>
+          <Link href="/historical-analysis/trends-prediction" className="block hover:no-underline">
+            <Card className="h-full transition-shadow hover:shadow-lg">
+              <CardHeader>
+                <BrainCircuit className="mb-2 h-8 w-8 text-primary" />
+                <CardTitle>Predicción de Tendencias</CardTitle>
+                <CardDescription>
+                  Usa IA para predecir futuras tendencias de compra y demanda.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <List>
+                  <ListItem>Análisis predictivo de ventas.</ListItem>
+                  <ListItem>Identificación de patrones estacionales.</ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/historical-analysis/major-minor-sales" className="block hover:no-underline">
+            <Card className="h-full transition-shadow hover:shadow-lg">
+              <CardHeader>
+                <GitCompareArrows className="mb-2 h-8 w-8 text-primary" />
+                <CardTitle>Ventas por Mayor y Menor</CardTitle>
+                <CardDescription>
+                  Análisis detallado de ventas de alto y bajo volumen.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <List>
+                  <ListItem>Identificar productos de nicho.</ListItem>
+                  <ListItem>Optimizar estrategias de precios.</ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/historical-analysis/access-management" className="block hover:no-underline">
+            <Card className="h-full transition-shadow hover:shadow-lg">
+              <CardHeader>
+                <Users className="mb-2 h-8 w-8 text-primary" />
+                <CardTitle>Gestión de Accesos</CardTitle>
+                <CardDescription>
+                  Segmentación de roles y permisos para usuarios del sistema.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <List>
+                  <ListItem>Definir roles (admin, operador, etc.).</ListItem>
+                  <ListItem>Controlar acceso a dashboards y funciones.</ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/historical-analysis/virtual-check" className="block hover:no-underline">
+            <Card className="h-full transition-shadow hover:shadow-lg">
+              <CardHeader>
+                <CheckSquare className="mb-2 h-8 w-8 text-primary" />
+                <CardTitle>Check Virtual</CardTitle>
+                <CardDescription>
+                  Herramientas para agilizar y verificar procesos operativos.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <List>
+                  <ListItem>Seguimiento de tareas en tiempo real.</ListItem>
+                  <ListItem>Validación virtual de pasos de producción.</ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Nota sobre el Análisis por Empresa</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              La funcionalidad de <span className="font-semibold text-foreground">Análisis por Empresa</span> ya se encuentra integrada en los dashboards de Ventas, Inventario y Operaciones. Puedes usar el filtro "Empresa" en cada una de esas páginas para segmentar los datos y obtener una vista detallada del rendimiento por cada entidad.
+            </p>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
