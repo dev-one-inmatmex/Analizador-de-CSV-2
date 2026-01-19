@@ -7,18 +7,31 @@ import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 
 // --- MOCK DATA ---
-const usersData = [
+const initialUsersData = [
   { id: 'usr_001', name: 'Ana García', email: 'ana.garcia@example.com', role: 'Administrador', status: 'Activo', lastLogin: 'Hoy, 9:30 AM' },
   { id: 'usr_002', name: 'Carlos Reyes', email: 'carlos.reyes@example.com', role: 'Analista', status: 'Activo', lastLogin: 'Ayer, 3:15 PM' },
   { id: 'usr_003', name: 'Laura Fernández', email: 'laura.fernandez@example.com', role: 'Operador', status: 'Activo', lastLogin: 'Hace 3 días' },
   { id: 'usr_004', name: 'Pedro Morales', email: 'pedro.morales@example.com', role: 'Operador', status: 'Inactivo', lastLogin: 'Hace 2 semanas' },
 ];
+
+type User = typeof initialUsersData[0];
 
 export default function AccessManagementPage() {
     const allPermissions = [
@@ -32,6 +45,12 @@ export default function AccessManagementPage() {
         { id: 'virtual-check', label: 'Check Virtual', description: 'Usar y gestionar el check virtual de procesos.' },
     ];
     const roles = ['Administrador', 'Analista', 'Operador'];
+
+    const [users, setUsers] = React.useState<User[]>(initialUsersData);
+    const [selectedUser, setSelectedUser] = React.useState<User | null>(null);
+    const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+    const [newRole, setNewRole] = React.useState('');
+
 
     const [permissions, setPermissions] = React.useState<{ [key: string]: Set<string> }>({
         Administrador: new Set(allPermissions.map(p => p.id)),
@@ -53,6 +72,21 @@ export default function AccessManagementPage() {
             };
         });
     };
+
+    const handleEditRoleClick = (user: User) => {
+        setSelectedUser(user);
+        setNewRole(user.role);
+        setIsEditDialogOpen(true);
+    };
+
+    const handleRoleUpdate = () => {
+        if (selectedUser && newRole) {
+            setUsers(users.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u));
+            setIsEditDialogOpen(false);
+            setSelectedUser(null);
+        }
+    };
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -91,7 +125,7 @@ export default function AccessManagementPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {usersData.map((user) => (
+                    {users.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="font-medium">{user.name}</div>
@@ -106,7 +140,7 @@ export default function AccessManagementPage() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Editar Rol</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditRoleClick(user)}>Editar Rol</DropdownMenuItem>
                               <DropdownMenuItem>Reenviar Invitación</DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive">Desactivar Usuario</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -167,6 +201,39 @@ export default function AccessManagementPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Rol de Usuario</DialogTitle>
+                    <DialogDescription>
+                        Selecciona el nuevo rol para <span className="font-medium">{selectedUser?.name}</span>.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="role-select">Rol de Usuario</Label>
+                        <Select value={newRole} onValueChange={setNewRole}>
+                            <SelectTrigger id="role-select">
+                                <SelectValue placeholder="Seleccionar un rol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {roles.map(role => (
+                                    <SelectItem key={role} value={role} disabled={role === 'Administrador'}>{role}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Cancelar</Button>
+                    </DialogClose>
+                    <Button onClick={handleRoleUpdate}>Guardar Cambios</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
       </main>
     </div>
   );
