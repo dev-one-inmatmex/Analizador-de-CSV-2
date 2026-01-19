@@ -1,23 +1,20 @@
 'use client';
 
-import { ArrowLeft, BrainCircuit, TrendingUp, Calendar as CalendarIcon, Filter, LineChart as LineChartIcon, BarChart3, Bot, LogOut, Loader2 } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, TrendingUp, Filter, LineChart as LineChartIcon, BarChart3, Bot, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { addDays, format, addMonths } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { addMonths, format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -27,12 +24,12 @@ const kpiData = {
 };
 
 const generateSalesHistory = () => Array.from({ length: 12 }, (_, i) => ({
-  date: format(addMonths(new Date(), -11 + i), 'MMM yy', { locale: es }),
+  date: format(addMonths(new Date(), -11 + i), 'MMM yy'),
   ventas: Math.floor(Math.random() * 200000) + 100000,
 }));
 
 const generateSalesPrediction = (history: {date: string, ventas: number}[]) => Array.from({ length: 6 }, (_, i) => ({
-  date: format(addMonths(new Date(), i), 'MMM yy', { locale: es }),
+  date: format(addMonths(new Date(), i), 'MMM yy'),
   ventas: i === 0 ? history[11].ventas : undefined, // Start from last historical point
   prediccion: Math.floor(Math.random() * 150000) + (history[11].ventas * (1 + (i * 0.05))),
 }));
@@ -122,21 +119,7 @@ export default function TrendsPredictionPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                         <Label htmlFor="date-range">Rango de Fechas (Histórico + Predicción)</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              id="date-range"
-                              variant={"outline"}
-                              className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {date?.from ? (date.to ? `${format(date.from, "LLL dd, y", { locale: es })} - ${format(date.to, "LLL dd, y", { locale: es })}` : format(date.from, "LLL dd, y", { locale: es })) : <span>Seleccionar fecha</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} locale={es} />
-                          </PopoverContent>
-                        </Popover>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="category">Categoría de Producto</Label>
@@ -190,7 +173,7 @@ export default function TrendsPredictionPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Pico Estacional Previsto</CardTitle>
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{kpiData.seasonalPeak}</div>

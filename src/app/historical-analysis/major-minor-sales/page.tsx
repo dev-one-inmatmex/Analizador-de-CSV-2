@@ -1,23 +1,20 @@
 'use client';
 
-import { ArrowLeft, GitCompareArrows, Filter, Calendar as CalendarIcon, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut } from 'lucide-react';
+import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { addDays, format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -135,17 +132,7 @@ export default function MajorMinorSalesPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                         <Label htmlFor="date-range">Rango de Fechas</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button id="date-range" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {date?.from ? (date.to ? `${format(date.from, "LLL dd, y", { locale: es })} - ${format(date.to, "LLL dd, y", { locale: es })}` : format(date.from, "LLL dd, y", { locale: es })) : <span>Seleccionar fecha</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} locale={es} />
-                          </PopoverContent>
-                        </Popover>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="sale-type">Tipo de Venta</Label>
