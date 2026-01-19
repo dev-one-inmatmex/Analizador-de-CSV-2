@@ -113,7 +113,7 @@ export default function InventoryAnalysisPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.inventoryValue)}</div>
-              <p className="text-xs text-muted-foreground">Valor actual de todas las existencias</p>
+              <p className="text-xs text-muted-foreground">Valor actual de todas las existencias en almacén.</p>
             </CardContent>
           </Card>
           <Card>
@@ -123,7 +123,7 @@ export default function InventoryAnalysisPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{kpiData.activeSKUs}</div>
-              <p className="text-xs text-muted-foreground">Número de productos únicos en inventario</p>
+              <p className="text-xs text-muted-foreground">Número de productos únicos gestionados.</p>
             </CardContent>
           </Card>
           <Card>
@@ -133,7 +133,7 @@ export default function InventoryAnalysisPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{kpiData.lowStockItems}</div>
-              <p className="text-xs text-muted-foreground">Productos que necesitan reabastecimiento</p>
+              <p className="text-xs text-muted-foreground">Productos que necesitan reabastecimiento urgente.</p>
             </CardContent>
           </Card>
           <Card>
@@ -143,7 +143,7 @@ export default function InventoryAnalysisPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{kpiData.turnoverRate}</div>
-              <p className="text-xs text-muted-foreground">Veces que el inventario se renueva al mes</p>
+              <p className="text-xs text-muted-foreground">Eficiencia de renovación del inventario (mensual).</p>
             </CardContent>
           </Card>
         </div>
@@ -195,8 +195,8 @@ export default function InventoryAnalysisPage() {
 
               <Card className="col-span-12">
                 <CardHeader>
-                  <CardTitle>Movimiento de Inventario (Últimos 7 días)</CardTitle>
-                  <CardDescription>Comparativa de unidades entrantes y salientes.</CardDescription>
+                  <CardTitle>Movimiento de Inventario</CardTitle>
+                  <CardDescription>Comparativa de unidades entrantes y salientes en los últimos 7 días.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfigMovement} className="h-[300px] w-full">
@@ -218,7 +218,7 @@ export default function InventoryAnalysisPage() {
             <Card>
               <CardHeader>
                   <CardTitle>Detalle de Inventario</CardTitle>
-                  <CardDescription>Lista completa de todos los productos en existencia.</CardDescription>
+                  <CardDescription>Lista completa de todos los productos en existencia, con su valor y estado.</CardDescription>
               </CardHeader>
               <CardContent>
                   <Table>

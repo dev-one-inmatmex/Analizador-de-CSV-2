@@ -94,7 +94,7 @@ export default function OperationsAnalysisPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{kpiData.avgPerformance}%</div>
-                    <p className="text-xs text-muted-foreground">Eficiencia general de la operación</p>
+                    <p className="text-xs text-muted-foreground">Eficiencia general contra el objetivo.</p>
                 </CardContent>
             </Card>
             <Card>
@@ -104,7 +104,7 @@ export default function OperationsAnalysisPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{kpiData.labelsProcessed.toLocaleString('es-MX')}</div>
-                    <p className="text-xs text-muted-foreground">Etiquetas gestionadas en el día</p>
+                    <p className="text-xs text-muted-foreground">Volumen de etiquetas en la jornada actual.</p>
                 </CardContent>
             </Card>
             <Card>
@@ -114,7 +114,7 @@ export default function OperationsAnalysisPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{kpiData.topCompany}</div>
-                    <p className="text-xs text-muted-foreground">Mayor volumen de etiquetas/hora</p>
+                    <p className="text-xs text-muted-foreground">Mayor volumen de etiquetas por hora.</p>
                 </CardContent>
             </Card>
             <Card>
@@ -124,7 +124,7 @@ export default function OperationsAnalysisPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">{kpiData.avgTimePerLabel} seg</div>
-                    <p className="text-xs text-muted-foreground">Tiempo medio para procesar una etiqueta</p>
+                    <p className="text-xs text-muted-foreground">Tiempo medio para procesar una sola etiqueta.</p>
                 </CardContent>
             </Card>
         </div>
@@ -138,8 +138,8 @@ export default function OperationsAnalysisPage() {
             <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Rendimiento por Empresa (Etiquetas/Hora)</CardTitle>
-                        <CardDescription>Comparativa de productividad entre empresas.</CardDescription>
+                        <CardTitle>Rendimiento por Empresa</CardTitle>
+                        <CardDescription>Comparativa de productividad (etiquetas/hora) entre empresas.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={companyConfig} className="h-[300px] w-full">
@@ -164,8 +164,8 @@ export default function OperationsAnalysisPage() {
                 </Card>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Actividad Operativa (Últimas 8 Horas)</CardTitle>
-                        <CardDescription>Volumen de etiquetas procesadas por hora.</CardDescription>
+                        <CardTitle>Actividad Operativa</CardTitle>
+                        <CardDescription>Volumen de etiquetas procesadas por hora en las últimas 8 horas.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={{ labels: { label: 'Etiquetas', color: 'hsl(var(--primary))' } }} className="h-[300px] w-full">
@@ -185,7 +185,7 @@ export default function OperationsAnalysisPage() {
               <Card>
                   <CardHeader>
                       <CardTitle>Registro de Actividad Reciente</CardTitle>
-                      <CardDescription>Últimas operaciones registradas en el sistema.</CardDescription>
+                      <CardDescription>Últimas operaciones registradas en el sistema por los usuarios.</CardDescription>
                   </CardHeader>
                   <CardContent>
                       <Table>
@@ -203,7 +203,10 @@ export default function OperationsAnalysisPage() {
                                   <TableRow key={index}>
                                       <TableCell className="font-medium">{op.user}</TableCell>
                                       <TableCell>
-                                          <Badge variant="outline" style={{ border: `1px solid ${companyConfig[op.company as keyof typeof companyConfig].color}` }}>
+                                          <Badge variant="outline" style={{
+                                             borderColor: companyConfig[op.company as keyof typeof companyConfig]?.color,
+                                             color: companyConfig[op.company as keyof typeof companyConfig]?.color,
+                                          }}>
                                               {op.company}
                                           </Badge>
                                       </TableCell>

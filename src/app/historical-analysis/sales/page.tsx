@@ -235,8 +235,8 @@ export default function SalesAnalysisPage() {
 
                 <Card className="col-span-12">
                     <CardHeader>
-                    <CardTitle>Unidades por Periodo (Últimos 7 días)</CardTitle>
-                    <CardDescription>Tendencia de ventas de las principales empresas.</CardDescription>
+                    <CardTitle>Unidades por Periodo</CardTitle>
+                    <CardDescription>Tendencia de ventas de las principales empresas en los últimos 7 días.</CardDescription>
                     </CardHeader>
                     <CardContent>
                     <ChartContainer config={chartConfigUnitsByPeriod} className="h-[300px] w-full">
@@ -293,7 +293,7 @@ export default function SalesAnalysisPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>Top Productos</CardTitle>
-                            <CardDescription>Productos con mayor volumen de ventas.</CardDescription>
+                            <CardDescription>Productos con mayor volumen de ventas en el periodo.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -317,7 +317,7 @@ export default function SalesAnalysisPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>Rendimiento por Usuario</CardTitle>
-                            <CardDescription>Eficiencia y actividad de los vendedores.</CardDescription>
+                            <CardDescription>Eficiencia y volumen de ventas de cada miembro del equipo.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Table>
