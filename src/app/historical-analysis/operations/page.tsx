@@ -4,6 +4,7 @@ import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, Calendar as Calend
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
 
@@ -123,11 +124,11 @@ export default function OperationsAnalysisPage() {
                               {date?.from ? (
                                 date.to ? (
                                   <>
-                                    {format(date.from, "LLL dd, y")} -{" "}
-                                    {format(date.to, "LLL dd, y")}
+                                    {format(date.from, "LLL dd, y", { locale: es })} -{" "}
+                                    {format(date.to, "LLL dd, y", { locale: es })}
                                   </>
                                 ) : (
-                                  format(date.from, "LLL dd, y")
+                                  format(date.from, "LLL dd, y", { locale: es })
                                 )
                               ) : (
                                 <span>Seleccionar fecha</span>
@@ -142,6 +143,7 @@ export default function OperationsAnalysisPage() {
                               selected={date}
                               onSelect={setDate}
                               numberOfMonths={2}
+                              locale={es}
                             />
                           </PopoverContent>
                         </Popover>

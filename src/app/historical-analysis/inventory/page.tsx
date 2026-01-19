@@ -4,6 +4,7 @@ import { ArrowLeft, Package, DollarSign, Archive, TrendingDown, Warehouse, Filte
 import Link from 'next/link';
 import * as React from 'react';
 import { addDays, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis, Line, LineChart } from 'recharts';
 
@@ -143,11 +144,11 @@ export default function InventoryAnalysisPage() {
                               {date?.from ? (
                                 date.to ? (
                                   <>
-                                    {format(date.from, "LLL dd, y")} -{" "}
-                                    {format(date.to, "LLL dd, y")}
+                                    {format(date.from, "LLL dd, y", { locale: es })} -{" "}
+                                    {format(date.to, "LLL dd, y", { locale: es })}
                                   </>
                                 ) : (
-                                  format(date.from, "LLL dd, y")
+                                  format(date.from, "LLL dd, y", { locale: es })
                                 )
                               ) : (
                                 <span>Seleccionar fecha</span>
@@ -162,6 +163,7 @@ export default function InventoryAnalysisPage() {
                               selected={date}
                               onSelect={setDate}
                               numberOfMonths={2}
+                              locale={es}
                             />
                           </PopoverContent>
                         </Popover>
