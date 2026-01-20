@@ -188,12 +188,12 @@ export default function InventoryAnalysisPage() {
                     <CardDescription>Filtra por categoría, estado de stock o busca un producto específico.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-2 sm:col-span-2 lg:col-span-2">
-                        <Label htmlFor="date-range">Rango de Fechas</Label>
-                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                    </div>
+            <CardContent className="flex flex-col gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="date-range">Rango de Fechas</Label>
+                    <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="space-y-2">
                         <Label htmlFor="category">Categoría</Label>
                         <Select value={category} onValueChange={setCategory}>
@@ -223,14 +223,14 @@ export default function InventoryAnalysisPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="space-y-2 sm:col-span-2 lg:col-span-2">
+                    <div className="space-y-2">
                         <Label htmlFor="search">Buscar SKU o Producto</Label>
                         <Input id="search" placeholder="Ej: LPX-001..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
-                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
-                        <Button className="w-full" onClick={handleApplyFilters}>Aplicar Filtros</Button>
-                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
-                    </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
+                    <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
                 </div>
             </CardContent>
         </Card>

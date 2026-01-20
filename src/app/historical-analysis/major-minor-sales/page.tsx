@@ -128,12 +128,12 @@ export default function MajorMinorSalesPage() {
                     <CardDescription>Analiza por tipo de venta, cliente o periodo de tiempo.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                        <Label htmlFor="date-range">Rango de Fechas</Label>
-                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                    </div>
+            <CardContent className="flex flex-col gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="date-range">Rango de Fechas</Label>
+                    <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                         <Label htmlFor="sale-type">Tipo de Venta</Label>
                         <Select value={saleType} onValueChange={setSaleType}>
@@ -156,10 +156,10 @@ export default function MajorMinorSalesPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-3">
-                        <Button className="w-full" onClick={handleApplyFilters}>Aplicar Filtros</Button>
-                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
-                    </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
+                    <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
                 </div>
             </CardContent>
         </Card>

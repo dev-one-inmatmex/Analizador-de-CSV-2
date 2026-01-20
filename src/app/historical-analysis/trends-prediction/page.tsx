@@ -115,12 +115,12 @@ export default function TrendsPredictionPage() {
                     <CardDescription>Ajusta el periodo y la categoría para refinar el análisis predictivo.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                        <Label htmlFor="date-range">Rango de Fechas (Histórico + Predicción)</Label>
-                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                    </div>
+            <CardContent className="flex flex-col gap-6">
+                <div className="space-y-2">
+                    <Label htmlFor="date-range">Rango de Fechas (Histórico + Predicción)</Label>
+                    <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                         <Label htmlFor="category">Categoría de Producto</Label>
                         <Select value={category} onValueChange={setCategory}>
@@ -133,13 +133,13 @@ export default function TrendsPredictionPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="col-span-1 grid grid-cols-2 items-end gap-2 sm:col-span-2 lg:col-span-2">
-                        <Button className="w-full" onClick={handleGeneratePrediction} disabled={isLoading}>
-                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
-                            {isLoading ? 'Generando...' : 'Generar Predicción'}
-                        </Button>
-                        <Button variant="outline" className="w-full" onClick={handleClearFilters}>Limpiar</Button>
-                    </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
+                    <Button onClick={handleGeneratePrediction} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                        {isLoading ? 'Generando...' : 'Generar Predicción'}
+                    </Button>
                 </div>
             </CardContent>
         </Card>
