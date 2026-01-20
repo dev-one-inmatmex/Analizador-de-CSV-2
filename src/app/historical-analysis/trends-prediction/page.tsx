@@ -4,7 +4,6 @@ import { ArrowLeft, BrainCircuit, TrendingUp, Filter, LineChart as LineChartIcon
 import Link from 'next/link';
 import * as React from 'react';
 import { addMonths, format } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -48,13 +46,12 @@ const detailedPredictions = [
     { product: 'Celular Gen 5', sku: 'CEL-005', prediction: 80, confidence: 'Baja (70%)', suggestion: 'Revisar estacionalidad' },
 ];
 
+const allCategories = ['General', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes'];
+
 export default function TrendsPredictionPage() {
   const { toast } = useToast();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: addMonths(new Date(), -11),
-    to: addMonths(new Date(), 5),
-  });
   const [isLoading, setIsLoading] = React.useState(false);
+  const [category, setCategory] = React.useState('General');
   
   const [salesHistory, setSalesHistory] = React.useState(generateSalesHistory());
   const [salesPrediction, setSalesPrediction] = React.useState(() => generateSalesPrediction(salesHistory));
@@ -78,7 +75,7 @@ export default function TrendsPredictionPage() {
   };
 
   const handleClearFilters = () => {
-    setDate({ from: addMonths(new Date(), -11), to: addMonths(new Date(), 5) });
+    setCategory('General');
     toast({
         title: "Filtros limpiados",
         description: "Se han restaurado los filtros a sus valores por defecto."
@@ -110,15 +107,24 @@ export default function TrendsPredictionPage() {
                 <Filter className="h-6 w-6 text-muted-foreground" />
                 <div>
                     <CardTitle>Filtros de Predicción</CardTitle>
-                    <CardDescription>Ajusta el periodo y la categoría para refinar el análisis predictivo.</CardDescription>
+                    <CardDescription>Ajusta la categoría para refinar el análisis predictivo.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="date-range">Rango de Fechas (Histórico + Predicción)</Label>
-                    <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+            <CardContent>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <Label htmlFor="category-filter">Categoría</Label>
+                        <Select value={category} onValueChange={setCategory}>
+                            <SelectTrigger id="category-filter">
+                                <SelectValue placeholder="Seleccionar categoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                <div className="flex items-center justify-end gap-2">
+                <div className="mt-4 flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
                     <Button onClick={handleGeneratePrediction} disabled={isLoading}>
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}

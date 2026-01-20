@@ -3,8 +3,6 @@
 import { ArrowLeft, Package, DollarSign, TrendingDown, Warehouse, Filter, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { addDays } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis, Line, LineChart } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +15,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -35,7 +32,6 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // --- MOCK DATA ---
@@ -83,6 +79,8 @@ const inventoryDetailData = [
   { sku: 'PAN-007', product: 'Pantalón de Mezclilla', category: 'Ropa', stock: 12, unitValue: 40, status: 'Bajo Stock' },
 ];
 
+const allCategories = ['Todas', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes', 'Otros'];
+const allStatuses = ['Todos', 'En Stock', 'Bajo Stock'];
 
 const chartConfigCategory = {
   value: { label: 'Valor' },
@@ -97,10 +95,9 @@ const chartConfigMovement = {
 
 export default function InventoryAnalysisPage() {
   const { toast } = useToast();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: addDays(new Date(), -7),
-    to: new Date(),
-  });
+  
+  const [category, setCategory] = React.useState('Todas');
+  const [status, setStatus] = React.useState('Todos');
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedInventoryDetail, setDisplayedInventoryDetail] = React.useState(inventoryDetailData);
@@ -132,7 +129,8 @@ export default function InventoryAnalysisPage() {
       title: 'Filtros limpiados',
       description: 'Mostrando todos los datos originales.',
     });
-    setDate({ from: addDays(new Date(), -7), to: new Date() });
+    setCategory('Todas');
+    setStatus('Todos');
 
     // Reset data to original
     setKpis(kpiData);
@@ -169,12 +167,32 @@ export default function InventoryAnalysisPage() {
                     <CardDescription>Filtra por categoría, estado de stock o busca un producto específico.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="date-range">Rango de Fechas</Label>
-                    <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+            <CardContent>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <Label htmlFor="category-filter">Categoría</Label>
+                        <Select value={category} onValueChange={setCategory}>
+                            <SelectTrigger id="category-filter">
+                                <SelectValue placeholder="Seleccionar categoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="status-filter">Estado de Stock</Label>
+                        <Select value={status} onValueChange={setStatus}>
+                            <SelectTrigger id="status-filter">
+                                <SelectValue placeholder="Seleccionar estado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                <div className="flex items-center justify-end gap-2">
+                <div className="mt-4 flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
                     <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
                 </div>

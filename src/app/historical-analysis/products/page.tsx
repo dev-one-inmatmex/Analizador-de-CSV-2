@@ -3,9 +3,8 @@
 import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, BarChartHorizontal, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { addDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,6 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // --- MOCK DATA ---
@@ -79,14 +77,13 @@ const productDetailData = [
   { sku: 'PROD-E-005', product: 'Producto E', stock: 100, avgConsumption: 8, lastProduced: '2024-05-15' },
 ];
 
+const allProducts = ['Todos', 'Producto A', 'Producto B', 'Producto C', 'Producto D', 'Producto E'];
+
 
 export default function ProductsAnalysisPage() {
   const { toast } = useToast();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: addDays(new Date(), -7),
-    to: new Date(),
-  });
-
+  
+  const [product, setProduct] = React.useState('Todos');
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedMovement, setDisplayedMovement] = React.useState(stockMovementData);
   const [displayedDetails, setDisplayedDetails] = React.useState(productDetailData);
@@ -118,7 +115,7 @@ export default function ProductsAnalysisPage() {
         title: "Filtros limpiados",
         description: "Mostrando todos los datos originales."
     });
-    setDate({ from: addDays(new Date(), -7), to: new Date() });
+    setProduct('Todos');
 
     setKpis(kpiData);
     setDisplayedMovement(stockMovementData);
@@ -151,15 +148,24 @@ export default function ProductsAnalysisPage() {
                 <Filter className="h-6 w-6 text-muted-foreground" />
                 <div>
                     <CardTitle>Filtros de Análisis</CardTitle>
-                    <CardDescription>Filtra por producto o rango de fechas para refinar el análisis.</CardDescription>
+                    <CardDescription>Filtra por producto para refinar el análisis.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="date-range">Rango de Fechas</Label>
-                    <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+            <CardContent>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <Label htmlFor="product-filter">Producto</Label>
+                        <Select value={product} onValueChange={setProduct}>
+                            <SelectTrigger id="product-filter">
+                                <SelectValue placeholder="Seleccionar producto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                <div className="flex items-center justify-end gap-2">
+                <div className="mt-4 flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
                     <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
                 </div>

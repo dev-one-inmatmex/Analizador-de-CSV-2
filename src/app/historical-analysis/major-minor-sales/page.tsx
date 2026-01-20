@@ -3,8 +3,6 @@
 import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { addDays } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Button } from '@/components/ui/button';
@@ -14,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -47,13 +44,16 @@ const recentTransactionsData = [
     { id: '#3462', customer: 'Cliente D', type: 'Mayorista', amount: 22000, time: 'Hace 25 min' },
 ];
 
+const allTypes = ['Todos', 'Mayorista', 'Minorista'];
+const allCustomers = ['Todos', 'Cliente A', 'Cliente B', 'Cliente C', 'Cliente D', 'Cliente E', 'Público General'];
+
+
 export default function MajorMinorSalesPage() {
   const { toast } = useToast();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: addDays(new Date(), -30),
-    to: new Date(),
-  });
   
+  const [saleType, setSaleType] = React.useState('Todos');
+  const [customer, setCustomer] = React.useState('Todos');
+
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedTransactions, setDisplayedTransactions] = React.useState(recentTransactionsData);
   const [displayedTopCustomers, setDisplayedTopCustomers] = React.useState(topWholesaleCustomersData);
@@ -81,7 +81,8 @@ export default function MajorMinorSalesPage() {
       title: 'Filtros limpiados',
       description: 'Mostrando todos los datos originales.',
     });
-    setDate({ from: addDays(new Date(), -30), to: new Date() });
+    setSaleType('Todos');
+    setCustomer('Todos');
 
     setKpis(kpiData);
     setDisplayedTransactions(recentTransactionsData);
@@ -117,12 +118,32 @@ export default function MajorMinorSalesPage() {
                     <CardDescription>Analiza por tipo de venta, cliente o periodo de tiempo.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="date-range">Rango de Fechas</Label>
-                    <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+            <CardContent>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <Label htmlFor="type-filter">Tipo de Venta</Label>
+                        <Select value={saleType} onValueChange={setSaleType}>
+                            <SelectTrigger id="type-filter">
+                                <SelectValue placeholder="Seleccionar tipo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="customer-filter">Cliente</Label>
+                        <Select value={customer} onValueChange={setCustomer}>
+                            <SelectTrigger id="customer-filter">
+                                <SelectValue placeholder="Seleccionar cliente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allCustomers.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                <div className="flex items-center justify-end gap-2">
+                <div className="mt-4 flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
                     <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
                 </div>
