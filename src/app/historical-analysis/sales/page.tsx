@@ -3,7 +3,6 @@
 import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import type { DateRange } from 'react-day-picker';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +32,6 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // Chart Configs
@@ -49,6 +47,9 @@ const chartConfigUnitsByPeriod = { ...companyConfig };
 
 
 // Data
+const allCompanies = ['MTM', 'TAL', 'OMESKA'];
+const allUsers = ['dana', 'alex', 'juan', 'sara'];
+
 const salesByCompanyData = [
   { company: 'MTM', sales: 44 },
   { company: 'TAL', sales: 13 },
@@ -94,10 +95,9 @@ const recentSalesData = [
 
 export default function SalesAnalysisPage() {
   const { toast } = useToast();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: new Date(2023, 9, 2),
-    to: new Date(2023, 9, 6),
-  });
+  
+  const [company, setCompany] = React.useState('all');
+  const [user, setUser] = React.useState('all');
 
   const [displayedRecentSales, setDisplayedRecentSales] = React.useState(recentSalesData);
   const [displayedUserPerformance, setDisplayedUserPerformance] = React.useState(userPerformanceData);
@@ -119,7 +119,8 @@ export default function SalesAnalysisPage() {
           title: "Filtros limpiados",
           description: "Mostrando todos los datos originales."
       });
-      setDate({ from: new Date(2023, 9, 2), to: new Date(2023, 9, 6) });
+      setCompany('all');
+      setUser('all');
       setDisplayedRecentSales(recentSalesData);
       setDisplayedUserPerformance(userPerformanceData);
   };
@@ -160,17 +161,37 @@ export default function SalesAnalysisPage() {
                 <Filter className="h-6 w-6 text-muted-foreground" />
                 <div>
                     <CardTitle>Filtros de Análisis</CardTitle>
-                    <CardDescription>
-                        Usa los filtros para refinar los datos que se muestran en los gráficos y tablas.
-                    </CardDescription>
+                    <CardDescription>Analiza el rendimiento por empresa o usuario.</CardDescription>
                 </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="date-range">Rango de Fechas</Label>
-                    <DateRangePicker id="date" date={date} onSelect={setDate} />
+            <CardContent>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <Label htmlFor="company-filter">Empresa</Label>
+                        <Select value={company} onValueChange={setCompany}>
+                            <SelectTrigger id="company-filter">
+                                <SelectValue placeholder="Seleccionar empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas las empresas</SelectItem>
+                                {allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="user-filter">Usuario</Label>
+                        <Select value={user} onValueChange={setUser}>
+                            <SelectTrigger id="user-filter">
+                                <SelectValue placeholder="Seleccionar usuario" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los usuarios</SelectItem>
+                                {allUsers.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                <div className="flex items-center justify-end gap-2">
+                <div className="mt-4 flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
                     <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
                 </div>
