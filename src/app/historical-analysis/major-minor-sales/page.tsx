@@ -53,8 +53,6 @@ export default function MajorMinorSalesPage() {
     from: addDays(new Date(), -30),
     to: new Date(),
   });
-  const [saleType, setSaleType] = React.useState('all');
-  const [customer, setCustomer] = React.useState('all');
   
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedTransactions, setDisplayedTransactions] = React.useState(recentTransactionsData);
@@ -68,14 +66,7 @@ export default function MajorMinorSalesPage() {
 
     const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
     
-    let filteredTransactions = [...recentTransactionsData];
-    if (saleType !== 'all') {
-        filteredTransactions = filteredTransactions.filter(t => t.type.toLowerCase().startsWith(saleType));
-    }
-    if (customer !== 'all') {
-        filteredTransactions = filteredTransactions.filter(t => t.customer === customer);
-    }
-    setDisplayedTransactions(shuffle(filteredTransactions));
+    setDisplayedTransactions(shuffle(recentTransactionsData));
     setDisplayedTopCustomers(shuffle(topWholesaleCustomersData));
 
     setKpis(prev => ({
@@ -91,8 +82,6 @@ export default function MajorMinorSalesPage() {
       description: 'Mostrando todos los datos originales.',
     });
     setDate({ from: addDays(new Date(), -30), to: new Date() });
-    setSaleType('all');
-    setCustomer('all');
 
     setKpis(kpiData);
     setDisplayedTransactions(recentTransactionsData);
@@ -132,30 +121,6 @@ export default function MajorMinorSalesPage() {
                 <div className="space-y-2">
                     <Label htmlFor="date-range">Rango de Fechas</Label>
                     <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="sale-type">Tipo de Venta</Label>
-                        <Select value={saleType} onValueChange={setSaleType}>
-                            <SelectTrigger id="sale-type"><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas</SelectItem>
-                                <SelectItem value="mayoris">Mayorista</SelectItem>
-                                <SelectItem value="minoris">Minorista</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="customer">Cliente</Label>
-                        <Select value={customer} onValueChange={setCustomer}>
-                            <SelectTrigger id="customer"><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos</SelectItem>
-                                <SelectItem value="Cliente A">Cliente A</SelectItem>
-                                <SelectItem value="Cliente B">Cliente B</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
                 <div className="flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>

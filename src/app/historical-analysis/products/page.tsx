@@ -86,7 +86,6 @@ export default function ProductsAnalysisPage() {
     from: addDays(new Date(), -7),
     to: new Date(),
   });
-  const [product, setProduct] = React.useState('all');
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedMovement, setDisplayedMovement] = React.useState(stockMovementData);
@@ -98,11 +97,7 @@ export default function ProductsAnalysisPage() {
         description: "Los datos de productos han sido actualizados."
     });
 
-    let filteredDetails = [...productDetailData];
-    if (product !== 'all') {
-        filteredDetails = filteredDetails.filter(p => p.sku === product);
-    }
-    setDisplayedDetails(filteredDetails.sort(() => Math.random() - 0.5));
+    setDisplayedDetails(productDetailData.sort(() => Math.random() - 0.5));
 
     setKpis(prev => ({
         ...prev,
@@ -124,7 +119,6 @@ export default function ProductsAnalysisPage() {
         description: "Mostrando todos los datos originales."
     });
     setDate({ from: addDays(new Date(), -7), to: new Date() });
-    setProduct('all');
 
     setKpis(kpiData);
     setDisplayedMovement(stockMovementData);
@@ -164,24 +158,6 @@ export default function ProductsAnalysisPage() {
                 <div className="space-y-2">
                     <Label htmlFor="date-range">Rango de Fechas</Label>
                     <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="product">Producto</Label>
-                        <Select value={product} onValueChange={setProduct}>
-                            <SelectTrigger id="product" className="w-full">
-                                <SelectValue placeholder="Seleccionar producto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los productos</SelectItem>
-                                <SelectItem value="PROD-A-001">Producto A</SelectItem>
-                                <SelectItem value="PROD-B-002">Producto B</SelectItem>
-                                <SelectItem value="PROD-C-003">Producto C</SelectItem>
-                                <SelectItem value="PROD-D-004">Producto D</SelectItem>
-                                <SelectItem value="PROD-E-005">Producto E</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
                 <div className="flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>

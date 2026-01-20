@@ -98,8 +98,6 @@ export default function SalesAnalysisPage() {
     from: new Date(2023, 9, 2),
     to: new Date(2023, 9, 6),
   });
-  const [company, setCompany] = React.useState('all');
-  const [user, setUser] = React.useState('all');
 
   const [displayedRecentSales, setDisplayedRecentSales] = React.useState(recentSalesData);
   const [displayedUserPerformance, setDisplayedUserPerformance] = React.useState(userPerformanceData);
@@ -112,20 +110,8 @@ export default function SalesAnalysisPage() {
     
     const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
 
-    let filteredSales = [...recentSalesData];
-    if (company !== 'all') {
-        filteredSales = filteredSales.filter(s => s.company === company);
-    }
-    if (user !== 'all') {
-        filteredSales = filteredSales.filter(s => s.user === user);
-    }
-    setDisplayedRecentSales(shuffle(filteredSales));
-
-    let filteredUsers = [...userPerformanceData];
-    if (user !== 'all') {
-        filteredUsers = filteredUsers.filter(u => u.user === user);
-    }
-    setDisplayedUserPerformance(shuffle(filteredUsers));
+    setDisplayedRecentSales(shuffle(recentSalesData));
+    setDisplayedUserPerformance(shuffle(userPerformanceData));
   };
 
   const handleClearFilters = () => {
@@ -134,8 +120,6 @@ export default function SalesAnalysisPage() {
           description: "Mostrando todos los datos originales."
       });
       setDate({ from: new Date(2023, 9, 2), to: new Date(2023, 9, 6) });
-      setCompany('all');
-      setUser('all');
       setDisplayedRecentSales(recentSalesData);
       setDisplayedUserPerformance(userPerformanceData);
   };
@@ -185,37 +169,6 @@ export default function SalesAnalysisPage() {
                 <div className="space-y-2">
                     <Label htmlFor="date-range">Rango de Fechas</Label>
                     <DateRangePicker id="date" date={date} onSelect={setDate} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="company">Empresa</Label>
-                        <Select value={company} onValueChange={setCompany}>
-                            <SelectTrigger id="company" className="w-full">
-                                <SelectValue placeholder="Seleccionar empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas las empresas</SelectItem>
-                                <SelectItem value="MTM">MTM</SelectItem>
-                                <SelectItem value="TAL">TAL</SelectItem>
-                                <SelectItem value="OMESKA">OMESKA</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="user">Usuario</Label>
-                        <Select value={user} onValueChange={setUser}>
-                            <SelectTrigger id="user" className="w-full">
-                                <SelectValue placeholder="Seleccionar usuario" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los usuarios</SelectItem>
-                                <SelectItem value="dana">dana</SelectItem>
-                                <SelectItem value="alex">alex</SelectItem>
-                                <SelectItem value="juan">juan</SelectItem>
-                                <SelectItem value="sara">sara</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
                 <div className="flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>

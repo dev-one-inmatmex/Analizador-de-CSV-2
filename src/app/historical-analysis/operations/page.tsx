@@ -82,8 +82,6 @@ export default function OperationsAnalysisPage() {
     from: addDays(new Date(), -7),
     to: new Date(),
   });
-  const [company, setCompany] = React.useState('all');
-  const [user, setUser] = React.useState('all');
   
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedOperations, setDisplayedOperations] = React.useState(recentOperationsData);
@@ -97,14 +95,7 @@ export default function OperationsAnalysisPage() {
 
     const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
 
-    let filteredOps = [...recentOperationsData];
-    if (company !== 'all') {
-        filteredOps = filteredOps.filter(op => op.company === company);
-    }
-    if (user !== 'all') {
-        filteredOps = filteredOps.filter(op => op.user === user);
-    }
-    setDisplayedOperations(shuffle(filteredOps));
+    setDisplayedOperations(shuffle(recentOperationsData));
     
     setKpis(prev => ({
         ...prev,
@@ -121,8 +112,6 @@ export default function OperationsAnalysisPage() {
       description: 'Mostrando todos los datos originales.',
     });
     setDate({ from: addDays(new Date(), -7), to: new Date() });
-    setCompany('all');
-    setUser('all');
 
     setKpis(kpiData);
     setDisplayedOperations(recentOperationsData);
@@ -162,38 +151,6 @@ export default function OperationsAnalysisPage() {
                 <div className="space-y-2">
                     <Label htmlFor="date-range">Rango de Fechas</Label>
                     <DateRangePicker id="date" date={date} onSelect={setDate} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="company">Empresa</Label>
-                        <Select value={company} onValueChange={setCompany}>
-                            <SelectTrigger id="company" className="w-full">
-                                <SelectValue placeholder="Seleccionar empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas</SelectItem>
-                                <SelectItem value="MTM">MTM</SelectItem>
-                                <SelectItem value="TAL">TAL</SelectItem>
-                                <SelectItem value="OMESKA">OMESKA</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="user">Usuario</Label>
-                        <Select value={user} onValueChange={setUser}>
-                            <SelectTrigger id="user" className="w-full">
-                                <SelectValue placeholder="Seleccionar usuario" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos</SelectItem>
-                                <SelectItem value="carlos">carlos</SelectItem>
-                                <SelectItem value="laura">laura</SelectItem>
-                                <SelectItem value="pedro">pedro</SelectItem>
-                                <SelectItem value="ana">ana</SelectItem>
-                                <SelectItem value="luis">luis</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
                 <div className="flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>

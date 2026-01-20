@@ -101,9 +101,6 @@ export default function InventoryAnalysisPage() {
     from: addDays(new Date(), -7),
     to: new Date(),
   });
-  const [category, setCategory] = React.useState('all');
-  const [stockStatus, setStockStatus] = React.useState('all');
-  const [searchQuery, setSearchQuery] = React.useState('');
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedInventoryDetail, setDisplayedInventoryDetail] = React.useState(inventoryDetailData);
@@ -118,20 +115,7 @@ export default function InventoryAnalysisPage() {
     // Simulate filtering by shuffling and slicing data
     const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
 
-    let filteredDetails = [...inventoryDetailData];
-
-    if (category !== 'all') {
-      filteredDetails = filteredDetails.filter(item => item.category.toLowerCase() === category);
-    }
-    if (stockStatus !== 'all') {
-        const status = stockStatus === 'in_stock' ? 'En Stock' : 'Bajo Stock';
-        filteredDetails = filteredDetails.filter(item => item.status === status);
-    }
-    if (searchQuery) {
-        filteredDetails = filteredDetails.filter(item => item.product.toLowerCase().includes(searchQuery.toLowerCase()) || item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
-    }
-
-    setDisplayedInventoryDetail(shuffle(filteredDetails));
+    setDisplayedInventoryDetail(shuffle(inventoryDetailData));
     
     setKpis(prev => ({
         ...prev,
@@ -149,9 +133,6 @@ export default function InventoryAnalysisPage() {
       description: 'Mostrando todos los datos originales.',
     });
     setDate({ from: addDays(new Date(), -7), to: new Date() });
-    setCategory('all');
-    setStockStatus('all');
-    setSearchQuery('');
 
     // Reset data to original
     setKpis(kpiData);
@@ -192,41 +173,6 @@ export default function InventoryAnalysisPage() {
                 <div className="space-y-2">
                     <Label htmlFor="date-range">Rango de Fechas</Label>
                     <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div className="space-y-2">
-                        <Label htmlFor="category">Categoría</Label>
-                        <Select value={category} onValueChange={setCategory}>
-                            <SelectTrigger id="category" className="w-full">
-                                <SelectValue placeholder="Seleccionar categoría" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas</SelectItem>
-                                <SelectItem value="electrónica">Electrónica</SelectItem>
-                                <SelectItem value="ropa">Ropa</SelectItem>
-                                <SelectItem value="hogar">Hogar</SelectItem>
-                                <SelectItem value="juguetes">Juguetes</SelectItem>
-                                <SelectItem value="otros">Otros</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="stock-status">Estado de Stock</Label>
-                        <Select value={stockStatus} onValueChange={setStockStatus}>
-                            <SelectTrigger id="stock-status" className="w-full">
-                                <SelectValue placeholder="Seleccionar estado" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos</SelectItem>
-                                <SelectItem value="in_stock">En Stock</SelectItem>
-                                <SelectItem value="low_stock">Bajo Stock</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="search">Buscar SKU o Producto</Label>
-                        <Input id="search" placeholder="Ej: LPX-001..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                    </div>
                 </div>
                 <div className="flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>

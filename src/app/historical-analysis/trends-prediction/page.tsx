@@ -54,7 +54,6 @@ export default function TrendsPredictionPage() {
     from: addMonths(new Date(), -11),
     to: addMonths(new Date(), 5),
   });
-  const [category, setCategory] = React.useState('all');
   const [isLoading, setIsLoading] = React.useState(false);
   
   const [salesHistory, setSalesHistory] = React.useState(generateSalesHistory());
@@ -80,7 +79,6 @@ export default function TrendsPredictionPage() {
 
   const handleClearFilters = () => {
     setDate({ from: addMonths(new Date(), -11), to: addMonths(new Date(), 5) });
-    setCategory('all');
     toast({
         title: "Filtros limpiados",
         description: "Se han restaurado los filtros a sus valores por defecto."
@@ -119,20 +117,6 @@ export default function TrendsPredictionPage() {
                 <div className="space-y-2">
                     <Label htmlFor="date-range">Rango de Fechas (Histórico + Predicción)</Label>
                     <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="category">Categoría de Producto</Label>
-                        <Select value={category} onValueChange={setCategory}>
-                            <SelectTrigger id="category"><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas</SelectItem>
-                                <SelectItem value="electronica">Electrónica</SelectItem>
-                                <SelectItem value="ropa">Ropa</SelectItem>
-                                <SelectItem value="hogar">Hogar</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
                 <div className="flex items-center justify-end gap-2">
                     <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
