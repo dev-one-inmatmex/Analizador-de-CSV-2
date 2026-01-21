@@ -81,12 +81,14 @@ const productDetailData = [
 ];
 
 const allProducts = ['Todos', 'Producto A', 'Producto B', 'Producto C', 'Producto D', 'Producto E'];
+const availableYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function ProductsAnalysisPage() {
   const { toast } = useToast();
   
   const [product, setProduct] = React.useState('Todos');
+  const [year, setYear] = React.useState(new Date().getFullYear().toString());
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -124,6 +126,7 @@ export default function ProductsAnalysisPage() {
         description: "Mostrando todos los datos originales."
     });
     setProduct('Todos');
+    setYear(new Date().getFullYear().toString());
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
@@ -161,10 +164,21 @@ export default function ProductsAnalysisPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="space-y-2">
                         <Label htmlFor="date-range">Periodo</Label>
                         <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="year-filter">Año</Label>
+                        <Select value={year} onValueChange={setYear}>
+                            <SelectTrigger id="year-filter">
+                                <SelectValue placeholder="Seleccionar año" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="product-filter">Producto</Label>

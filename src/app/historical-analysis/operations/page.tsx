@@ -77,6 +77,7 @@ const recentOperationsData = [
 
 const allCompanies = ['MTM', 'TAL', 'OMESKA'];
 const allUsers = ['carlos', 'laura', 'pedro', 'ana', 'luis'];
+const availableYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function OperationsAnalysisPage() {
@@ -88,6 +89,7 @@ export default function OperationsAnalysisPage() {
   
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
+  const [year, setYear] = React.useState(new Date().getFullYear().toString());
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -119,6 +121,7 @@ export default function OperationsAnalysisPage() {
     });
     setCompany('all');
     setUser('all');
+    setYear(new Date().getFullYear().toString());
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
@@ -156,10 +159,21 @@ export default function OperationsAnalysisPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div className='space-y-2'>
                         <Label htmlFor="date-range">Periodo</Label>
                         <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="year-filter">Año</Label>
+                        <Select value={year} onValueChange={setYear}>
+                            <SelectTrigger id="year-filter">
+                                <SelectValue placeholder="Seleccionar año" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className='space-y-2'>
                         <Label htmlFor="company-filter">Empresa</Label>
