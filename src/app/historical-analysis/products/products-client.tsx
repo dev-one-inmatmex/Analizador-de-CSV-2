@@ -35,7 +35,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { SkuWithProduct } from '@/types/database';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
 import { subDays } from 'date-fns';
+import GlobalNav from '@/components/global-nav';
 
 
 // --- MOCK DATA ---
@@ -81,12 +83,14 @@ const productDetailData = [
 ];
 
 const allProducts = ['Todos', 'Producto A', 'Producto B', 'Producto C', 'Producto D', 'Producto E'];
+const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function ProductsAnalysisClientPage({ productSkus }: { productSkus: SkuWithProduct[] }) {
   const { toast } = useToast();
   
   const [product, setProduct] = React.useState('Todos');
+  const [year, setYear] = React.useState(allYears[0]);
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -124,6 +128,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
         description: "Mostrando todos los datos originales."
     });
     setProduct('Todos');
+    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
@@ -143,7 +148,8 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Análisis de Productos</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión

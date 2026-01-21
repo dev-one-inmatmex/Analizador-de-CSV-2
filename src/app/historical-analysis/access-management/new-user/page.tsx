@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import GlobalNav from '@/components/global-nav';
 
 export default function AddNewUserPage() {
   return (
@@ -19,7 +20,8 @@ export default function AddNewUserPage() {
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Añadir Nuevo Usuario</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión

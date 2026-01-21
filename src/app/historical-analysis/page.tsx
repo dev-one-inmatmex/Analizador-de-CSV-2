@@ -3,6 +3,7 @@ import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, BarChart3, Package, Zap, ClipboardList, BrainCircuit, GitCompareArrows, Users, LogOut } from 'lucide-react';
+import GlobalNav from '@/components/global-nav';
 
 export default function HistoricalAnalysisPage() {
   return (
@@ -17,7 +18,8 @@ export default function HistoricalAnalysisPage() {
             </Link>
             <h1 className="text-xl font-bold tracking-tight">Análisis de Históricos</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión

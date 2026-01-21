@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
+import GlobalNav from '@/components/global-nav';
 
 // --- MOCK DATA ---
 const initialUsersData = [
@@ -106,6 +107,7 @@ export default function AccessManagementPage() {
             <Link href="/historical-analysis/access-management/new-user" passHref>
                 <Button><UserPlus className="mr-2 h-4 w-4" /> Añadir Nuevo Usuario</Button>
             </Link>
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión

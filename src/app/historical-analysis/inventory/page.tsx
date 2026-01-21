@@ -5,7 +5,7 @@ import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis, Line, LineChart } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
+import { subDays, format } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import GlobalNav from '@/components/global-nav';
 
 
 // --- MOCK DATA ---
@@ -84,6 +85,7 @@ const inventoryDetailData = [
 
 const allCategories = ['Todas', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes', 'Otros'];
 const allStatuses = ['Todos', 'En Stock', 'Bajo Stock'];
+const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 const chartConfigCategory = {
   value: { label: 'Valor' },
@@ -101,6 +103,7 @@ export default function InventoryAnalysisPage() {
   
   const [category, setCategory] = React.useState('Todas');
   const [status, setStatus] = React.useState('Todos');
+  const [year, setYear] = React.useState(allYears[0]);
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -138,6 +141,7 @@ export default function InventoryAnalysisPage() {
     });
     setCategory('Todas');
     setStatus('Todos');
+    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     // Reset data to original
@@ -158,7 +162,8 @@ export default function InventoryAnalysisPage() {
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Análisis de Inventario</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión
@@ -176,12 +181,12 @@ export default function InventoryAnalysisPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-2 lg:col-span-2">
                         <Label htmlFor="date-range">Periodo</Label>
                         <DateRangePicker id="date-range" date={date} onSelect={setDate} />
                     </div>
-                    <div className="space-y-2">
+                     <div className="space-y-2">
                         <Label htmlFor="category-filter">Categoría</Label>
                         <Select value={category} onValueChange={setCategory}>
                             <SelectTrigger id="category-filter">

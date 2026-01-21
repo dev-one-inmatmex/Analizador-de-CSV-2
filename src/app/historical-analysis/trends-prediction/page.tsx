@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import GlobalNav from '@/components/global-nav';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -49,11 +50,13 @@ const detailedPredictions = [
 ];
 
 const allCategories = ['General', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes'];
+const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 export default function TrendsPredictionPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [category, setCategory] = React.useState('General');
+  const [year, setYear] = React.useState(allYears[0]);
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 365),
     to: new Date(),
@@ -82,6 +85,7 @@ export default function TrendsPredictionPage() {
 
   const handleClearFilters = () => {
     setCategory('General');
+    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 365), to: new Date() });
     toast({
         title: "Filtros limpiados",
@@ -101,7 +105,8 @@ export default function TrendsPredictionPage() {
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Predicción de Tendencias</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión

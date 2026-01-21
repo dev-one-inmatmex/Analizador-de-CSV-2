@@ -5,7 +5,7 @@ import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
+import { subDays, format } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import GlobalNav from '@/components/global-nav';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -49,6 +50,7 @@ const recentTransactionsData = [
 
 const allTypes = ['Todos', 'Mayorista', 'Minorista'];
 const allCustomers = ['Todos', 'Cliente A', 'Cliente B', 'Cliente C', 'Cliente D', 'Cliente E', 'Público General'];
+const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function MajorMinorSalesPage() {
@@ -56,6 +58,7 @@ export default function MajorMinorSalesPage() {
   
   const [saleType, setSaleType] = React.useState('Todos');
   const [customer, setCustomer] = React.useState('Todos');
+  const [year, setYear] = React.useState(allYears[0]);
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -90,6 +93,7 @@ export default function MajorMinorSalesPage() {
     });
     setSaleType('Todos');
     setCustomer('Todos');
+    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
@@ -110,7 +114,8 @@ export default function MajorMinorSalesPage() {
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas por Mayor y Menor</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión
@@ -127,8 +132,8 @@ export default function MajorMinorSalesPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-2 lg:col-span-2">
                         <Label htmlFor="date-range">Periodo</Label>
                         <DateRangePicker id="date-range" date={date} onSelect={setDate} />
                     </div>

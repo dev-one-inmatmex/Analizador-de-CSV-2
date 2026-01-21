@@ -5,7 +5,7 @@ import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
+import { subDays, format } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import GlobalNav from '@/components/global-nav';
 
 
 // Chart Configs
@@ -52,6 +53,7 @@ const chartConfigUnitsByPeriod = { ...companyConfig };
 // Data
 const allCompanies = ['MTM', 'TAL', 'OMESKA'];
 const allUsers = ['dana', 'alex', 'juan', 'sara'];
+const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 const salesByCompanyData = [
   { company: 'MTM', sales: 44 },
@@ -101,6 +103,7 @@ export default function SalesAnalysisPage() {
   
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
+  const [year, setYear] = React.useState(allYears[0]);
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -128,6 +131,7 @@ export default function SalesAnalysisPage() {
       });
       setCompany('all');
       setUser('all');
+      setYear(allYears[0]);
       setDate({ from: subDays(new Date(), 29), to: new Date() });
       setDisplayedRecentSales(recentSalesData);
       setDisplayedUserPerformance(userPerformanceData);
@@ -155,7 +159,8 @@ export default function SalesAnalysisPage() {
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión

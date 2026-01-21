@@ -5,7 +5,7 @@ import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
+import { subDays, format } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import GlobalNav from '@/components/global-nav';
 
 
 // --- MOCK DATA ---
@@ -77,6 +78,7 @@ const recentOperationsData = [
 
 const allCompanies = ['MTM', 'TAL', 'OMESKA'];
 const allUsers = ['carlos', 'laura', 'pedro', 'ana', 'luis'];
+const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function OperationsAnalysisPage() {
@@ -88,6 +90,7 @@ export default function OperationsAnalysisPage() {
   
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
+  const [year, setYear] = React.useState(allYears[0]);
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -119,6 +122,7 @@ export default function OperationsAnalysisPage() {
     });
     setCompany('all');
     setUser('all');
+    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
@@ -139,7 +143,8 @@ export default function OperationsAnalysisPage() {
           </Link>
           <h1 className="text-xl font-bold tracking-tight">Rendimiento Operativo</h1>
         </div>
-        <div>
+        <div className="flex items-center gap-4">
+            <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión
