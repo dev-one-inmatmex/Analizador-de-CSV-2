@@ -3,7 +3,7 @@ export interface skus {
     sku: string;
     producto_madre_id: number;
     origen: string;
-    fechaa_registro: string;
+    fecha_registro: string;
 }
 
 export interface producto_madre{

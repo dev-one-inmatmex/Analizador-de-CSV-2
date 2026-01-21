@@ -333,7 +333,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                           </TableCell>
                           <TableCell className="text-right">{item.producto_madre?.tiempo_preparacion || 'N/A'}</TableCell>
                           <TableCell>{item.origen}</TableCell>
-                          <TableCell className="text-center">{format(new Date(item.fechaa_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
+                          <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
                         </TableRow>
                       ))}
                       {productSkus.length === 0 && (
