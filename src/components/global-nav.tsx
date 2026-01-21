@@ -37,11 +37,9 @@ export default function GlobalNav() {
         <DropdownMenuLabel>Navegación Rápida</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {navLinks.map((link) => (
-          <Link href={link.href} passHref key={link.href}>
-            <DropdownMenuItem asChild>
-              <a>{link.label}</a>
-            </DropdownMenuItem>
-          </Link>
+          <DropdownMenuItem key={link.href} asChild>
+            <Link href={link.href}>{link.label}</Link>
+          </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
