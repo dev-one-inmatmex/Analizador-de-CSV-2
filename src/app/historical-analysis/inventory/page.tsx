@@ -84,7 +84,6 @@ const inventoryDetailData = [
 
 const allCategories = ['Todas', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes', 'Otros'];
 const allStatuses = ['Todos', 'En Stock', 'Bajo Stock'];
-const availableYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 const chartConfigCategory = {
   value: { label: 'Valor' },
@@ -102,7 +101,6 @@ export default function InventoryAnalysisPage() {
   
   const [category, setCategory] = React.useState('Todas');
   const [status, setStatus] = React.useState('Todos');
-  const [year, setYear] = React.useState(new Date().getFullYear().toString());
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -140,7 +138,6 @@ export default function InventoryAnalysisPage() {
     });
     setCategory('Todas');
     setStatus('Todos');
-    setYear(new Date().getFullYear().toString());
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     // Reset data to original
@@ -179,21 +176,10 @@ export default function InventoryAnalysisPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                         <Label htmlFor="date-range">Periodo</Label>
                         <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="year-filter">Año</Label>
-                        <Select value={year} onValueChange={setYear}>
-                            <SelectTrigger id="year-filter">
-                                <SelectValue placeholder="Seleccionar año" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="category-filter">Categoría</Label>

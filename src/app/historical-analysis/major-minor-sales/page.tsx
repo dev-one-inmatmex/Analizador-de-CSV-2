@@ -49,7 +49,6 @@ const recentTransactionsData = [
 
 const allTypes = ['Todos', 'Mayorista', 'Minorista'];
 const allCustomers = ['Todos', 'Cliente A', 'Cliente B', 'Cliente C', 'Cliente D', 'Cliente E', 'Público General'];
-const availableYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function MajorMinorSalesPage() {
@@ -57,7 +56,6 @@ export default function MajorMinorSalesPage() {
   
   const [saleType, setSaleType] = React.useState('Todos');
   const [customer, setCustomer] = React.useState('Todos');
-  const [year, setYear] = React.useState(new Date().getFullYear().toString());
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -92,7 +90,6 @@ export default function MajorMinorSalesPage() {
     });
     setSaleType('Todos');
     setCustomer('Todos');
-    setYear(new Date().getFullYear().toString());
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
@@ -130,21 +127,10 @@ export default function MajorMinorSalesPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                         <Label htmlFor="date-range">Periodo</Label>
                         <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="year-filter">Año</Label>
-                        <Select value={year} onValueChange={setYear}>
-                            <SelectTrigger id="year-filter">
-                                <SelectValue placeholder="Seleccionar año" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="type-filter">Tipo de Venta</Label>
