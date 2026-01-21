@@ -4,6 +4,8 @@ import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, LogOu
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
+import { DateRange } from 'react-day-picker';
+import { subDays } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +34,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // Chart Configs
@@ -98,6 +101,10 @@ export default function SalesAnalysisPage() {
   
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
 
   const [displayedRecentSales, setDisplayedRecentSales] = React.useState(recentSalesData);
   const [displayedUserPerformance, setDisplayedUserPerformance] = React.useState(userPerformanceData);
@@ -121,6 +128,7 @@ export default function SalesAnalysisPage() {
       });
       setCompany('all');
       setUser('all');
+      setDate({ from: subDays(new Date(), 29), to: new Date() });
       setDisplayedRecentSales(recentSalesData);
       setDisplayedUserPerformance(userPerformanceData);
   };
@@ -165,8 +173,12 @@ export default function SalesAnalysisPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Periodo</Label>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className="space-y-2">
                         <Label htmlFor="company-filter">Empresa</Label>
                         <Select value={company} onValueChange={setCompany}>
                             <SelectTrigger id="company-filter">
@@ -178,7 +190,7 @@ export default function SalesAnalysisPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                         <Label htmlFor="user-filter">Usuario</Label>
                         <Select value={user} onValueChange={setUser}>
                             <SelectTrigger id="user-filter">

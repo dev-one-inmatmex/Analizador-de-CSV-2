@@ -4,6 +4,8 @@ import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { DateRange } from 'react-day-picker';
+import { subDays } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -53,6 +56,10 @@ export default function MajorMinorSalesPage() {
   
   const [saleType, setSaleType] = React.useState('Todos');
   const [customer, setCustomer] = React.useState('Todos');
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedTransactions, setDisplayedTransactions] = React.useState(recentTransactionsData);
@@ -83,6 +90,7 @@ export default function MajorMinorSalesPage() {
     });
     setSaleType('Todos');
     setCustomer('Todos');
+    setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
     setDisplayedTransactions(recentTransactionsData);
@@ -119,8 +127,12 @@ export default function MajorMinorSalesPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Periodo</Label>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className="space-y-2">
                         <Label htmlFor="type-filter">Tipo de Venta</Label>
                         <Select value={saleType} onValueChange={setSaleType}>
                             <SelectTrigger id="type-filter">
@@ -131,7 +143,7 @@ export default function MajorMinorSalesPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                         <Label htmlFor="customer-filter">Cliente</Label>
                         <Select value={customer} onValueChange={setCustomer}>
                             <SelectTrigger id="customer-filter">

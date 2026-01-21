@@ -3,8 +3,9 @@
 import { ArrowLeft, BrainCircuit, TrendingUp, Filter, LineChart as LineChartIcon, BarChart3, Bot, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { addMonths, format } from 'date-fns';
+import { addMonths, format, subDays } from 'date-fns';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { DateRange } from 'react-day-picker';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 // --- MOCK DATA ---
 const kpiData = {
@@ -52,6 +54,10 @@ export default function TrendsPredictionPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [category, setCategory] = React.useState('General');
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: subDays(new Date(), 365),
+    to: new Date(),
+  });
   
   const [salesHistory, setSalesHistory] = React.useState(generateSalesHistory());
   const [salesPrediction, setSalesPrediction] = React.useState(() => generateSalesPrediction(salesHistory));
@@ -76,6 +82,7 @@ export default function TrendsPredictionPage() {
 
   const handleClearFilters = () => {
     setCategory('General');
+    setDate({ from: subDays(new Date(), 365), to: new Date() });
     toast({
         title: "Filtros limpiados",
         description: "Se han restaurado los filtros a sus valores por defecto."
@@ -112,7 +119,11 @@ export default function TrendsPredictionPage() {
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Periodo Histórico</Label>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className="space-y-2">
                         <Label htmlFor="category-filter">Categoría</Label>
                         <Select value={category} onValueChange={setCategory}>
                             <SelectTrigger id="category-filter">

@@ -4,6 +4,8 @@ import { ArrowLeft, Package, DollarSign, TrendingDown, Warehouse, Filter, LogOut
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis, Line, LineChart } from 'recharts';
+import { DateRange } from 'react-day-picker';
+import { subDays } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +34,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // --- MOCK DATA ---
@@ -98,6 +101,10 @@ export default function InventoryAnalysisPage() {
   
   const [category, setCategory] = React.useState('Todas');
   const [status, setStatus] = React.useState('Todos');
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedInventoryDetail, setDisplayedInventoryDetail] = React.useState(inventoryDetailData);
@@ -131,6 +138,7 @@ export default function InventoryAnalysisPage() {
     });
     setCategory('Todas');
     setStatus('Todos');
+    setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     // Reset data to original
     setKpis(kpiData);
@@ -164,12 +172,16 @@ export default function InventoryAnalysisPage() {
                 <Filter className="h-6 w-6 text-muted-foreground" />
                 <div>
                     <CardTitle>Filtros de Inventario</CardTitle>
-                    <CardDescription>Filtra por categoría, estado de stock o busca un producto específico.</CardDescription>
+                    <CardDescription>Filtra por período, categoría, estado de stock o busca un producto específico.</CardDescription>
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Periodo</Label>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className="space-y-2">
                         <Label htmlFor="category-filter">Categoría</Label>
                         <Select value={category} onValueChange={setCategory}>
                             <SelectTrigger id="category-filter">
@@ -180,7 +192,7 @@ export default function InventoryAnalysisPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                         <Label htmlFor="status-filter">Estado de Stock</Label>
                         <Select value={status} onValueChange={setStatus}>
                             <SelectTrigger id="status-filter">

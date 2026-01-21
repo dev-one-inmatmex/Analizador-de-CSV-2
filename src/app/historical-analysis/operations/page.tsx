@@ -4,6 +4,8 @@ import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, LogOut } from 'luc
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { DateRange } from 'react-day-picker';
+import { subDays } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +32,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // --- MOCK DATA ---
@@ -85,6 +88,10 @@ export default function OperationsAnalysisPage() {
   
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
   
   const handleApplyFilters = () => {
     toast({
@@ -112,6 +119,7 @@ export default function OperationsAnalysisPage() {
     });
     setCompany('all');
     setUser('all');
+    setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
     setDisplayedOperations(recentOperationsData);
@@ -148,8 +156,12 @@ export default function OperationsAnalysisPage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className='space-y-2'>
+                        <Label htmlFor="date-range">Periodo</Label>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className='space-y-2'>
                         <Label htmlFor="company-filter">Empresa</Label>
                         <Select value={company} onValueChange={setCompany}>
                             <SelectTrigger id="company-filter">
@@ -161,7 +173,7 @@ export default function OperationsAnalysisPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div>
+                    <div className='space-y-2'>
                         <Label htmlFor="user-filter">Usuario</Label>
                         <Select value={user} onValueChange={setUser}>
                             <SelectTrigger id="user-filter">

@@ -6,6 +6,8 @@ import * as React from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { DateRange } from 'react-day-picker';
+import { subDays } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +35,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // --- MOCK DATA ---
@@ -84,6 +87,11 @@ export default function ProductsAnalysisPage() {
   const { toast } = useToast();
   
   const [product, setProduct] = React.useState('Todos');
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
+
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedMovement, setDisplayedMovement] = React.useState(stockMovementData);
   const [displayedDetails, setDisplayedDetails] = React.useState(productDetailData);
@@ -116,6 +124,7 @@ export default function ProductsAnalysisPage() {
         description: "Mostrando todos los datos originales."
     });
     setProduct('Todos');
+    setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
     setDisplayedMovement(stockMovementData);
@@ -153,7 +162,11 @@ export default function ProductsAnalysisPage() {
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Periodo</Label>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
+                    <div className="space-y-2">
                         <Label htmlFor="product-filter">Producto</Label>
                         <Select value={product} onValueChange={setProduct}>
                             <SelectTrigger id="product-filter">
