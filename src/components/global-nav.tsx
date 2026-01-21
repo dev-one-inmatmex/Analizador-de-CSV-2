@@ -4,8 +4,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
@@ -14,8 +12,7 @@ import Link from 'next/link';
 
 export default function GlobalNav() {
   const navLinks = [
-    { href: '/', label: 'Analizador de CSV' },
-    { href: '/historical-analysis', label: 'Menú de Análisis' },
+    { href: '/', label: 'Analizador de CSV' },    
     { href: '/historical-analysis/sales', label: 'Análisis de Ventas' },
     { href: '/historical-analysis/inventory', label: 'Análisis de Inventario' },
     { href: '/historical-analysis/operations', label: 'Rendimiento Operativo' },
@@ -34,8 +31,6 @@ export default function GlobalNav() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Navegación Rápida</DropdownMenuLabel>
-        <DropdownMenuSeparator />
         {navLinks.map((link) => (
           <DropdownMenuItem key={link.href} asChild>
             <Link href={link.href}>{link.label}</Link>
