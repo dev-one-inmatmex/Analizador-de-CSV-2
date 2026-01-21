@@ -34,6 +34,8 @@ import {
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import type { SkuWithProduct } from '@/types/database';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { subDays } from 'date-fns';
 
 
 // --- MOCK DATA ---
@@ -85,6 +87,10 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
   const { toast } = useToast();
   
   const [product, setProduct] = React.useState('Todos');
+  const [date, setDate] = React.useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedMovement, setDisplayedMovement] = React.useState(stockMovementData);
@@ -118,6 +124,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
         description: "Mostrando todos los datos originales."
     });
     setProduct('Todos');
+    setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
     setDisplayedMovement(stockMovementData);
@@ -150,11 +157,15 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                 <Filter className="h-6 w-6 text-muted-foreground" />
                 <div>
                     <CardTitle>Filtros de Análisis</CardTitle>
-                    <CardDescription>Filtra por producto para refinar el análisis.</CardDescription>
+                    <CardDescription>Filtra por período y producto para refinar el análisis.</CardDescription>
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="date-range">Periodo</Label>
+                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="product-filter">Producto</Label>
                         <Select value={product} onValueChange={setProduct}>
@@ -327,11 +338,11 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                       {productSkus.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                          <TableCell className="font-medium">{item.producto_madre?.nombre_madre || 'N/A'}</TableCell>
+                          <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
                           <TableCell className="text-right">
-                            {item.producto_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.producto_madre.costo) : 'N/A'}
+                            {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
                           </TableCell>
-                          <TableCell className="text-right">{item.producto_madre?.tiempo_preparacion || 'N/A'}</TableCell>
+                          <TableCell className="text-right">{item.productos_madre?.tiempo_preparacion || 'N/A'}</TableCell>
                           <TableCell>{item.origen}</TableCell>
                           <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
                         </TableRow>

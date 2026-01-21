@@ -21,5 +21,5 @@ export interface Usuario {
 }
 
 export type SkuWithProduct = skus & {
-  producto_madre: producto_madre | null;
+  productos_madre: producto_madre | null;
 };

@@ -10,7 +10,7 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
       sku,
       origen,
       fecha_registro,
-      producto_madre (
+      productos_madre (
         id,
         nombre_madre,
         costo,
