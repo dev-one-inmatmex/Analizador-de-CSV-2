@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Database, Save } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Database, Save, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,7 +25,7 @@ type SpecificCellItem =
     | { type: 'cell', rowIndex: number, colIndex: number }
     | { type: 'range', startRow: number, startCol: number, endRow: number, endCol: number };
 
-type SelectionMode = 'range' | 'specific' | 'manual';
+type SelectionMode = 'range' | 'specific' | 'manual' | 'mapping';
 
 const columnToLetter = (colIndex: number): string => {
     let letter = '';
@@ -47,6 +47,19 @@ const letterToColumn = (letter: string): number => {
     return column - 1;
 };
 
+const initialMapping = {
+    '# de venta': '',
+    'fecha de venta': '',
+    'sku': '',
+    '# de publicacion': '',
+    'Tienda oficial': '',
+    'Titulo de la publicacion': '',
+    'Variante': '',
+    'Comprador': '',
+    'Municipio': '',
+    'Estado': '',
+};
+
 const availableTables = [
     { value: 'skus', label: 'Catálogo de SKUs' },
     { value: 'productos_madre', label: 'Catálogo de Productos Madre' },
@@ -64,9 +77,11 @@ export default function CsvUploader() {
   const [specificCellsInput, setSpecificCellsInput] = useState('');
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('range');
 
+  const [mapping, setMapping] = useState<Record<string, string>>(initialMapping);
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<ProcessCsvDataOutput | string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<ProcessCsvDataOutput | null>(null);
   const [targetTable, setTargetTable] = useState('');
 
   const parsedSpecificItems = useMemo((): SpecificCellItem[] => {
@@ -179,11 +194,104 @@ export default function CsvUploader() {
     setColRange({ start: 'A', end: 'A' });
     setSelectionMode('range');
     setAnalysisResult(null);
+    setMapping(initialMapping);
     if (inputRef.current) inputRef.current.value = '';
+  };
+  
+  const handleMappingChange = (field: string, value: string) => {
+    setMapping(prev => ({ ...prev, [field]: value.toUpperCase() }));
   };
 
   const handleAnalyzeClick = async () => {
     if (!file) return;
+
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    if (selectionMode === 'mapping') {
+        try {
+            const requiredFields = Object.entries(mapping).filter(([, value]) => value !== '');
+            if (requiredFields.length === 0) {
+                toast({
+                    title: 'Mapeo Incompleto',
+                    description: 'Por favor, especifica la celda de inicio para al menos un campo.',
+                    variant: 'destructive',
+                });
+                setIsAnalyzing(false);
+                return;
+            }
+
+            const parsedMappings = requiredFields.map(([field, cell]) => {
+                const match = cell.match(/^([A-Z]+)(\d+)$/);
+                if (!match) return null;
+                return {
+                    field,
+                    col: letterToColumn(match[1]),
+                    row: parseInt(match[2], 10) - 1,
+                };
+            }).filter((m): m is { field: string; col: number; row: number } => m !== null);
+
+            if (parsedMappings.length !== requiredFields.length) {
+                toast({
+                    title: 'Formato de Celda Inválido',
+                    description: 'Usa un formato como A7, B12, etc. para todos los campos mapeados.',
+                    variant: 'destructive',
+                });
+                setIsAnalyzing(false);
+                return;
+            }
+
+            const startRow = Math.min(...parsedMappings.map(m => m.row));
+            const extractedRows: Record<string, string>[] = [];
+
+            for (let i = startRow; i < data.length; i++) {
+                const row = data[i];
+                if (!row || row.every(cell => cell.trim() === '')) continue; 
+
+                const newRow: Record<string, string> = {};
+                let hasData = false;
+                for (const { field, col } of parsedMappings) {
+                    const cellValue = row[col] || '';
+                    newRow[field] = cellValue.trim();
+                    if (cellValue.trim() !== '') {
+                        hasData = true;
+                    }
+                }
+                if (hasData) {
+                    extractedRows.push(newRow);
+                }
+            }
+            
+            if (extractedRows.length === 0) {
+                 toast({ title: 'No se extrajeron datos', description: 'Revisa la configuración del mapeo y el rango de filas.' });
+                 setIsAnalyzing(false);
+                 return;
+            }
+
+            const tableHeaders = Object.keys(extractedRows[0]);
+            const tableRows = extractedRows.map(rowObject => tableHeaders.map(header => rowObject[header] || ''));
+
+            setAnalysisResult({
+                analysis: `Se extrajeron ${extractedRows.length} filas de datos usando el mapeo de columnas.`,
+                table: { headers: tableHeaders, rows: tableRows },
+            });
+
+            toast({ title: 'Extracción Completa', description: `Se procesaron ${extractedRows.length} filas.` });
+
+        } catch (error) {
+            console.error("Extraction error:", error);
+            toast({
+                title: 'Error de Extracción',
+                description: 'No se pudo procesar el archivo. Revisa el formato y el mapeo.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsAnalyzing(false);
+        }
+        return;
+    }
+
+    // --- AI-based Analysis for other modes ---
     const combinedSelection = new Set<string>();
 
     if (selectionMode === 'range') {
@@ -240,20 +348,19 @@ export default function CsvUploader() {
             description: 'Por favor, elige los datos que quieres analizar.',
             variant: 'destructive'
         });
+        setIsAnalyzing(false);
         return;
     }
 
-    setIsAnalyzing(true);
-    setAnalysisResult(null);
     try {
         const analysis = await processCsvData({ cells: selectedData });
         setAnalysisResult(analysis);
     } catch (error) {
         console.error('Error processing CSV data:', error);
-        setAnalysisResult('Ocurrió un error al procesar los datos. Por favor, inténtalo de nuevo.');
+        setAnalysisResult({ analysis: 'Ocurrió un error al procesar los datos. Por favor, inténtalo de nuevo.', table: { headers: [], rows: [] } });
         toast({
             title: 'Error en el Análisis',
-            description: 'Ocurrió un error al procesar los datos. Revisa la consola para más detalles.',
+            description: 'Ocurrió un error al procesar los datos con la IA. Revisa la consola para más detalles.',
             variant: 'destructive'
         });
     } finally {
@@ -275,6 +382,8 @@ export default function CsvUploader() {
   };
   
   const isCellSelected = (rowIndex: number, colIndex: number): boolean => {
+    if (selectionMode === 'mapping') return false;
+
     switch (selectionMode) {
       case 'range':
         const startRow = rowRange.start - 1;
@@ -303,7 +412,7 @@ export default function CsvUploader() {
   }
 
   const handleSaveToDb = async () => {
-    if (typeof analysisResult === 'string' || !analysisResult || !targetTable) {
+    if (!analysisResult || !targetTable) {
         toast({
             title: 'Faltan datos para guardar',
             description: 'Asegúrate de haber analizado los datos y seleccionado una tabla de destino.',
@@ -343,6 +452,7 @@ export default function CsvUploader() {
     }
   };
 
+  const mappingFields = Object.keys(initialMapping);
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
@@ -405,195 +515,206 @@ export default function CsvUploader() {
             <CardContent className="space-y-6">
               <div>
                   <Label className="text-base font-semibold">Modo de Selección</Label>
-                  <RadioGroup value={selectionMode} onValueChange={(value) => setSelectionMode(value as SelectionMode)} className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                          <RadioGroupItem value="range" id="r-range" className="peer sr-only" />
-                          <Label htmlFor="r-range" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
-                              Por Rango
-                          </Label>
-                      </div>
-                      <div>
-                          <RadioGroupItem value="specific" id="r-specific" className="peer sr-only" />
-                          <Label htmlFor="r-specific" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
-                              Celdas Específicas
-                          </Label>
-                      </div>
-                      <div>
-                          <RadioGroupItem value="manual" id="r-manual" className="peer sr-only" />
-                          <Label htmlFor="r-manual" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
-                              Manual (Clic)
-                          </Label>
-                      </div>
+                  <RadioGroup value={selectionMode} onValueChange={(value) => setSelectionMode(value as SelectionMode)} className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <Label htmlFor="r-range" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'range' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
+                          <RadioGroupItem value="range" id="r-range" className="sr-only" />
+                          Por Rango
+                      </Label>
+                      <Label htmlFor="r-specific" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'specific' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
+                          <RadioGroupItem value="specific" id="r-specific" className="sr-only" />
+                          Celdas Específicas
+                      </Label>
+                       <Label htmlFor="r-manual" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'manual' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
+                          <RadioGroupItem value="manual" id="r-manual" className="sr-only" />
+                          Manual (Clic)
+                      </Label>
+                      <Label htmlFor="r-mapping" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'mapping' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
+                          <RadioGroupItem value="mapping" id="r-mapping" className="sr-only" />
+                          Por Mapeo
+                      </Label>
                   </RadioGroup>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                  <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
-                      <Label htmlFor="start-row" className="font-semibold">Rango de Filas</Label>
-                      <div className="flex items-center gap-2">
-                          <Input id="start-row" type="number" min="1" max={data.length} value={rowRange.start} onChange={e => setRowRange(r => ({ ...r, start: parseInt(e.target.value, 10) || 1 }))} aria-label="Fila inicial" />
-                          <span className="text-muted-foreground">-</span>
-                          <Input id="end-row" type="number" min={rowRange.start} max={data.length} value={rowRange.end} onChange={e => setRowRange(r => ({ ...r, end: parseInt(e.target.value, 10) || data.length }))} aria-label="Fila final" />
+              {selectionMode === 'mapping' ? (
+                <Card className="bg-muted/30">
+                  <CardHeader>
+                      <CardTitle className="text-lg">Mapeo de Celdas (Columnas)</CardTitle>
+                      <CardDescription>
+                        Especifica la celda de inicio para cada campo (ej. A7, B7). La extracción continuará hacia abajo desde esa celda.
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
+                    {mappingFields.map(field => (
+                      <div key={field} className="space-y-1.5">
+                        <Label htmlFor={field} className="text-sm capitalize">{field.replace(/_/g, ' ')}</Label>
+                        <Input 
+                          id={field} 
+                          placeholder="EJ: A7" 
+                          value={mapping[field]}
+                          onChange={e => handleMappingChange(field, e.target.value)}
+                        />
                       </div>
-                  </fieldset>
-                  
-                  <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
-                      <Label htmlFor="start-col" className="font-semibold">Rango de Columnas</Label>
-                      <div className="flex items-center gap-2">
-                          <Input id="start-col" type="text" value={colRange.start} onChange={e => setColRange(c => ({...c, start: e.target.value.toUpperCase()}))} aria-label="Columna inicial" />
-                          <span className="text-muted-foreground">-</span>
-                          <Input id="end-col" type="text" value={colRange.end} onChange={e => setColRange(c => ({...c, end: e.target.value.toUpperCase()}))} aria-label="Columna final" />
-                      </div>
-                  </fieldset>
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                      <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
+                          <Label htmlFor="start-row" className="font-semibold">Rango de Filas</Label>
+                          <div className="flex items-center gap-2">
+                              <Input id="start-row" type="number" min="1" max={data.length} value={rowRange.start} onChange={e => setRowRange(r => ({ ...r, start: parseInt(e.target.value, 10) || 1 }))} aria-label="Fila inicial" />
+                              <span className="text-muted-foreground">-</span>
+                              <Input id="end-row" type="number" min={rowRange.start} max={data.length} value={rowRange.end} onChange={e => setRowRange(r => ({ ...r, end: parseInt(e.target.value, 10) || data.length }))} aria-label="Fila final" />
+                          </div>
+                      </fieldset>
+                      
+                      <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
+                          <Label htmlFor="start-col" className="font-semibold">Rango de Columnas</Label>
+                          <div className="flex items-center gap-2">
+                              <Input id="start-col" type="text" value={colRange.start} onChange={e => setColRange(c => ({...c, start: e.target.value.toUpperCase()}))} aria-label="Columna inicial" />
+                              <span className="text-muted-foreground">-</span>
+                              <Input id="end-col" type="text" value={colRange.end} onChange={e => setColRange(c => ({...c, end: e.target.value.toUpperCase()}))} aria-label="Columna final" />
+                          </div>
+                      </fieldset>
 
-                  <fieldset className="space-y-2 md:col-span-2" disabled={selectionMode !== 'specific'}>
-                      <Label htmlFor="specific-cells" className="font-semibold">Celdas Específicas</Label>
-                      <Input id="specific-cells" type="text" placeholder="Ej: A1, B5, C10-C20" value={specificCellsInput} onChange={e => setSpecificCellsInput(e.target.value)} aria-label="Celdas específicas separadas por coma" />
-                  </fieldset>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Previsualiza tu selección</CardTitle>
-              <CardDescription>
-                {selectionMode === 'manual' 
-                  ? 'Los datos que elegiste aparecerán resaltados. Puedes hacer clic en celdas individuales para ajustar tu selección.' 
-                  : 'Los datos que elegiste con los controles de arriba aparecerán resaltados en la tabla.'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative mt-2 border rounded-lg">
-                <div className="w-full overflow-auto max-h-[24rem]">
-                  <Table>
-                      <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
-                          <TableRow>
-                              <TableHead className="w-16">#</TableHead>
-                              {headers.map((header, index) => (
-                                  <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header || 'Vacío'})</TableHead>
-                              ))}
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {data.map((row, rowIndex) => (
-                              <TableRow key={rowIndex}>
-                                  <TableHead className="font-mono">{rowIndex + 1}</TableHead>
-                                  {row.map((cell, cellIndex) => (
-                                      <TableCell 
-                                          key={cellIndex}
-                                          onClick={() => handleCellClick(rowIndex, cellIndex)}
-                                          className={cn(
-                                              'transition-colors border',
-                                              selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
-                                              { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
-                                          )}
-                                      >
-                                          {cell}
-                                      </TableCell>
+                      <fieldset className="space-y-2 md:col-span-2" disabled={selectionMode !== 'specific'}>
+                          <Label htmlFor="specific-cells" className="font-semibold">Celdas Específicas</Label>
+                          <Input id="specific-cells" type="text" placeholder="Ej: A1, B5, C10-C20" value={specificCellsInput} onChange={e => setSpecificCellsInput(e.target.value)} aria-label="Celdas específicas separadas por coma" />
+                      </fieldset>
+                  </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Previsualiza tu selección</CardTitle>
+                      <CardDescription>
+                        {selectionMode === 'manual' 
+                          ? 'Los datos que elegiste aparecerán resaltados. Puedes hacer clic en celdas individuales para ajustar tu selección.' 
+                          : 'Los datos que elegiste con los controles de arriba aparecerán resaltados en la tabla.'
+                        }
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="relative mt-2 border rounded-lg">
+                        <div className="w-full overflow-auto max-h-[24rem]">
+                          <Table>
+                              <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                                  <TableRow>
+                                      <TableHead className="w-16">#</TableHead>
+                                      {headers.map((header, index) => (
+                                          <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header || 'Vacío'})</TableHead>
+                                      ))}
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {data.map((row, rowIndex) => (
+                                      <TableRow key={rowIndex}>
+                                          <TableHead className="font-mono">{rowIndex + 1}</TableHead>
+                                          {row.map((cell, cellIndex) => (
+                                              <TableCell 
+                                                  key={cellIndex}
+                                                  onClick={() => handleCellClick(rowIndex, cellIndex)}
+                                                  className={cn(
+                                                      'transition-colors border',
+                                                      selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
+                                                      { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
+                                                  )}
+                                              >
+                                                  {cell}
+                                              </TableCell>
+                                          ))}
+                                      </TableRow>
                                   ))}
-                              </TableRow>
-                          ))}
-                      </TableBody>
-                  </Table>
-                </div>
-              </div>
+                              </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </CardContent>
           </Card>
 
           <div className="flex flex-col items-center gap-4 text-center">
             <h3 className="text-xl font-semibold tracking-tight">Paso 3: Analiza los datos</h3>
-            <p className="text-muted-foreground">¡Ahora deja que la IA haga su magia!</p>
+            <p className="text-muted-foreground">¡Ahora deja que el sistema procese tu selección!</p>
             <Button onClick={handleAnalyzeClick} disabled={!file || isAnalyzing} size="lg" className="w-full md:w-1/2 text-lg py-7 mt-2">
-              {isAnalyzing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-              {isAnalyzing ? 'Analizando...' : 'Analizar Datos Seleccionados'}
+              {isAnalyzing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Wand2 className="mr-2 h-5 w-5" />}
+              {isAnalyzing ? 'Procesando...' : 'Procesar Datos Seleccionados'}
             </Button>
           </div>
 
           {analysisResult && (
             <div className="space-y-6">
                 <Separator />
-                 {typeof analysisResult === 'string' ? (
-                     <Card>
-                        <CardHeader>
-                            <CardTitle>Error en el Análisis</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-destructive">{analysisResult}</p>
-                        </CardContent>
-                     </Card>
-                  ) : (
-                    <>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Resultado del Análisis de IA</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <h3 className="font-semibold text-lg mb-2 text-foreground">Análisis General</h3>
-                                <p className="whitespace-pre-wrap bg-secondary/50 p-3 rounded-md border">{analysisResult.analysis}</p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Tabla de Datos Formateada</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="relative mt-2 border rounded-lg">
-                                    <div className="w-full overflow-auto max-h-[24rem]">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                {analysisResult.table.headers.map((header, index) => (
-                                                    <TableHead key={index}>{header}</TableHead>
-                                                ))}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {analysisResult.table.rows.map((row, rowIndex) => (
-                                                <TableRow key={rowIndex}>
-                                                    {row.map((cell, cellIndex) => (
-                                                        <TableCell key={cellIndex}>{cell}</TableCell>
-                                                    ))}
-                                                </TableRow>
+                 
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Resultado del Análisis</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <h3 className="font-semibold text-lg mb-2 text-foreground">Análisis General</h3>
+                        <p className="whitespace-pre-wrap bg-secondary/50 p-3 rounded-md border">{analysisResult.analysis}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Tabla de Datos Formateada</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="relative mt-2 border rounded-lg">
+                            <div className="w-full overflow-auto max-h-[24rem]">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        {analysisResult.table.headers.map((header, index) => (
+                                            <TableHead key={index}>{header}</TableHead>
+                                        ))}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {analysisResult.table.rows.map((row, rowIndex) => (
+                                        <TableRow key={rowIndex}>
+                                            {row.map((cell, cellIndex) => (
+                                                <TableCell key={cellIndex}>{cell}</TableCell>
                                             ))}
-                                        </TableBody>
-                                    </Table>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Paso 4: Guardar en Base de Datos</CardTitle>
-                                <CardDescription>
-                                    Selecciona la tabla de destino y guarda los datos procesados. Asegúrate de que los encabezados del CSV coincidan con los nombres de las columnas de la tabla.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col items-center gap-4 text-center">
-                                <div className="w-full max-w-sm space-y-2">
-                                    <Label htmlFor="target-table">Seleccionar Tabla de Destino</Label>
-                                    <Select value={targetTable} onValueChange={setTargetTable}>
-                                        <SelectTrigger id="target-table">
-                                            <SelectValue placeholder="Elige una tabla..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableTables.map(table => (
-                                                <SelectItem key={table.value} value={table.value}>
-                                                    {table.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <Button onClick={handleSaveToDb} disabled={isSaving || !targetTable} size="lg" className="w-full md:w-1/2 text-lg py-7 mt-2">
-                                  {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                                  {isSaving ? 'Guardando...' : 'Guardar en Base de Datos'}
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </>
-                )}
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Paso 4: Guardar en Base de Datos</CardTitle>
+                        <CardDescription>
+                            Selecciona la tabla de destino y guarda los datos procesados. Asegúrate de que los encabezados del CSV coincidan con los nombres de las columnas de la tabla.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center gap-4 text-center">
+                        <div className="w-full max-w-sm space-y-2">
+                            <Label htmlFor="target-table">Seleccionar Tabla de Destino</Label>
+                            <Select value={targetTable} onValueChange={setTargetTable}>
+                                <SelectTrigger id="target-table">
+                                    <SelectValue placeholder="Elige una tabla..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableTables.map(table => (
+                                        <SelectItem key={table.value} value={table.value}>
+                                            {table.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button onClick={handleSaveToDb} disabled={isSaving || !targetTable} size="lg" className="w-full md:w-1/2 text-lg py-7 mt-2">
+                          {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                          {isSaving ? 'Guardando...' : 'Guardar en Base de Datos'}
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
           )}
         </>
