@@ -1,7 +1,8 @@
 'use client';
 
-import { ArrowLeft, LogOut } from 'lucide-react';
+import { ArrowLeft, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import GlobalNav from '@/components/global-nav';
 
 export default function AddNewUserPage() {
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">

@@ -96,6 +96,14 @@ export default function TrendsPredictionPage() {
     });
   }
 
+  if (!isClient) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
@@ -116,7 +124,6 @@ export default function TrendsPredictionPage() {
             </Button>
         </div>
       </header>
-      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <Card>
             <CardHeader className="flex flex-row items-center gap-4">
@@ -264,7 +271,7 @@ export default function TrendsPredictionPage() {
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {detailedPredictions.slice(0,4).map((item) => (
+                          {detailedPredictions.map((item) => (
                               <TableRow key={item.sku}>
                                   <TableCell className="font-medium">{item.product}</TableCell>
                                   <TableCell>
@@ -279,11 +286,6 @@ export default function TrendsPredictionPage() {
           </Card>
         </div>
       </main>
-      ) : (
-        <main className="flex flex-1 items-center justify-center">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        </main>
-      )}
     </div>
   );
 }

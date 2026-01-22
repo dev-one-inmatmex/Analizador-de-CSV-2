@@ -98,6 +98,13 @@ export default function AccessManagementPage() {
         }
     };
 
+  if (!isClient) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -119,7 +126,6 @@ export default function AccessManagementPage() {
             </Button>
         </div>
       </header>
-      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 lg:p-8">
         <Tabs defaultValue="users">
           <TabsList className="grid w-full grid-cols-2">
@@ -262,11 +268,6 @@ export default function AccessManagementPage() {
         </Dialog>
 
       </main>
-       ) : (
-        <main className="flex flex-1 items-center justify-center">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        </main>
-      )}
     </div>
   );
 }
