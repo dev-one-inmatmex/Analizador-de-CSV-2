@@ -360,8 +360,13 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                       ))}
                       {productSkus.length === 0 && (
                           <TableRow>
-                              <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                                  No se encontraron datos de SKUs. Revisa la conexión con la base de datos o si la tabla 'skus' tiene registros.
+                              <TableCell colSpan={8} className="h-24">
+                                <div className="text-center py-4">
+                                    <p className="font-semibold text-lg text-foreground">No se encontraron datos de SKUs</p>
+                                    <p className="text-muted-foreground mt-1">
+                                        Revisa que tus credenciales en <code>.env</code> sean correctas y que las <strong>Políticas de Seguridad (RLS)</strong> de Supabase permitan la lectura a la tabla <code>skus</code>.
+                                    </p>
+                                </div>
                               </TableCell>
                           </TableRow>
                       )}
