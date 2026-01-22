@@ -689,14 +689,18 @@ export default function CsvUploader() {
             </CardContent>
           </Card>
 
-          <div className="flex flex-col items-center gap-4 text-center">
-            <h3 className="text-xl font-semibold tracking-tight">Paso 3: Analiza los datos</h3>
-            <p className="text-muted-foreground">¡Ahora deja que el sistema procese tu selección!</p>
-            <Button onClick={handleAnalyzeClick} disabled={!file || isAnalyzing} size="lg" className="w-full md:w-1/2 text-lg py-7 mt-2">
-              {isAnalyzing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Wand2 className="mr-2 h-5 w-5" />}
-              {isAnalyzing ? 'Procesando...' : 'Procesar Datos Seleccionados'}
-            </Button>
-          </div>
+          <Card>
+            <CardHeader className="items-center text-center">
+              <CardTitle>Paso 3: Analiza los datos</CardTitle>
+              <CardDescription>¡Ahora deja que el sistema procese tu selección!</CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+                <Button onClick={handleAnalyzeClick} disabled={!file || isAnalyzing} size="lg" className="w-full max-w-md text-lg py-7">
+                    {isAnalyzing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Wand2 className="mr-2 h-5 w-5" />}
+                    {isAnalyzing ? 'Procesando...' : 'Procesar Datos Seleccionados'}
+                </Button>
+            </CardContent>
+          </Card>
         </>
       )}
 
