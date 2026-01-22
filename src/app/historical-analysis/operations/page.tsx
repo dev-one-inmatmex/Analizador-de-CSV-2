@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, LogOut, Loader2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Zap, Building, Timer, Filter, LogOut, Loader2, BarChart3, PackageCheck } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
@@ -40,9 +40,9 @@ import GlobalNav from '@/components/global-nav';
 
 const kpiData = {
   avgPerformance: 98.5,
-  labelsProcessed: 12540,
+  unitsProcessed: 12540,
   topCompany: 'MTM',
-  avgTimePerLabel: 2.5,
+  avgTimePerUnit: 2.5,
 };
 
 const companyConfig = {
@@ -58,21 +58,21 @@ const performanceByCompanyData = [
 ];
 
 const hourlyPerformanceData = [
-  { hour: '09:00', labels: 1200 },
-  { hour: '10:00', labels: 1500 },
-  { hour: '11:00', labels: 1400 },
-  { hour: '12:00', labels: 1800 },
-  { hour: '13:00', labels: 1300 },
-  { hour: '14:00', labels: 1650 },
-  { hour: '15:00', labels: 1550 },
-  { hour: '16:00', labels: 1100 },
+  { hour: '09:00', units: 1200 },
+  { hour: '10:00', units: 1500 },
+  { hour: '11:00', units: 1400 },
+  { hour: '12:00', units: 1800 },
+  { hour: '13:00', units: 1300 },
+  { hour: '14:00', units: 1650 },
+  { hour: '15:00', units: 1550 },
+  { hour: '16:00', units: 1100 },
 ];
 
 const recentOperationsData = [
-    { id: 'op-1', user: 'carlos', company: 'MTM', task: 'Etiquetado de Lote A', quantity: 150, time: 'Hace 5 min' },
+    { id: 'op-1', user: 'carlos', company: 'MTM', task: 'Preparación de Pedido #456', quantity: 150, time: 'Hace 5 min' },
     { id: 'op-2', user: 'laura', company: 'TAL', task: 'Verificación de Calidad', quantity: 200, time: 'Hace 8 min' },
     { id: 'op-3', user: 'pedro', company: 'OMESKA', task: 'Empaque de Pedido #123', quantity: 30, time: 'Hace 12 min' },
-    { id: 'op-4', user: 'ana', company: 'MTM', task: 'Etiquetado de Lote B', quantity: 120, time: 'Hace 15 min' },
+    { id: 'op-4', user: 'ana', company: 'MTM', task: 'Auditoría de Inventario #789', quantity: 120, time: 'Hace 15 min' },
     { id: 'op-5', user: 'luis', company: 'TAL', task: 'Recepción de Mercancía', quantity: 500, time: 'Hace 20 min' },
 ];
 
@@ -113,10 +113,10 @@ export default function OperationsAnalysisPage() {
     setKpis(prev => ({
         ...prev,
         avgPerformance: prev.avgPerformance * (Math.random() * 0.1 + 0.95), // +/- 5%
-        labelsProcessed: Math.floor(prev.labelsProcessed * (Math.random() * 0.4 + 0.8)),
+        unitsProcessed: Math.floor(prev.unitsProcessed * (Math.random() * 0.4 + 0.8)),
     }));
     
-    setDisplayedHourly(prev => prev.map(h => ({ ...h, labels: Math.floor(h.labels * (Math.random() * 0.4 + 0.8)) })));
+    setDisplayedHourly(prev => prev.map(h => ({ ...h, units: Math.floor(h.units * (Math.random() * 0.4 + 0.8)) })));
   };
 
   const handleClearFilters = () => {
@@ -232,11 +232,11 @@ export default function OperationsAnalysisPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Etiquetas Procesadas</CardTitle>
-                        <ListChecks className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium">Unidades Procesadas</CardTitle>
+                        <PackageCheck className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpis.labelsProcessed.toLocaleString('es-MX')}</div>
+                        <div className="text-2xl font-bold">{kpis.unitsProcessed.toLocaleString('es-MX')}</div>
                         <p className="text-xs text-muted-foreground">Volumen total de la jornada.</p>
                     </CardContent>
                 </Card>
@@ -247,17 +247,17 @@ export default function OperationsAnalysisPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{kpis.topCompany}</div>
-                        <p className="text-xs text-muted-foreground">Mayor volumen de etiquetas/hora.</p>
+                        <p className="text-xs text-muted-foreground">Mayor volumen de unidades/hora.</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tiempo Promedio/Etiqueta</CardTitle>
+                        <CardTitle className="text-sm font-medium">Tiempo Promedio/Unidad</CardTitle>
                         <Timer className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpis.avgTimePerLabel} seg</div>
-                        <p className="text-xs text-muted-foreground">Tiempo medio para procesar una etiqueta.</p>
+                        <div className="text-2xl font-bold">{kpis.avgTimePerUnit} seg</div>
+                        <p className="text-xs text-muted-foreground">Tiempo medio para procesar una unidad.</p>
                     </CardContent>
                 </Card>
             </div>
@@ -273,7 +273,7 @@ export default function OperationsAnalysisPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Rendimiento por Empresa</CardTitle>
-                        <CardDescription>Comparativa de productividad (etiquetas/hora) entre empresas.</CardDescription>
+                        <CardDescription>Comparativa de productividad (unidades/hora) entre empresas.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ChartContainer config={companyConfig} className="h-[300px] w-full">
@@ -299,16 +299,16 @@ export default function OperationsAnalysisPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Actividad Operativa por Hora</CardTitle>
-                        <CardDescription>Volumen de etiquetas procesadas por hora en el periodo seleccionado.</CardDescription>
+                        <CardDescription>Volumen de unidades procesadas por hora en el periodo seleccionado.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ChartContainer config={{ labels: { label: 'Etiquetas', color: 'hsl(var(--primary))' } }} className="h-[300px] w-full">
+                        <ChartContainer config={{ units: { label: 'Unidades', color: 'hsl(var(--primary))' } }} className="h-[300px] w-full">
                             <LineChart data={displayedHourly} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid vertical={false} />
                                 <YAxis />
                                 <XAxis dataKey="hour" />
                                 <ChartTooltip content={<ChartTooltipContent />} />
-                                <Line type="monotone" dataKey="labels" stroke="var(--color-labels)" strokeWidth={2} dot={true} />
+                                <Line type="monotone" dataKey="units" stroke="var(--color-units)" strokeWidth={2} dot={true} />
                             </LineChart>
                         </ChartContainer>
                     </CardContent>
