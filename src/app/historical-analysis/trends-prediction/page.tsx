@@ -117,6 +117,12 @@ export default function TrendsPredictionPage() {
           <h1 className="text-xl font-bold tracking-tight">Predicción de Tendencias</h1>
         </div>
         <div className="flex items-center gap-4">
+            <Link href="/historical-analysis" passHref>
+                <Button>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Análisis de Históricos
+                </Button>
+            </Link>
             <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />

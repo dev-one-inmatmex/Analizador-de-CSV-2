@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, LogOut, Loader2 } from 'lucide-react';
+import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, LogOut, Loader2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
@@ -154,6 +154,12 @@ export default function OperationsAnalysisPage() {
           <h1 className="text-xl font-bold tracking-tight">Rendimiento Operativo</h1>
         </div>
         <div className="flex items-center gap-4">
+            <Link href="/historical-analysis" passHref>
+                <Button>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Análisis de Históricos
+                </Button>
+            </Link>
             <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />

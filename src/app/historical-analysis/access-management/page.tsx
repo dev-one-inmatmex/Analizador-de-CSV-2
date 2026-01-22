@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Users, UserPlus, MoreHorizontal, LogOut, Loader2 } from 'lucide-react';
+import { ArrowLeft, Users, UserPlus, MoreHorizontal, LogOut, Loader2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
@@ -118,6 +118,12 @@ export default function AccessManagementPage() {
         <div className="flex items-center gap-4">
             <Link href="/historical-analysis/access-management/new-user" passHref>
                 <Button><UserPlus className="mr-2 h-4 w-4" /> Añadir Nuevo Usuario</Button>
+            </Link>
+            <Link href="/historical-analysis" passHref>
+                <Button>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Análisis de Históricos
+                </Button>
             </Link>
             <GlobalNav />
             <Button variant="outline">

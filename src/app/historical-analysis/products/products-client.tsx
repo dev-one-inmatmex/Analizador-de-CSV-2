@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, LogOut, Terminal, Loader2 } from 'lucide-react';
+import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, LogOut, Terminal, Loader2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { format } from 'date-fns';
@@ -161,6 +161,12 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
           <h1 className="text-xl font-bold tracking-tight">Análisis de Productos</h1>
         </div>
         <div className="flex items-center gap-4">
+            <Link href="/historical-analysis" passHref>
+                <Button>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Análisis de Históricos
+                </Button>
+            </Link>
             <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />

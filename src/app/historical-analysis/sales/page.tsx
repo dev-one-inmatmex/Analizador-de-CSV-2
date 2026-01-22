@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, LogOut, Loader2 } from 'lucide-react';
+import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, LogOut, Loader2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
@@ -171,6 +171,12 @@ export default function SalesAnalysisPage() {
           <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas</h1>
         </div>
         <div className="flex items-center gap-4">
+            <Link href="/historical-analysis" passHref>
+                <Button>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Análisis de Históricos
+                </Button>
+            </Link>
             <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />

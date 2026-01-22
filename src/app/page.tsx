@@ -2,7 +2,7 @@
 import CsvUploader from '@/components/csv-uploader';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, BarChart3 } from 'lucide-react';
 import GlobalNav from '@/components/global-nav';
 
 export default function Home() {
@@ -11,6 +11,12 @@ export default function Home() {
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <h1 className="text-xl font-bold tracking-tight">Analizador de CSV</h1>
         <div className="flex items-center gap-4">
+            <Link href="/historical-analysis" passHref>
+                <Button>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Análisis de Históricos
+                </Button>
+            </Link>
             <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
