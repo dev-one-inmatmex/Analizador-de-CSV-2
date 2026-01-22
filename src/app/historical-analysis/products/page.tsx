@@ -1,61 +1,32 @@
 import { supabase } from '@/lib/supabaseClient';
-import type { SkuWithProduct, skus, productos_madre } from '@/types/database';
+import type { SkuWithProduct } from '@/types/database';
 import ProductsAnalysisClientPage from './products-client';
 
 // This function will fetch the data on the server.
 async function getProductSkus(): Promise<SkuWithProduct[]> {
-  // Fase 1: Cargar todos los SKUs
-  const { data: skusData, error: skusError } = await supabase
+  const { data, error } = await supabase
     .from('skus')
-    .select('*');
+    .select(`
+      *,
+      productos_madre (
+        *
+      )
+    `);
 
-  if (skusError) {
+  if (error) {
     // Log the full error to see if there's more information
-    console.error('Error cargando SKUs (fase 1):', JSON.stringify(skusError, null, 2));
+    console.error('Error cargando SKUs y productos madre:', JSON.stringify(error, null, 2));
     return [];
   }
 
-  // Si no hay skus, no hay nada que hacer.
-  if (!skusData || skusData.length === 0) {
-    return [];
-  }
-
-  // Fase 2: Cargar todos los productos madre
-  const { data: productosMadreData, error: productosMadreError } = await supabase
-    .from('productos_madre')
-    .select('*');
-    
-  if (productosMadreError) {
-    console.error('Error cargando productos madre (fase 2):', JSON.stringify(productosMadreError, null, 2));
-    // Fallback: Devolvemos los SKUs sin la info de producto madre
-    return (skusData as skus[]).map(sku => ({
-      ...sku,
-      productos_madre: null,
-    }));
-  }
-
-  // Crear un mapa de productos madre para una búsqueda eficiente
-  const productosMadreMap = new Map<number, productos_madre>();
-  if (productosMadreData) {
-    for (const producto of productosMadreData) {
-      productosMadreMap.set(producto.id, producto as productos_madre);
-    }
-  }
-  
-  // Unir los datos manualmente
-  const productSkus: SkuWithProduct[] = (skusData as skus[]).map(sku => ({
-    ...sku,
-    productos_madre: productosMadreMap.get(sku.producto_madre_id) || null,
-  }));
-
-  return productSkus;
+  return data as SkuWithProduct[];
 }
 
 
 export default async function ProductsAnalysisPage() {
   const productSkus = await getProductSkus();
 
-  // En el caso de que la carga de datos falle, productSkus será un array vacío.
-  // El componente cliente ya maneja el caso de un array vacío mostrando un mensaje.
+  // In case the data loading fails, productSkus will be an empty array.
+  // The client component already handles the case of an empty array by showing a message.
   return <ProductsAnalysisClientPage productSkus={productSkus} />;
 }
