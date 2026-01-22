@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, BarChartHorizontal, LogOut } from 'lucide-react';
+import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, LogOut, Terminal } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { format } from 'date-fns';
@@ -36,8 +36,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { SkuWithProduct } from '@/types/database';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
 import GlobalNav from '@/components/global-nav';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 // --- MOCK DATA ---
@@ -93,8 +93,8 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
 
   React.useEffect(() => {
     setDate({
-      from: subDays(new Date(), 29),
-      to: new Date(),
+      from: new Date(2023, 0, 20),
+      to: new Date(2023, 0, 20),
     });
   }, []);
 
@@ -130,7 +130,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
         description: "Mostrando todos los datos originales."
     });
     setProduct('Todos');
-    setDate({ from: subDays(new Date(), 29), to: new Date() });
+    setDate({ from: new Date(2023, 0, 20), to: new Date(2023, 0, 20) });
 
     setKpis(kpiData);
     setDisplayedMovement(stockMovementData);
@@ -344,28 +344,37 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {productSkus.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                          <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
-                          <TableCell>{item.variacion || 'N/A'}</TableCell>
-                          <TableCell>{item.id_publicacion_ml || 'N/A'}</TableCell>
-                          <TableCell>{item.estado || 'N/A'}</TableCell>
-                          <TableCell className="text-right">
-                            {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
-                          </TableCell>
-                          <TableCell className="text-right">{item.productos_madre?.tiempo_preparacion || 'N/A'}</TableCell>
-                          <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
-                        </TableRow>
-                      ))}
-                      {productSkus.length === 0 && (
+                      {productSkus.length > 0 ? (
+                        productSkus.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                            <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
+                            <TableCell>{item.variacion || 'N/A'}</TableCell>
+                            <TableCell>{item.id_publicacion_ml || 'N/A'}</TableCell>
+                            <TableCell>{item.estado || 'N/A'}</TableCell>
+                            <TableCell className="text-right">
+                              {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-right">{item.productos_madre?.tiempo_preparacion || 'N/A'}</TableCell>
+                            <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
                           <TableRow>
-                              <TableCell colSpan={8} className="h-24">
-                                <div className="text-center py-4">
-                                    <p className="font-semibold text-lg text-foreground">No se encontraron datos de SKUs</p>
-                                    <p className="text-muted-foreground mt-1">
-                                        Revisa que tus credenciales en <code>.env</code> sean correctas y que las <strong>Políticas de Seguridad (RLS)</strong> de Supabase permitan la lectura a la tabla <code>skus</code>.
-                                    </p>
+                              <TableCell colSpan={8} className="p-0">
+                                <div className="p-4">
+                                  <Alert variant="destructive">
+                                    <Terminal className="h-4 w-4" />
+                                    <AlertTitle>No se pudieron cargar los datos</AlertTitle>
+                                    <AlertDescription>
+                                      <p className="font-semibold">La aplicación no pudo obtener registros de Supabase. Esto casi siempre se debe a un problema de configuración que debes resolver tú:</p>
+                                      <ul className="list-disc pl-5 mt-2 space-y-1">
+                                        <li><strong>Políticas de Seguridad (RLS):</strong> Asegúrate de haber habilitado el acceso de lectura (`SELECT`) para la tabla `skus` y `productos_madre` en tu panel de Supabase.</li>
+                                        <li><strong>Credenciales:</strong> Verifica que las variables `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en tu archivo `.env` sean correctas.</li>
+                                      </ul>
+                                      <p className="mt-2 text-xs">El código de la aplicación no puede solucionar esto por ti. Una vez que corrijas la configuración en Supabase o en tu `.env`, los datos aparecerán aquí.</p>
+                                    </AlertDescription>
+                                  </Alert>
                                 </div>
                               </TableCell>
                           </TableRow>
