@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Database, Save, Wand2 } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,12 +9,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 import { processCsvData } from '@/ai/flows/process-csv-flow';
 import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
 import type { ProcessCsvDataOutput } from '@/ai/schemas/csv-schemas';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+
 
 type SelectedCell = {
     rowIndex: number;
@@ -82,6 +91,7 @@ export default function CsvUploader() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<ProcessCsvDataOutput | null>(null);
+  const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
   const [targetTable, setTargetTable] = useState('');
 
   const parsedSpecificItems = useMemo((): SpecificCellItem[] => {
@@ -275,8 +285,7 @@ export default function CsvUploader() {
                 analysis: `Se extrajeron ${extractedRows.length} filas de datos usando el mapeo de columnas.`,
                 table: { headers: tableHeaders, rows: tableRows },
             });
-
-            toast({ title: 'Extracción Completa', description: `Se procesaron ${extractedRows.length} filas.` });
+            setIsAnalysisDialogOpen(true);
 
         } catch (error) {
             console.error("Extraction error:", error);
@@ -291,7 +300,6 @@ export default function CsvUploader() {
         return;
     }
 
-    // --- AI-based Analysis for other modes ---
     const combinedSelection = new Set<string>();
 
     if (selectionMode === 'range') {
@@ -355,9 +363,11 @@ export default function CsvUploader() {
     try {
         const analysis = await processCsvData({ cells: selectedData });
         setAnalysisResult(analysis);
+        setIsAnalysisDialogOpen(true);
     } catch (error) {
         console.error('Error processing CSV data:', error);
         setAnalysisResult({ analysis: 'Ocurrió un error al procesar los datos. Por favor, inténtalo de nuevo.', table: { headers: [], rows: [] } });
+        setIsAnalysisDialogOpen(true);
         toast({
             title: 'Error en el Análisis',
             description: 'Ocurrió un error al procesar los datos con la IA. Revisa la consola para más detalles.',
@@ -381,6 +391,50 @@ export default function CsvUploader() {
     });
   };
   
+  const handleDownloadCsv = () => {
+    if (!analysisResult?.table) {
+        toast({ title: 'No hay datos para descargar', variant: 'destructive' });
+        return;
+    }
+
+    const { headers, rows } = analysisResult.table;
+
+    const escapeCell = (cell: string): string => {
+        const strCell = String(cell ?? '');
+        if (strCell.includes(',') || strCell.includes('"') || strCell.includes('\n')) {
+            const escaped = strCell.replace(/"/g, '""');
+            return `"${escaped}"`;
+        }
+        return strCell;
+    };
+
+    try {
+        const headerRow = headers.map(escapeCell).join(',');
+        const csvRows = rows.map(row => row.map(escapeCell).join(','));
+        const csvContent = [headerRow, ...csvRows].join('\n');
+        
+        // Add BOM for Excel compatibility
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute('download', 'datos_analizados.csv');
+        document.body.appendChild(link);
+        link.click();
+
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error("Failed to download CSV:", error);
+        toast({
+            title: "Error de Descarga",
+            description: "No se pudo generar el archivo CSV.",
+            variant: "destructive"
+        });
+    }
+  };
+
   const isCellSelected = (rowIndex: number, colIndex: number): boolean => {
     if (selectionMode === 'mapping') return false;
 
@@ -643,82 +697,100 @@ export default function CsvUploader() {
               {isAnalyzing ? 'Procesando...' : 'Procesar Datos Seleccionados'}
             </Button>
           </div>
-
-          {analysisResult && (
-            <div className="space-y-6">
-                <Separator />
-                 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Resultado del Análisis</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <h3 className="font-semibold text-lg mb-2 text-foreground">Análisis General</h3>
-                        <p className="whitespace-pre-wrap bg-secondary/50 p-3 rounded-md border">{analysisResult.analysis}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Tabla de Datos Formateada</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="relative mt-2 border rounded-lg">
-                            <div className="w-full overflow-auto max-h-[24rem]">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        {analysisResult.table.headers.map((header, index) => (
-                                            <TableHead key={index}>{header}</TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {analysisResult.table.rows.map((row, rowIndex) => (
-                                        <TableRow key={rowIndex}>
-                                            {row.map((cell, cellIndex) => (
-                                                <TableCell key={cellIndex}>{cell}</TableCell>
-                                            ))}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Paso 4: Guardar en Base de Datos</CardTitle>
-                        <CardDescription>
-                            Selecciona la tabla de destino y guarda los datos procesados. Asegúrate de que los encabezados del CSV coincidan con los nombres de las columnas de la tabla.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center gap-4 text-center">
-                        <div className="w-full max-w-sm space-y-2">
-                            <Label htmlFor="target-table">Seleccionar Tabla de Destino</Label>
-                            <Select value={targetTable} onValueChange={setTargetTable}>
-                                <SelectTrigger id="target-table">
-                                    <SelectValue placeholder="Elige una tabla..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {availableTables.map(table => (
-                                        <SelectItem key={table.value} value={table.value}>
-                                            {table.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Button onClick={handleSaveToDb} disabled={isSaving || !targetTable} size="lg" className="w-full md:w-1/2 text-lg py-7 mt-2">
-                          {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                          {isSaving ? 'Guardando...' : 'Guardar en Base de Datos'}
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-          )}
         </>
       )}
+
+      <Dialog open={isAnalysisDialogOpen} onOpenChange={setIsAnalysisDialogOpen}>
+        <DialogContent className="sm:max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>Resultado del Análisis</DialogTitle>
+                <DialogDescription>
+                    La IA ha procesado los datos seleccionados. Aquí tienes el análisis y la tabla formateada.
+                </DialogDescription>
+            </DialogHeader>
+            
+            {analysisResult && (
+                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Análisis General</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="whitespace-pre-wrap bg-secondary/50 p-3 rounded-md border">{analysisResult.analysis}</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Tabla de Datos Formateada</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="relative mt-2 border rounded-lg">
+                                <div className="w-full overflow-auto max-h-[24rem]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            {analysisResult.table.headers.map((header, index) => (
+                                                <TableHead key={index}>{header}</TableHead>
+                                            ))}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {analysisResult.table.rows.map((row, rowIndex) => (
+                                            <TableRow key={rowIndex}>
+                                                {row.map((cell, cellIndex) => (
+                                                    <TableCell key={cellIndex}>{cell}</TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Guardar en Base de Datos</CardTitle>
+                            <CardDescription>
+                                Selecciona la tabla de destino y guarda los datos procesados.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col items-center gap-4 text-center">
+                            <div className="w-full max-w-sm space-y-2">
+                                <Label htmlFor="target-table-modal">Seleccionar Tabla de Destino</Label>
+                                <Select value={targetTable} onValueChange={setTargetTable}>
+                                    <SelectTrigger id="target-table-modal">
+                                        <SelectValue placeholder="Elige una tabla..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableTables.map(table => (
+                                            <SelectItem key={table.value} value={table.value}>
+                                                {table.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button onClick={handleSaveToDb} disabled={isSaving || !targetTable} size="lg" className="w-full md:w-1/2">
+                              {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                              {isSaving ? 'Guardando...' : 'Guardar en Base de Datos'}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+            
+            <DialogFooter className="sm:justify-end gap-2 pt-4">
+                <Button variant="secondary" onClick={handleDownloadCsv} disabled={!analysisResult}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar CSV
+                </Button>
+                <DialogClose asChild>
+                    <Button type="button" variant="outline">Cerrar</Button>
+                </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
