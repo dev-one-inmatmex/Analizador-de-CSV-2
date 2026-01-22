@@ -350,7 +350,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                       <TableBody>
                         {productSkus.length > 0 ? (
                           productSkus.map((item) => (
-                            <TableRow key={item.id}>
+                            <TableRow key={item.sku}>
                               <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                               <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
                               <TableCell>{item.variacion || 'N/A'}</TableCell>
