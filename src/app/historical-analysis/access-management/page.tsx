@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Users, UserPlus, MoreHorizontal, LogOut } from 'lucide-react';
+import { ArrowLeft, Users, UserPlus, MoreHorizontal, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
@@ -54,6 +54,11 @@ export default function AccessManagementPage() {
     const [newRole, setNewRole] = React.useState('');
     const [newName, setNewName] = React.useState('');
     const [newEmail, setNewEmail] = React.useState('');
+    const [isClient, setIsClient] = React.useState(false);
+
+    React.useEffect(() => {
+        setIsClient(true);
+    }, []);
 
 
     const [permissions, setPermissions] = React.useState<{ [key: string]: Set<string> }>({
@@ -114,6 +119,7 @@ export default function AccessManagementPage() {
             </Button>
         </div>
       </header>
+      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 lg:p-8">
         <Tabs defaultValue="users">
           <TabsList className="grid w-full grid-cols-2">
@@ -256,6 +262,11 @@ export default function AccessManagementPage() {
         </Dialog>
 
       </main>
+       ) : (
+        <main className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </main>
+      )}
     </div>
   );
 }

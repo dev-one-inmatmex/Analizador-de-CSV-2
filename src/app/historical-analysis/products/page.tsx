@@ -1,11 +1,14 @@
-'use client';
-
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import type { SkuWithProduct } from '@/types/database';
 import ProductsAnalysisClientPage from './products-client';
 
 // This function will fetch the data on the server.
 async function getProductSkus(): Promise<SkuWithProduct[]> {
+  if (!isSupabaseConfigured || !supabase) {
+    console.warn("Supabase is not configured. Returning empty data. Please check your .env file.");
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('skus')
     .select(`

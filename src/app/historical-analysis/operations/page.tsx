@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, LogOut } from 'lucide-react';
+import { ArrowLeft, Zap, ListChecks, Building, Timer, Filter, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
@@ -69,11 +69,11 @@ const hourlyPerformanceData = [
 ];
 
 const recentOperationsData = [
-    { user: 'carlos', company: 'MTM', task: 'Etiquetado de Lote A', quantity: 150, time: 'Hace 5 min' },
-    { user: 'laura', company: 'TAL', task: 'Verificación de Calidad', quantity: 200, time: 'Hace 8 min' },
-    { user: 'pedro', company: 'OMESKA', task: 'Empaque de Pedido #123', quantity: 30, time: 'Hace 12 min' },
-    { user: 'ana', company: 'MTM', task: 'Etiquetado de Lote B', quantity: 120, time: 'Hace 15 min' },
-    { user: 'luis', company: 'TAL', task: 'Recepción de Mercancía', quantity: 500, time: 'Hace 20 min' },
+    { id: 'op-1', user: 'carlos', company: 'MTM', task: 'Etiquetado de Lote A', quantity: 150, time: 'Hace 5 min' },
+    { id: 'op-2', user: 'laura', company: 'TAL', task: 'Verificación de Calidad', quantity: 200, time: 'Hace 8 min' },
+    { id: 'op-3', user: 'pedro', company: 'OMESKA', task: 'Empaque de Pedido #123', quantity: 30, time: 'Hace 12 min' },
+    { id: 'op-4', user: 'ana', company: 'MTM', task: 'Etiquetado de Lote B', quantity: 120, time: 'Hace 15 min' },
+    { id: 'op-5', user: 'luis', company: 'TAL', task: 'Recepción de Mercancía', quantity: 500, time: 'Hace 20 min' },
 ];
 
 const allCompanies = ['MTM', 'TAL', 'OMESKA'];
@@ -90,12 +90,14 @@ export default function OperationsAnalysisPage() {
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
   const [date, setDate] = React.useState<DateRange | undefined>();
+  const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setDate({
       from: subDays(new Date(), 29),
       to: new Date(),
     });
+    setIsClient(true);
   }, []);
   
   const handleApplyFilters = () => {
@@ -152,6 +154,7 @@ export default function OperationsAnalysisPage() {
             </Button>
         </div>
       </header>
+      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <Card>
             <CardHeader className="flex flex-row items-center gap-4">
@@ -318,8 +321,8 @@ export default function OperationsAnalysisPage() {
                               </TableRow>
                           </TableHeader>
                           <TableBody>
-                              {displayedOperations.map((op, index) => (
-                                  <TableRow key={index}>
+                              {displayedOperations.map((op) => (
+                                  <TableRow key={op.id}>
                                       <TableCell className="font-medium">{op.user}</TableCell>
                                       <TableCell>
                                           <Badge variant="outline" style={{
@@ -341,6 +344,11 @@ export default function OperationsAnalysisPage() {
           </TabsContent>
         </Tabs>
       </main>
+      ) : (
+        <main className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </main>
+      )}
     </div>
   );
 }

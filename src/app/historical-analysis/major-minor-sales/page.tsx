@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut } from 'lucide-react';
+import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -58,12 +58,14 @@ export default function MajorMinorSalesPage() {
   const [saleType, setSaleType] = React.useState('Todos');
   const [customer, setCustomer] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
+  const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setDate({
       from: subDays(new Date(), 29),
       to: new Date(),
     });
+    setIsClient(true);
   }, []);
 
   const [kpis, setKpis] = React.useState(kpiData);
@@ -123,6 +125,7 @@ export default function MajorMinorSalesPage() {
             </Button>
         </div>
       </header>
+      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <Card>
             <CardHeader className="flex flex-row items-center gap-4">
@@ -288,6 +291,11 @@ export default function MajorMinorSalesPage() {
             </Card>
         </div>
       </main>
+      ) : (
+        <main className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </main>
+      )}
     </div>
   );
 }

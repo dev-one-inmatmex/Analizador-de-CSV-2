@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Package, DollarSign, TrendingDown, Warehouse, Filter, LogOut } from 'lucide-react';
+import { ArrowLeft, Package, DollarSign, TrendingDown, Warehouse, Filter, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, Cell, XAxis, YAxis, Line, LineChart } from 'recharts';
@@ -103,12 +103,14 @@ export default function InventoryAnalysisPage() {
   const [category, setCategory] = React.useState('Todas');
   const [status, setStatus] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
+  const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setDate({
       from: subDays(new Date(), 29),
       to: new Date(),
     });
+    setIsClient(true);
   }, []);
 
   const [kpis, setKpis] = React.useState(kpiData);
@@ -172,6 +174,7 @@ export default function InventoryAnalysisPage() {
         </div>
       </header>
 
+      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <Card>
             <CardHeader className="flex flex-row items-center gap-4">
@@ -372,6 +375,11 @@ export default function InventoryAnalysisPage() {
           </TabsContent>
         </Tabs>
       </main>
+      ) : (
+        <main className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </main>
+      )}
     </div>
   );
 }

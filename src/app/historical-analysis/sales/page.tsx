@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, LogOut } from 'lucide-react';
+import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
@@ -89,11 +89,11 @@ const userPerformanceData = [
 ];
 
 const recentSalesData = [
-    { product: 'Producto A', user: 'dana', company: 'MTM', amount: 55.00, time: 'Hace 2 minutos' },
-    { product: 'Producto B', user: 'alex', company: 'TAL', amount: 30.50, time: 'Hace 5 minutos' },
-    { product: 'Producto C', user: 'dana', company: 'OMESKA', amount: 20.00, time: 'Hace 8 minutos' },
-    { product: 'Producto A', user: 'juan', company: 'MTM', amount: 110.00, time: 'Hace 12 minutos' },
-    { product: 'Producto D', user: 'alex', company: 'TAL', amount: 15.00, time: 'Hace 15 minutos' },
+    { id: 'sale-1', product: 'Producto A', user: 'dana', company: 'MTM', amount: 55.00, time: 'Hace 2 minutos' },
+    { id: 'sale-2', product: 'Producto B', user: 'alex', company: 'TAL', amount: 30.50, time: 'Hace 5 minutos' },
+    { id: 'sale-3', product: 'Producto C', user: 'dana', company: 'OMESKA', amount: 20.00, time: 'Hace 8 minutos' },
+    { id: 'sale-4', product: 'Producto A', user: 'juan', company: 'MTM', amount: 110.00, time: 'Hace 12 minutos' },
+    { id: 'sale-5', product: 'Producto D', user: 'alex', company: 'TAL', amount: 15.00, time: 'Hace 15 minutos' },
 ];
 
 
@@ -103,12 +103,14 @@ export default function SalesAnalysisPage() {
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
   const [date, setDate] = React.useState<DateRange | undefined>();
+  const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setDate({
       from: subDays(new Date(), 29),
       to: new Date(),
     });
+    setIsClient(true);
   }, []);
 
   const [displayedRecentSales, setDisplayedRecentSales] = React.useState(recentSalesData);
@@ -169,6 +171,7 @@ export default function SalesAnalysisPage() {
         </div>
       </header>
 
+      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <Card>
             <CardHeader className="flex flex-row items-center gap-4">
@@ -365,8 +368,8 @@ export default function SalesAnalysisPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {displayedRecentSales.map((sale, index) => (
-                                <TableRow key={index}>
+                                {displayedRecentSales.map((sale) => (
+                                <TableRow key={sale.id}>
                                     <TableCell className="font-medium">{sale.product}</TableCell>
                                     <TableCell>{sale.user}</TableCell>
                                     <TableCell>
@@ -434,6 +437,11 @@ export default function SalesAnalysisPage() {
           </TabsContent>
         </Tabs>
       </main>
+      ) : (
+        <main className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </main>
+      )}
     </div>
   );
 }

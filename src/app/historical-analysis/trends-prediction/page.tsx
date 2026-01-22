@@ -56,6 +56,7 @@ export default function TrendsPredictionPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [category, setCategory] = React.useState('General');
   const [date, setDate] = React.useState<DateRange | undefined>();
+  const [isClient, setIsClient] = React.useState(false);
   
   const [salesHistory, setSalesHistory] = React.useState(generateSalesHistory());
   const [salesPrediction, setSalesPrediction] = React.useState(() => generateSalesPrediction(salesHistory));
@@ -65,6 +66,7 @@ export default function TrendsPredictionPage() {
       from: subDays(new Date(), 365),
       to: new Date(),
     });
+    setIsClient(true);
   }, []);
 
   const handleGeneratePrediction = () => {
@@ -114,6 +116,7 @@ export default function TrendsPredictionPage() {
             </Button>
         </div>
       </header>
+      {isClient ? (
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
         <Card>
             <CardHeader className="flex flex-row items-center gap-4">
@@ -276,6 +279,11 @@ export default function TrendsPredictionPage() {
           </Card>
         </div>
       </main>
+      ) : (
+        <main className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </main>
+      )}
     </div>
   );
 }

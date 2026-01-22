@@ -8,7 +8,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -50,6 +50,10 @@ const saveToDatabaseFlow = ai.defineFlow(
     outputSchema: SaveToDatabaseOutputSchema,
   },
   async ({ targetTable, data }) => {
+    if (!isSupabaseConfigured || !supabase) {
+        return { success: false, message: 'La configuración de Supabase está incompleta. Por favor, edita el archivo .env con tus credenciales y reinicia el servidor.' };
+    }
+    
     if (!data.headers || !data.rows) {
       return { success: false, message: 'Datos de tabla inválidos. Faltan encabezados o filas.' };
     }
