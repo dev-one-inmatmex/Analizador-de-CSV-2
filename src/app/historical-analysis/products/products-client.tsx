@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { SkuWithProduct } from '@/types/database';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
+import { subDays } from 'date-fns';
 import GlobalNav from '@/components/global-nav';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -94,8 +95,8 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
 
   React.useEffect(() => {
     setDate({
-      from: new Date(2023, 0, 20),
-      to: new Date(2023, 0, 20),
+      from: subDays(new Date(), 29),
+      to: new Date(),
     });
     setIsClient(true);
   }, []);
@@ -132,7 +133,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
         description: "Mostrando todos los datos originales."
     });
     setProduct('Todos');
-    setDate({ from: new Date(2023, 0, 20), to: new Date(2023, 0, 20) });
+    setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
     setDisplayedMovement(stockMovementData);
