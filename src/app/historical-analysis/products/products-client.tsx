@@ -335,6 +335,9 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                       <TableRow>
                         <TableHead>SKU</TableHead>
                         <TableHead>Producto Madre</TableHead>
+                        <TableHead>Variación</TableHead>
+                        <TableHead>ID Publicación ML</TableHead>
+                        <TableHead>Estado</TableHead>
                         <TableHead className="text-right">Costo</TableHead>
                         <TableHead className="text-right">Tiempo Prep. (min)</TableHead>
                         <TableHead>Fecha Registro</TableHead>
@@ -345,6 +348,9 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                         <TableRow key={item.id}>
                           <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                           <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
+                          <TableCell>{item.variacion || 'N/A'}</TableCell>
+                          <TableCell>{item.id_publicacion_ml || 'N/A'}</TableCell>
+                          <TableCell>{item.estado || 'N/A'}</TableCell>
                           <TableCell className="text-right">
                             {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
                           </TableCell>
@@ -354,7 +360,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                       ))}
                       {productSkus.length === 0 && (
                           <TableRow>
-                              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                              <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                                   No se encontraron datos de SKUs. Revisa la conexión con la base de datos o si la tabla 'skus' tiene registros.
                               </TableCell>
                           </TableRow>

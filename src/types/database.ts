@@ -3,6 +3,9 @@ export interface skus {
     sku: string;
     fecha_registro: string;
     producto_madre_id: number;
+    variacion: string | null;
+    id_publicacion_ml: string | null;
+    estado: string | null;
 }
 
 export interface productos_madre {
