@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BarChart3, Package, Zap, ClipboardList, BrainCircuit, GitCompareArrows, Users, LogOut } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, ShoppingCart, ClipboardList, BrainCircuit, GitCompareArrows, Users, LogOut } from 'lucide-react';
 import GlobalNav from '@/components/global-nav';
 
 export default function HistoricalAnalysisPage() {
@@ -75,16 +75,16 @@ export default function HistoricalAnalysisPage() {
           <Link href="/historical-analysis/operations" className="block hover:no-underline">
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
-                <Zap className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Rendimiento Operativo</CardTitle>
+                <ShoppingCart className="mb-2 h-8 w-8 text-primary" />
+                <CardTitle>Análisis de Adquisiciones</CardTitle>
                 <CardDescription>
-                  Mide la productividad de tu equipo. Monitoriza la eficiencia de las operaciones diarias, comparando el rendimiento real contra los objetivos.
+                  Analiza órdenes de compra, costos y el rendimiento de proveedores para optimizar tu cadena de suministro y mejorar la rentabilidad.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <List>
-                  <ListItem>Analiza el volumen de tareas completadas.</ListItem>
-                  <ListItem>Mide la eficiencia por usuario y empresa.</ListItem>
+                  <ListItem>Seguimiento de costos y órdenes de compra.</ListItem>
+                  <ListItem>Evaluación del desempeño de proveedores.</ListItem>
                 </List>
               </CardContent>
             </Card>

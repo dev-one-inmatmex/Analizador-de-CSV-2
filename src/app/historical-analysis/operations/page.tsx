@@ -1,20 +1,16 @@
 'use client';
 
-import { ArrowLeft, Zap, Building, Timer, Filter, LogOut, Loader2, BarChart3, PackageCheck } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Truck, DollarSign, Timer, Filter, LogOut, Loader2, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { DateRange } from 'react-day-picker';
 import { subDays, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -25,76 +21,56 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import GlobalNav from '@/components/global-nav';
 
-
 // --- MOCK DATA ---
-
 const kpiData = {
-  avgPerformance: 98.5,
-  unitsProcessed: 12540,
-  topCompany: 'MTM',
-  avgTimePerUnit: 2.5,
+  totalCost: 285450.75,
+  supplierCount: 12,
+  avgOrderCost: 11418.03,
+  avgLeadTime: 5.2, // in days
 };
 
-const companyConfig = {
-  MTM: { label: 'MTM', color: 'hsl(var(--chart-1))' },
-  TAL: { label: 'TAL', color: 'hsl(var(--chart-2))' },
-  OMESKA: { label: 'OMESKA', color: 'hsl(var(--chart-3))' },
-};
-
-const performanceByCompanyData = [
-  { company: 'MTM', performance: 110 },
-  { company: 'TAL', performance: 95 },
-  { company: 'OMESKA', performance: 88 },
+const costByMonthData = [
+  { month: 'Ene', cost: 35000 },
+  { month: 'Feb', cost: 42000 },
+  { month: 'Mar', cost: 38000 },
+  { month: 'Abr', cost: 55000 },
+  { month: 'May', cost: 62000 },
+  { month: 'Jun', cost: 53450.75 },
 ];
 
-const hourlyPerformanceData = [
-  { hour: '09:00', units: 1200 },
-  { hour: '10:00', units: 1500 },
-  { hour: '11:00', units: 1400 },
-  { hour: '12:00', units: 1800 },
-  { hour: '13:00', units: 1300 },
-  { hour: '14:00', units: 1650 },
-  { hour: '15:00', units: 1550 },
-  { hour: '16:00', units: 1100 },
+const spendingBySupplierData = [
+  { supplier: 'Proveedor A', spending: 95000, color: 'hsl(var(--chart-1))' },
+  { supplier: 'Proveedor B', spending: 72000, color: 'hsl(var(--chart-2))' },
+  { supplier: 'Proveedor C', spending: 58000, color: 'hsl(var(--chart-3))' },
+  { supplier: 'Otros', spending: 60450.75, color: 'hsl(var(--chart-4))' },
 ];
 
-const recentOperationsData = [
-    { id: 'op-1', user: 'carlos', company: 'MTM', task: 'Preparación de Pedido #456', quantity: 150, time: 'Hace 5 min' },
-    { id: 'op-2', user: 'laura', company: 'TAL', task: 'Verificación de Calidad', quantity: 200, time: 'Hace 8 min' },
-    { id: 'op-3', user: 'pedro', company: 'OMESKA', task: 'Empaque de Pedido #123', quantity: 30, time: 'Hace 12 min' },
-    { id: 'op-4', user: 'ana', company: 'MTM', task: 'Auditoría de Inventario #789', quantity: 120, time: 'Hace 15 min' },
-    { id: 'op-5', user: 'luis', company: 'TAL', task: 'Recepción de Mercancía', quantity: 500, time: 'Hace 20 min' },
+const recentOrdersData = [
+    { id: 'OC-0534', supplier: 'Proveedor A', category: 'Materia Prima', amount: 25000, date: '2024-06-15', status: 'Recibido' },
+    { id: 'OC-0535', supplier: 'Proveedor B', category: 'Empaques', amount: 8500, date: '2024-06-18', status: 'Recibido' },
+    { id: 'OC-0536', supplier: 'Proveedor C', category: 'Insumos Oficina', amount: 3200, date: '2024-06-20', status: 'Pendiente' },
+    { id: 'OC-0537', supplier: 'Proveedor A', category: 'Materia Prima', amount: 32000, date: '2024-06-21', status: 'En Tránsito' },
+    { id: 'OC-0538', supplier: 'Proveedor D', category: 'Mantenimiento', amount: 15000, date: '2024-06-22', status: 'Pendiente' },
 ];
 
-const allCompanies = ['MTM', 'TAL', 'OMESKA'];
-const allUsers = ['carlos', 'laura', 'pedro', 'ana', 'luis'];
+const allSuppliers = ['Todos', 'Proveedor A', 'Proveedor B', 'Proveedor C', 'Proveedor D'];
+const allStatus = ['Todos', 'Recibido', 'Pendiente', 'En Tránsito', 'Cancelado'];
 
-
-export default function OperationsAnalysisPage() {
+export default function AcquisitionsAnalysisPage() {
   const { toast } = useToast();
   
-  const [kpis, setKpis] = React.useState(kpiData);
-  const [displayedOperations, setDisplayedOperations] = React.useState(recentOperationsData);
-  const [displayedHourly, setDisplayedHourly] = React.useState(hourlyPerformanceData);
-  
-  const [company, setCompany] = React.useState('all');
-  const [user, setUser] = React.useState('all');
+  const [supplier, setSupplier] = React.useState('Todos');
+  const [status, setStatus] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
 
   React.useEffect(() => {
     setDate({
-      from: subDays(new Date(), 29),
+      from: subDays(new Date(), 90),
       to: new Date(),
     });
     setIsClient(true);
@@ -103,20 +79,8 @@ export default function OperationsAnalysisPage() {
   const handleApplyFilters = () => {
     toast({
       title: 'Filtros aplicados',
-      description: 'Los datos de operaciones han sido actualizados.',
+      description: 'Los datos de adquisiciones han sido actualizados.',
     });
-
-    const shuffle = (arr: any[]) => [...arr].sort(() => Math.random() - 0.5);
-
-    setDisplayedOperations(shuffle(recentOperationsData));
-    
-    setKpis(prev => ({
-        ...prev,
-        avgPerformance: prev.avgPerformance * (Math.random() * 0.1 + 0.95), // +/- 5%
-        unitsProcessed: Math.floor(prev.unitsProcessed * (Math.random() * 0.4 + 0.8)),
-    }));
-    
-    setDisplayedHourly(prev => prev.map(h => ({ ...h, units: Math.floor(h.units * (Math.random() * 0.4 + 0.8)) })));
   };
 
   const handleClearFilters = () => {
@@ -124,13 +88,9 @@ export default function OperationsAnalysisPage() {
       title: 'Filtros limpiados',
       description: 'Mostrando todos los datos originales.',
     });
-    setCompany('all');
-    setUser('all');
-    setDate({ from: subDays(new Date(), 29), to: new Date() });
-
-    setKpis(kpiData);
-    setDisplayedOperations(recentOperationsData);
-    setDisplayedHourly(hourlyPerformanceData);
+    setSupplier('Todos');
+    setStatus('Todos');
+    setDate({ from: subDays(new Date(), 90), to: new Date() });
   };
 
   if (!isClient) {
@@ -151,7 +111,7 @@ export default function OperationsAnalysisPage() {
               <span className="sr-only">Volver</span>
             </Button>
           </Link>
-          <h1 className="text-xl font-bold tracking-tight">Rendimiento Operativo</h1>
+          <h1 className="text-xl font-bold tracking-tight">Análisis de Adquisiciones</h1>
         </div>
         <div className="flex items-center gap-4">
             <Link href="/historical-analysis" passHref>
@@ -172,8 +132,8 @@ export default function OperationsAnalysisPage() {
             <CardHeader className="flex flex-row items-center gap-4">
                 <Filter className="h-6 w-6 text-muted-foreground" />
                 <div>
-                    <CardTitle>Filtros de Rendimiento</CardTitle>
-                    <CardDescription>Analiza el rendimiento por empresa o usuario.</CardDescription>
+                    <CardTitle>Filtros de Adquisiciones</CardTitle>
+                    <CardDescription>Analiza por proveedor, estado de orden o periodo de tiempo.</CardDescription>
                 </div>
             </CardHeader>
             <CardContent>
@@ -183,26 +143,24 @@ export default function OperationsAnalysisPage() {
                         <DateRangePicker id="date-range" date={date} onSelect={setDate} />
                     </div>
                     <div className='space-y-2'>
-                        <Label htmlFor="company-filter">Empresa</Label>
-                        <Select value={company} onValueChange={setCompany}>
-                            <SelectTrigger id="company-filter">
-                                <SelectValue placeholder="Seleccionar empresa" />
+                        <Label htmlFor="supplier-filter">Proveedor</Label>
+                        <Select value={supplier} onValueChange={setSupplier}>
+                            <SelectTrigger id="supplier-filter">
+                                <SelectValue placeholder="Seleccionar proveedor" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todas las empresas</SelectItem>
-                                {allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                {allSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
                     <div className='space-y-2'>
-                        <Label htmlFor="user-filter">Usuario</Label>
-                        <Select value={user} onValueChange={setUser}>
-                            <SelectTrigger id="user-filter">
-                                <SelectValue placeholder="Seleccionar usuario" />
+                        <Label htmlFor="status-filter">Estado de Orden</Label>
+                        <Select value={status} onValueChange={setStatus}>
+                            <SelectTrigger id="status-filter">
+                                <SelectValue placeholder="Seleccionar estado" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todos los usuarios</SelectItem>
-                                {allUsers.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                                {allStatus.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -216,145 +174,124 @@ export default function OperationsAnalysisPage() {
 
         <div>
             <div className="mb-4">
-                <h2 className="text-xl font-semibold">Resumen Operativo</h2>
-                <p className="text-muted-foreground">Indicadores de rendimiento clave para el periodo seleccionado.</p>
+                <h2 className="text-xl font-semibold">Resumen de Adquisiciones</h2>
+                <p className="text-muted-foreground">Indicadores clave de tus compras y proveedores.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Rendimiento Promedio</CardTitle>
-                        <Zap className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium">Costo Total de Adquisiciones</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpis.avgPerformance.toFixed(1)}%</div>
-                        <p className="text-xs text-muted-foreground">Eficiencia general contra el objetivo.</p>
+                        <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.totalCost)}</div>
+                        <p className="text-xs text-muted-foreground">Gasto total en el periodo seleccionado.</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Unidades Procesadas</CardTitle>
-                        <PackageCheck className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium">Proveedores Activos</CardTitle>
+                        <Truck className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpis.unitsProcessed.toLocaleString('es-MX')}</div>
-                        <p className="text-xs text-muted-foreground">Volumen total de la jornada.</p>
+                        <div className="text-2xl font-bold">{kpiData.supplierCount}</div>
+                        <p className="text-xs text-muted-foreground">Proveedores con órdenes en el periodo.</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Empresa más Productiva</CardTitle>
-                        <Building className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium">Costo Promedio por Orden</CardTitle>
+                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpis.topCompany}</div>
-                        <p className="text-xs text-muted-foreground">Mayor volumen de unidades/hora.</p>
+                        <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.avgOrderCost)}</div>
+                        <p className="text-xs text-muted-foreground">Valor medio de cada orden de compra.</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Tiempo Promedio/Unidad</CardTitle>
+                        <CardTitle className="text-sm font-medium">Tiempo de Entrega Promedio</CardTitle>
                         <Timer className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{kpis.avgTimePerUnit} seg</div>
-                        <p className="text-xs text-muted-foreground">Tiempo medio para procesar una unidad.</p>
+                        <div className="text-2xl font-bold">{kpiData.avgLeadTime} días</div>
+                        <p className="text-xs text-muted-foreground">Desde la orden hasta la recepción.</p>
                     </CardContent>
                 </Card>
             </div>
         </div>
 
-        <Tabs defaultValue="overview">
-          <TabsList>
-            <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
-            <TabsTrigger value="details">Detalle de Operaciones</TabsTrigger>
-          </TabsList>
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Rendimiento por Empresa</CardTitle>
-                        <CardDescription>Comparativa de productividad (unidades/hora) entre empresas.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={companyConfig} className="h-[300px] w-full">
-                            <BarChart data={performanceByCompanyData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                                <CartesianGrid vertical={false} />
-                                <YAxis 
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickMargin={8}
-                                    domain={[0, 'dataMax + 20']}
-                                />
-                                <XAxis dataKey="company" type="category" tickLine={false} axisLine={false} />
-                                <ChartTooltip content={<ChartTooltipContent />} />
-                                <Bar dataKey="performance" radius={8}>
-                                    {performanceByCompanyData.map((entry) => (
-                                        <Cell key={entry.company} fill={companyConfig[entry.company as keyof typeof companyConfig].color} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Actividad Operativa por Hora</CardTitle>
-                        <CardDescription>Volumen de unidades procesadas por hora en el periodo seleccionado.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={{ units: { label: 'Unidades', color: 'hsl(var(--primary))' } }} className="h-[300px] w-full">
-                            <LineChart data={displayedHourly} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                                <CartesianGrid vertical={false} />
-                                <YAxis />
-                                <XAxis dataKey="hour" />
-                                <ChartTooltip content={<ChartTooltipContent />} />
-                                <Line type="monotone" dataKey="units" stroke="var(--color-units)" strokeWidth={2} dot={true} />
-                            </LineChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-            </div>
-          </TabsContent>
-          <TabsContent value="details" className="space-y-4">
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Registro de Actividad Reciente</CardTitle>
-                      <CardDescription>Últimas operaciones registradas en el sistema por los usuarios.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead>Usuario</TableHead>
-                                  <TableHead>Empresa</TableHead>
-                                  <TableHead>Tarea</TableHead>
-                                  <TableHead className="text-right">Cantidad</TableHead>
-                                  <TableHead className="text-right">Hora</TableHead>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card className="lg:col-span-2">
+                <CardHeader>
+                    <CardTitle>Costo de Adquisiciones por Mes</CardTitle>
+                    <CardDescription>Evolución del gasto mensual en compras.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={costByMonthData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} />
+                      <Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} />
+                      <Legend />
+                      <Line type="monotone" dataKey="cost" name="Costo" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Gasto por Proveedor</CardTitle>
+                    <CardDescription>Distribución del gasto entre los principales proveedores.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                            <Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} />
+                            <Pie data={spendingBySupplierData} dataKey="spending" nameKey="supplier" innerRadius={60} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
+                                {spendingBySupplierData.map((entry) => (
+                                    <Cell key={entry.supplier} fill={entry.color} />
+                                ))}
+                            </Pie>
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                  <CardTitle>Órdenes de Compra Recientes</CardTitle>
+                  <CardDescription>Listado de las últimas adquisiciones registradas.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Table>
+                      <TableHeader>
+                          <TableRow>
+                              <TableHead>Orden #</TableHead>
+                              <TableHead>Proveedor</TableHead>
+                              <TableHead className="text-right">Monto</TableHead>
+                              <TableHead>Estado</TableHead>
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {recentOrdersData.map((order) => (
+                              <TableRow key={order.id}>
+                                  <TableCell className="font-mono text-xs">{order.id}</TableCell>
+                                  <TableCell className="font-medium">{order.supplier}</TableCell>
+                                  <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(order.amount)}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={order.status === 'Recibido' ? 'secondary' : order.status === 'En Tránsito' ? 'default' : 'outline'}>
+                                        {order.status}
+                                    </Badge>
+                                  </TableCell>
                               </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {displayedOperations.map((op) => (
-                                  <TableRow key={op.id}>
-                                      <TableCell className="font-medium">{op.user}</TableCell>
-                                      <TableCell>
-                                          <Badge variant="outline" style={{
-                                             borderColor: companyConfig[op.company as keyof typeof companyConfig]?.color,
-                                             color: companyConfig[op.company as keyof typeof companyConfig]?.color,
-                                          }}>
-                                              {op.company}
-                                          </Badge>
-                                      </TableCell>
-                                      <TableCell>{op.task}</TableCell>
-                                      <TableCell className="text-right">{op.quantity}</TableCell>
-                                      <TableCell className="text-right text-sm text-muted-foreground">{op.time}</TableCell>
-                                  </TableRow>
-                              ))}
-                          </TableBody>
-                      </Table>
-                  </CardContent>
-              </Card>
-          </TabsContent>
-        </Tabs>
+                          ))}
+                      </TableBody>
+                  </Table>
+              </CardContent>
+            </Card>
+        </div>
       </main>
     </div>
   );
