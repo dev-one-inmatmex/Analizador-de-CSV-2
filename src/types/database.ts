@@ -1,16 +1,15 @@
 export interface skus {
     id: number;
     sku: string;
-    producto_madre_id: number;
-    origen: string;
     fecha_registro: string;
+    producto_madre_id: number;
 }
 
-export interface producto_madre{
+export interface productos_madre {
     id: number;
     nombre_madre: string;
     costo: number;
-    tiempo_preparacion:number;
+    tiempo_preparacion: number;
     fecha_registro: string;
 }
 
@@ -21,5 +20,5 @@ export interface Usuario {
 }
 
 export type SkuWithProduct = skus & {
-  productos_madre: producto_madre | null;
+  productos_madre: productos_madre | null;
 };

@@ -336,7 +336,6 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                         <TableHead>Producto Madre</TableHead>
                         <TableHead className="text-right">Costo</TableHead>
                         <TableHead className="text-right">Tiempo Prep. (min)</TableHead>
-                        <TableHead>Origen</TableHead>
                         <TableHead>Fecha Registro</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -349,13 +348,12 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                             {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
                           </TableCell>
                           <TableCell className="text-right">{item.productos_madre?.tiempo_preparacion || 'N/A'}</TableCell>
-                          <TableCell>{item.origen}</TableCell>
                           <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
                         </TableRow>
                       ))}
                       {productSkus.length === 0 && (
                           <TableRow>
-                              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                              <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                   No se encontraron datos de SKUs. Revisa la conexión con la base de datos o si la tabla 'skus' tiene registros.
                               </TableCell>
                           </TableRow>

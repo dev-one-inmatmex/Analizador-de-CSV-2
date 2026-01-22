@@ -8,7 +8,6 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
     .select(`
       id,
       sku,
-      origen,
       fecha_registro,
       productos_madre (
         id,
