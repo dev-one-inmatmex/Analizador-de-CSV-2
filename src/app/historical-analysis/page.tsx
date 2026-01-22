@@ -19,6 +19,12 @@ export default function HistoricalAnalysisPage() {
             <h1 className="text-xl font-bold tracking-tight">Análisis de Históricos</h1>
         </div>
         <div className="flex items-center gap-4">
+            <Link href="/historical-analysis" passHref>
+                <Button>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Análisis de Históricos
+                </Button>
+            </Link>
             <GlobalNav />
             <Button variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -77,8 +83,8 @@ export default function HistoricalAnalysisPage() {
               </CardHeader>
               <CardContent>
                 <List>
-                  <ListItem>Extrae datos de la base de datos de etiquetas.</ListItem>
-                  <ListItem>Mide el rendimiento del día por cada empresa.</ListItem>
+                  <ListItem>Analiza el volumen de tareas completadas.</ListItem>
+                  <ListItem>Mide la eficiencia por usuario y empresa.</ListItem>
                 </List>
               </CardContent>
             </Card>
