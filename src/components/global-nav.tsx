@@ -12,7 +12,7 @@ import Link from 'next/link';
 
 export default function GlobalNav() {
   const navLinks = [
-    { href: '/', label: 'Analizador de CSV' },    
+    { href: '/', label: 'Analizador Inteligente de Datos CSV' },    
     { href: '/historical-analysis/sales', label: 'Análisis de Ventas' },
     { href: '/historical-analysis/inventory', label: 'Análisis de Inventario' },
     { href: '/historical-analysis/operations', label: 'Análisis de Adquisiciones' },

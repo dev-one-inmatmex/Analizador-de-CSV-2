@@ -367,12 +367,12 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                               <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                               <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
                               <TableCell>{item.variacion || 'N/A'}</TableCell>
-                              <TableCell>{item.id_publicacion_ml || 'N/A'}</TableCell>
-                              <TableCell>{item.estado || 'N/A'}</TableCell>
+                              <TableCell>{item.costo || 'N/A'}</TableCell>
+                              <TableCell>{item.tiempo_preparacion|| 'N/A'}</TableCell>
                               <TableCell className="text-right">
                                 {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
                               </TableCell>
-                              <TableCell className="text-right">{item.productos_madre?.tiempo_preparacion || 'N/A'}</TableCell>
+                              <TableCell className="text-right">{item.costo?.tiempo_preparacion || 'N/A'}</TableCell>
                               <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
                             </TableRow>
                           ))
@@ -406,4 +406,4 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
         </main>
     </div>
   );
-}
+}             

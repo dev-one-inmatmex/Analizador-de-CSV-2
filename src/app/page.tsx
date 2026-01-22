@@ -9,7 +9,7 @@ export default function Home() {
   return (
     <div className="relative flex min-h-screen w-full flex-col">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-        <h1 className="text-xl font-bold tracking-tight">Herramienta de Análisis CSV</h1>
+        <h1 className="text-xl font-bold tracking-tight">Analizador Inteligente de Datos CSV</h1>
         <div className="flex items-center gap-4">
             <Link href="/historical-analysis" passHref>
                 <Button>

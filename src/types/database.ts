@@ -1,11 +1,11 @@
 export interface skus {
     id: number;
     sku: string;
-    fecha_registro: string;
-    producto_madre_id: number;
+    id_producto_madre: number;
     variacion: string | null;
-    id_publicacion_ml: string | null;
-    estado: string | null;
+    costo: number;
+    tiempo_preparacion: number; 
+    fecha_registro: string;
 }
 
 export interface productos_madre {
