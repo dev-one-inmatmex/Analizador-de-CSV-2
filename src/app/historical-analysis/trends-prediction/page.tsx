@@ -50,20 +50,22 @@ const detailedPredictions = [
 ];
 
 const allCategories = ['General', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes'];
-const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 export default function TrendsPredictionPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [category, setCategory] = React.useState('General');
-  const [year, setYear] = React.useState(allYears[0]);
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: subDays(new Date(), 365),
-    to: new Date(),
-  });
+  const [date, setDate] = React.useState<DateRange | undefined>();
   
   const [salesHistory, setSalesHistory] = React.useState(generateSalesHistory());
   const [salesPrediction, setSalesPrediction] = React.useState(() => generateSalesPrediction(salesHistory));
+
+  React.useEffect(() => {
+    setDate({
+      from: subDays(new Date(), 365),
+      to: new Date(),
+    });
+  }, []);
 
   const handleGeneratePrediction = () => {
       setIsLoading(true);
@@ -85,7 +87,6 @@ export default function TrendsPredictionPage() {
 
   const handleClearFilters = () => {
     setCategory('General');
-    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 365), to: new Date() });
     toast({
         title: "Filtros limpiados",

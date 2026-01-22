@@ -50,7 +50,6 @@ const recentTransactionsData = [
 
 const allTypes = ['Todos', 'Mayorista', 'Minorista'];
 const allCustomers = ['Todos', 'Cliente A', 'Cliente B', 'Cliente C', 'Cliente D', 'Cliente E', 'Público General'];
-const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function MajorMinorSalesPage() {
@@ -58,11 +57,14 @@ export default function MajorMinorSalesPage() {
   
   const [saleType, setSaleType] = React.useState('Todos');
   const [customer, setCustomer] = React.useState('Todos');
-  const [year, setYear] = React.useState(allYears[0]);
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
+  const [date, setDate] = React.useState<DateRange | undefined>();
+
+  React.useEffect(() => {
+    setDate({
+      from: subDays(new Date(), 29),
+      to: new Date(),
+    });
+  }, []);
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedTransactions, setDisplayedTransactions] = React.useState(recentTransactionsData);
@@ -93,7 +95,6 @@ export default function MajorMinorSalesPage() {
     });
     setSaleType('Todos');
     setCustomer('Todos');
-    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);

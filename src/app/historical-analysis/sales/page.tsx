@@ -53,7 +53,6 @@ const chartConfigUnitsByPeriod = { ...companyConfig };
 // Data
 const allCompanies = ['MTM', 'TAL', 'OMESKA'];
 const allUsers = ['dana', 'alex', 'juan', 'sara'];
-const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 const salesByCompanyData = [
   { company: 'MTM', sales: 44 },
@@ -103,11 +102,14 @@ export default function SalesAnalysisPage() {
   
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
-  const [year, setYear] = React.useState(allYears[0]);
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
+  const [date, setDate] = React.useState<DateRange | undefined>();
+
+  React.useEffect(() => {
+    setDate({
+      from: subDays(new Date(), 29),
+      to: new Date(),
+    });
+  }, []);
 
   const [displayedRecentSales, setDisplayedRecentSales] = React.useState(recentSalesData);
   const [displayedUserPerformance, setDisplayedUserPerformance] = React.useState(userPerformanceData);
@@ -131,7 +133,6 @@ export default function SalesAnalysisPage() {
       });
       setCompany('all');
       setUser('all');
-      setYear(allYears[0]);
       setDate({ from: subDays(new Date(), 29), to: new Date() });
       setDisplayedRecentSales(recentSalesData);
       setDisplayedUserPerformance(userPerformanceData);

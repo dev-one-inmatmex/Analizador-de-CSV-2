@@ -85,7 +85,6 @@ const inventoryDetailData = [
 
 const allCategories = ['Todas', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes', 'Otros'];
 const allStatuses = ['Todos', 'En Stock', 'Bajo Stock'];
-const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 const chartConfigCategory = {
   value: { label: 'Valor' },
@@ -103,11 +102,14 @@ export default function InventoryAnalysisPage() {
   
   const [category, setCategory] = React.useState('Todas');
   const [status, setStatus] = React.useState('Todos');
-  const [year, setYear] = React.useState(allYears[0]);
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
+  const [date, setDate] = React.useState<DateRange | undefined>();
+
+  React.useEffect(() => {
+    setDate({
+      from: subDays(new Date(), 29),
+      to: new Date(),
+    });
+  }, []);
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedInventoryDetail, setDisplayedInventoryDetail] = React.useState(inventoryDetailData);
@@ -141,7 +143,6 @@ export default function InventoryAnalysisPage() {
     });
     setCategory('Todas');
     setStatus('Todos');
-    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     // Reset data to original

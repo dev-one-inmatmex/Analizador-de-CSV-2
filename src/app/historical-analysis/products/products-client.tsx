@@ -83,18 +83,20 @@ const productDetailData = [
 ];
 
 const allProducts = ['Todos', 'Producto A', 'Producto B', 'Producto C', 'Producto D', 'Producto E'];
-const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function ProductsAnalysisClientPage({ productSkus }: { productSkus: SkuWithProduct[] }) {
   const { toast } = useToast();
   
   const [product, setProduct] = React.useState('Todos');
-  const [year, setYear] = React.useState(allYears[0]);
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
+  const [date, setDate] = React.useState<DateRange | undefined>();
+
+  React.useEffect(() => {
+    setDate({
+      from: subDays(new Date(), 29),
+      to: new Date(),
+    });
+  }, []);
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedMovement, setDisplayedMovement] = React.useState(stockMovementData);
@@ -128,7 +130,6 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
         description: "Mostrando todos los datos originales."
     });
     setProduct('Todos');
-    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);

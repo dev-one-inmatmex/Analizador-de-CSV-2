@@ -78,7 +78,6 @@ const recentOperationsData = [
 
 const allCompanies = ['MTM', 'TAL', 'OMESKA'];
 const allUsers = ['carlos', 'laura', 'pedro', 'ana', 'luis'];
-const allYears = Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - i).toString());
 
 
 export default function OperationsAnalysisPage() {
@@ -90,11 +89,14 @@ export default function OperationsAnalysisPage() {
   
   const [company, setCompany] = React.useState('all');
   const [user, setUser] = React.useState('all');
-  const [year, setYear] = React.useState(allYears[0]);
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: subDays(new Date(), 29),
-    to: new Date(),
-  });
+  const [date, setDate] = React.useState<DateRange | undefined>();
+
+  React.useEffect(() => {
+    setDate({
+      from: subDays(new Date(), 29),
+      to: new Date(),
+    });
+  }, []);
   
   const handleApplyFilters = () => {
     toast({
@@ -122,7 +124,6 @@ export default function OperationsAnalysisPage() {
     });
     setCompany('all');
     setUser('all');
-    setYear(allYears[0]);
     setDate({ from: subDays(new Date(), 29), to: new Date() });
 
     setKpis(kpiData);
