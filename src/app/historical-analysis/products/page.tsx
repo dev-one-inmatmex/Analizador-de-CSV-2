@@ -37,7 +37,10 @@ async function getPublications(): Promise<publicaciones[]> {
     return [];
   }
 
-  const { data, error } = await supabase.from('publicaciones').select('*').limit(100);
+  const { data, error } = await supabase
+    .from('publicaciones')
+    .select('id, item_id, sku, title, status, company, price, created_at')
+    .limit(100);
 
   if (error) {
     console.error('Error fetching publications:', error);
