@@ -72,6 +72,8 @@ const initialMapping = {
 const availableTables = [
     { value: 'skus', label: 'Catálogo de SKUs' },
     { value: 'productos_madre', label: 'Catálogo de Productos Madre' },
+    { value: 'ventas', label: 'Registro de Ventas' },
+    { value: 'publicaciones', label: 'Catálogo de Publicaciones' },
 ];
 
 export default function CsvUploader() {

@@ -23,15 +23,25 @@ const SaveToDatabaseOutputSchema = z.object({
 type SaveToDatabaseOutput = z.infer<typeof SaveToDatabaseOutputSchema>;
 
 function parseValue(key: string, value: string): any {
-    const numericFields = ['id', 'costo', 'tiempo_preparacion', 'producto_madre_id'];
-    const booleanFields: string[] = [];
+    const numericFields = [
+        'id', 'costo', 'tiempo_preparacion', 'producto_madre_id',
+        'numero_venta', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
+        'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
+        'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
+        'dinero_a_favor', 'unidades_reclamo', 'price'
+    ];
+    const booleanFields = [
+        'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
+        'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'
+    ];
 
     if (numericFields.includes(key)) {
         const num = parseFloat(value);
         return isNaN(num) ? null : num;
     }
     if (booleanFields.includes(key)) {
-        return value.toLowerCase() === 'true' || value === '1';
+        const lowerValue = value.toLowerCase();
+        return lowerValue === 'true' || lowerValue === '1' || lowerValue === 'verdadero';
     }
     
     // Retorna null para valores explícitamente vacíos, undefined o "null"
