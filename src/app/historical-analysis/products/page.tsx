@@ -14,9 +14,15 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
   const { data, error } = await supabase
     .from('skus')
     .select(`
-      *,
+      sku,
+      variacion,
+      id_publicacion_ml,
+      estado,
+      tiempo_preparacion,
+      fecha_registro,
       productos_madre (
-        *
+        nombre_madre,
+        costo
       )
     `);
 
