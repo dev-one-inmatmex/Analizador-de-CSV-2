@@ -16,7 +16,7 @@ export default function GlobalNav() {
     { href: '/historical-analysis/sales', label: 'Análisis de Ventas' },
     { href: '/historical-analysis/inventory', label: 'Análisis de Inventario' },
     { href: '/historical-analysis/operations', label: 'Análisis de Adquisiciones' },
-    { href: '/historical-analysis/products', label: 'Análisis de Productos' },
+    { href: '/historical-analysis/products', label: 'Análisis de Publicaciones' },
     { href: '/historical-analysis/trends-prediction', label: 'Predicción de Tendencias' },
     { href: '/historical-analysis/major-minor-sales', label: 'Ventas por Mayor y Menor' },
     { href: '/historical-analysis/access-management', label: 'Gestión de Accesos' },

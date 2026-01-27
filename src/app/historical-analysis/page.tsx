@@ -87,16 +87,16 @@ export default function HistoricalAnalysisPage() {
             <Card className="h-full transition-shadow hover:shadow-lg">
               <CardHeader>
                 <ClipboardList className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Análisis de Productos</CardTitle>
+                <CardTitle>Análisis de Publicaciones</CardTitle>
                 <CardDescription>
-                  Enfócate en el producto terminado. Analiza su ciclo de vida desde la elaboración hasta el consumo para optimizar la producción y la rotación.
+                  Analiza el rendimiento de tus publicaciones, precios, estado y su relación con los SKUs para optimizar tu estrategia de ventas.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <List>
-                  <ListItem>Visualización de stock y su duración.</ListItem>
-                  <ListItem>Histórico de movimientos y consumo.</ListItem>
-                  <ListItem>Análisis de fechas de elaboración.</ListItem>
+                  <ListItem>Análisis de precios y estado.</ListItem>
+                  <ListItem>Rendimiento por compañía.</ListItem>
+                  <ListItem>Relación entre SKUs y publicaciones.</ListItem>
                 </List>
               </CardContent>
             </Card>

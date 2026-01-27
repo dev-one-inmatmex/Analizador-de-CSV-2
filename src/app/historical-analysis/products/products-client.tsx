@@ -158,7 +158,7 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
               <span className="sr-only">Volver</span>
             </Button>
           </Link>
-          <h1 className="text-xl font-bold tracking-tight">Análisis de Productos</h1>
+          <h1 className="text-xl font-bold tracking-tight">Análisis de Publicaciones</h1>
         </div>
         <div className="flex items-center gap-4">
             <Link href="/historical-analysis" passHref>
@@ -180,18 +180,18 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
               <CardHeader className="flex flex-row items-center gap-4">
                   <Filter className="h-6 w-6 text-muted-foreground" />
                   <div>
-                      <CardTitle>Filtros de Análisis</CardTitle>
-                      <CardDescription>Filtra por período y producto para refinar el análisis.</CardDescription>
+                      <CardTitle>Filtros de Publicaciones</CardTitle>
+                      <CardDescription>Filtra por período y publicación para refinar el análisis.</CardDescription>
                   </div>
               </CardHeader>
               <CardContent>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       <div className="space-y-2">
-                          <Label htmlFor="date-range">Periodo</Label>
+                          <Label htmlFor="date-range">Período</Label>
                           <DateRangePicker id="date-range" date={date} onSelect={setDate} />
                       </div>
                       <div className="space-y-2">
-                          <Label htmlFor="product-filter">Producto</Label>
+                          <Label htmlFor="product-filter">Publicación</Label>
                           <Select value={product} onValueChange={setProduct}>
                               <SelectTrigger id="product-filter">
                                   <SelectValue placeholder="Seleccionar producto" />
@@ -211,8 +211,8 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
 
           <div>
               <div className="mb-4">
-                  <h2 className="text-xl font-semibold">Resumen del Ciclo de Producto</h2>
-                  <p className="text-muted-foreground">Indicadores clave sobre el stock, consumo y duración.</p>
+                  <h2 className="text-xl font-semibold">Resumen de Publicaciones</h2>
+                  <p className="text-muted-foreground">Indicadores clave sobre el stock, consumo y duración de los productos asociados.</p>
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
@@ -260,8 +260,8 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
 
           <Tabs defaultValue="overview">
             <TabsList>
-              <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
-              <TabsTrigger value="details">Detalle de Productos</TabsTrigger>
+              <TabsTrigger value="overview">Análisis Gráfico</TabsTrigger>
+              <TabsTrigger value="details">Detalle por Publicación</TabsTrigger>
               <TabsTrigger value="catalog">Catálogo de SKUs</TabsTrigger>
               <TabsTrigger value="publications">Catálogo de Publicaciones</TabsTrigger>
             </TabsList>
@@ -269,8 +269,8 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card className="lg:col-span-2">
                   <CardHeader>
-                    <CardTitle>Histórico de Movimiento de Stock</CardTitle>
-                    <CardDescription>Evolución del stock, entradas y salidas en el periodo seleccionado.</CardDescription>
+                    <CardTitle>Histórico de Movimiento de Stock (por Publicación)</CardTitle>
+                    <CardDescription>Evolución del stock, entradas y salidas de los productos asociados en el período.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ChartContainer config={chartConfigMovement} className="h-[350px] w-full">
@@ -289,8 +289,8 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Productos con Mayor Consumo</CardTitle>
-                    <CardDescription>Top 5 productos más consumidos en el periodo.</CardDescription>
+                    <CardTitle>Publicaciones con Mayor Consumo</CardTitle>
+                    <CardDescription>Top 5 publicaciones más consumidas en el período.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ChartContainer config={{}} className="h-[350px] w-full">
@@ -309,15 +309,15 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
             <TabsContent value="details" className="space-y-4">
               <Card>
                 <CardHeader>
-                    <CardTitle>Detalle de Productos</CardTitle>
-                    <CardDescription>Información detallada de cada producto, incluyendo stock y consumo.</CardDescription>
+                    <CardTitle>Detalle de Publicaciones</CardTitle>
+                    <CardDescription>Información detallada de cada publicación, incluyendo stock y consumo del producto asociado.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>SKU</TableHead>
-                                <TableHead>Producto</TableHead>
+                                <TableHead>Publicación</TableHead>
                                 <TableHead className="text-right">Stock Actual</TableHead>
                                 <TableHead className="text-right">Consumo Promedio (Diario)</TableHead>
                                 <TableHead className="text-center">Fecha Última Elaboración</TableHead>
