@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
-import type { SkuWithProduct } from '@/types/database';
+import type { SkuWithProduct, publicaciones } from '@/types/database';
 import ProductsAnalysisClientPage from './products-client';
 
 // This function will fetch the data on the server.
@@ -28,11 +28,27 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
   return data as SkuWithProduct[];
 }
 
+async function getPublications(): Promise<publicaciones[]> {
+  if (!isSupabaseConfigured || !supabase) {
+    console.warn("Supabase is not configured.");
+    return [];
+  }
+
+  const { data, error } = await supabase.from('publicaciones').select('*').limit(100);
+
+  if (error) {
+    console.error('Error fetching publications:', error);
+    return [];
+  }
+  return data as publicaciones[];
+}
+
 
 export default async function ProductsAnalysisPage() {
   const productSkus = await getProductSkus();
+  const publications = await getPublications();
 
   // En el caso de que la carga de datos falle, productSkus será un array vacío.
   // El componente cliente ya maneja el caso de un array vacío mostrando un mensaje.
-  return <ProductsAnalysisClientPage productSkus={productSkus} />;
+  return <ProductsAnalysisClientPage productSkus={productSkus} publications={publications} />;
 }

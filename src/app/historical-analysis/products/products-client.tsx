@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, LogOut, Terminal, Loader2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, LogOut, Terminal, Loader2, BarChart3, ListVideo } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { format } from 'date-fns';
@@ -33,7 +33,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import type { SkuWithProduct } from '@/types/database';
+import type { SkuWithProduct, publicaciones } from '@/types/database';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { subDays } from 'date-fns';
@@ -86,7 +86,7 @@ const productDetailData = [
 const allProducts = ['Todos', 'Producto A', 'Producto B', 'Producto C', 'Producto D', 'Producto E'];
 
 
-export default function ProductsAnalysisClientPage({ productSkus }: { productSkus: SkuWithProduct[] }) {
+export default function ProductsAnalysisClientPage({ productSkus, publications }: { productSkus: SkuWithProduct[], publications: publicaciones[] }) {
   const { toast } = useToast();
   
   const [product, setProduct] = React.useState('Todos');
@@ -263,6 +263,7 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
               <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
               <TabsTrigger value="details">Detalle de Productos</TabsTrigger>
               <TabsTrigger value="catalog">Catálogo de SKUs</TabsTrigger>
+              <TabsTrigger value="publications">Catálogo de Publicaciones</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="space-y-4">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -367,12 +368,12 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                               <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                               <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
                               <TableCell>{item.variacion || 'N/A'}</TableCell>
-                              <TableCell>{item.costo || 'N/A'}</TableCell>
-                              <TableCell>{item.tiempo_preparacion|| 'N/A'}</TableCell>
+                              <TableCell>{item.id_publicacion_ml || 'N/A'}</TableCell>
+                              <TableCell>{item.estado || 'N/A'}</TableCell>
                               <TableCell className="text-right">
                                 {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
                               </TableCell>
-                              <TableCell className="text-right">{item.costo?.tiempo_preparacion || 'N/A'}</TableCell>
+                              <TableCell className="text-right">{item.tiempo_preparacion || 'N/A'}</TableCell>
                               <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
                             </TableRow>
                           ))
@@ -402,8 +403,66 @@ export default function ProductsAnalysisClientPage({ productSkus }: { productSku
                 </CardContent>
               </Card>
             </TabsContent>
+             <TabsContent value="publications" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Catálogo de Publicaciones</CardTitle>
+                  <CardDescription>
+                    Información de las publicaciones de productos desde la base de datos.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative border rounded-lg overflow-auto max-h-[30rem]">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm">
+                        <TableRow>
+                          <TableHead>ID Publicación</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Título</TableHead>
+                          <TableHead>Estado</TableHead>
+                           <TableHead>Compañía</TableHead>
+                          <TableHead className="text-right">Precio</TableHead>
+                          <TableHead>Fecha de Creación</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {publications.length > 0 ? (
+                          publications.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-mono text-xs">{item.item_id}</TableCell>
+                              <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                              <TableCell className="font-medium">{item.title}</TableCell>
+                              <TableCell>{item.status}</TableCell>
+                              <TableCell>{item.company}</TableCell>
+                              <TableCell className="text-right">
+                                {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price)}
+                              </TableCell>
+                              <TableCell>{format(new Date(item.created_at), "dd MMM, yyyy", { locale: es })}</TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={7} className="p-0">
+                               <div className="p-4">
+                                <Alert variant="destructive">
+                                  <ListVideo className="h-4 w-4" />
+                                  <AlertTitle>No se pudieron cargar las publicaciones</AlertTitle>
+                                  <AlertDescription>
+                                    Verifica la configuración de Supabase y las políticas de seguridad (RLS) para la tabla `publicaciones`.
+                                  </AlertDescription>
+                                </Alert>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </main>
     </div>
   );
-}             
+}
