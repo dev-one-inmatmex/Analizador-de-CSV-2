@@ -1,9 +1,11 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import type { SkuWithProduct, publicaciones } from '@/types/database';
 import ProductsAnalysisClientPage from './products-client';
+import { unstable_noStore as noStore } from 'next/cache';
 
 // This function will fetch the data on the server.
 async function getProductSkus(): Promise<SkuWithProduct[]> {
+  noStore();
   if (!isSupabaseConfigured || !supabase) {
     console.warn("Supabase is not configured. Returning empty data. Please check your .env file.");
     return [];
@@ -29,6 +31,7 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
 }
 
 async function getPublications(): Promise<publicaciones[]> {
+  noStore();
   if (!isSupabaseConfigured || !supabase) {
     console.warn("Supabase is not configured.");
     return [];
