@@ -13,7 +13,6 @@ async function getRecentSales(): Promise<ventas[]> {
   const { data, error } = await supabase
     .from('ventas')
     .select('id, titulo_publicacion, comprador, tienda_oficial, total, fecha_venta')
-    .order('fecha_venta', { ascending: false })
     .limit(20);
 
   if (error) {

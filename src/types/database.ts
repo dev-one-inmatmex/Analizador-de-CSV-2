@@ -1,4 +1,3 @@
-import { Timestamp } from "next/dist/server/lib/cache-handlers/types";
 
 export interface Usuario {
     id: number;
