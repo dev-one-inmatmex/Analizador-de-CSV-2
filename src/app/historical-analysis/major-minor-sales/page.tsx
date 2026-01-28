@@ -1,4 +1,4 @@
-/* import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import MajorMinorSalesClientPage from './major-minor-sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { formatDistanceToNow } from 'date-fns';
@@ -48,50 +48,4 @@ export default async function MajorMinorSalesPage() {
   const recentTransactions = await getRecentTransactions();
 
   return <MajorMinorSalesClientPage initialRecentTransactions={recentTransactions} />;
-}
- */
-
-import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient'
-import { SupabaseClient } from '@supabase/supabase-js';
-import { unstable_noStore as noStore } from 'next/cache'
-
-export interface ventas {
-  id: number;
-  numero_venta: number;
-  fecha_venta: string;
-  total: number;
-  comprador: string | null;
-  estado: string | null;
-  sku: string | null;
-  titulo_publicacion: string | null;
-  unidades: number;
-  created_at: string;
-}
-
-export async function getVentas(): Promise<ventas[]> {
-  noStore()
-
-  const { data, error } = await SupabaseClient
-    .from('ventas')
-    .select(`
-      id,
-      numero_venta,
-      fecha_venta,
-      total,
-      comprador,
-      estado,
-      sku,
-      titulo_publicacion,
-      unidades,
-      created_at
-    `)
-    .order('fecha_venta', { ascending: false })
-    .limit(20)
-
-  if (error) {
-    console.error('Error cargando ventas:', error)
-    return []
-  }
-
-  return data ?? []
 }

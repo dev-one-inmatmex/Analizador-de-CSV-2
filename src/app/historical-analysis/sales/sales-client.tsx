@@ -397,7 +397,12 @@ export default function SalesAnalysisClientPage({ initialRecentSales, initialTop
                                 <Terminal className="h-4 w-4" />
                                 <AlertTitle>No se pudieron cargar los datos de ventas</AlertTitle>
                                 <AlertDescription>
-                                Verifica la configuración de Supabase y las políticas de seguridad (RLS) para la tabla `ventas`.
+                                    <p className="font-semibold">La aplicación no pudo obtener registros de Supabase. Esto casi siempre se debe a un problema de configuración que debes resolver tú:</p>
+                                    <ul className="list-disc pl-5 mt-2 space-y-1">
+                                        <li><strong>Políticas de Seguridad (RLS):</strong> Asegúrate de haber habilitado el acceso de lectura (`SELECT`) para la tabla `ventas` en tu panel de Supabase.</li>
+                                        <li><strong>Credenciales:</strong> Verifica que las variables `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en tu archivo `.env` sean correctas.</li>
+                                    </ul>
+                                    <p className="mt-2 text-xs">El código de la aplicación no puede solucionar esto por ti. Una vez que corrijas la configuración en Supabase o en tu `.env`, los datos aparecerán aquí.</p>
                                 </AlertDescription>
                             </Alert>
                         )}
