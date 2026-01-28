@@ -22,6 +22,7 @@ async function getRecentTransactions(): Promise<Transaction[]> {
   const { data, error } = await supabase
     .from('ventas')
     .select('id, numero_venta, comprador, total, fecha_venta')
+    .order('fecha_venta', { ascending: false })
     .limit(10);
 
   if (error) {
