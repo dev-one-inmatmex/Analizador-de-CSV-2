@@ -1,5 +1,4 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
-import type { ventas } from '@/types/database';
 import MajorMinorSalesClientPage from './major-minor-sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { formatDistanceToNow } from 'date-fns';
@@ -23,7 +22,6 @@ async function getRecentTransactions(): Promise<Transaction[]> {
   const { data, error } = await supabase
     .from('ventas')
     .select('id, numero_venta, comprador, total, fecha_venta')
-    .order('fecha_venta', { ascending: false })
     .limit(10);
 
   if (error) {
