@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut, Loader2, Terminal } from 'lucide-react';
+import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -297,11 +297,11 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
                       </TableBody>
                   </Table>
                 ) : (
-                    <Alert variant="destructive">
-                        <Terminal className="h-4 w-4" />
-                        <AlertTitle>No se pudieron cargar las transacciones</AlertTitle>
+                    <Alert>
+                        <GitCompareArrows className="h-4 w-4" />
+                        <AlertTitle>No hay transacciones recientes</AlertTitle>
                         <AlertDescription>
-                        Verifica la configuración de Supabase y las políticas de seguridad (RLS) para la tabla `ventas`.
+                        No se encontraron registros de ventas para el periodo o filtros seleccionados. Cuando se registre una nueva venta, aparecerá aquí.
                         </AlertDescription>
                     </Alert>
                 )}
