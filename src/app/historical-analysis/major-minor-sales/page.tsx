@@ -32,7 +32,7 @@ async function getRecentTransactions(): Promise<Transaction[]> {
   }
 
   // Transform Supabase data to match the component's expected structure
-  const transactions: Transaction[] = data.map((sale: ventas) => ({
+  const transactions: Transaction[] = data.map((sale) => ({
     id: `#${sale.numero_venta || sale.id}`,
     customer: sale.comprador || 'N/A',
     // Simple logic to determine type based on mock data pattern
