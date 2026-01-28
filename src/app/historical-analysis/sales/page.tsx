@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,8 +7,6 @@ import type { ventas as VentasType } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import {
   Table,
   TableBody,
@@ -106,15 +105,19 @@ export default function VentasPage() {
                 <TableRow key={venta.id}>
                   <TableCell className="font-mono font-medium text-blue-600">#{venta.numero_venta}</TableCell>
                   <TableCell>
-                    <div className="font-medium">{venta.titulo_publicacion || 'N/A'}</div>
-                    <div className="text-xs text-muted-foreground">SKU: {venta.sku || 'N/A'}</div>
+                    <div className="font-medium">{venta.titulo_publicacion || 'Producto sin título'}</div>
+                    <div className="text-xs text-muted-foreground">SKU: {venta.sku ?? 'N/A'}</div>
                   </TableCell>
-                  <TableCell>{venta.comprador || 'N/A'}</TableCell>
+                  <TableCell>{venta.comprador ?? 'No especificado'}</TableCell>
                   <TableCell className="text-center">{venta.unidades}</TableCell>
-                  <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(venta.total || 0)}</TableCell>
-                  <TableCell className="text-center">{format(new Date(venta.fecha_venta), 'dd MMM yyyy', { locale: es })}</TableCell>
+                  <TableCell className="text-right font-semibold">
+                    ${(venta.total ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant={venta.estado === 'completada' ? 'secondary' : 'outline'}>{venta.estado || 'Sin estado'}</Badge>
+                    {new Date(venta.fecha_venta).toLocaleDateString('es-MX')}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={venta.estado === 'completada' ? 'secondary' : 'outline'}>{venta.estado ?? 'Sin estado'}</Badge>
                   </TableCell>
                 </TableRow>
               )) : (
