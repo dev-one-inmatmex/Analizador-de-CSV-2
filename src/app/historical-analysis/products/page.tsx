@@ -14,14 +14,10 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
   const { data, error } = await supabase
     .from('skus')
     .select(`
-      sku,
-      variacion,
+      *,
       productos_madre (
-        nombre_madre,
-        costo
-      ),
-      tiempo_preparacion,
-      fecha_registro
+        *
+      )
     `)
     .order('fecha_registro', { ascending: false });
 
@@ -44,8 +40,8 @@ async function getPublications(): Promise<publicaciones[]> {
 
   const { data, error } = await supabase
     .from('publicaciones')
-    .select('id, item_id, sku, title, status, company, price, created_at')
-    .order('created_at', { ascending: false })
+    .select('*')
+    .order('id', { ascending: false })
     .limit(100);
 
   if (error) {
