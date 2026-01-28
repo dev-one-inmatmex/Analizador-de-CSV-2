@@ -16,12 +16,12 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
     .select(`
       sku,
       variacion,
-      tiempo_preparacion,
-      fecha_registro,
       productos_madre (
         nombre_madre,
         costo
-      )
+      ),
+      tiempo_preparacion,
+      fecha_registro
     `)
     .order('id', { ascending: false });
 
@@ -45,8 +45,7 @@ async function getPublications(): Promise<publicaciones[]> {
   const { data, error } = await supabase
     .from('publicaciones')
     .select('id, item_id, sku, title, status, company, price, created_at')
-    .order('created_at', { ascending: false })
-    .limit(100);
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching publications:', error);
