@@ -375,7 +375,7 @@ export default function ProductsAnalysisClientPage({ productSkus, publications }
                           ))
                         ) : (
                             <TableRow key="no-skus-row">
-                                <TableCell colSpan={8} className="p-0">
+                                <TableCell colSpan={6} className="p-0">
                                   <div className="p-4">
                                     <Alert variant="destructive">
                                       <Terminal className="h-4 w-4" />
