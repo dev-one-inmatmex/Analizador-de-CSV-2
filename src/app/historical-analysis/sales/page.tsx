@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -113,9 +114,9 @@ export default function VentasPage() {
                   <TableCell>{venta.comprador ?? 'No especificado'}</TableCell>
                   <TableCell>{venta.tienda_oficial ?? 'N/A'}</TableCell>
                   <TableCell className="text-center">{venta.unidades}</TableCell>
-                  <TableCell className="text-right">${(venta.precio_unitario ?? 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${venta.precio_unitario.toFixed(2)}</TableCell>
                   <TableCell className="text-right font-semibold">
-                    ${(venta.total ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                    ${venta.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </TableCell>
                   <TableCell className="text-center">
                     {new Date(venta.fecha_venta).toLocaleDateString('es-MX')}
