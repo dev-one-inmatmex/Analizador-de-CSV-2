@@ -3,6 +3,20 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { ventas as VentasType } from '@/types/database';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, LogOut, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 export default function VentasPage() {
   const [ventasData, setVentasData] = useState<VentasType[]>([]);
@@ -15,7 +29,7 @@ export default function VentasPage() {
       setError(null);
       
       if (!supabase) {
-        setError("Supabase client is not available. Check your configuration.");
+        setError("El cliente de Supabase no está disponible. Revisa tu configuración.");
         setLoading(false);
         return;
       }
@@ -24,7 +38,7 @@ export default function VentasPage() {
         .from('ventas')
         .select('*')
         .order('fecha_venta', { ascending: false })
-        .limit(20);
+        .limit(50); 
 
       if (error) {
         console.error('Error fetching ventas:', error);
@@ -41,116 +55,78 @@ export default function VentasPage() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-center">Cargando ventas...</div>;
-  }
-
-  if (error) {
-    return <div className="p-8 text-center text-red-500">Error: {error}</div>;
-  }
-  
-  if (ventasData.length === 0) {
-    return <div className="p-8 text-center text-gray-500">No se encontraron ventas.</div>;
+    return (
+        <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-muted-foreground">Cargando historial de ventas...</p>
+            </div>
+        </div>
+    );
   }
 
   return (
     <main className="p-4 md:p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800">Historial de Ventas</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {ventasData.map((ventas) => (
-           <div
-              key={ventas.id}
-              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200"
-            >
-              {/* Encabezado */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-blue-600">
-                  Venta #{ventas.numero_venta}
-                </h2>
-
-                <span
-                  className={`text-sm font-medium px-3 py-1 rounded-full ${
-                    ventas.estado === 'completada'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}
-                >
-                  {ventas.estado ?? 'Sin estado'}
-                </span>
-              </div>
-
-              {/* Producto */}
-              <p className="mt-2 text-gray-700 font-medium">
-                {ventas.titulo_publicacion ?? 'Producto sin título'}
-              </p>
-
-              <p className="text-sm text-gray-500">
-                SKU: {ventas.sku ?? 'N/A'}
-              </p>
-
-              {/* Detalles principales */}
-              <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Comprador</p>
-                  <p className="font-medium">{ventas.comprador ?? 'No especificado'}</p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">Empresa</p>
-                  <p className="font-medium">{ventas.tienda_oficial ?? 'N/A'}</p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">Unidades</p>
-                  <p className="font-medium">{ventas.unidades}</p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">Precio unitario</p>
-                  <p className="font-medium">
-                    ${(ventas.precio_unitario || 0).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Totales */}
-              <div className="mt-4 border-t pt-4 flex items-center justify-between">
-                <p className="text-gray-500 text-sm">
-                  {new Date(ventas.fecha_venta).toLocaleDateString('es-MX')}
-                </p>
-
-                <p className="text-lg font-bold text-green-600">
-                  ${(ventas.total || 0).toLocaleString('es-MX', {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-
-              {/* Flags */}
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                {ventas.es_paquete_varios && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                    Paquete
-                  </span>
-                )}
-                {ventas.venta_publicidad && (
-                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">
-                    Publicidad
-                  </span>
-                )}
-                {ventas.negocio && (
-                  <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                    Negocio
-                  </span>
-                )}
-                {ventas.reclamo_abierto && (
-                  <span className="px-2 py-1 bg-red-100 text-red-700 rounded">
-                    Reclamo abierto
-                  </span>
-                )}
-              </div>
-            </div>
-        ))}
+      <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-800">Historial de Ventas</h1>
+          <div className="flex items-center gap-4">
+              <Link href="/historical-analysis" passHref>
+                  <Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Button>
+              </Link>
+              <Button variant="outline">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Cerrar Sesión
+              </Button>
+          </div>
       </div>
+
+      {error && (
+         <div className="p-8 my-4 text-center text-red-600 bg-red-100 border border-red-300 rounded-lg">
+            <p className="font-bold">Ocurrió un error al cargar los datos:</p>
+            <p className="text-sm mt-2 font-mono bg-red-50 p-2 rounded">{error}</p>
+            <p className="text-xs mt-3 text-red-800">Asegúrate de que las políticas de seguridad (RLS) en Supabase estén habilitadas para lectura (`SELECT`) en la tabla `ventas`.</p>
+         </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Venta #</TableHead>
+                <TableHead>Producto</TableHead>
+                <TableHead>Comprador</TableHead>
+                <TableHead className="text-center">Unidades</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-center">Fecha</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ventasData.length > 0 ? ventasData.map((venta) => (
+                <TableRow key={venta.id}>
+                  <TableCell className="font-mono font-medium text-blue-600">#{venta.numero_venta}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{venta.titulo_publicacion || 'N/A'}</div>
+                    <div className="text-xs text-muted-foreground">SKU: {venta.sku || 'N/A'}</div>
+                  </TableCell>
+                  <TableCell>{venta.comprador || 'N/A'}</TableCell>
+                  <TableCell className="text-center">{venta.unidades}</TableCell>
+                  <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(venta.total || 0)}</TableCell>
+                  <TableCell className="text-center">{format(new Date(venta.fecha_venta), 'dd MMM yyyy', { locale: es })}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={venta.estado === 'completada' ? 'secondary' : 'outline'}>{venta.estado || 'Sin estado'}</Badge>
+                  </TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                    No se encontraron ventas.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
     </main>
   );
 }
