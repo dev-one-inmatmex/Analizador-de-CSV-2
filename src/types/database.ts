@@ -9,8 +9,8 @@ export interface ventas {
     id: number;
     numero_venta: number;
     fecha_venta: string;
-    estado: string;
-    descripcion_estado: string;
+    estado: string | null;
+    descripcion_estado: string | null;
     es_paquete_varios: boolean;
     pertenece_kit: boolean;
     unidades: number;
@@ -23,62 +23,64 @@ export interface ventas {
     anulaciones_reembolsos: number;
     total: number;
     venta_publicidad: boolean;
-    sku: string;
-    numero_publicacion: string;
-    tienda_oficial: string;
-    titulo_publicacion: string;
-    variante: string;
+    sku: string | null;
+    numero_publicacion: string | null;
+    tienda_oficial: string | null;
+    titulo_publicacion: string | null;
+    variante: string | null;
     precio_unitario: number;
-    tipo_publicacion: string;
-    factura_adjunta: string;
-    datos_personales_empresa: string;
-    tipo_numero_documento: string;
-    direccion_fiscal: string;
-    tipo_contribuyente: string;
-    cfdi: string;
-    tipo_usuario: string;
-    regimen_fiscal: string;
-    comprador: string;
+    tipo_publicacion: string | null;
+    factura_adjunta: string | null;
+    datos_personales_empresa: string | null;
+    tipo_numero_documento: string | null;
+    direccion_fiscal: string | null;
+    tipo_contribuyente: string | null;
+    cfdi: string | null;
+    tipo_usuario: string | null;
+    regimen_fiscal: string | null;
+    comprador: string | null;
     negocio: boolean;
-    ife: string;
-    domicilio_entrega: string;
-    municipio_alcaldia: string;
-    estado_comprador: string;
-    codigo_postal: string;
-    pais: string;
-    forma_entrega: string;
-    fecha_en_camino: string;
-    fecha_entregado: string;
-    transportista: string;
-    numero_seguimiento: string;
-    url_seguimiento: string;
+    ife: string | null;
+    domicilio_entrega: string | null;
+    municipio_alcaldia: string | null;
+    estado_comprador: string | null;
+    codigo_postal: string | null;
+    pais: string | null;
+    forma_entrega: string | null;
+    fecha_en_camino: string | null;
+    fecha_entregado: string | null;
+    transportista: string | null;
+    numero_seguimiento: string | null;
+    url_seguimiento: string | null;
     unidades_envio: number;
     revisado_por_ml: boolean;
-    fecha_revision: string;
+    fecha_revision: string | null;
     dinero_a_favor: number;
-    resultado: string;
-    destino: string;
-    motivo_resultado: string;
+    resultado: string | null;
+    destino: string | null;
+    motivo_resultado: string | null;
     unidades_reclamo: number;
     reclamo_abierto: boolean;
     reclamo_cerrado: boolean;
     con_mediacion: boolean;
     created_at: string;
-}
+  }
+  
 
-export interface publicaciones { 
-    id: string;
+export interface publicaciones {
+    id: string;              // PK (uuid o text) → OK
+    item_id: string;         // ID de la publicación (ML)
     sku: string;
-    item_id: string;
-    product_number: string;
-    variation_id: string;
+    product_number: string | null;
+    variation_id: string | null;
     title: string;
     status: string;
-    category: string;
+    category: string; 
     price: number;
     company: string;
-    created_at: string;
-}
+    created_at: string;      // timestamptz
+  }
+  
 
 export interface productos_madre {
     id: number;
