@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -94,10 +93,13 @@ export default function VentasPage() {
                 <TableHead>Venta #</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead>Comprador</TableHead>
+                <TableHead>Empresa</TableHead>
                 <TableHead className="text-center">Unidades</TableHead>
+                <TableHead className="text-right">Precio Unit.</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-center">Fecha</TableHead>
                 <TableHead className="text-center">Estado</TableHead>
+                <TableHead>Tags</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -109,7 +111,9 @@ export default function VentasPage() {
                     <div className="text-xs text-muted-foreground">SKU: {venta.sku ?? 'N/A'}</div>
                   </TableCell>
                   <TableCell>{venta.comprador ?? 'No especificado'}</TableCell>
+                  <TableCell>{venta.tienda_oficial ?? 'N/A'}</TableCell>
                   <TableCell className="text-center">{venta.unidades}</TableCell>
+                  <TableCell className="text-right">${(venta.precio_unitario ?? 0).toFixed(2)}</TableCell>
                   <TableCell className="text-right font-semibold">
                     ${(venta.total ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </TableCell>
@@ -119,10 +123,18 @@ export default function VentasPage() {
                   <TableCell className="text-center">
                     <Badge variant={venta.estado === 'completada' ? 'secondary' : 'outline'}>{venta.estado ?? 'Sin estado'}</Badge>
                   </TableCell>
+                   <TableCell>
+                    <div className="flex flex-wrap gap-1 items-center justify-start">
+                      {venta.es_paquete_varios && <Badge variant="secondary">Paquete</Badge>}
+                      {venta.venta_publicidad && <Badge variant="secondary">Publicidad</Badge>}
+                      {venta.negocio && <Badge variant="secondary">Negocio</Badge>}
+                      {venta.reclamo_abierto && <Badge variant="destructive">Reclamo</Badge>}
+                    </div>
+                  </TableCell>
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={10} className="text-center text-gray-500 py-8">
                     No se encontraron ventas.
                   </TableCell>
                 </TableRow>
