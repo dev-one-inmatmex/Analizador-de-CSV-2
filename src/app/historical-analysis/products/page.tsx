@@ -16,8 +16,6 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
     .select(`
       sku,
       variacion,
-      id_publicacion_ml,
-      estado,
       tiempo_preparacion,
       fecha_registro,
       productos_madre (
