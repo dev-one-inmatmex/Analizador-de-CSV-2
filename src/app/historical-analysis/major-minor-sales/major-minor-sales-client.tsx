@@ -17,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import GlobalNav from '@/components/global-nav';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { Transaction } from './page';
 
 
 // --- MOCK DATA ---

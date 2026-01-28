@@ -52,6 +52,7 @@ export default async function MajorMinorSalesPage() {
  */
 
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient'
+import { SupabaseClient } from '@supabase/supabase-js';
 import { unstable_noStore as noStore } from 'next/cache'
 
 export interface ventas {
@@ -70,7 +71,7 @@ export interface ventas {
 export async function getVentas(): Promise<ventas[]> {
   noStore()
 
-  const { data, error } = await supabase
+  const { data, error } = await SupabaseClient
     .from('ventas')
     .select(`
       id,
