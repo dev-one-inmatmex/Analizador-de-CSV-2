@@ -18,8 +18,7 @@ async function getProductSkus(): Promise<SkuWithProduct[]> {
       productos_madre (
         *
       )
-    `)
-    .order('id', { ascending: false });
+    `);
 
   if (error) {
     // Log the full error to see if there's more information

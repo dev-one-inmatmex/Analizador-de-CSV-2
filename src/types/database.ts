@@ -80,22 +80,26 @@ export interface publicaciones {
     created_at: string;
 }
 
-export interface ProductosMadre {
+export interface productos_madre {
     id: number;
+    id_producto_madre: number;
     nombre_madre: string;
     costo: number;
+    tiempo_preparacion:string;
+    observaciones: string;
+    fecha_registro: string;
 }
 
-export interface Skus {
+export interface skus {
     id: number;
     sku: string;
     variacion: string;
+    id_producto_madre: number;
+    costo: number;
     fecha_registro: string;
-    id_publicacion_ml: string;
-    estado: string;
     tiempo_preparacion: number;
 }
 
-export type SkuWithProduct = Skus & {
-  productos_madre: ProductosMadre | null;
+export type SkuWithProduct = skus & {
+  productos_madre: productos_madre | null;
 };
