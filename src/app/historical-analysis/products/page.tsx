@@ -8,6 +8,15 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 export default function ProductsPage() {
   const [skus, setSkus] = useState<SkuWithProduct[]>([]);
@@ -92,79 +101,76 @@ export default function ProductsPage() {
 
       <section className="mb-12">
         <h2 className="text-2xl font-bold mb-4 text-gray-700">SKUs Recientes</h2>
-        {skus.length === 0 && !error ? (
-          <div className="p-8 text-center text-gray-500 bg-white rounded-lg shadow-sm">No se encontraron SKUs.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {skus.map((sku) => (
-              <div key={sku.sku} className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
-                <h3 className="text-lg font-semibold text-blue-600 font-mono">{sku.sku}</h3>
-                <p className="text-sm text-gray-500">{sku.variacion || 'Sin variación'}</p>
-                <div className="mt-4 border-t pt-4 space-y-2 text-sm">
-                    <div>
-                        <p className="text-gray-500">Producto Madre</p>
-                        <p className="font-medium">{sku.productos_madre?.nombre_madre || 'N/A'}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-gray-500">Costo</p>
-                        <p className="font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.costo ?? sku.productos_madre?.costo ?? 0)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Prep. (min)</p>
-                        <p className="font-medium">{sku.tiempo_preparacion ?? 'N/A'}</p>
-                      </div>
-                    </div>
-                    <div>
-                        <p className="text-gray-500">Registrado</p>
-                        <p className="font-medium">{format(new Date(sku.fecha_registro), 'dd MMM yyyy', { locale: es })}</p>
-                    </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>SKU</TableHead>
+                <TableHead>Producto Madre</TableHead>
+                <TableHead>Variación</TableHead>
+                <TableHead className="text-right">Costo</TableHead>
+                <TableHead className="text-right">Prep. (min)</TableHead>
+                <TableHead className="text-center">Registrado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {skus.length > 0 ? skus.map((sku) => (
+                <TableRow key={sku.sku}>
+                  <TableCell className="font-mono font-medium text-blue-600">{sku.sku}</TableCell>
+                  <TableCell>{sku.productos_madre?.nombre_madre || 'N/A'}</TableCell>
+                  <TableCell>{sku.variacion || 'Sin variación'}</TableCell>
+                  <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.costo ?? sku.productos_madre?.costo ?? 0)}</TableCell>
+                  <TableCell className="text-right">{sku.tiempo_preparacion ?? 'N/A'}</TableCell>
+                  <TableCell className="text-center">{format(new Date(sku.fecha_registro), 'dd MMM yyyy', { locale: es })}</TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                    No se encontraron SKUs.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </section>
 
       <section>
         <h2 className="text-2xl font-bold mb-4 text-gray-700">Publicaciones Recientes</h2>
-        {publications.length === 0 && !error ? (
-          <div className="p-8 text-center text-gray-500 bg-white rounded-lg shadow-sm">No se encontraron publicaciones.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {publications.map((pub) => (
-              <div key={pub.id} className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200">
-                <div className="flex items-start justify-between">
-                  <h3 className="text-lg font-semibold text-purple-600 truncate pr-4 flex-1">{pub.title}</h3>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${pub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                    {pub.status}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 font-mono mt-1">SKU: {pub.sku}</p>
-                <p className="text-sm text-gray-500 font-mono">ID: {pub.item_id}</p>
-
-                <div className="mt-4 border-t pt-4 grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p className="text-gray-500">Compañía</p>
-                        <p className="font-medium">{pub.company || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <p className="text-gray-500">Precio</p>
-                        <p className="font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price)}</p>
-                    </div>
-                      <div>
-                        <p className="text-gray-500">Categoría</p>
-                        <p className="font-medium">{pub.category}</p>
-                    </div>
-                    <div>
-                        <p className="text-gray-500">Creado</p>
-                        <p className="font-medium">{format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es })}</p>
-                    </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Título</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Compañía</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+                <TableHead className="text-right">Precio</TableHead>
+                <TableHead className="text-center">Creado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {publications.length > 0 ? publications.map((pub) => (
+                <TableRow key={pub.id}>
+                  <TableCell className="font-medium text-purple-600">{pub.title}</TableCell>
+                  <TableCell className="font-mono">{pub.sku}</TableCell>
+                  <TableCell>{pub.company || 'N/A'}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price)}</TableCell>
+                  <TableCell className="text-center">{format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es })}</TableCell>
+                </TableRow>
+              )) : (
+                 <TableRow>
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                    No se encontraron publicaciones.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </section>
     </main>
   );
