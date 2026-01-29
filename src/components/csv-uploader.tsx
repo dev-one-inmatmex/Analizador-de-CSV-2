@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, Download, RefreshCw, Bell, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,29 +90,16 @@ export default function CsvUploader() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const isSupabaseConfigured = !!supabase;
 
-  const resetFileAndComparison = () => {
+  const resetAll = () => {
     setFile(null);
     setHeaders([]);
     setCsvData([]);
     setComparison(null);
     setSelectedNew(new Set());
     setSelectedUpdates(new Set());
+    setSelectedTableName("");
+    setTargetTable(null);
     if (inputRef.current) inputRef.current.value = '';
-  };
-  
-  const handleTableSelect = (tableName: string) => {
-    resetFileAndComparison();
-    if (tableName) {
-        const schema = TABLE_SCHEMAS[tableName];
-        if (schema) {
-            setSelectedTableName(tableName);
-            setTargetTable({ dbTable: tableName, pk: schema.pk });
-            toast({ title: 'Tabla Seleccionada', description: `Listo para cargar datos para la tabla: ${tableName}` });
-        }
-    } else {
-        setSelectedTableName("");
-        setTargetTable(null);
-    }
   };
   
   const addNotification = (message: string) => {
@@ -133,8 +120,14 @@ export default function CsvUploader() {
   };
 
   const processFile = (file: File) => {
-    resetFileAndComparison();
     setFile(file);
+    setHeaders([]);
+    setCsvData([]);
+    setComparison(null);
+    setSelectedNew(new Set());
+    setSelectedUpdates(new Set());
+    setSelectedTableName("");
+    setTargetTable(null);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -152,12 +145,32 @@ export default function CsvUploader() {
         return rowObject;
       });
       setCsvData(parsedData);
+      toast({ title: 'Archivo Procesado', description: `${file.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
     };
     reader.readAsText(file);
   };
+  
+  const handleTableSelect = async (tableName: string) => {
+    if (!tableName) {
+        setSelectedTableName("");
+        setTargetTable(null);
+        setComparison(null);
+        return;
+    }
 
-  const handleCompareData = useCallback(async () => {
-    if (!targetTable || csvData.length === 0) {
+    const schema = TABLE_SCHEMAS[tableName];
+    if (schema) {
+        setSelectedTableName(tableName);
+        const newTargetTable = { dbTable: tableName, pk: schema.pk };
+        setTargetTable(newTargetTable);
+        toast({ title: 'Tabla Seleccionada', description: `Iniciando comparación con la tabla: ${tableName}` });
+        
+        await handleCompareData(newTargetTable);
+    }
+  };
+
+  const handleCompareData = async (currentTable: TableConfig | null) => {
+    if (!currentTable || csvData.length === 0) {
         return;
     }
     if (!isSupabaseConfigured) {
@@ -168,13 +181,23 @@ export default function CsvUploader() {
     setIsLoading(true);
     setComparison(null);
     try {
-      const pk = targetTable.pk;
+      const pk = currentTable.pk;
       const csvPks = csvData.map(row => row[pk]).filter(Boolean);
 
+      if (csvPks.length === 0) {
+        toast({
+          title: 'Clave Primaria no encontrada',
+          description: `La columna '${pk}' no se encontró en tu CSV o está vacía.`,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
       if (!supabase) throw new Error("Cliente de Supabase no disponible");
 
       const { data: dbData, error } = await supabase
-        .from(targetTable.dbTable)
+        .from(currentTable.dbTable)
         .select('*')
         .in(pk, csvPks);
 
@@ -195,9 +218,14 @@ export default function CsvUploader() {
         } else {
           const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
           for (const key in csvRow) {
-            if (Object.prototype.hasOwnProperty.call(dbRow, key) && String(csvRow[key] || '').trim() !== String(dbRow[key] || '').trim()) {
-                changes[key] = { from: dbRow[key], to: csvRow[key] };
-            }
+             if (Object.prototype.hasOwnProperty.call(csvRow, key) && Object.prototype.hasOwnProperty.call(dbRow, key)) {
+                const csvVal = (csvRow[key] === null || csvRow[key] === undefined) ? '' : String(csvRow[key]).trim();
+                const dbVal = (dbRow[key] === null || dbRow[key] === undefined) ? '' : String(dbRow[key]).trim();
+                
+                if (csvVal !== dbVal) {
+                    changes[key] = { from: dbRow[key], to: csvRow[key] };
+                }
+             }
           }
           if (Object.keys(changes).length > 0) {
             updatedRows.push({ index, csv: csvRow, db: dbRow, changes });
@@ -215,13 +243,7 @@ export default function CsvUploader() {
     } finally {
       setIsLoading(false);
     }
-  }, [csvData, targetTable, isSupabaseConfigured, toast]);
-
-  useEffect(() => {
-    if (csvData.length > 0 && targetTable) {
-      handleCompareData();
-    }
-  }, [csvData, targetTable, handleCompareData]);
+  };
   
   const handleSync = async () => {
     if (!targetTable || (!selectedNew.size && !selectedUpdates.size)) {
@@ -250,7 +272,7 @@ export default function CsvUploader() {
             addNotification(`${dataToSync.length} registros sincronizados con la tabla '${targetTable.dbTable}'.`);
             setSelectedNew(new Set());
             setSelectedUpdates(new Set());
-            handleCompareData();
+            handleCompareData(targetTable);
         } else {
             throw new Error(result.message);
         }
@@ -291,11 +313,41 @@ export default function CsvUploader() {
     <div className="w-full max-w-7xl mx-auto space-y-6">
         <Card>
             <CardHeader>
-                <CardTitle>Paso 1: Seleccionar Tabla de Destino</CardTitle>
-                <CardDescription>Elige la tabla de la base de datos que deseas actualizar.</CardDescription>
+                <CardTitle>Paso 1: Cargar Documento CSV</CardTitle>
+                <CardDescription>Arrastra y suelta un archivo CSV, o haz clic para seleccionarlo.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured}>
+            {!file ? (
+                <div
+                className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-secondary/50 border-border hover:bg-secondary hover:border-primary transition-colors"
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => inputRef.current?.click()}
+                >
+                <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
+                <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold text-primary">Haz clic para cargar</span> o arrastra y suelta</p>
+                <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange}/>
+                </div>
+            ) : (
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
+                <div className="flex items-center gap-3 min-w-0">
+                    <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
+                    <Badge variant="secondary">{csvData.length} filas</Badge>
+                </div>
+                <Button variant="ghost" size="icon" onClick={resetAll}><X className="w-4 h-4" /><span className="sr-only">Eliminar</span></Button>
+                </div>
+            )}
+            </CardContent>
+        </Card>
+
+        <Card className={cn(!file && "bg-muted/50 pointer-events-none opacity-50")}>
+            <CardHeader>
+                <CardTitle>Paso 2: Seleccionar Tabla de Destino</CardTitle>
+                <CardDescription>Elige la tabla con la que deseas comparar y sincronizar los datos del CSV.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || !file}>
                     <SelectTrigger className="w-full">
                         <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla..." : "Configuración de Supabase incompleta"} />
                     </SelectTrigger>
@@ -316,36 +368,6 @@ export default function CsvUploader() {
             </CardContent>
         </Card>
 
-      <Card className={cn(!targetTable && "bg-muted/50 pointer-events-none opacity-50")}>
-        <CardHeader>
-          <CardTitle>Paso 2: Cargar Documento CSV</CardTitle>
-          <CardDescription>Arrastra y suelta un archivo CSV aquí. El sistema comparará los registros con la tabla <span className='font-bold text-primary'>{selectedTableName}</span>.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!file ? (
-            <div
-              className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-secondary/50 border-border hover:bg-secondary hover:border-primary transition-colors"
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onClick={() => inputRef.current?.click()}
-            >
-              <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
-              <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold text-primary">Haz clic para cargar</span> o arrastra y suelta</p>
-              <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange}/>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
-              <div className="flex items-center gap-3 min-w-0">
-                <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
-                <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
-                {targetTable && <Badge variant="secondary">{targetTable.dbTable}</Badge>}
-              </div>
-              <Button variant="ghost" size="icon" onClick={resetFileAndComparison}><X className="w-4 h-4" /><span className="sr-only">Eliminar</span></Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {(isLoading || comparison) && (
         <Card>
           <CardHeader>
@@ -354,7 +376,7 @@ export default function CsvUploader() {
                     <CardTitle>Paso 3: Comparar y Seleccionar Datos</CardTitle>
                     <CardDescription>Revisa los datos del CSV y compáralos con la base de datos. Selecciona lo que quieres sincronizar.</CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" onClick={handleCompareData} disabled={isLoading || !targetTable}>
+                <Button variant="ghost" size="icon" onClick={() => handleCompareData(targetTable)} disabled={isLoading || !targetTable}>
                     <RefreshCw className={cn("w-5 h-5", isLoading && "animate-spin")} />
                 </Button>
             </div>
@@ -454,10 +476,11 @@ function DataTable({ rows, headers, pk, selection, onSelectRow }: DataTableProps
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros en esta categoría.</p>;
 
     const handleSelectAll = (checked: boolean | "indeterminate") => {
+        if (!onSelectRow || !selection) return;
         if (checked === true) {
-            rows.forEach(row => onSelectRow && !selection?.has(row.index) && onSelectRow(row.index));
+            rows.forEach(row => onSelectRow && !selection.has(row.index) && onSelectRow(row.index));
         } else {
-            rows.forEach(row => onSelectRow && selection?.has(row.index) && onSelectRow(row.index));
+            rows.forEach(row => onSelectRow && selection.has(row.index) && onSelectRow(row.index));
         }
     };
     
