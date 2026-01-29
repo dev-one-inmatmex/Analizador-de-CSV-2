@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 import MajorMinorSalesClientPage from './major-minor-sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,7 +14,7 @@ export type Transaction = {
 
 async function getRecentTransactions(): Promise<Transaction[]> {
   noStore();
-  if (!isSupabaseConfigured || !supabase) {
+  if (!supabase) {
     console.warn("Supabase is not configured.");
     return [];
   }
