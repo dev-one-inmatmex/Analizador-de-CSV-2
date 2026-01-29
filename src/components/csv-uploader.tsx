@@ -131,16 +131,30 @@ export default function CsvUploader() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const rows = text.split('\n').map(row => row.trim().split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/));
-      const csvHeaders = rows[0].map(h => (h || '').trim().replace(/"/g, ''));
       
-      const dataRows = rows.slice(1).filter(row => row.length > 1 && row.some(cell => cell.trim() !== ''));
+      // Regex to split CSV row, handling quoted fields
+      const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+          toast({ title: 'Archivo CSV inválido', description: 'El archivo debe contener al menos una fila de cabeceras y una de datos.', variant: 'destructive' });
+          return;
+      }
+
+      const headerRow = lines[0];
+      const dataRows = lines.slice(1);
+
+      const csvHeaders = headerRow.split(re).map(h => h.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+      
+      const parsedData = dataRows.map(row => {
+          return row.split(re).map(cell => cell.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+      });
+
       setHeaders(csvHeaders);
-      const parsedData = dataRows.map(row => row.map(cell => (cell || '').trim().replace(/"/g, '')));
       setCsvData(parsedData);
       toast({ title: 'Archivo Procesado', description: `${file.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'latin1'); // Use 'latin1' to avoid issues with special characters
   };
   
   const handleTableSelectAndInitiateMapping = async (tableName: string) => {
@@ -216,14 +230,17 @@ export default function CsvUploader() {
       const csvPkHeaderIndexStr = Object.keys(cleanHeaderMap).find(key => cleanHeaderMap[parseInt(key, 10)] === dbPk);
 
       if (csvPkHeaderIndexStr === undefined) {
-        toast({
-          title: 'Clave Primaria no Mapeada',
-          description: `La clave primaria '${dbPk}' es necesaria para la comparación. Por favor, mapea una columna del CSV a '${dbPk}'.`,
-          variant: 'destructive',
-        });
-        setIsLoading(false);
-        return;
+          toast({
+            title: 'Análisis sin Clave Primaria',
+            description: "No se mapeó una clave primaria. Todos los registros se tratarán como nuevos.",
+          });
+          const newRows = csvData.map((data, index) => ({ index, data }));
+          setComparison({ newRows, updatedRows: [], unchangedRows: [] });
+          setCurrentStep('compare');
+          setIsLoading(false);
+          return;
       }
+
       const csvPkHeaderIndex = parseInt(csvPkHeaderIndexStr, 10);
       
       const csvPks = csvData.map(row => row[csvPkHeaderIndex]).filter(Boolean);
