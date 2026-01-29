@@ -39,6 +39,14 @@ function parseValue(key: string, value: string): any {
     'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
   ];
 
+  const dateFields = [
+      'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro'
+  ];
+
+  if (value === undefined || value === null || value.trim() === '' || value.toLowerCase() === 'null') {
+    return null;
+  }
+
   if (numericFields.includes(key)) {
     const num = parseFloat(value);
     return isNaN(num) ? null : num;
@@ -49,8 +57,10 @@ function parseValue(key: string, value: string): any {
     return v === 'true' || v === '1' || v === 'verdadero';
   }
 
-  if (value === '' || value === undefined || value.toLowerCase() === 'null') {
-    return null;
+  if (dateFields.includes(key)) {
+    const date = new Date(value);
+    // Si la fecha no es válida, es más seguro insertar null que una cadena mal formada.
+    return isNaN(date.getTime()) ? null : date.toISOString();
   }
 
   return value;
