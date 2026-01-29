@@ -14,7 +14,7 @@ export type Transaction = {
 
 async function getRecentTransactions(): Promise<Transaction[]> {
   noStore();
-  if (!supabase || !supabase) {
+  if (!supabase) {
     console.warn("Supabase is not configured.");
     return [];
   }
