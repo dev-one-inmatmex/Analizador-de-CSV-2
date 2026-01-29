@@ -108,6 +108,43 @@ export default function SalesAnalysisClientPage({ initialRecentSales, initialTop
   const [displayedRecentSales, setDisplayedRecentSales] = React.useState(initialRecentSales);
   const [displayedUserPerformance, setDisplayedUserPerformance] = React.useState(userPerformanceData);
 
+  const kpiValues = React.useMemo(() => {
+    if (!initialRecentSales || initialRecentSales.length === 0) {
+        return {
+            totalSalesPeriod: 0,
+            salesToday: 0,
+            topCompany: 'N/A',
+        };
+    }
+
+    const totalSalesPeriod = initialRecentSales.reduce((acc, sale) => acc + sale.unidades, 0);
+
+    const today = new Date().toDateString();
+    const salesToday = initialRecentSales
+        .filter(sale => new Date(sale.fecha_venta).toDateString() === today)
+        .reduce((acc, sale) => acc + sale.unidades, 0);
+
+    const salesByCompanyMap = initialRecentSales.reduce((acc, sale) => {
+        const company = sale.tienda_oficial || 'N/A';
+        if (company !== 'N/A') {
+          acc.set(company, (acc.get(company) || 0) + sale.total);
+        }
+        return acc;
+    }, new Map<string, number>());
+
+    let topCompany = 'N/A';
+    if (salesByCompanyMap.size > 0) {
+      [topCompany] = [...salesByCompanyMap.entries()].reduce((max, entry) => entry[1] > max[1] ? entry : max);
+    }
+    
+    return {
+        totalSalesPeriod,
+        salesToday,
+        topCompany,
+    };
+  }, [initialRecentSales]);
+
+
   const handleApplyFilters = () => {
     toast({
         title: "Filtros aplicados",
@@ -237,12 +274,12 @@ export default function SalesAnalysisClientPage({ initialRecentSales, initialTop
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Ventas del Mes</CardTitle>
+                  <CardTitle className="text-sm font-medium">Ventas del Periodo</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">887</div>
-                  <p className="text-xs text-muted-foreground">+20.1% desde el mes pasado</p>
+                  <div className="text-2xl font-bold">{kpiValues.totalSalesPeriod}</div>
+                  <p className="text-xs text-muted-foreground">Unidades totales vendidas.</p>
                 </CardContent>
               </Card>
               <Card>
@@ -261,8 +298,8 @@ export default function SalesAnalysisClientPage({ initialRecentSales, initialTop
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">25</div>
-                  <p className="text-xs text-muted-foreground">Unidades vendidas hoy</p>
+                  <div className="text-2xl font-bold">{kpiValues.salesToday}</div>
+                  <p className="text-xs text-muted-foreground">Unidades vendidas hoy.</p>
                 </CardContent>
               </Card>
               <Card>
@@ -271,7 +308,7 @@ export default function SalesAnalysisClientPage({ initialRecentSales, initialTop
                   <Building className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">MTM</div>
+                  <div className="text-2xl font-bold">{kpiValues.topCompany}</div>
                   <p className="text-xs text-muted-foreground">Mayor volumen de ventas</p>
                 </CardContent>
               </Card>
@@ -282,7 +319,7 @@ export default function SalesAnalysisClientPage({ initialRecentSales, initialTop
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">dana</div>
-                  <p className="text-xs text-muted-foreground">0.32 min/venta</p>
+                  <p className="text-xs text-muted-foreground">0.32 min/venta (ejemplo)</p>
                 </CardContent>
               </Card>
             </div>
@@ -380,7 +417,7 @@ export default function SalesAnalysisClientPage({ initialRecentSales, initialTop
                                 </TableHeader>
                                 <TableBody>
                                     {displayedRecentSales.map((sale) => (
-                                    <TableRow key={sale.id}>
+                                    <TableRow key={sale.numero_venta}>
                                         <TableCell className="font-medium">{sale.titulo_publicacion}</TableCell>
                                         <TableCell>{sale.comprador}</TableCell>
                                         <TableCell>
