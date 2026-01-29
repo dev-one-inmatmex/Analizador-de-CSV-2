@@ -6,7 +6,6 @@ export interface Usuario {
 }
 
 export interface ventas {
-    id: number;
     numero_venta: number;
     fecha_venta: string;
     estado: string | null;
@@ -63,7 +62,6 @@ export interface ventas {
     reclamo_abierto: boolean;
     reclamo_cerrado: boolean;
     con_mediacion: boolean;
-    created_at: string;
   }
   
 

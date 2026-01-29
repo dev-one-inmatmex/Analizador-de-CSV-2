@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -105,7 +104,7 @@ export default function VentasPage() {
             </TableHeader>
             <TableBody>
               {ventasData.length > 0 ? ventasData.map((venta) => (
-                <TableRow key={venta.id}>
+                <TableRow key={venta.numero_venta}>
                   <TableCell className="font-mono font-medium text-blue-600">#{venta.numero_venta}</TableCell>
                   <TableCell>
                     <div className="font-medium">{venta.titulo_publicacion || 'Producto sin título'}</div>
