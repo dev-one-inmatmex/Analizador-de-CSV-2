@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import type { ventas as VentasType } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ export default function VentasPage() {
       setLoading(true);
       setError(null);
 
-      if (!supabase) {
+      if (!isSupabaseConfigured || !supabase) {
         setError('El cliente de Supabase no está disponible. Revisa la configuración en .env.');
         setLoading(false);
         return;

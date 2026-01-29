@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import type { SkuWithProduct, publicaciones } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ export default function ProductsPage() {
       setLoading(true);
       setError(null);
 
-      if (!supabase) {
+      if (!isSupabaseConfigured || !supabase) {
         setError('El cliente de Supabase no está disponible.');
         setLoading(false);
         return;

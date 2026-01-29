@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
@@ -129,10 +129,11 @@ export default function CsvUploader() {
   }, [csvData, detectedTable]);
 
   const handleCompareData = async () => {
-    if (!detectedTable || csvData.length === 0 || !supabase) {
-        if (!supabase) {
-          toast({ title: 'Configuración de DB Incompleta', description: 'No se pueden comparar los datos.', variant: 'destructive' });
-        }
+    if (!detectedTable || csvData.length === 0) {
+        return;
+    }
+    if (!isSupabaseConfigured || !supabase) {
+        toast({ title: 'Configuración de DB Incompleta', description: 'No se pueden comparar los datos.', variant: 'destructive' });
         return;
     }
 
