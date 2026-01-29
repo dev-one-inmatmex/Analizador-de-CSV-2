@@ -33,12 +33,42 @@ type TableConfig = {
   pk: string;
 };
 
-// Mappings from filename keyword to table configuration
-const TABLE_MAPPINGS: Record<string, TableConfig> = {
-  'ventas': { dbTable: 'ventas', pk: 'numero_venta' },
-  'publicaciones': { dbTable: 'publicaciones', pk: 'item_id' },
-  'skus': { dbTable: 'skus', pk: 'sku' },
+// Defines the structure of the database tables for header-based detection.
+const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
+  ventas: {
+    pk: 'numero_venta',
+    columns: [
+      'id', 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 
+      'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 
+      'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
+      'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 
+      'sku', 'numero_publicacion', 'tienda_oficial', 'titulo_publicacion', 'variante', 
+      'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 
+      'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 
+      'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 
+      'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 
+      'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 
+      'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 
+      'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 
+      'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 
+      'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 
+      'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'
+    ]
+  },
+  publicaciones: {
+    pk: 'item_id',
+    columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at']
+  },
+  skus: {
+    pk: 'sku',
+    columns: ['id', 'sku', 'variacion', 'id_producto_madre', 'costo', 'fecha_registro', 'tiempo_preparacion']
+  },
+  productos_madre: {
+    pk: 'id_producto_madre',
+    columns: ['id', 'id_producto_madre', 'nombre_madre', 'costo', 'tiempo_preparacion', 'observaciones', 'fecha_registro']
+  }
 };
+
 
 export default function CsvUploader() {
   const { toast } = useToast();
@@ -90,31 +120,39 @@ export default function CsvUploader() {
     resetState();
     setFile(file);
 
-    // 1. Detect table from filename
-    const fileName = file.name.toLowerCase();
-    const detectedKey = Object.keys(TABLE_MAPPINGS).find(key => fileName.includes(key));
-    const tableConfig = detectedKey ? TABLE_MAPPINGS[detectedKey] : null;
-    
-    if (tableConfig) {
-      setDetectedTable(tableConfig);
-      toast({ title: 'Tabla Detectada', description: `Archivo parece corresponder a la tabla: ${tableConfig.dbTable}` });
-    } else {
-      toast({ title: 'Tabla no Detectada', description: 'No se pudo identificar una tabla de destino por el nombre del archivo.', variant: 'destructive' });
-    }
-
-    // 2. Parse CSV
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const rows = text.split('\n').map(row => row.trim().split(','));
-      const headerRow = rows[0].map(h => h.trim());
-      const dataRows = rows.slice(1).filter(row => row.some(cell => cell.trim() !== ''));
+      // Improved CSV parsing to handle commas inside quotes
+      const rows = text.split('\n').map(row => row.trim().split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/));
+      const csvHeaders = rows[0].map(h => (h || '').trim().replace(/"/g, ''));
+      
+      // 1. Detect table from headers
+      let bestMatch = { table: '', score: 0 };
+      for (const tableName in TABLE_SCHEMAS) {
+        const schema = TABLE_SCHEMAS[tableName];
+        const matchedHeaders = csvHeaders.filter(header => schema.columns.includes(header));
+        if (matchedHeaders.length > bestMatch.score) {
+          bestMatch = { table: tableName, score: matchedHeaders.length };
+        }
+      }
 
-      setHeaders(headerRow);
+      let tableConfig: TableConfig | null = null;
+      if (bestMatch.score > 2) { // Use a threshold of >2 matches to be confident
+        tableConfig = { dbTable: bestMatch.table, pk: TABLE_SCHEMAS[bestMatch.table].pk };
+        setDetectedTable(tableConfig);
+        toast({ title: 'Tabla Detectada', description: `Los encabezados coinciden con la tabla: ${tableConfig.dbTable}` });
+      } else {
+        toast({ title: 'Tabla no Detectada', description: 'No se pudo identificar una tabla de destino por los encabezados del CSV.', variant: 'destructive' });
+      }
+
+      // 2. Parse CSV data rows
+      const dataRows = rows.slice(1).filter(row => row.length > 1 && row.some(cell => cell.trim() !== ''));
+      setHeaders(csvHeaders);
       const parsedData = dataRows.map(row => {
         const rowObject: CsvRow = {};
-        headerRow.forEach((header, index) => {
-          rowObject[header] = row[index] || '';
+        csvHeaders.forEach((header, index) => {
+          rowObject[header] = (row[index] || '').trim().replace(/"/g, '');
         });
         return rowObject;
       });
@@ -143,6 +181,8 @@ export default function CsvUploader() {
     try {
       const pk = detectedTable.pk;
       const csvPks = csvData.map(row => row[pk]).filter(Boolean);
+
+      if (!supabase) throw new Error("Cliente de Supabase no disponible");
 
       const { data: dbData, error } = await supabase
         .from(detectedTable.dbTable)
@@ -260,7 +300,7 @@ export default function CsvUploader() {
       <Card>
         <CardHeader>
           <CardTitle>Paso 1: Cargar Documento CSV</CardTitle>
-          <CardDescription>Arrastra y suelta un archivo CSV. El sistema intentará detectar la tabla de destino.</CardDescription>
+          <CardDescription>Arrastra y suelta un archivo CSV. El sistema intentará detectar la tabla de destino analizando sus encabezados.</CardDescription>
         </CardHeader>
         <CardContent>
           {!file ? (
