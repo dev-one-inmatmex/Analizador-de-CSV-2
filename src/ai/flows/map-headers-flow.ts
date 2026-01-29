@@ -13,6 +13,9 @@ const prompt = ai.definePrompt({
     name: 'mapHeadersPrompt',
     input: { schema: MapHeadersInputSchema },
     output: { schema: MapHeadersOutputSchema },
+    config: {
+        responseMimeType: "application/json",
+    },
     prompt: `
       You are a data mapping expert. Your task is to map headers from a CSV file to the columns of a database table.
       The names might not be identical, but they are often similar or relate to the same concept.

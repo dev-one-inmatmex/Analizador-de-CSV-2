@@ -13,6 +13,9 @@ const prompt = ai.definePrompt({
     name: 'processCsvPrompt',
     input: { schema: ProcessCsvDataInputSchema },
     output: { schema: ProcessCsvDataOutputSchema },
+    config: {
+        responseMimeType: "application/json",
+    },
     prompt: `
       You are a data analysis assistant. You have been provided with a set of selected data cells from a CSV file.
 
