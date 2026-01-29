@@ -193,11 +193,7 @@ export default function CsvUploader() {
   const handleMappingChange = (csvHeaderIndex: number, dbColumn: string) => {
     setHeaderMap(prev => {
         const newMap = { ...prev };
-        if (dbColumn === IGNORE_COLUMN_VALUE) {
-            delete newMap[csvHeaderIndex];
-        } else {
-            newMap[csvHeaderIndex] = dbColumn;
-        }
+        newMap[csvHeaderIndex] = dbColumn;
         return newMap;
     });
   };
@@ -430,27 +426,45 @@ export default function CsvUploader() {
                     <CardTitle>Paso 2: Revisar Mapeo de Columnas</CardTitle>
                     <CardDescription>La IA ha sugerido un mapeo. Ajústalo si es necesario y luego confirma para analizar los datos.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
-                        {headers.map((csvHeader, i) => (
-                            <div key={`${csvHeader}-${i}`} className="grid grid-cols-2 items-center gap-2">
-                                <label className="text-sm font-medium text-right truncate">{csvHeader}</label>
-                                <Select
-                                    value={headerMap[i] || IGNORE_COLUMN_VALUE}
-                                    onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Ignorar columna" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={IGNORE_COLUMN_VALUE}>Ignorar columna</SelectItem>
-                                        {targetTable.columns.map(col => (
-                                            <SelectItem key={col} value={col}>{col}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        ))}
+                <CardContent>
+                    <div className="border rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm">
+                                <TableRow>
+                                    <TableHead className="w-[50%]">Cabecera del CSV</TableHead>
+                                    <TableHead className="w-[50%]">Columna de la Base de Datos</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {headers.map((csvHeader, i) => (
+                                    <TableRow key={`${csvHeader}-${i}`}>
+                                        <TableCell className="font-medium truncate" title={csvHeader}>
+                                            {csvHeader}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Select
+                                                value={headerMap[i] || IGNORE_COLUMN_VALUE}
+                                                onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Ignorar esta columna" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value={IGNORE_COLUMN_VALUE}>
+                                                        -- Ignorar esta columna --
+                                                    </SelectItem>
+                                                    {targetTable.columns.map(col => (
+                                                        <SelectItem key={col} value={col}>
+                                                            {col}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     </div>
                 </CardContent>
                 <CardFooter>
