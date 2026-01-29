@@ -12,6 +12,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
   data: TableDataSchema.describe('Los datos de la tabla para guardar.'),
+  conflictKey: z.string().optional().describe('La columna a usar para resolver conflictos en un upsert.'),
 });
 type SaveToDatabaseInput = z.infer<typeof SaveToDatabaseInputSchema>;
 
@@ -26,44 +27,43 @@ type SaveToDatabaseOutput = z.infer<typeof SaveToDatabaseOutputSchema>;
 ========================= */
 
 function parseValue(key: string, value: string): any {
-  const numericFields = [
-    'id', 'costo', 'tiempo_preparacion', 'producto_madre_id',
-    'numero_venta', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
-    'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
-    'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
-    'dinero_a_favor', 'unidades_reclamo', 'price',
-  ];
+    const numericFields = [
+      'id', 'costo', 'tiempo_preparacion', 'producto_madre_id',
+      'numero_venta', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
+      'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
+      'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
+      'dinero_a_favor', 'unidades_reclamo', 'price',
+    ];
+  
+    const booleanFields = [
+      'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
+      'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
+    ];
+  
+    const dateFields = [
+      'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
+    ];
 
-  const booleanFields = [
-    'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
-    'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
-  ];
-
-  const dateFields = [
-      'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro'
-  ];
-
-  if (value === undefined || value === null || value.trim() === '' || value.toLowerCase() === 'null') {
-    return null;
-  }
-
-  if (numericFields.includes(key)) {
-    const num = parseFloat(value);
-    return isNaN(num) ? null : num;
-  }
-
-  if (booleanFields.includes(key)) {
-    const v = value.toLowerCase();
-    return v === 'true' || v === '1' || v === 'verdadero';
-  }
-
-  if (dateFields.includes(key)) {
-    const date = new Date(value);
-    // Si la fecha no es válida, es más seguro insertar null que una cadena mal formada.
-    return isNaN(date.getTime()) ? null : date.toISOString();
-  }
-
-  return value;
+    if (value === undefined || value === null || value.trim() === '' || value.toLowerCase() === 'null') {
+      return null;
+    }
+  
+    if (numericFields.includes(key)) {
+      const num = parseFloat(value.replace(',', '.')); // Handle decimal commas
+      return isNaN(num) ? null : num;
+    }
+  
+    if (booleanFields.includes(key)) {
+      const v = value.toLowerCase();
+      return v === 'true' || v === '1' || v === 'verdadero' || v === 'si' || v === 'sí';
+    }
+  
+    if (dateFields.includes(key)) {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date.toISOString();
+    }
+  
+    return value;
 }
 
 /* =========================
@@ -76,7 +76,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     inputSchema: SaveToDatabaseInputSchema,
     outputSchema: SaveToDatabaseOutputSchema,
   },
-  async ({ targetTable, data }) => {
+  async ({ targetTable, data, conflictKey }) => {
     if (!isSupabaseConfigured || !supabase) {
         return { 
             success: false, 
@@ -108,7 +108,12 @@ const saveToDatabaseFlow = ai.defineFlow(
       };
     }
 
-    const { error } = await supabase.from(targetTable).insert(objects);
+    const query = supabase.from(targetTable);
+    const { error } = await (
+      conflictKey
+      ? query.upsert(objects, { onConflict: conflictKey })
+      : query.insert(objects)
+    );
 
     if (error) {
       console.error('❌ Error de Supabase:', error);
@@ -120,7 +125,7 @@ const saveToDatabaseFlow = ai.defineFlow(
 
     return {
       success: true,
-      message: `✅ ${objects.length} registros guardados en '${targetTable}'.`,
+      message: `✅ ${objects.length} registros ${conflictKey ? 'sincronizados' : 'guardados'} en '${targetTable}'.`,
     };
   }
 );

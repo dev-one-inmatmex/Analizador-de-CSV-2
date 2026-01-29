@@ -10,12 +10,9 @@ let supabase: SupabaseClient | null = null
 if (isSupabaseConfigured) {
   supabase = createClient(supabaseUrl, supabaseAnonKey)
 } else {
-  // Only log the warning in the browser to avoid spamming server logs
-  if (typeof window !== 'undefined') {
-    console.warn(
-      'La configuración de Supabase está incompleta. Por favor, edita el archivo .env con tus credenciales y reinicia el servidor.'
-    )
-  }
+  console.warn(
+    'Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your .env file.'
+  )
 }
 
 export { supabase }

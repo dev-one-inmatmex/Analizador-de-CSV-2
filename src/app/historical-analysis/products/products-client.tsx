@@ -1,23 +1,13 @@
 'use client';
 
-import { ArrowLeft, Package, TrendingUp, Filter, Clock, Gauge, LogOut, Terminal, Loader2, BarChart3, ListVideo } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import type { SkuWithProduct, publicaciones } from '@/types/database';
 import Link from 'next/link';
-import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, LogOut, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -26,439 +16,259 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import type { SkuWithProduct, publicaciones } from '@/types/database';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
-import GlobalNav from '@/components/global-nav';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
+export default function ProductsPage() {
+  const [skus, setSkus] = useState<SkuWithProduct[]>([]);
+  const [publications, setPublications] = useState<publicaciones[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-// --- MOCK DATA ---
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
 
-const kpiData = {
-  currentStock: 850,
-  avgConsumption: 55, // Daily
-  estimatedDuration: 15, // Days
-  maxConsumption: 90, // Daily
-};
+      if (!supabase) {
+        setError('El cliente de Supabase no está disponible.');
+        setLoading(false);
+        return;
+      }
 
-const chartConfigMovement = {
-  stock: { label: 'Stock', color: 'hsl(var(--chart-1))' },
-  entradas: { label: 'Entradas', color: 'hsl(var(--chart-2))' },
-  salidas: { label: 'Salidas (Consumo)', color: 'hsl(var(--chart-3))' },
-};
+      const [skusResult, publicationsResult] = await Promise.all([
+        supabase
+          .from('skus')
+          .select('*, productos_madre(*)')
+          .order('fecha_registro', { ascending: false })
+          .limit(20),
 
-const stockMovementData = [
-  { date: 'Hace 7d', stock: 1200, entradas: 100, salidas: 50 },
-  { date: 'Hace 6d', stock: 1250, entradas: 150, salidas: 80 },
-  { date: 'Hace 5d', stock: 1320, entradas: 50, salidas: 120 },
-  { date: 'Hace 4d', stock: 1250, entradas: 80, salidas: 90 },
-  { date: 'Hace 3d', stock: 1240, entradas: 200, salidas: 70 },
-  { date: 'Hace 2d', stock: 1370, entradas: 0, salidas: 150 },
-  { date: 'Ayer', stock: 1220, entradas: 10, salidas: 110 },
-  { date: 'Hoy', stock: 850, entradas: 0, salidas: 260 },
-];
+        supabase
+          .from('publicaciones')
+          .select('*')
+          .order('item_id', { ascending: false })
+          .limit(20),
+      ]);
 
-const topConsumersData = [
-  { product: 'Producto A', consumption: 120 },
-  { product: 'Producto C', consumption: 95 },
-  { product: 'Producto B', consumption: 80 },
-  { product: 'Producto E', consumption: 60 },
-  { product: 'Producto D', consumption: 45 },
-];
+      let combinedError = '';
 
-const productDetailData = [
-  { sku: 'PROD-A-001', product: 'Producto A', stock: 250, avgConsumption: 18, lastProduced: '2024-05-10' },
-  { sku: 'PROD-B-002', product: 'Producto B', stock: 150, avgConsumption: 12, lastProduced: '2024-05-12' },
-  { sku: 'PROD-C-003', product: 'Producto C', stock: 300, avgConsumption: 25, lastProduced: '2024-05-08' },
-  { sku: 'PROD-D-004', product: 'Producto D', stock: 50, avgConsumption: 5, lastProduced: '2024-04-20' },
-  { sku: 'PROD-E-005', product: 'Producto E', stock: 100, avgConsumption: 8, lastProduced: '2024-05-15' },
-];
+      if (skusResult.error) {
+        combinedError += `SKUs: ${skusResult.error.message}. `;
+      } else {
+        setSkus(skusResult.data as SkuWithProduct[]);
+      }
 
-const allProducts = ['Todos', 'Producto A', 'Producto B', 'Producto C', 'Producto D', 'Producto E'];
+      if (publicationsResult.error) {
+        combinedError += `Publicaciones: ${publicationsResult.error.message}.`;
+      } else {
+        setPublications(publicationsResult.data as publicaciones[]);
+      }
 
+      if (combinedError) setError(combinedError.trim());
 
-export default function ProductsAnalysisClientPage({ productSkus, publications }: { productSkus: SkuWithProduct[], publications: publicaciones[] }) {
-  const { toast } = useToast();
-  
-  const [product, setProduct] = React.useState('Todos');
-  const [date, setDate] = React.useState<DateRange | undefined>();
-  const [isClient, setIsClient] = React.useState(false);
+      setLoading(false);
+    };
 
-  React.useEffect(() => {
-    setDate({
-      from: subDays(new Date(), 29),
-      to: new Date(),
-    });
-    setIsClient(true);
+    fetchData();
   }, []);
 
-  const [kpis, setKpis] = React.useState(kpiData);
-  const [displayedMovement, setDisplayedMovement] = React.useState(stockMovementData);
-  const [displayedDetails, setDisplayedDetails] = React.useState(productDetailData);
-
-  const handleApplyFilters = () => {
-    toast({
-        title: "Filtros aplicados",
-        description: "Los datos de productos han sido actualizados."
-    });
-
-    setDisplayedDetails(productDetailData.sort(() => Math.random() - 0.5));
-
-    setKpis(prev => ({
-        ...prev,
-        currentStock: Math.floor(prev.currentStock * (Math.random() * 0.4 + 0.8)),
-        avgConsumption: Math.floor(prev.avgConsumption * (Math.random() * 0.2 + 0.9)),
-    }));
-    
-    setDisplayedMovement(prev => prev.map(m => ({
-        ...m,
-        stock: Math.floor(m.stock * (Math.random() * 0.3 + 0.8)),
-        entradas: Math.floor(m.entradas * (Math.random() * 0.5 + 0.7)),
-        salidas: Math.floor(m.salidas * (Math.random() * 0.5 + 0.7)),
-    })));
-  };
-
-  const handleClearFilters = () => {
-    toast({
-        title: "Filtros limpiados",
-        description: "Mostrando todos los datos originales."
-    });
-    setProduct('Todos');
-    setDate({ from: subDays(new Date(), 29), to: new Date() });
-
-    setKpis(kpiData);
-    setDisplayedMovement(stockMovementData);
-    setDisplayedDetails(productDetailData);
-  };
-
-  if (!isClient) {
+  if (loading) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-muted/40">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">
+            Cargando datos de productos…
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          <Link href="/historical-analysis" passHref>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Volver</span>
+    <main className="p-4 md:p-8 bg-gray-50 min-h-screen">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">
+          Catálogo de Productos y Publicaciones
+        </h1>
+
+        <div className="flex gap-4">
+          <Link href="/historical-analysis">
+            <Button variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver
             </Button>
           </Link>
-          <h1 className="text-xl font-bold tracking-tight">Análisis de Publicaciones</h1>
+
+          <Button variant="outline">
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar Sesión
+          </Button>
         </div>
-        <div className="flex items-center gap-4">
-            <Link href="/historical-analysis" passHref>
-                <Button>
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Análisis de Históricos
-                </Button>
-            </Link>
-            <GlobalNav />
-            <Button variant="outline">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
-            </Button>
+      </div>
+
+      {error && (
+        <div className="p-6 mb-6 text-red-700 bg-red-100 border border-red-300 rounded-lg">
+          <p className="font-bold">Error al cargar datos:</p>
+          <p className="text-sm mt-2 font-mono">{error}</p>
         </div>
-      </header>
+      )}
 
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-          <Card>
-              <CardHeader className="flex flex-row items-center gap-4">
-                  <Filter className="h-6 w-6 text-muted-foreground" />
-                  <div>
-                      <CardTitle>Filtros de Publicaciones</CardTitle>
-                      <CardDescription>Filtra por período y publicación para refinar el análisis.</CardDescription>
-                  </div>
-              </CardHeader>
-              <CardContent>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <div className="space-y-2">
-                          <Label htmlFor="date-range">Período</Label>
-                          <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="product-filter">Publicación</Label>
-                          <Select value={product} onValueChange={setProduct}>
-                              <SelectTrigger id="product-filter">
-                                  <SelectValue placeholder="Seleccionar producto" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  {allProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                              </SelectContent>
-                          </Select>
-                      </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-end gap-2">
-                      <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
-                      <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
-                  </div>
-              </CardContent>
-          </Card>
+      {/* ======================= SKUS ======================= */}
+      <section className="mb-12">
+        <h2 className="text-2xl font-bold mb-4 text-gray-700">
+          SKUs Recientes
+        </h2>
 
-          <div>
-              <div className="mb-4">
-                  <h2 className="text-xl font-semibold">Resumen de Publicaciones</h2>
-                  <p className="text-muted-foreground">Indicadores clave sobre el stock, consumo y duración de los productos asociados.</p>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Stock Actual Total</CardTitle>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{kpis.currentStock.toLocaleString('es-MX')} Unidades</div>
-                    <p className="text-xs text-muted-foreground">Cantidad total de productos disponibles.</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Consumo Promedio (Diario)</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{kpis.avgConsumption.toLocaleString('es-MX')} Unidades</div>
-                    <p className="text-xs text-muted-foreground">Media de unidades consumidas por día.</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Duración Estimada de Stock</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{kpis.estimatedDuration} días</div>
-                    <p className="text-xs text-muted-foreground">Tiempo hasta agotar el stock actual.</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Consumo Máximo (Diario)</CardTitle>
-                    <Gauge className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{kpis.maxConsumption.toLocaleString('es-MX')} Unidades</div>
-                    <p className="text-xs text-muted-foreground">Pico de consumo registrado en un día.</p>
-                  </CardContent>
-                </Card>
-              </div>
-          </div>
+        <div className="bg-white rounded-lg shadow-md border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>SKU</TableHead>
+                <TableHead>Producto Madre</TableHead>
+                <TableHead>Variación</TableHead>
+                <TableHead className="text-right">Costo</TableHead>
+                <TableHead className="text-right">Prep. (min)</TableHead>
+                <TableHead className="text-center">Registrado</TableHead>
+              </TableRow>
+            </TableHeader>
 
-          <Tabs defaultValue="overview">
-            <TabsList>
-              <TabsTrigger value="overview">Análisis Gráfico</TabsTrigger>
-              <TabsTrigger value="details">Detalle por Publicación</TabsTrigger>
-              <TabsTrigger value="catalog">Catálogo de SKUs</TabsTrigger>
-              <TabsTrigger value="publications">Catálogo de Publicaciones</TabsTrigger>
-            </TabsList>
-            <TabsContent value="overview" className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card className="lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Histórico de Movimiento de Stock (por Publicación)</CardTitle>
-                    <CardDescription>Evolución del stock, entradas y salidas de los productos asociados en el período.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ChartContainer config={chartConfigMovement} className="h-[350px] w-full">
-                      <LineChart data={displayedMovement} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid vertical={false} />
-                        <YAxis />
-                        <XAxis dataKey="date" />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <ChartLegend />
-                        <Line type="monotone" dataKey="stock" stroke="var(--color-stock)" strokeWidth={3} dot={false} />
-                        <Line type="monotone" dataKey="entradas" stroke="var(--color-entradas)" strokeWidth={2} dot={true} />
-                        <Line type="monotone" dataKey="salidas" stroke="var(--color-salidas)" strokeWidth={2} dot={true} />
-                      </LineChart>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Publicaciones con Mayor Consumo</CardTitle>
-                    <CardDescription>Top 5 publicaciones más consumidas en el período.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ChartContainer config={{}} className="h-[350px] w-full">
-                      <BarChart data={topConsumersData} layout="vertical" margin={{ left: 30 }}>
-                          <CartesianGrid horizontal={false} />
-                          <YAxis dataKey="product" type="category" tickLine={false} axisLine={false} width={100} />
-                          <XAxis type="number" hide />
-                          <ChartTooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent hideLabel />} />
-                          <Bar dataKey="consumption" fill="hsl(var(--primary))" radius={4} />
-                      </BarChart>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-            <TabsContent value="details" className="space-y-4">
-              <Card>
-                <CardHeader>
-                    <CardTitle>Detalle de Publicaciones</CardTitle>
-                    <CardDescription>Información detallada de cada publicación, incluyendo stock y consumo del producto asociado.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>SKU</TableHead>
-                                <TableHead>Publicación</TableHead>
-                                <TableHead className="text-right">Stock Actual</TableHead>
-                                <TableHead className="text-right">Consumo Promedio (Diario)</TableHead>
-                                <TableHead className="text-center">Fecha Última Elaboración</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {displayedDetails.map((item) => (
-                                <TableRow key={item.sku}>
-                                    <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                                    <TableCell className="font-medium">{item.product}</TableCell>
-                                    <TableCell className="text-right">{item.stock.toLocaleString('es-MX')}</TableCell>
-                                    <TableCell className="text-right">{item.avgConsumption.toLocaleString('es-MX')}</TableCell>
-                                    <TableCell className="text-center">{format(new Date(item.lastProduced), "dd MMM, yyyy", { locale: es })}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="catalog" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Catálogo de SKUs y Productos Madre</CardTitle>
-                  <CardDescription>
-                    Información detallada de los SKUs y sus productos madre correspondientes desde la base de datos.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative border rounded-lg overflow-auto max-h-[30rem]">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm">
-                        <TableRow>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Producto Madre</TableHead>
-                          <TableHead>Variación</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
-                          <TableHead className="text-right">Tiempo Prep. (min)</TableHead>
-                          <TableHead>Fecha Registro</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {productSkus.length > 0 ? (
-                          productSkus.map((item) => (
-                            <TableRow key={item.sku}>
-                              <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                              <TableCell className="font-medium">{item.productos_madre?.nombre_madre || 'N/A'}</TableCell>
-                              <TableCell>{item.variacion || 'N/A'}</TableCell>
-                              <TableCell className="text-right">
-                                {item.productos_madre ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.productos_madre.costo) : 'N/A'}
-                              </TableCell>
-                              <TableCell className="text-right">{item.tiempo_preparacion || 'N/A'}</TableCell>
-                              <TableCell className="text-center">{format(new Date(item.fecha_registro), "dd MMM, yyyy", { locale: es })}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                            <TableRow key="no-skus-row">
-                                <TableCell colSpan={6} className="p-0">
-                                  <div className="p-4">
-                                    <Alert variant="destructive">
-                                      <Terminal className="h-4 w-4" />
-                                      <AlertTitle>No se pudieron cargar los datos</AlertTitle>
-                                      <AlertDescription>
-                                        <p className="font-semibold">La aplicación no pudo obtener registros de Supabase. Esto casi siempre se debe a un problema de configuración que debes resolver tú:</p>
-                                        <ul className="list-disc pl-5 mt-2 space-y-1">
-                                          <li><strong>Políticas de Seguridad (RLS):</strong> Asegúrate de haber habilitado el acceso de lectura (`SELECT`) para la tabla `skus` y `productos_madre` en tu panel de Supabase.</li>
-                                          <li><strong>Credenciales:</strong> Verifica que las variables `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en tu archivo `.env` sean correctas.</li>
-                                        </ul>
-                                        <p className="mt-2 text-xs">El código de la aplicación no puede solucionar esto por ti. Una vez que corrijas la configuración en Supabase o en tu `.env`, los datos aparecerán aquí.</p>
-                                      </AlertDescription>
-                                    </Alert>
-                                  </div>
-                                </TableCell>
-                            </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-             <TabsContent value="publications" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Catálogo de Publicaciones</CardTitle>
-                  <CardDescription>
-                    Información de las publicaciones de productos desde la base de datos.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative border rounded-lg overflow-auto max-h-[30rem]">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm">
-                        <TableRow>
-                          <TableHead>ID Publicación</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Título</TableHead>
-                          <TableHead>Estado</TableHead>
-                           <TableHead>Compañía</TableHead>
-                          <TableHead className="text-right">Precio</TableHead>
-                          <TableHead>Fecha de Creación</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {publications.length > 0 ? (
-                          publications.map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell className="font-mono text-xs">{item.item_id}</TableCell>
-                              <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                              <TableCell className="font-medium">{item.title}</TableCell>
-                              <TableCell>{item.status}</TableCell>
-                              <TableCell>{item.company}</TableCell>
-                              <TableCell className="text-right">
-                                {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price)}
-                              </TableCell>
-                              <TableCell>{format(new Date(item.created_at), "dd MMM, yyyy", { locale: es })}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={7} className="p-0">
-                               <div className="p-4">
-                                <Alert variant="destructive">
-                                  <ListVideo className="h-4 w-4" />
-                                  <AlertTitle>No se pudieron cargar las publicaciones</AlertTitle>
-                                  <AlertDescription>
-                                    Verifica la configuración de Supabase y las políticas de seguridad (RLS) para la tabla `publicaciones`.
-                                  </AlertDescription>
-                                </Alert>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </main>
-    </div>
+            <TableBody>
+              {skus.length > 0 ? (
+                skus.map((sku) => (
+                  <TableRow key={sku.sku}>
+                    <TableCell className="font-mono text-blue-600">
+                      {sku.sku}
+                    </TableCell>
+
+                    <TableCell>
+                      {sku.productos_madre?.nombre_madre ?? 'N/A'}
+                    </TableCell>
+
+                    <TableCell>
+                      {sku.variacion ?? '—'}
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      {new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: 'MXN',
+                      }).format(
+                        sku.costo ??
+                          sku.productos_madre?.costo ??
+                          0
+                      )}
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      {sku.tiempo_preparacion ?? '—'}
+                    </TableCell>
+
+                    <TableCell className="text-center">
+                      {format(
+                        new Date(sku.fecha_registro),
+                        'dd MMM yyyy',
+                        { locale: es }
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    No hay SKUs registrados.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      {/* =================== PUBLICACIONES =================== */}
+      <section>
+        <h2 className="text-2xl font-bold mb-4 text-gray-700">
+          Publicaciones
+        </h2>
+
+        <div className="bg-white rounded-lg shadow-md border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item ID</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Product Number</TableHead>
+                <TableHead>Variation ID</TableHead>
+                <TableHead>Título</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead className="text-right">Precio</TableHead>
+                <TableHead>Empresa</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {publications.length > 0 ? (
+                publications.map((pub) => (
+                  <TableRow key={pub.item_id}>
+                    <TableCell className="font-mono text-blue-600">
+                      {pub.item_id}
+                    </TableCell>
+
+                    <TableCell className="font-mono">
+                      {pub.sku}
+                    </TableCell>
+
+                    <TableCell>
+                      {pub.product_number ?? '—'}
+                    </TableCell>
+
+                    <TableCell>
+                      {pub.variation_id ?? '—'}
+                    </TableCell>
+
+                    <TableCell className="font-medium">
+                      {pub.title}
+                    </TableCell>
+
+                    <TableCell className="text-center">
+                      <Badge
+                        variant={
+                          pub.status === 'active'
+                            ? 'secondary'
+                            : 'outline'
+                        }
+                      >
+                        {pub.status}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      {pub.category}
+                    </TableCell>
+
+                    <TableCell className="text-right font-semibold">
+                      {new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: 'MXN',
+                      }).format(pub.price)}
+                    </TableCell>
+
+                    <TableCell>
+                      {pub.company}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    No se encontraron publicaciones.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+    </main>
   );
 }

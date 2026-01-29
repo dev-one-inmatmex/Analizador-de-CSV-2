@@ -1,24 +1,12 @@
-'use client';
+'use client'
 
-import { ArrowLeft, Star, Building, TrendingUp, DollarSign, Filter, Users, LogOut, Loader2, BarChart3, Terminal } from 'lucide-react';
-import Link from 'next/link';
-import * as React from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
-import { DateRange } from 'react-day-picker';
-import { subDays, format } from 'date-fns';
+import * as React from 'react'
+import Link from 'next/link'
+import { ArrowLeft, LogOut, Loader2, Filter } from 'lucide-react'
+import { supabase } from '@/lib/supabaseClient'
+import type { ventas as VentasType } from '@/types/database'
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -26,446 +14,170 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import GlobalNav from '@/components/global-nav';
-import type { ventas } from '@/types/database';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import GlobalNav from '@/components/global-nav'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
-
-// Chart Configs
-const companyConfig = {
-  MTM: { label: 'MTM', color: 'hsl(var(--chart-1))' },
-  TAL: { label: 'TAL', color: 'hsl(var(--chart-2))' },
-  OMESKA: { label: 'OMESKA', color: 'hsl(var(--chart-3))' },
-};
-
-const chartConfigSalesByCompany = { sales: { label: 'Ventas' }, ...companyConfig };
-const chartConfigDailyGoal = { ...companyConfig, remaining: { label: 'Restante', color: 'hsl(var(--secondary))' } };
-const chartConfigUnitsByPeriod = { ...companyConfig };
-
-
-// Mock Data (will be partially replaced by props)
-const allCompanies = ['MTM', 'TAL', 'OMESKA'];
-const allUsers = ['dana', 'alex', 'juan', 'sara'];
-
-const salesByCompanyData = [
-  { company: 'MTM', sales: 44 },
-  { company: 'TAL', sales: 13 },
-  { company: 'OMESKA', sales: 43 },
-];
-
-const dailyGoalDataRaw = [
-  { company: 'MTM', goal: 40, achieved: 35 },
-  { company: 'TAL', goal: 20, achieved: 18 },
-  { company: 'OMESKA', goal: 50, achieved: 48 },
-];
-
-const unitsByPeriodData = [
-  { date: '02-oct', MTM: 45, TAL: 90, OMESKA: 15 },
-  { date: '03-oct', MTM: 60, TAL: 100, OMESKA: 30 },
-  { date: '04-oct', MTM: 75, TAL: 80, OMESKA: 95 },
-  { date: '05-oct', MTM: 90, TAL: 70, OMESKA: 120 },
-  { date: '06-oct', MTM: 170, TAL: 60, OMESKA: 40 },
-];
-
-const userPerformanceData = [
-    { user: 'dana', sales: 320, averageTime: '0.32 min/v', status: 'active' },
-    { user: 'alex', sales: 280, averageTime: '0.45 min/v', status: 'active' },
-    { user: 'juan', sales: 150, averageTime: '0.60 min/v', status: 'active' },
-    { user: 'sara', sales: 80, averageTime: '0.75 min/v', status: 'inactive' },
-];
-
-type TopProduct = {
-  name: string;
-  product: string; // sku
-  sales: number;
-}
-
-export default function SalesAnalysisClientPage({ initialRecentSales, initialTopProducts }: { initialRecentSales: ventas[], initialTopProducts: TopProduct[] }) {
-  const { toast } = useToast();
-  
-  const [company, setCompany] = React.useState('all');
-  const [user, setUser] = React.useState('all');
-  const [date, setDate] = React.useState<DateRange | undefined>();
-  const [isClient, setIsClient] = React.useState(false);
+export default function VentasPage() {
+  const [ventas, setVentas] = React.useState<VentasType[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    setDate({
-      from: subDays(new Date(), 29),
-      to: new Date(),
-    });
-    setIsClient(true);
-  }, []);
+    const fetchVentas = async () => {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('ventas')
+        .select('*')
+        .order('fecha_venta', { ascending: false })
+        .limit(100)
 
-  const [displayedRecentSales, setDisplayedRecentSales] = React.useState(initialRecentSales);
-  const [displayedUserPerformance, setDisplayedUserPerformance] = React.useState(userPerformanceData);
-
-  const handleApplyFilters = () => {
-    toast({
-        title: "Filtros aplicados",
-        description: "Los datos de ventas han sido actualizados."
-    });
-    
-    let filteredSales = initialRecentSales;
-
-    if(company !== 'all') {
-        filteredSales = filteredSales.filter(sale => sale.tienda_oficial === company);
+      if (error) {
+        setError(error.message)
+        setVentas([])
+      } else {
+        setVentas(data as VentasType[])
+      }
+      setLoading(false)
     }
-    // NOTE: User filter is not applied as there is no user field in the 'ventas' table.
-    
-    setDisplayedRecentSales(filteredSales);
-    setDisplayedUserPerformance([...userPerformanceData].sort(() => Math.random() - 0.5));
-  };
 
-  const handleClearFilters = () => {
-      toast({
-          title: "Filtros limpiados",
-          description: "Mostrando todos los datos originales."
-      });
-      setCompany('all');
-      setUser('all');
-      setDate({ from: subDays(new Date(), 29), to: new Date() });
-      setDisplayedRecentSales(initialRecentSales);
-      setDisplayedUserPerformance(userPerformanceData);
-  };
+    fetchVentas()
+  }, [])
 
-
-  const dailyGoalData = React.useMemo(() => {
-    return dailyGoalDataRaw.map((d) => ({
-      company: d.company,
-      goal: d.goal,
-      [d.company]: d.achieved,
-      remaining: Math.max(0, d.goal - d.achieved),
-    }));
-  }, []);
-
-  if (!isClient) {
+  if (loading) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+      <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
-    );
+    )
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          <Link href="/historical-analysis" passHref>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Volver</span>
-            </Button>
-          </Link>
-          <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas</h1>
-        </div>
-        <div className="flex items-center gap-4">
-            <Link href="/historical-analysis" passHref>
-                <Button>
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Análisis de Históricos
-                </Button>
+    <>
+      <GlobalNav />
+
+      <main className="p-6 space-y-6">
+        {/* HEADER */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Historial de Ventas</h1>
+
+          <div className="flex gap-2">
+            <Link href="/historical-analysis">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver
+              </Button>
             </Link>
-            <GlobalNav />
+
             <Button variant="outline">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar sesión
             </Button>
-        </div>
-      </header>
-
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-        <Card>
-            <CardHeader className="flex flex-row items-center gap-4">
-                <Filter className="h-6 w-6 text-muted-foreground" />
-                <div>
-                    <CardTitle>Filtros de Análisis</CardTitle>
-                    <CardDescription>Analiza el rendimiento por empresa o usuario.</CardDescription>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-2">
-                        <Label htmlFor="date-range">Periodo</Label>
-                        <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="company-filter">Empresa</Label>
-                        <Select value={company} onValueChange={setCompany}>
-                            <SelectTrigger id="company-filter">
-                                <SelectValue placeholder="Seleccionar empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas las empresas</SelectItem>
-                                {allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="user-filter">Usuario (Ejemplo)</Label>
-                        <Select value={user} onValueChange={setUser}>
-                            <SelectTrigger id="user-filter">
-                                <SelectValue placeholder="Seleccionar usuario" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los usuarios</SelectItem>
-                                {allUsers.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div className="mt-4 flex items-center justify-end gap-2">
-                    <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
-                    <Button onClick={handleApplyFilters}>Aplicar Filtros</Button>
-                </div>
-            </CardContent>
-        </Card>
-
-        <div>
-            <div className="mb-4">
-                <h2 className="text-xl font-semibold">Resumen General</h2>
-                <p className="text-muted-foreground">Indicadores clave de rendimiento para el periodo seleccionado.</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Ventas del Mes</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">887</div>
-                  <p className="text-xs text-muted-foreground">+20.1% desde el mes pasado</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Productos Estrella</CardTitle>
-                  <Star className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{initialTopProducts.length > 0 ? initialTopProducts.length : 'N/A'}</div>
-                  <p className="text-xs text-muted-foreground">Top productos más vendidos</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Ventas (Hoy)</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">25</div>
-                  <p className="text-xs text-muted-foreground">Unidades vendidas hoy</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Empresa Principal</CardTitle>
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">MTM</div>
-                  <p className="text-xs text-muted-foreground">Mayor volumen de ventas</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Usuario más Activo</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">dana</div>
-                  <p className="text-xs text-muted-foreground">0.32 min/venta</p>
-                </CardContent>
-              </Card>
-            </div>
+          </div>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
-            <TabsTrigger value="details">Análisis Detallado</TabsTrigger>
-          </TabsList>
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                    <CardTitle>Ventas por Empresa</CardTitle>
-                    <CardDescription>Distribución porcentual de las ventas totales entre empresas.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pl-2">
-                    <ChartContainer config={chartConfigSalesByCompany} className="mx-auto aspect-square h-[300px]">
-                        <PieChart>
-                        <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                        <Pie data={salesByCompanyData} dataKey="sales" nameKey="company" innerRadius={60} strokeWidth={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
-                            {salesByCompanyData.map((entry) => (
-                                <Cell key={entry.company} fill={`var(--color-${entry.company})`} />
-                            ))}
-                        </Pie>
-                        <ChartLegend content={<ChartLegendContent nameKey="company" />} />
-                        </PieChart>
-                    </ChartContainer>
-                    </CardContent>
-                </Card>
+        {/* ERROR */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-                <Card>
-                    <CardHeader>
-                    <CardTitle>Meta Diaria por Empresa</CardTitle>
-                    <CardDescription>Progreso de las ventas diarias contra la meta establecida para cada empresa.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                    <ChartContainer config={chartConfigDailyGoal} className="h-[300px] w-full">
-                        <BarChart data={dailyGoalData} layout="vertical" margin={{ left: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <ChartLegend />
-                        <YAxis dataKey="company" type="category" tickLine={false} axisLine={false} width={60} />
-                        <XAxis dataKey="goal" type="number" hide />
-                        <Bar dataKey="MTM" name="MTM" stackId="a" fill="var(--color-MTM)" radius={[4, 4, 4, 4]} />
-                        <Bar dataKey="TAL" name="TAL" stackId="a" fill="var(--color-TAL)" radius={[4, 4, 4, 4]} />
-                        <Bar dataKey="OMESKA" name="OMESKA" stackId="a" fill="var(--color-OMESKA)" radius={[4, 4, 4, 4]} />
-                        <Bar dataKey="remaining" name="Restante" stackId="a" fill="var(--color-remaining)" radius={[4, 4, 4, 4]} />
-                        </BarChart>
-                    </ChartContainer>
-                    </CardContent>
-                </Card>
+        {/* TABLA */}
+        <div className="border rounded-lg bg-white overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Venta #</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Publicación</TableHead>
+                <TableHead>Título</TableHead>
+                <TableHead>Variante</TableHead>
+                <TableHead className="text-center">Unidades</TableHead>
+                <TableHead className="text-right">Precio Unit.</TableHead>
+                <TableHead className="text-right">Ingreso Prod.</TableHead>
+                <TableHead className="text-right">Impuestos</TableHead>
+                <TableHead className="text-right">Ingreso Envío</TableHead>
+                <TableHead className="text-right">Costo Envío</TableHead>
+                <TableHead className="text-right">Dif. Peso</TableHead>
+                <TableHead className="text-right">Anulaciones</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-center">Fecha</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+                <TableHead>Comprador</TableHead>
+                <TableHead>País</TableHead>
+                <TableHead>CP</TableHead>
+                <TableHead>Tags</TableHead>
+              </TableRow>
+            </TableHeader>
 
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                    <CardTitle>Unidades por Periodo</CardTitle>
-                    <CardDescription>Tendencia de ventas de las principales empresas en los últimos días del periodo.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                    <ChartContainer config={chartConfigUnitsByPeriod} className="h-[300px] w-full">
-                        <LineChart data={unitsByPeriodData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid vertical={false} />
-                        <YAxis />
-                        <XAxis dataKey="date" />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <ChartLegend />
-                        <Line type="monotone" dataKey="MTM" stroke="var(--color-MTM)" strokeWidth={2} dot={true} />
-                        <Line type="monotone" dataKey="TAL" stroke="var(--color-TAL)" strokeWidth={2} dot={true} />
-                        <Line type="monotone" dataKey="OMESKA" stroke="var(--color-OMESKA)" strokeWidth={2} dot={true} />
-                        </LineChart>
-                    </ChartContainer>
-                    </CardContent>
-                </Card>
-            </div>
-          </TabsContent>
-          <TabsContent value="details" className="space-y-4">
-             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Ventas Recientes</CardTitle>
-                        <CardDescription>Últimas transacciones registradas en el sistema según los filtros aplicados.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {displayedRecentSales.length > 0 ? (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                    <TableHead>Producto</TableHead>
-                                    <TableHead>Comprador</TableHead>
-                                    <TableHead>Empresa</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                    <TableHead className="text-right">Fecha</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {displayedRecentSales.map((sale) => (
-                                    <TableRow key={sale.numero_venta}>
-                                        <TableCell className="font-medium">{sale.titulo_publicacion}</TableCell>
-                                        <TableCell>{sale.comprador}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="text-xs">{sale.tienda_oficial}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sale.total)}</TableCell>
-                                        <TableCell className="text-right text-sm text-muted-foreground">{format(new Date(sale.fecha_venta), 'dd MMM yyyy')}</TableCell>
-                                    </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        ) : (
-                            <Alert variant="destructive">
-                                <Terminal className="h-4 w-4" />
-                                <AlertTitle>No se pudieron cargar los datos de ventas</AlertTitle>
-                                <AlertDescription>
-                                    <p className="font-semibold">La aplicación no pudo obtener registros de Supabase. Esto casi siempre se debe a un problema de configuración que debes resolver tú:</p>
-                                    <ul className="list-disc pl-5 mt-2 space-y-1">
-                                        <li><strong>Políticas de Seguridad (RLS):</strong> Asegúrate de haber habilitado el acceso de lectura (`SELECT`) para la tabla `ventas` en tu panel de Supabase.</li>
-                                        <li><strong>Credenciales:</strong> Verifica que las variables `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` en tu archivo `.env` sean correctas.</li>
-                                    </ul>
-                                    <p className="mt-2 text-xs">El código de la aplicación no puede solucionar esto por ti. Una vez que corrijas la configuración en Supabase o en tu `.env`, los datos aparecerán aquí.</p>
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                    </CardContent>
-                </Card>
-                <div className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Top Productos</CardTitle>
-                            <CardDescription>Productos con mayor volumen de ventas en el periodo.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {initialTopProducts.length > 0 ? (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Producto</TableHead>
-                                            <TableHead className="text-right">Ventas (unidades)</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {initialTopProducts.map((prod) => (
-                                            <TableRow key={prod.product}>
-                                                <TableCell className="font-medium">{prod.name}</TableCell>
-                                                <TableCell className="text-right">{prod.sales}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            ) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">No hay datos de productos.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Rendimiento por Usuario (Ejemplo)</CardTitle>
-                            <CardDescription>Eficiencia y volumen de ventas de cada miembro del equipo.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                <TableRow>
-                                    <TableHead>Usuario</TableHead>
-                                    <TableHead className="text-right">Ventas</TableHead>
-                                </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {displayedUserPerformance.map((user) => (
-                                        <TableRow key={user.user}>
-                                            <TableCell className="font-medium">{user.user}</TableCell>
-                                            <TableCell className="text-right">{user.sales}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+            <TableBody>
+              {ventas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
+                    No se encontraron ventas.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                ventas.map((v) => (
+                  <TableRow key={v.numero_venta}>
+                    <TableCell>{v.numero_venta}</TableCell>
+                    <TableCell>{v.sku ?? '—'}</TableCell>
+                    <TableCell>{v.numero_publicacion ?? '—'}</TableCell>
+                    <TableCell className="max-w-[240px] truncate">
+                      {v.titulo_publicacion ?? '—'}
+                    </TableCell>
+                    <TableCell>{v.variante ?? '—'}</TableCell>
+                    <TableCell className="text-center">{v.unidades}</TableCell>
+                    <TableCell className="text-right">
+                      ${v.precio_unitario.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      ${v.ingreso_productos.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      ${v.cargo_venta_impuestos.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      ${v.ingreso_envio.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      ${v.costo_envio.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      ${v.cargo_diferencia_peso.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      ${v.anulaciones_reembolsos.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      ${v.total.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {new Date(v.fecha_venta).toLocaleDateString('es-MX')}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={v.estado === 'paid' ? 'secondary' : 'outline'}>
+                        {v.descripcion_estado ?? v.estado ?? '—'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{v.comprador ?? '—'}</TableCell>
+                    <TableCell>{v.pais ?? '—'}</TableCell>
+                    <TableCell>{v.codigo_postal ?? '—'}</TableCell>
+                    <TableCell className="flex gap-1">
+                      {v.es_paquete_varios && <Badge>Paquete</Badge>}
+                      {v.negocio && <Badge>Negocio</Badge>}
+                      {v.reclamo_abierto && <Badge variant="destructive">Reclamo</Badge>}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </main>
-    </div>
-  );
+    </>
+  )
 }

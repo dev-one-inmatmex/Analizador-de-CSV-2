@@ -1,523 +1,264 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, Download } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, Download, RefreshCw, Bell, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { cn } from '@/lib/utils';
-import { processCsvData } from '@/ai/flows/process-csv-flow';
-import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
-import type { ProcessCsvDataOutput } from '@/ai/schemas/csv-schemas';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
+import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
+import { cn } from '@/lib/utils';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
-
-type SelectedCell = {
-    rowIndex: number;
-    colIndex: number;
+// Types
+type CsvRow = Record<string, string>;
+type DbRow = Record<string, any>;
+type ComparisonResult = {
+  newRows: { index: number; data: CsvRow }[];
+  updatedRows: { index: number; csv: CsvRow; db: DbRow; changes: Record<string, { from: any; to: any }> }[];
+  unchangedRows: { index: number; data: CsvRow }[];
+};
+type Notification = {
+  id: number;
+  message: string;
+  timestamp: string;
+  user: string;
+};
+type TableConfig = {
+  dbTable: string;
+  pk: string;
 };
 
-type SpecificCellItem = 
-    | { type: 'cell', rowIndex: number, colIndex: number }
-    | { type: 'range', startRow: number, startCol: number, endRow: number, endCol: number };
-
-type SelectionMode = 'range' | 'specific' | 'manual' | 'mapping';
-
-const columnToLetter = (colIndex: number): string => {
-    let letter = '';
-    let temp = colIndex;
-    while (temp >= 0) {
-        letter = String.fromCharCode((temp % 26) + 65) + letter;
-        temp = Math.floor(temp / 26) - 1;
-    }
-    return letter;
+// Mappings from filename keyword to table configuration
+const TABLE_MAPPINGS: Record<string, TableConfig> = {
+  'ventas': { dbTable: 'ventas', pk: 'numero_venta' },
+  'publicaciones': { dbTable: 'publicaciones', pk: 'item_id' },
+  'skus': { dbTable: 'skus', pk: 'sku' },
 };
-
-const letterToColumn = (letter: string): number => {
-    if (!letter) return -1;
-    let column = 0;
-    const length = letter.length;
-    for (let i = 0; i < length; i++) {
-        column += (letter.charCodeAt(i) - 64) * Math.pow(26, length - i - 1);
-    }
-    return column - 1;
-};
-
-const initialMapping = {
-    '# de venta': '',
-    'fecha de venta': '',
-    'sku': '',
-    '# de publicacion': '',
-    'Tienda oficial': '',
-    'Titulo de la publicacion': '',
-    'Variante': '',
-    'Comprador': '',
-    'Municipio': '',
-    'Estado': '',
-};
-
-const availableTables = [
-    { value: 'skus', label: 'Catálogo de SKUs' },
-    { value: 'productos_madre', label: 'Catálogo de Productos Madre' },
-    { value: 'ventas', label: 'Registro de Ventas' },
-    { value: 'publicaciones', label: 'Catálogo de Publicaciones' },
-];
 
 export default function CsvUploader() {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [data, setData] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
-  const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
-  const [rowRange, setRowRange] = useState({ start: 1, end: 0 });
-  const [colRange, setColRange] = useState({ start: 'A', end: 'A' });
-  const [specificCellsInput, setSpecificCellsInput] = useState('');
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('range');
+  const [csvData, setCsvData] = useState<CsvRow[]>([]);
+  
+  const [detectedTable, setDetectedTable] = useState<TableConfig | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const [mapping, setMapping] = useState<Record<string, string>>(initialMapping);
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [selectedNew, setSelectedNew] = useState<Set<number>>(new Set());
+  const [selectedUpdates, setSelectedUpdates] = useState<Set<number>>(new Set());
 
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<ProcessCsvDataOutput | null>(null);
-  const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
-  const [targetTable, setTargetTable] = useState('');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const parsedSpecificItems = useMemo((): SpecificCellItem[] => {
-    const items: SpecificCellItem[] = [];
-    if (!specificCellsInput) return items;
-
-    const parts = specificCellsInput.split(',').map(p => p.trim().toUpperCase());
-    
-    parts.forEach(part => {
-        if (!part) return;
-
-        const rangeMatch = part.match(/^([A-Z]+)(\d+)-([A-Z]+)(\d+)$/);
-        if (rangeMatch) {
-            const startColLetter = rangeMatch[1];
-            const startRowNumber = parseInt(rangeMatch[2], 10);
-            const endColLetter = rangeMatch[3];
-            const endRowNumber = parseInt(rangeMatch[4], 10);
-
-            const startCol = letterToColumn(startColLetter);
-            const endCol = letterToColumn(endColLetter);
-            const startRow = startRowNumber - 1;
-            const endRow = endRowNumber - 1;
-
-            if (startCol >= 0 && startRow >= 0 && endCol >= 0 && endRow >= 0) {
-                 items.push({ 
-                    type: 'range',
-                    startRow: Math.min(startRow, endRow), 
-                    startCol: Math.min(startCol, endCol), 
-                    endRow: Math.max(startRow, endRow),
-                    endCol: Math.max(startCol, endCol)
-                });
-            }
-            return;
-        }
-
-        const singleCellMatch = part.match(/^([A-Z]+)(\d+)$/);
-        if (singleCellMatch) {
-            const colLetter = singleCellMatch[1];
-            const rowNumber = parseInt(singleCellMatch[2], 10);
-            const colIndex = letterToColumn(colLetter);
-            const rowIndex = rowNumber - 1;
-
-            if (colIndex >= 0 && rowIndex >= 0) {
-                items.push({ type: 'cell', rowIndex, colIndex });
-            }
-            return;
-        }
-    });
-
-    return items;
-  }, [specificCellsInput]);
-
-  const manualSelectedSet = useMemo(() => 
-    new Set(selectedCells.map(cell => `${cell.rowIndex},${cell.colIndex}`))
-  , [selectedCells]);
+  const resetState = () => {
+    setFile(null);
+    setHeaders([]);
+    setCsvData([]);
+    setDetectedTable(null);
+    setComparison(null);
+    setSelectedNew(new Set());
+    setSelectedUpdates(new Set());
+    if (inputRef.current) inputRef.current.value = '';
+  };
+  
+  const addNotification = (message: string) => {
+    const newNotification: Notification = {
+      id: Date.now(),
+      message,
+      timestamp: new Date().toLocaleTimeString('es-MX'),
+      user: 'Usuario Actual', // Placeholder for authenticated user
+    };
+    setNotifications(prev => [newNotification, ...prev]);
+  }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const selectedFile = event.target.files[0];
-      setFile(selectedFile);
-      parseCsv(selectedFile);
+      processFile(selectedFile);
     }
   };
 
-  const parseCsv = (file: File) => {
+  const processFile = (file: File) => {
+    resetState();
+    setFile(file);
+
+    // 1. Detect table from filename
+    const fileName = file.name.toLowerCase();
+    const detectedKey = Object.keys(TABLE_MAPPINGS).find(key => fileName.includes(key));
+    const tableConfig = detectedKey ? TABLE_MAPPINGS[detectedKey] : null;
+    
+    if (tableConfig) {
+      setDetectedTable(tableConfig);
+      toast({ title: 'Tabla Detectada', description: `Archivo parece corresponder a la tabla: ${tableConfig.dbTable}` });
+    } else {
+      toast({ title: 'Tabla no Detectada', description: 'No se pudo identificar una tabla de destino por el nombre del archivo.', variant: 'destructive' });
+    }
+
+    // 2. Parse CSV
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const rows = text.split('\n').map(row => row.split(','));
-      const headerRow = rows[0];
-      const dataRows = rows.slice(1);
-      
-      const maxLength = Math.max(headerRow.length, ...dataRows.map(r => r.length));
-      const paddedHeaders = [...headerRow];
-      while(paddedHeaders.length < maxLength) paddedHeaders.push('');
-      
-      const paddedData = dataRows.map(row => {
-          const newRow = [...row];
-          while(newRow.length < maxLength) newRow.push('');
-          return newRow;
-      });
+      const rows = text.split('\n').map(row => row.trim().split(','));
+      const headerRow = rows[0].map(h => h.trim());
+      const dataRows = rows.slice(1).filter(row => row.some(cell => cell.trim() !== ''));
 
-      setHeaders(paddedHeaders);
-      setData(paddedData);
-      setRowRange({ start: 1, end: paddedData.length });
-      setColRange({ start: 'A', end: columnToLetter(paddedHeaders.length > 0 ? paddedHeaders.length - 1 : 0) });
+      setHeaders(headerRow);
+      const parsedData = dataRows.map(row => {
+        const rowObject: CsvRow = {};
+        headerRow.forEach((header, index) => {
+          rowObject[header] = row[index] || '';
+        });
+        return rowObject;
+      });
+      setCsvData(parsedData);
     };
     reader.readAsText(file);
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => event.preventDefault();
-  
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
-      const droppedFile = event.dataTransfer.files[0];
-      setFile(droppedFile);
-      parseCsv(droppedFile);
-      if (inputRef.current) inputRef.current.value = '';
+  useEffect(() => {
+    if (csvData.length > 0 && detectedTable) {
+      handleCompareData();
     }
-  };
+  }, [csvData, detectedTable]);
 
-  const handleRemoveFile = () => {
-    setFile(null);
-    setData([]);
-    setHeaders([]);
-    setSelectedCells([]);
-    setSpecificCellsInput('');
-    setRowRange({ start: 1, end: 0 });
-    setColRange({ start: 'A', end: 'A' });
-    setSelectionMode('range');
-    setAnalysisResult(null);
-    setMapping(initialMapping);
-    if (inputRef.current) inputRef.current.value = '';
-  };
-  
-  const handleMappingChange = (field: string, value: string) => {
-    setMapping(prev => ({ ...prev, [field]: value.toUpperCase() }));
-  };
-
-  const handleAnalyzeClick = async () => {
-    if (!file) return;
-
-    setIsAnalyzing(true);
-    setAnalysisResult(null);
-
-    if (selectionMode === 'mapping') {
-        try {
-            const requiredFields = Object.entries(mapping).filter(([, value]) => value !== '');
-            if (requiredFields.length === 0) {
-                toast({
-                    title: 'Mapeo Incompleto',
-                    description: 'Por favor, especifica la celda de inicio para al menos un campo.',
-                    variant: 'destructive',
-                });
-                setIsAnalyzing(false);
-                return;
-            }
-
-            const parsedMappings = requiredFields.map(([field, cell]) => {
-                const match = cell.match(/^([A-Z]+)(\d+)$/);
-                if (!match) return null;
-                return {
-                    field,
-                    col: letterToColumn(match[1]),
-                    row: parseInt(match[2], 10) - 1,
-                };
-            }).filter((m): m is { field: string; col: number; row: number } => m !== null);
-
-            if (parsedMappings.length !== requiredFields.length) {
-                toast({
-                    title: 'Formato de Celda Inválido',
-                    description: 'Usa un formato como A7, B12, etc. para todos los campos mapeados.',
-                    variant: 'destructive',
-                });
-                setIsAnalyzing(false);
-                return;
-            }
-
-            const startRow = Math.min(...parsedMappings.map(m => m.row));
-            const extractedRows: Record<string, string>[] = [];
-
-            for (let i = startRow; i < data.length; i++) {
-                const row = data[i];
-                if (!row || row.every(cell => cell.trim() === '')) continue; 
-
-                const newRow: Record<string, string> = {};
-                let hasData = false;
-                for (const { field, col } of parsedMappings) {
-                    const cellValue = row[col] || '';
-                    newRow[field] = cellValue.trim();
-                    if (cellValue.trim() !== '') {
-                        hasData = true;
-                    }
-                }
-                if (hasData) {
-                    extractedRows.push(newRow);
-                }
-            }
-            
-            if (extractedRows.length === 0) {
-                 toast({ title: 'No se extrajeron datos', description: 'Revisa la configuración del mapeo y el rango de filas.' });
-                 setIsAnalyzing(false);
-                 return;
-            }
-
-            const tableHeaders = Object.keys(extractedRows[0]);
-            const tableRows = extractedRows.map(rowObject => tableHeaders.map(header => rowObject[header] || ''));
-
-            setAnalysisResult({
-                analysis: `Se extrajeron ${extractedRows.length} filas de datos usando el mapeo de columnas.`,
-                table: { headers: tableHeaders, rows: tableRows },
-            });
-            setIsAnalysisDialogOpen(true);
-
-        } catch (error) {
-            console.error("Extraction error:", error);
-            toast({
-                title: 'Error de Extracción',
-                description: 'No se pudo procesar el archivo. Revisa el formato y el mapeo.',
-                variant: 'destructive',
-            });
-        } finally {
-            setIsAnalyzing(false);
+  const handleCompareData = async () => {
+    if (!detectedTable || csvData.length === 0 || !isSupabaseConfigured || !supabase) {
+        if (!isSupabaseConfigured) {
+          toast({ title: 'Configuración de DB Incompleta', description: 'No se pueden comparar los datos.', variant: 'destructive' });
         }
         return;
     }
 
-    const combinedSelection = new Set<string>();
-
-    if (selectionMode === 'range') {
-        const startRow = Math.max(0, rowRange.start - 1);
-        const endRow = Math.min(data.length - 1, rowRange.end - 1);
-        const startCol = Math.max(0, letterToColumn(colRange.start.toUpperCase()));
-        const endCol = Math.min(headers.length - 1, letterToColumn(colRange.end.toUpperCase()));
-
-        if (rowRange.end > 0 && colRange.end && startCol <= endCol && startRow <= endRow) {
-            for (let i = startRow; i <= endRow; i++) {
-                for (let j = startCol; j <= endCol; j++) {
-                    combinedSelection.add(`${i},${j}`);
-                }
-            }
-        }
-    } else if (selectionMode === 'specific') {
-        parsedSpecificItems.forEach(item => {
-            if (item.type === 'cell') {
-                if (item.rowIndex < data.length && item.colIndex < headers.length) {
-                    combinedSelection.add(`${item.rowIndex},${item.colIndex}`);
-                }
-            } else if (item.type === 'range') {
-                for (let r = item.startRow; r <= item.endRow; r++) {
-                    for (let c = item.startCol; c <= item.endCol; c++) {
-                         if (r < data.length && c < headers.length) {
-                            combinedSelection.add(`${r},${c}`);
-                         }
-                    }
-                }
-            }
-        });
-    } else if (selectionMode === 'manual') {
-        manualSelectedSet.forEach(coord => {
-            combinedSelection.add(coord);
-        });
-    }
-
-    const selectedData = Array.from(combinedSelection).map(coord => {
-      const [rowIndex, colIndex] = coord.split(',').map(Number);
-      if (data[rowIndex] && data[rowIndex][colIndex] !== undefined) {
-          return {
-              header: headers[colIndex] || `Column ${columnToLetter(colIndex)}`,
-              value: data[rowIndex][colIndex],
-              row: rowIndex + 1,
-              column: columnToLetter(colIndex),
-          };
-      }
-      return null;
-    }).filter((item): item is { header: string; value: string; row: number; column: string; } => item !== null);
-
-    if (selectedData.length === 0) {
-        toast({
-            title: 'No se seleccionaron celdas',
-            description: 'Por favor, elige los datos que quieres analizar.',
-            variant: 'destructive'
-        });
-        setIsAnalyzing(false);
-        return;
-    }
-
+    setIsLoading(true);
+    setComparison(null);
     try {
-        const analysis = await processCsvData({ cells: selectedData });
-        setAnalysisResult(analysis);
-        setIsAnalysisDialogOpen(true);
-    } catch (error) {
-        console.error('Error processing CSV data:', error);
-        setAnalysisResult({ analysis: 'Ocurrió un error al procesar los datos. Por favor, inténtalo de nuevo.', table: { headers: [], rows: [] } });
-        setIsAnalysisDialogOpen(true);
-        toast({
-            title: 'Error en el Análisis',
-            description: 'Ocurrió un error al procesar los datos con la IA. Revisa la consola para más detalles.',
-            variant: 'destructive'
-        });
+      const pk = detectedTable.pk;
+      const csvPks = csvData.map(row => row[pk]).filter(Boolean);
+
+      const { data: dbData, error } = await supabase
+        .from(detectedTable.dbTable)
+        .select('*')
+        .in(pk, csvPks);
+
+      if (error) throw error;
+
+      const dbMap = new Map(dbData.map(row => [String(row[pk]), row]));
+      
+      const newRows: ComparisonResult['newRows'] = [];
+      const updatedRows: ComparisonResult['updatedRows'] = [];
+      const unchangedRows: ComparisonResult['unchangedRows'] = [];
+
+      csvData.forEach((csvRow, index) => {
+        const pkValue = String(csvRow[pk]);
+        const dbRow = dbMap.get(pkValue);
+
+        if (!dbRow) {
+          newRows.push({ index, data: csvRow });
+        } else {
+          const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
+          for (const key in csvRow) {
+            if (key in dbRow && String(csvRow[key]).trim() !== String(dbRow[key]).trim()) {
+              if (csvRow[key] || dbRow[key]) { // Only track meaningful changes
+                changes[key] = { from: dbRow[key], to: csvRow[key] };
+              }
+            }
+          }
+          if (Object.keys(changes).length > 0) {
+            updatedRows.push({ index, csv: csvRow, db: dbRow, changes });
+          } else {
+            unchangedRows.push({ index, data: csvRow });
+          }
+        }
+      });
+      
+      setComparison({ newRows, updatedRows, unchangedRows });
+
+    } catch (err: any) {
+      toast({ title: 'Error de Comparación', description: `No se pudo conectar a la base de datos: ${err.message}`, variant: 'destructive' });
+      console.error(err);
     } finally {
-        setIsAnalyzing(false);
+      setIsLoading(false);
     }
   };
   
-  const handleCellClick = (rowIndex: number, colIndex: number) => {
-    if (selectionMode !== 'manual') return;
+  const handleSync = async () => {
+    if (!detectedTable || (!selectedNew.size && !selectedUpdates.size)) {
+        toast({ title: 'Nada que Sincronizar', description: 'Por favor, selecciona registros para añadir o actualizar.', variant: 'destructive'});
+        return;
+    }
+
+    setIsSyncing(true);
+    const dataToSync: CsvRow[] = [];
     
-    setSelectedCells(prev => {
-      const index = prev.findIndex(cell => cell.rowIndex === rowIndex && cell.colIndex === colIndex);
-      if (index > -1) {
-        return prev.filter((_, i) => i !== index);
-      } else {
-        return [...prev, { rowIndex, colIndex }];
-      }
-    });
-  };
-  
-  const handleDownloadCsv = () => {
-    if (!analysisResult?.table) {
-        toast({ title: 'No hay datos para descargar', variant: 'destructive' });
-        return;
-    }
-
-    const { headers, rows } = analysisResult.table;
-
-    const escapeCell = (cell: string): string => {
-        const strCell = String(cell ?? '');
-        if (strCell.includes(',') || strCell.includes('"') || strCell.includes('\n')) {
-            const escaped = strCell.replace(/"/g, '""');
-            return `"${escaped}"`;
-        }
-        return strCell;
-    };
-
-    try {
-        const headerRow = headers.map(escapeCell).join(',');
-        const csvRows = rows.map(row => row.map(escapeCell).join(','));
-        const csvContent = [headerRow, ...csvRows].join('\n');
-        
-        // Add BOM for Excel compatibility
-        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.setAttribute('download', 'datos_analizados.csv');
-        document.body.appendChild(link);
-        link.click();
-
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error("Failed to download CSV:", error);
-        toast({
-            title: "Error de Descarga",
-            description: "No se pudo generar el archivo CSV.",
-            variant: "destructive"
-        });
-    }
-  };
-
-  const isCellSelected = (rowIndex: number, colIndex: number): boolean => {
-    if (selectionMode === 'mapping') return false;
-
-    switch (selectionMode) {
-      case 'range':
-        const startRow = rowRange.start - 1;
-        const endRow = rowRange.end - 1;
-        if (rowIndex < startRow || rowIndex > endRow) return false;
-        
-        const startCol = letterToColumn(colRange.start.toUpperCase());
-        const endCol = letterToColumn(colRange.end.toUpperCase());
-        return colIndex >= startCol && colIndex <= endCol;
-      
-      case 'specific':
-        return parsedSpecificItems.some(item => {
-            if (item.type === 'cell') {
-                return item.rowIndex === rowIndex && item.colIndex === colIndex;
-            }
-            return rowIndex >= item.startRow && rowIndex <= item.endRow &&
-                   colIndex >= item.startCol && colIndex <= item.endCol;
-        });
-
-      case 'manual':
-        return manualSelectedSet.has(`${rowIndex},${colIndex}`);
-      
-      default:
-        return false;
-    }
-  }
-
-  const handleSaveToDb = async () => {
-    if (!analysisResult || !targetTable) {
-        toast({
-            title: 'Faltan datos para guardar',
-            description: 'Asegúrate de haber analizado los datos y seleccionado una tabla de destino.',
-            variant: 'destructive',
-        });
-        return;
-    }
-
-    setIsSaving(true);
+    selectedNew.forEach(index => dataToSync.push(csvData[index]));
+    selectedUpdates.forEach(index => dataToSync.push(csvData[index]));
+    
     try {
         const result = await saveToDatabase({
-            targetTable: targetTable,
-            data: analysisResult.table,
+            targetTable: detectedTable.dbTable,
+            data: {
+                headers: headers,
+                rows: dataToSync.map(row => headers.map(h => row[h]))
+            },
+            conflictKey: detectedTable.pk,
         });
 
         if (result.success) {
-            toast({
-                title: 'Éxito',
-                description: result.message,
-            });
+            toast({ title: 'Sincronización Exitosa', description: result.message });
+            addNotification(`${dataToSync.length} registros sincronizados con la tabla '${detectedTable.dbTable}'.`);
+            // Reset selections and re-compare data
+            setSelectedNew(new Set());
+            setSelectedUpdates(new Set());
+            handleCompareData();
         } else {
-            toast({
-                title: 'Error al Guardar',
-                description: result.message,
-                variant: 'destructive',
-            });
+            throw new Error(result.message);
         }
-    } catch (error) {
-        console.error('Error saving to database:', error);
-        toast({
-            title: 'Error Inesperado',
-            description: 'Ocurrió un error al intentar guardar en la base de datos.',
-            variant: 'destructive',
-        });
+    } catch(err: any) {
+        toast({ title: 'Error de Sincronización', description: err.message, variant: 'destructive' });
     } finally {
-        setIsSaving(false);
+        setIsSyncing(false);
     }
   };
 
-  const mappingFields = Object.keys(initialMapping);
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => event.preventDefault();
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      processFile(event.dataTransfer.files[0]);
+    }
+  };
+
+  const toggleSelection = (index: number, type: 'new' | 'update') => {
+    if (type === 'new') {
+        setSelectedNew(prev => {
+            const next = new Set(prev);
+            if (next.has(index)) next.delete(index);
+            else next.add(index);
+            return next;
+        });
+    } else {
+        setSelectedUpdates(prev => {
+            const next = new Set(prev);
+            if (next.has(index)) next.delete(index);
+            else next.add(index);
+            return next;
+        });
+    }
+  };
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Paso 1: Cargar Documento CSV</CardTitle>
-          <CardDescription>
-            Arrastra y suelta tu archivo aquí o haz clic para seleccionarlo.
-          </CardDescription>
+          <CardDescription>Arrastra y suelta un archivo CSV. El sistema intentará detectar la tabla de destino.</CardDescription>
         </CardHeader>
         <CardContent>
           {!file ? (
@@ -527,276 +268,225 @@ export default function CsvUploader() {
               onDrop={handleDrop}
               onClick={() => inputRef.current?.click()}
             >
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
-                <p className="mb-2 text-sm text-muted-foreground">
-                  <span className="font-semibold text-primary">Haz clic para cargar</span> o arrastra y suelta
-                </p>
-                <p className="text-xs text-muted-foreground">Solo archivos CSV (tamaño máximo: 5MB)</p>
-              </div>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleFileChange}
-              />
+              <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
+              <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold text-primary">Haz clic para cargar</span> o arrastra y suelta</p>
+              <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange}/>
             </div>
           ) : (
             <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
               <div className="flex items-center gap-3 min-w-0">
                 <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
-                <span className="text-sm font-medium text-foreground truncate">
-                  {file.name}
-                </span>
+                <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
+                {detectedTable && <Badge variant="secondary">{detectedTable.dbTable}</Badge>}
               </div>
-              <Button variant="ghost" size="icon" onClick={handleRemoveFile}>
-                <X className="w-4 h-4" />
-                <span className="sr-only">Eliminar archivo</span>
-              </Button>
+              <Button variant="ghost" size="icon" onClick={resetState}><X className="w-4 h-4" /><span className="sr-only">Eliminar</span></Button>
             </div>
           )}
         </CardContent>
       </Card>
-      
-      {file && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Paso 2: Selecciona tus datos</CardTitle>
-              <CardDescription>
-                Elige un modo y define el rango o las celdas específicas que quieres que la IA analice.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                  <Label className="text-base font-semibold">Modo de Selección</Label>
-                  <RadioGroup value={selectionMode} onValueChange={(value) => setSelectionMode(value as SelectionMode)} className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <Label htmlFor="r-range" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'range' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
-                          <RadioGroupItem value="range" id="r-range" className="sr-only" />
-                          Por Rango
-                      </Label>
-                      <Label htmlFor="r-specific" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'specific' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
-                          <RadioGroupItem value="specific" id="r-specific" className="sr-only" />
-                          Celdas Específicas
-                      </Label>
-                       <Label htmlFor="r-manual" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'manual' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
-                          <RadioGroupItem value="manual" id="r-manual" className="sr-only" />
-                          Manual (Clic)
-                      </Label>
-                      <Label htmlFor="r-mapping" className={cn("flex flex-col items-center justify-between rounded-md border-2 p-4 cursor-pointer", selectionMode === 'mapping' ? 'border-primary' : 'border-muted bg-popover hover:bg-accent hover:text-accent-foreground')}>
-                          <RadioGroupItem value="mapping" id="r-mapping" className="sr-only" />
-                          Por Mapeo
-                      </Label>
-                  </RadioGroup>
-              </div>
 
-              {selectionMode === 'mapping' ? (
-                <Card className="bg-muted/30">
-                  <CardHeader>
-                      <CardTitle className="text-lg">Mapeo de Celdas (Columnas)</CardTitle>
-                      <CardDescription>
-                        Especifica la celda de inicio para cada campo (ej. A7, B7). La extracción continuará hacia abajo desde esa celda.
-                      </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
-                    {mappingFields.map(field => (
-                      <div key={field} className="space-y-1.5">
-                        <Label htmlFor={field} className="text-sm capitalize">{field.replace(/_/g, ' ')}</Label>
-                        <Input 
-                          id={field} 
-                          placeholder="EJ: A7" 
-                          value={mapping[field]}
-                          onChange={e => handleMappingChange(field, e.target.value)}
-                        />
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                      <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
-                          <Label htmlFor="start-row" className="font-semibold">Rango de Filas</Label>
-                          <div className="flex items-center gap-2">
-                              <Input id="start-row" type="number" min="1" max={data.length} value={rowRange.start} onChange={e => setRowRange(r => ({ ...r, start: parseInt(e.target.value, 10) || 1 }))} aria-label="Fila inicial" />
-                              <span className="text-muted-foreground">-</span>
-                              <Input id="end-row" type="number" min={rowRange.start} max={data.length} value={rowRange.end} onChange={e => setRowRange(r => ({ ...r, end: parseInt(e.target.value, 10) || data.length }))} aria-label="Fila final" />
-                          </div>
-                      </fieldset>
-                      
-                      <fieldset className="space-y-2" disabled={selectionMode !== 'range'}>
-                          <Label htmlFor="start-col" className="font-semibold">Rango de Columnas</Label>
-                          <div className="flex items-center gap-2">
-                              <Input id="start-col" type="text" value={colRange.start} onChange={e => setColRange(c => ({...c, start: e.target.value.toUpperCase()}))} aria-label="Columna inicial" />
-                              <span className="text-muted-foreground">-</span>
-                              <Input id="end-col" type="text" value={colRange.end} onChange={e => setColRange(c => ({...c, end: e.target.value.toUpperCase()}))} aria-label="Columna final" />
-                          </div>
-                      </fieldset>
-
-                      <fieldset className="space-y-2 md:col-span-2" disabled={selectionMode !== 'specific'}>
-                          <Label htmlFor="specific-cells" className="font-semibold">Celdas Específicas</Label>
-                          <Input id="specific-cells" type="text" placeholder="Ej: A1, B5, C10-C20" value={specificCellsInput} onChange={e => setSpecificCellsInput(e.target.value)} aria-label="Celdas específicas separadas por coma" />
-                      </fieldset>
-                  </div>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Previsualiza tu selección</CardTitle>
-                      <CardDescription>
-                        {selectionMode === 'manual' 
-                          ? 'Los datos que elegiste aparecerán resaltados. Puedes hacer clic en celdas individuales para ajustar tu selección.' 
-                          : 'Los datos que elegiste con los controles de arriba aparecerán resaltados en la tabla.'
-                        }
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="relative mt-2 border rounded-lg">
-                        <div className="w-full overflow-auto max-h-[24rem]">
-                          <Table>
-                              <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
-                                  <TableRow>
-                                      <TableHead className="w-16">#</TableHead>
-                                      {headers.map((header, index) => (
-                                          <TableHead key={index} className="whitespace-nowrap">{columnToLetter(index)} ({header || 'Vacío'})</TableHead>
-                                      ))}
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {data.map((row, rowIndex) => (
-                                      <TableRow key={rowIndex}>
-                                          <TableHead className="font-mono">{rowIndex + 1}</TableHead>
-                                          {row.map((cell, cellIndex) => (
-                                              <TableCell 
-                                                  key={cellIndex}
-                                                  onClick={() => handleCellClick(rowIndex, cellIndex)}
-                                                  className={cn(
-                                                      'transition-colors border',
-                                                      selectionMode === 'manual' ? 'cursor-pointer' : 'cursor-default',
-                                                      { 'bg-accent/50 text-accent-foreground': isCellSelected(rowIndex, cellIndex) }
-                                                  )}
-                                              >
-                                                  {cell}
-                                              </TableCell>
-                                          ))}
-                                      </TableRow>
-                                  ))}
-                              </TableBody>
-                          </Table>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="items-center text-center">
-              <CardTitle>Paso 3: Analiza los datos</CardTitle>
-              <CardDescription>¡Ahora deja que el sistema procese tu selección!</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-                <Button onClick={handleAnalyzeClick} disabled={!file || isAnalyzing} size="lg" className="w-full max-w-md text-lg py-7">
-                    {isAnalyzing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Wand2 className="mr-2 h-5 w-5" />}
-                    {isAnalyzing ? 'Procesando...' : 'Procesar Datos Seleccionados'}
+      {(isLoading || comparison) && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+                <div>
+                    <CardTitle>Paso 2: Comparar y Seleccionar Datos</CardTitle>
+                    <CardDescription>Revisa los datos del CSV y compáralos con la base de datos. Selecciona lo que quieres sincronizar.</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleCompareData} disabled={isLoading}>
+                    <RefreshCw className={cn("w-5 h-5", isLoading && "animate-spin")} />
                 </Button>
-            </CardContent>
-          </Card>
-        </>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-40 gap-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground">Comparando con la base de datos...</p>
+                </div>
+            ) : comparison && detectedTable ? (
+                <Tabs defaultValue="new">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="new">Nuevos ({comparison.newRows.length})</TabsTrigger>
+                        <TabsTrigger value="updated">Actualizaciones ({comparison.updatedRows.length})</TabsTrigger>
+                        <TabsTrigger value="unchanged">Sin Cambios ({comparison.unchangedRows.length})</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="new" className="mt-4">
+                        <DataTable 
+                            rows={comparison.newRows.map(r => r.data)}
+                            headers={headers}
+                            pk={detectedTable.pk}
+                            selection={selectedNew}
+                            onSelectRow={(pkValue) => {
+                                const row = comparison.newRows.find(r => String(r.data[detectedTable.pk]) === pkValue);
+                                if (row) toggleSelection(row.index, 'new');
+                            }}
+                        />
+                    </TabsContent>
+                    <TabsContent value="updated" className="mt-4">
+                        <UpdateTable rows={comparison.updatedRows} pk={detectedTable.pk} selection={selectedUpdates} onSelectRow={(index) => toggleSelection(index, 'update')} />
+                    </TabsContent>
+                    <TabsContent value="unchanged" className="mt-4">
+                        <DataTable rows={comparison.unchangedRows.map(r => r.data)} headers={headers} pk={detectedTable.pk} />
+                    </TabsContent>
+                </Tabs>
+            ) : (
+                <Alert>
+                    <GitCompareArrows className="h-4 w-4" />
+                    <AlertTitle>Sin datos para comparar</AlertTitle>
+                    <AlertDescription>No se han encontrado datos en el archivo CSV o no se pudo conectar a la base de datos.</AlertDescription>
+                </Alert>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      <Dialog open={isAnalysisDialogOpen} onOpenChange={setIsAnalysisDialogOpen}>
-        <DialogContent className="sm:max-w-4xl">
-            <DialogHeader>
-                <DialogTitle>Resultado del Análisis</DialogTitle>
-                <DialogDescription>
-                    La IA ha procesado los datos seleccionados. Aquí tienes el análisis y la tabla formateada.
-                </DialogDescription>
-            </DialogHeader>
-            
-            {analysisResult && (
-                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Análisis General</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="whitespace-pre-wrap bg-secondary/50 p-3 rounded-md border">{analysisResult.analysis}</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Tabla de Datos Formateada</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="relative mt-2 border rounded-lg">
-                                <div className="w-full overflow-auto max-h-[24rem]">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            {analysisResult.table.headers.map((header, index) => (
-                                                <TableHead key={index}>{header}</TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {analysisResult.table.rows.map((row, rowIndex) => (
-                                            <TableRow key={rowIndex}>
-                                                {row.map((cell, cellIndex) => (
-                                                    <TableCell key={cellIndex}>{cell}</TableCell>
-                                                ))}
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Guardar en Base de Datos</CardTitle>
-                            <CardDescription>
-                                Selecciona la tabla de destino y guarda los datos procesados.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col items-center gap-4 text-center">
-                            <div className="w-full max-w-sm space-y-2">
-                                <Label htmlFor="target-table-modal">Seleccionar Tabla de Destino</Label>
-                                <Select value={targetTable} onValueChange={setTargetTable}>
-                                    <SelectTrigger id="target-table-modal">
-                                        <SelectValue placeholder="Elige una tabla..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {availableTables.map(table => (
-                                            <SelectItem key={table.value} value={table.value}>
-                                                {table.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Button onClick={handleSaveToDb} disabled={isSaving || !targetTable} size="lg" className="w-full md:w-1/2">
-                              {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                              {isSaving ? 'Guardando...' : 'Guardar en Base de Datos'}
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-            
-            <DialogFooter className="sm:justify-end gap-2 pt-4">
-                <Button variant="secondary" onClick={handleDownloadCsv} disabled={!analysisResult}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Descargar CSV
+      {(selectedNew.size > 0 || selectedUpdates.size > 0) && (
+        <Card>
+            <CardHeader>
+                <CardTitle>Paso 3: Sincronizar Cambios</CardTitle>
+                <CardDescription>
+                    Se agregarán <span className="font-bold text-primary">{selectedNew.size}</span> registros nuevos y se actualizarán <span className="font-bold text-primary">{selectedUpdates.size}</span> registros existentes.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+                <Button onClick={handleSync} disabled={isSyncing} size="lg" className="w-full max-w-md text-lg py-7">
+                    {isSyncing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                    Sincronizar Datos
                 </Button>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Cerrar</Button>
-                </DialogClose>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </CardContent>
+        </Card>
+      )}
+
+      {notifications.length > 0 && (
+         <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Bell className="w-5 h-5"/> Notificaciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                    {notifications.map(n => (
+                        <div key={n.id} className="text-sm p-3 bg-secondary/50 border rounded-lg">
+                            <p>{n.message}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{n.user} a las {n.timestamp}</p>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+         </Card>
+      )}
+
     </div>
   );
+}
+
+// --- Sub-components for tables ---
+
+interface DataTableProps {
+    rows: CsvRow[];
+    headers: string[];
+    pk: string;
+    selection?: Set<number>;
+    onSelectRow?: (pkValue: string) => void;
+}
+
+function DataTable({ rows, headers, pk, selection, onSelectRow }: DataTableProps) {
+    const pkIndex = headers.indexOf(pk);
+    
+    if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros en esta categoría.</p>;
+
+    return (
+        <div className="relative border rounded-lg max-h-96 overflow-auto">
+            <Table>
+                <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                    <TableRow>
+                        {onSelectRow && <TableHead className="w-12"><Checkbox 
+                            checked={selection && rows.length > 0 && selection.size === rows.length} 
+                            onCheckedChange={(checked) => {
+                                rows.forEach(row => {
+                                    const pkValue = String(row[pk]);
+                                    if (checked && !selection?.has(rows.findIndex(r => String(r[pk]) === pkValue))) onSelectRow(pkValue);
+                                    if (!checked && selection?.has(rows.findIndex(r => String(r[pk]) === pkValue))) onSelectRow(pkValue);
+                                })
+                            }}
+                        /></TableHead>}
+                        {headers.map((h, i) => <TableHead key={i} className={cn(i === pkIndex && "font-bold text-primary")}>{h}</TableHead>)}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((row, rowIndex) => {
+                        const pkValue = String(row[pk]);
+                        const isSelected = selection ? selection.has(rows.findIndex(r => String(r[pk]) === pkValue)) : false;
+                        return (
+                            <TableRow key={rowIndex} data-state={isSelected ? "selected" : ""}>
+                                {onSelectRow && <TableCell><Checkbox checked={isSelected} onCheckedChange={() => onSelectRow(pkValue)} /></TableCell>}
+                                {headers.map((h, i) => <TableCell key={i}>{row[h]}</TableCell>)}
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+interface UpdateTableProps {
+    rows: ComparisonResult['updatedRows'];
+    pk: string;
+    selection: Set<number>;
+    onSelectRow: (index: number) => void;
+}
+
+function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
+    if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros para actualizar.</p>;
+
+    const allHeaders = useMemo(() => {
+        const h = new Set<string>([pk]);
+        rows.forEach(row => {
+            Object.keys(row.changes).forEach(key => h.add(key));
+        });
+        return [pk, ...Array.from(h).filter(header => header !== pk)];
+    }, [rows, pk]);
+
+    return (
+        <div className="relative border rounded-lg max-h-96 overflow-auto">
+            <Table>
+                <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                    <TableRow>
+                        <TableHead className="w-12"><Checkbox 
+                           checked={rows.length > 0 && selection.size === rows.length} 
+                           onCheckedChange={(checked) => rows.forEach(r => {
+                               if (checked && !selection.has(r.index)) onSelectRow(r.index);
+                               if (!checked && selection.has(r.index)) onSelectRow(r.index);
+                           })}
+                        /></TableHead>
+                        {allHeaders.map((h, i) => <TableHead key={i} className={cn(h === pk && "font-bold text-primary")}>{h}</TableHead>)}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rows.map(row => {
+                        const isSelected = selection.has(row.index);
+                        return (
+                            <TableRow key={row.index} data-state={isSelected ? "selected" : ""}>
+                                <TableCell><Checkbox checked={isSelected} onCheckedChange={() => onSelectRow(row.index)} /></TableCell>
+                                {allHeaders.map(header => (
+                                    <TableCell key={header}>
+                                        {header in row.changes ? (
+                                            <div>
+                                                <span className="text-destructive line-through">{String(row.changes[header].from ?? 'Vacío')}</span>
+                                                <br />
+                                                <span className="text-green-600 font-medium">{String(row.changes[header].to)}</span>
+                                            </div>
+                                        ) : (
+                                            <span>{String(row.csv[header] ?? '')}</span>
+                                        )}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </div>
+    );
 }
