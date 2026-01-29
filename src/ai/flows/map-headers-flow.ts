@@ -12,9 +12,9 @@ import { MapHeadersInput, MapHeadersInputSchema, MapHeadersOutput, MapHeadersOut
 const prompt = ai.definePrompt({
     name: 'mapHeadersPrompt',
     input: { schema: MapHeadersInputSchema },
-    output: { schema: MapHeadersOutputSchema },
+    // REMOVED: output schema to handle parsing manually and prevent crashes.
     config: {
-        // Ensure the model knows we expect a JSON response.
+        // The model still benefits from knowing we want JSON, even if we parse it ourselves.
         responseMimeType: "application/json",
     },
     prompt: `
@@ -49,15 +49,37 @@ const mapHeadersFlow = ai.defineFlow(
   {
     name: 'mapHeadersFlow',
     inputSchema: MapHeadersInputSchema,
-    outputSchema: MapHeadersOutputSchema,
+    outputSchema: MapHeadersOutputSchema, // The flow itself still adheres to the output schema
   },
-  async (input) => {
-    const { output } = await prompt(input);
-    if (!output) {
-        // If the model returns nothing, provide a default empty map.
-        return { headerMap: {} };
+  async (input): Promise<MapHeadersOutput> => {
+    // The prompt now returns a generation result with raw text.
+    const response = await prompt(input);
+    const responseText = response.text;
+
+    try {
+      if (!responseText) {
+        throw new Error("The model returned an empty response.");
+      }
+
+      // The model sometimes wraps the JSON in backticks or adds text. Find the JSON object.
+      const jsonStringMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonStringMatch) {
+          throw new Error("No JSON object found in the model's response.");
+      }
+      
+      const jsonString = jsonStringMatch[0];
+      const parsedJson = JSON.parse(jsonString);
+
+      // Validate the parsed JSON against our Zod schema.
+      const validatedOutput = MapHeadersOutputSchema.parse(parsedJson);
+      
+      return validatedOutput;
+    } catch (error) {
+      console.error("Failed to parse or validate AI response for header mapping:", error);
+      console.log("Raw AI Response:", responseText);
+      // On any failure, return a safe, empty map to prevent the UI from crashing.
+      return { headerMap: {} };
     }
-    return output;
   }
 );
 
