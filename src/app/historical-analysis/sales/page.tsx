@@ -97,7 +97,7 @@ export default function VentasPage() {
           {/* HEADER COMPLETO */}
           <TableHeader>
             <TableRow>
-              <TableHead># Venta</TableHead>
+              <TableHead># de venta</TableHead>
               <TableHead>Fecha de venta</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Descripción del estado</TableHead>

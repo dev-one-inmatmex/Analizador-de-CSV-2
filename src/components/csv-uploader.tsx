@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
+import { mapHeaders } from '@/ai/flows/map-headers-flow';
 import { supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -80,6 +81,10 @@ export default function CsvUploader() {
   
   const [selectedTableName, setSelectedTableName] = useState<string>("");
   const [targetTable, setTargetTable] = useState<TableConfig | null>(null);
+  const [headerMap, setHeaderMap] = useState<Record<string, string> | null>(null);
+  const [unmappedHeaders, setUnmappedHeaders] = useState<string[]>([]);
+  
+  const [isMapping, setIsMapping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -99,6 +104,8 @@ export default function CsvUploader() {
     setSelectedUpdates(new Set());
     setSelectedTableName("");
     setTargetTable(null);
+    setHeaderMap(null);
+    setUnmappedHeaders([]);
     if (inputRef.current) inputRef.current.value = '';
   };
   
@@ -120,14 +127,8 @@ export default function CsvUploader() {
   };
 
   const processFile = (file: File) => {
+    resetAll();
     setFile(file);
-    setHeaders([]);
-    setCsvData([]);
-    setComparison(null);
-    setSelectedNew(new Set());
-    setSelectedUpdates(new Set());
-    setSelectedTableName("");
-    setTargetTable(null);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -155,6 +156,7 @@ export default function CsvUploader() {
         setSelectedTableName("");
         setTargetTable(null);
         setComparison(null);
+        setHeaderMap(null);
         return;
     }
 
@@ -163,14 +165,34 @@ export default function CsvUploader() {
         setSelectedTableName(tableName);
         const newTargetTable = { dbTable: tableName, pk: schema.pk };
         setTargetTable(newTargetTable);
-        toast({ title: 'Tabla Seleccionada', description: `Iniciando comparación con la tabla: ${tableName}` });
-        
-        await handleCompareData(newTargetTable);
+        toast({ title: 'Tabla Seleccionada', description: `Iniciando mapeo de cabeceras para: ${tableName}` });
+
+        setIsMapping(true);
+        setComparison(null);
+        setHeaderMap(null);
+
+        try {
+          const mappingResult = await mapHeaders({ csvHeaders: headers, dbColumns: schema.columns });
+          setHeaderMap(mappingResult.headerMap);
+
+          const mappedCsvHeaders = Object.keys(mappingResult.headerMap);
+          const unmapped = headers.filter(h => !mappedCsvHeaders.includes(h));
+          setUnmappedHeaders(unmapped);
+
+          toast({ title: 'Mapeo de IA Completo', description: `${mappedCsvHeaders.length} cabeceras mapeadas.` });
+
+          await handleCompareData(newTargetTable, mappingResult.headerMap);
+
+        } catch (err: any) {
+          toast({ title: 'Error en Mapeo IA', description: err.message, variant: 'destructive' });
+        } finally {
+          setIsMapping(false);
+        }
     }
   };
 
-  const handleCompareData = async (currentTable: TableConfig | null) => {
-    if (!currentTable || csvData.length === 0) {
+  const handleCompareData = async (currentTable: TableConfig | null, currentHeaderMap: Record<string, string> | null) => {
+    if (!currentTable || !currentHeaderMap || csvData.length === 0) {
         return;
     }
     if (!isSupabaseConfigured) {
@@ -181,13 +203,25 @@ export default function CsvUploader() {
     setIsLoading(true);
     setComparison(null);
     try {
-      const pk = currentTable.pk;
-      const csvPks = csvData.map(row => row[pk]).filter(Boolean);
+      const dbPk = currentTable.pk;
+      const csvPkHeader = Object.keys(currentHeaderMap).find(key => currentHeaderMap[key] === dbPk);
+
+      if (!csvPkHeader) {
+        toast({
+          title: 'Clave Primaria no Mapeada',
+          description: `La IA no pudo encontrar una cabecera en tu CSV para la clave primaria '${dbPk}'.`,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      const csvPks = csvData.map(row => row[csvPkHeader]).filter(Boolean);
 
       if (csvPks.length === 0) {
         toast({
-          title: 'Clave Primaria no encontrada',
-          description: `La columna '${pk}' no se encontró en tu CSV o está vacía.`,
+          title: 'Clave Primaria Vacía',
+          description: `La columna '${csvPkHeader}' está vacía en tu CSV.`,
           variant: 'destructive',
         });
         setIsLoading(false);
@@ -199,31 +233,32 @@ export default function CsvUploader() {
       const { data: dbData, error } = await supabase
         .from(currentTable.dbTable)
         .select('*')
-        .in(pk, csvPks);
+        .in(dbPk, csvPks);
 
       if (error) throw error;
 
-      const dbMap = new Map(dbData.map(row => [String(row[pk]), row]));
+      const dbMap = new Map(dbData.map(row => [String(row[dbPk]), row]));
       
       const newRows: ComparisonResult['newRows'] = [];
       const updatedRows: ComparisonResult['updatedRows'] = [];
       const unchangedRows: ComparisonResult['unchangedRows'] = [];
 
       csvData.forEach((csvRow, index) => {
-        const pkValue = String(csvRow[pk]);
+        const pkValue = String(csvRow[csvPkHeader]);
         const dbRow = dbMap.get(pkValue);
 
         if (!dbRow) {
           newRows.push({ index, data: csvRow });
         } else {
           const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
-          for (const key in csvRow) {
-             if (Object.prototype.hasOwnProperty.call(csvRow, key) && Object.prototype.hasOwnProperty.call(dbRow, key)) {
-                const csvVal = (csvRow[key] === null || csvRow[key] === undefined) ? '' : String(csvRow[key]).trim();
-                const dbVal = (dbRow[key] === null || dbRow[key] === undefined) ? '' : String(dbRow[key]).trim();
+          for (const csvHeader in csvRow) {
+             const dbKey = currentHeaderMap[csvHeader];
+             if (dbKey && Object.prototype.hasOwnProperty.call(dbRow, dbKey)) {
+                const csvVal = (csvRow[csvHeader] === null || csvRow[csvHeader] === undefined) ? '' : String(csvRow[csvHeader]).trim();
+                const dbVal = (dbRow[dbKey] === null || dbRow[dbKey] === undefined) ? '' : String(dbRow[dbKey]).trim();
                 
                 if (csvVal !== dbVal) {
-                    changes[key] = { from: dbRow[key], to: csvRow[key] };
+                    changes[dbKey] = { from: dbRow[dbKey], to: csvRow[csvHeader] };
                 }
              }
           }
@@ -246,7 +281,7 @@ export default function CsvUploader() {
   };
   
   const handleSync = async () => {
-    if (!targetTable || (!selectedNew.size && !selectedUpdates.size)) {
+    if (!targetTable || !headerMap || (!selectedNew.size && !selectedUpdates.size)) {
         toast({ title: 'Nada que Sincronizar', description: 'Por favor, selecciona registros para añadir o actualizar.', variant: 'destructive'});
         return;
     }
@@ -256,13 +291,26 @@ export default function CsvUploader() {
     
     selectedNew.forEach(index => dataToSync.push(csvData[index]));
     selectedUpdates.forEach(index => dataToSync.push(csvData[index]));
+
+    const mappedData = dataToSync.map(row => {
+        const newRow: Record<string, string> = {};
+        for (const csvHeader in row) {
+            const dbColumn = headerMap[csvHeader];
+            if (dbColumn) {
+                newRow[dbColumn] = row[csvHeader];
+            }
+        }
+        return newRow;
+    });
+
+    const dbHeaders = [...new Set(mappedData.flatMap(Object.keys))];
     
     try {
         const result = await saveToDatabase({
             targetTable: targetTable.dbTable,
             data: {
-                headers: headers,
-                rows: dataToSync.map(row => headers.map(h => row[h] || ''))
+                headers: dbHeaders,
+                rows: mappedData.map(row => dbHeaders.map(h => row[h] || ''))
             },
             conflictKey: targetTable.pk,
         });
@@ -272,7 +320,7 @@ export default function CsvUploader() {
             addNotification(`${dataToSync.length} registros sincronizados con la tabla '${targetTable.dbTable}'.`);
             setSelectedNew(new Set());
             setSelectedUpdates(new Set());
-            handleCompareData(targetTable);
+            await handleCompareData(targetTable, headerMap);
         } else {
             throw new Error(result.message);
         }
@@ -343,11 +391,11 @@ export default function CsvUploader() {
 
         <Card className={cn(!file && "bg-muted/50 pointer-events-none opacity-50")}>
             <CardHeader>
-                <CardTitle>Paso 2: Seleccionar Tabla de Destino</CardTitle>
-                <CardDescription>Elige la tabla con la que deseas comparar y sincronizar los datos del CSV.</CardDescription>
+                <CardTitle>Paso 2: Seleccionar Tabla y Analizar</CardTitle>
+                <CardDescription>Elige la tabla de destino. La IA mapeará las cabeceras y analizará los datos automáticamente.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || !file}>
+                <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || !file || isMapping}>
                     <SelectTrigger className="w-full">
                         <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla..." : "Configuración de Supabase incompleta"} />
                     </SelectTrigger>
@@ -367,6 +415,52 @@ export default function CsvUploader() {
                 )}
             </CardContent>
         </Card>
+        
+        { isMapping && (
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex flex-col items-center justify-center h-24 gap-2">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <p className="text-muted-foreground">Mapeando cabeceras con IA...</p>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
+        {headerMap && (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Wand2 className="text-primary"/>Mapeo de Cabeceras (IA)</CardTitle>
+                    <CardDescription>La IA ha relacionado las cabeceras de tu CSV con las columnas de la base de datos. Las no mapeadas no se sincronizarán.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="relative border rounded-lg max-h-60 overflow-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                                <TableRow>
+                                    <TableHead>Cabecera CSV</TableHead>
+                                    <TableHead>Columna Base de Datos</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {Object.entries(headerMap).map(([csvHeader, dbColumn]) => (
+                                    <TableRow key={csvHeader}>
+                                        <TableCell>{csvHeader}</TableCell>
+                                        <TableCell className="font-medium text-primary">{dbColumn}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {unmappedHeaders.map(h => (
+                                    <TableRow key={h}>
+                                        <TableCell>{h}</TableCell>
+                                        <TableCell className="text-muted-foreground italic">No mapeado</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
 
       {(isLoading || comparison) && (
         <Card>
@@ -376,8 +470,8 @@ export default function CsvUploader() {
                     <CardTitle>Paso 3: Comparar y Seleccionar Datos</CardTitle>
                     <CardDescription>Revisa los datos del CSV y compáralos con la base de datos. Selecciona lo que quieres sincronizar.</CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => handleCompareData(targetTable)} disabled={isLoading || !targetTable}>
-                    <RefreshCw className={cn("w-5 h-5", isLoading && "animate-spin")} />
+                <Button variant="ghost" size="icon" onClick={() => handleCompareData(targetTable, headerMap)} disabled={isLoading || !targetTable || !headerMap}>
+                    <RefreshCw className={cn("w-5 h-5", (isLoading || isMapping) && "animate-spin")} />
                 </Button>
             </div>
           </CardHeader>
@@ -398,7 +492,7 @@ export default function CsvUploader() {
                         <DataTable 
                             rows={comparison.newRows}
                             headers={headers}
-                            pk={targetTable.pk}
+                            pk={Object.keys(headerMap || {}).find(key => (headerMap || {})[key] === targetTable.pk) || ''}
                             selection={selectedNew}
                             onSelectRow={(index) => toggleSelection(index, 'new')}
                         />
@@ -407,15 +501,17 @@ export default function CsvUploader() {
                         <UpdateTable rows={comparison.updatedRows} pk={targetTable.pk} selection={selectedUpdates} onSelectRow={(index) => toggleSelection(index, 'update')} />
                     </TabsContent>
                     <TabsContent value="unchanged" className="mt-4">
-                        <DataTable rows={comparison.unchangedRows} headers={headers} pk={targetTable.pk} />
+                        <DataTable rows={comparison.unchangedRows} headers={headers} pk={Object.keys(headerMap || {}).find(key => (headerMap || {})[key] === targetTable.pk) || ''} />
                     </TabsContent>
                 </Tabs>
             ) : (
-                <Alert>
-                    <GitCompareArrows className="h-4 w-4" />
-                    <AlertTitle>Sin datos para comparar</AlertTitle>
-                    <AlertDescription>No se han encontrado datos en el archivo CSV o no se pudo conectar a la base de datos.</AlertDescription>
-                </Alert>
+                 !isMapping && targetTable && (
+                    <Alert>
+                        <GitCompareArrows className="h-4 w-4" />
+                        <AlertTitle>Sin datos para comparar</AlertTitle>
+                        <AlertDescription>No se pudo realizar la comparación. Verifica el mapeo de la clave primaria o el contenido del archivo.</AlertDescription>
+                    </Alert>
+                )
             )}
           </CardContent>
         </Card>
@@ -477,15 +573,18 @@ function DataTable({ rows, headers, pk, selection, onSelectRow }: DataTableProps
 
     const handleSelectAll = (checked: boolean | "indeterminate") => {
         if (!onSelectRow || !selection) return;
-        if (checked === true) {
-            rows.forEach(row => onSelectRow && !selection.has(row.index) && onSelectRow(row.index));
+        const rowIndexes = rows.map(r => r.index);
+        const allSelected = rowIndexes.every(index => selection.has(index));
+        if (checked === true || !allSelected) {
+            rowIndexes.forEach(index => { if(!selection.has(index)) onSelectRow(index) });
         } else {
-            rows.forEach(row => onSelectRow && selection.has(row.index) && onSelectRow(row.index));
+            rowIndexes.forEach(index => { if(selection.has(index)) onSelectRow(index) });
         }
     };
     
     const isAllSelected = selection ? rows.length > 0 && rows.every(r => selection.has(r.index)) : false;
-    const isSomeSelected = selection ? rows.some(r => selection.has(r.index)) : false;
+    const isSomeSelected = selection ? !isAllSelected && rows.some(r => selection.has(r.index)) : false;
+
 
     return (
         <div className="relative border rounded-lg max-h-96 overflow-auto">
@@ -538,15 +637,17 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
     }, [rows, pk]);
 
     const handleSelectAll = (checked: boolean | "indeterminate") => {
-        if (checked === true) {
-            rows.forEach(row => !selection.has(row.index) && onSelectRow(row.index));
+        const rowIndexes = rows.map(r => r.index);
+        const allSelected = rowIndexes.every(index => selection.has(index));
+        if (checked === true || !allSelected) {
+            rowIndexes.forEach(index => { if(!selection.has(index)) onSelectRow(index) });
         } else {
-            rows.forEach(row => selection.has(row.index) && onSelectRow(row.index));
+            rowIndexes.forEach(index => { if(selection.has(index)) onSelectRow(index) });
         }
     };
 
     const isAllSelected = rows.length > 0 && rows.every(r => selection.has(r.index));
-    const isSomeSelected = rows.some(r => selection.has(r.index));
+    const isSomeSelected = !isAllSelected && rows.some(r => selection.has(r.index));
 
     return (
         <div className="relative border rounded-lg max-h-96 overflow-auto">
@@ -577,7 +678,7 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
                                                 <span className="text-green-600 font-medium">{String(row.changes[header].to)}</span>
                                             </div>
                                         ) : (
-                                            <span>{String(row.csv[header] ?? '')}</span>
+                                            <span>{String(row.db[header] ?? '')}</span>
                                         )}
                                     </TableCell>
                                 ))}
