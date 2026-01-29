@@ -95,7 +95,7 @@ export default function CsvUploader() {
   const cleanHeaderMap = useMemo(() => {
     const cleanMap: Record<number, string> = {};
     for (const key in headerMap) {
-      if (Object.prototype.hasOwnProperty.call(headerMap, key) && headerMap[key] !== IGNORE_COLUMN_VALUE) {
+      if (Object.prototype.hasOwnProperty.call(headerMap, key) && headerMap[key] && headerMap[key] !== IGNORE_COLUMN_VALUE) {
         cleanMap[parseInt(key, 10)] = headerMap[key];
       }
     }
@@ -164,13 +164,16 @@ export default function CsvUploader() {
           const mappingResult = await mapHeaders({ csvHeaders: headers, dbColumns: schema.columns });
 
           const initialMap: Record<number, string> = {};
-          const appliedHeaders = new Set<string>();
+          const usedDbColumns = new Set<string>();
+
           headers.forEach((header, index) => {
-            if (mappingResult.headerMap[header] && !appliedHeaders.has(header)) {
-              initialMap[index] = mappingResult.headerMap[header];
-              appliedHeaders.add(header);
+            const suggestedDbColumn = mappingResult.headerMap[header];
+            if (suggestedDbColumn && !usedDbColumns.has(suggestedDbColumn)) {
+              initialMap[index] = suggestedDbColumn;
+              usedDbColumns.add(suggestedDbColumn);
             }
           });
+
           setHeaderMap(initialMap);
 
           if (Object.keys(initialMap).length === 0) {
@@ -254,7 +257,7 @@ export default function CsvUploader() {
         const pkValue = String(csvRow[csvPkHeaderIndex]);
         const dbRow = dbMap.get(pkValue);
 
-        if (!dbRow) {
+        if (!pkValue || !dbRow) {
           newRows.push({ index, data: csvRow });
         } else {
           const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
@@ -282,8 +285,7 @@ export default function CsvUploader() {
       setCurrentStep('compare');
 
     } catch (err: any) {
-      toast({ title: 'Error de Comparación', description: `No se pudo conectar a la base de datos: ${err.message}`, variant: 'destructive' });
-      console.error(err);
+      toast({ title: 'Error de Comparación', description: `No se pudo comparar con la base de datos. Revisa la conexión, la configuración de la tabla y que la clave primaria mapeada sea correcta. Error: ${err.message}`, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -434,7 +436,7 @@ export default function CsvUploader() {
                             <div key={`${csvHeader}-${i}`} className="grid grid-cols-2 items-center gap-2">
                                 <label className="text-sm font-medium text-right truncate">{csvHeader}</label>
                                 <Select
-                                    value={headerMap[i] || ""}
+                                    value={headerMap[i] || IGNORE_COLUMN_VALUE}
                                     onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
                                 >
                                     <SelectTrigger>
@@ -541,7 +543,7 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
                                <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                            </TableHead>
                         )}
-                        {headers.map((h, i) => <TableHead key={i} className={cn(i === pkIndex && "font-bold text-primary")}>{h}</TableHead>)}
+                        {headers.map((h, i) => <TableHead key={`${h}-${i}`} className={cn(i === pkIndex && "font-bold text-primary")}>{h}</TableHead>)}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
