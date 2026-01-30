@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabaseClient';
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -77,47 +77,13 @@ const saveToDatabaseFlow = ai.defineFlow(
     outputSchema: SaveToDatabaseOutputSchema,
   },
   async ({ targetTable, data, conflictKey }) => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl) {
-      return {
-        success: false,
-        message: 'Error de Configuración: La variable de entorno NEXT_PUBLIC_SUPABASE_URL no está definida. Revisa tu archivo .env y reinicia el servidor.',
-      };
-    }
     
-    if (!serviceKey) {
+    if (!supabaseAdmin) {
         return { 
             success: false, 
             message: 'Error de Configuración: La llave de administrador (SUPABASE_SERVICE_ROLE_KEY) no se encuentra en tu archivo .env. Para poder guardar datos, debes añadir la llave "service_role" de tu proyecto de Supabase y reiniciar el servidor.' 
         };
     }
-
-    let isWrongKey = false;
-    try {
-        const payloadB64 = serviceKey.split('.')[1];
-        if (payloadB64) {
-            const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString());
-            // The service_role key should have 'service_role' as its role. If it's 'anon', it's the wrong key.
-            if (payload.role === 'anon') {
-                isWrongKey = true;
-            }
-        } else {
-             isWrongKey = true; // Not a valid JWT
-        }
-    } catch (e) {
-        isWrongKey = true; // Failed to parse, so it's not the key we expect.
-    }
-
-    if (isWrongKey) {
-        return {
-            success: false,
-            message: `Error de Permisos (Configuración): La SUPABASE_SERVICE_ROLE_KEY en tu archivo .env parece ser incorrecta. Estás usando una llave que no tiene permisos de administrador.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Project Settings > API.\n2. En la sección "Project API keys", copia la llave "service_role" (es secreta).\n3. Pégala en tu archivo .env como SUPABASE_SERVICE_ROLE_KEY.\n4. Reinicia el servidor para aplicar los cambios.`
-        };
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
     if (!data.headers || !data.rows) {
       return {
@@ -152,9 +118,15 @@ const saveToDatabaseFlow = ai.defineFlow(
 
     if (error) {
       console.error('❌ Error de Supabase:', error);
+      let friendlyMessage = `Error de base de datos: ${error.message}`;
+
+      if (error.code === '42501' || error.message.includes('row-level security')) {
+        friendlyMessage = `Error de Permisos (RLS): La base de datos bloqueó la escritura. Esto usualmente significa que la SUPABASE_SERVICE_ROLE_KEY en tu archivo .env es incorrecta o no tiene los permisos necesarios.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Project Settings > API.\n2. En la sección "Project API keys", copia la llave "service_role" (es secreta).\n3. Pégala en tu archivo .env como SUPABASE_SERVICE_ROLE_KEY.\n4. Reinicia el servidor para aplicar los cambios.`;
+      }
+      
       return {
         success: false,
-        message: `Error de base de datos: ${error.message}`,
+        message: friendlyMessage,
       };
     }
 

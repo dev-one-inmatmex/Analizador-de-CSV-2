@@ -13,3 +13,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
 
+// --- Admin Client (for server-side/secure use) ---
+let supabaseAdmin: SupabaseClient | null = null;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (supabaseUrl && serviceKey) {
+  supabaseAdmin = createClient(supabaseUrl, serviceKey);
+}
+
+export { supabaseAdmin };
