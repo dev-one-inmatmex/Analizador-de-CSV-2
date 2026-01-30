@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, RefreshCw, GitCompareArrows, ArrowRight, Settings2 } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, RefreshCw, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -637,7 +637,6 @@ export default function CsvUploader() {
                         pkIndex={pkHeaderIndex}
                         selection={selectedNew}
                         onSelectRow={(index) => toggleSelection(index, 'new')}
-                        rowClassName="bg-green-50 dark:bg-green-950"
                     />
                 </TabsContent>
                 <TabsContent value="updated" className="mt-4">
@@ -646,7 +645,6 @@ export default function CsvUploader() {
                         pk={targetTable?.pk || ''} 
                         selection={selectedUpdates} 
                         onSelectRow={(index) => toggleSelection(index, 'update')}
-                        rowClassName="bg-yellow-50 dark:bg-yellow-950"
                     />
                 </TabsContent>
                 <TabsContent value="unchanged" className="mt-4">
@@ -679,10 +677,9 @@ interface DataTableProps {
     pkIndex: number;
     selection?: Set<number>;
     onSelectRow?: (index: number) => void;
-    rowClassName?: string;
 }
 
-function DataTable({ rows, headers, pkIndex, selection, onSelectRow, rowClassName }: DataTableProps) {
+function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTableProps) {
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros en esta categoría.</p>;
     
     const isAllSelected = selection ? rows.length > 0 && rows.every(r => selection.has(r.index)) : false;
@@ -713,8 +710,8 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow, rowClassNam
                     {rows.map(({ index, data }) => {
                         const isSelected = selection ? selection.has(index) : false;
                         return (
-                            <TableRow key={index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow && onSelectRow(index)} className={cn(onSelectRow && 'cursor-pointer', rowClassName)}>
-                                {onSelectRow && <TableCell><Checkbox checked={isSelected} /></TableCell>}
+                            <TableRow key={index} data-state={isSelected ? "selected" : ""}>
+                                {onSelectRow && <TableCell><Checkbox checked={isSelected} onClick={() => onSelectRow(index)} /></TableCell>}
                                 {data.map((cell, cellIndex) => <TableCell key={cellIndex} className="truncate max-w-xs" title={cell}>{cell}</TableCell>)}
                             </TableRow>
                         );
@@ -730,10 +727,9 @@ interface UpdateTableProps {
     pk: string;
     selection: Set<number>;
     onSelectRow: (index: number) => void;
-    rowClassName?: string;
 }
 
-function UpdateTable({ rows, pk, selection, onSelectRow, rowClassName }: UpdateTableProps) {
+function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros para actualizar.</p>;
 
     const allHeaders = useMemo(() => {
@@ -767,18 +763,18 @@ function UpdateTable({ rows, pk, selection, onSelectRow, rowClassName }: UpdateT
                     {rows.map(row => {
                         const isSelected = selection.has(row.index);
                         return (
-                            <TableRow key={row.index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow(row.index)} className={cn('cursor-pointer', rowClassName)}>
-                                <TableCell><Checkbox checked={isSelected} /></TableCell>
+                            <TableRow key={row.index} data-state={isSelected ? "selected" : ""}>
+                                <TableCell><Checkbox checked={isSelected} onClick={() => onSelectRow(row.index)} /></TableCell>
                                 {allHeaders.map(header => (
                                     <TableCell key={header} className="truncate max-w-[200px]">
                                         {header in row.changes ? (
-                                            <div title={`De: ${String(row.changes[header].from ?? 'Vacío')} | A: ${String(row.changes[header].to)}`}>
-                                                <span className="text-xs text-destructive line-through">{String(row.changes[header].from ?? 'Vacío')}</span>
-                                                <ArrowRight className="h-3 w-3 inline-block mx-1 text-muted-foreground" />
-                                                <span className="text-sm text-green-600 font-medium">{String(row.changes[header].to)}</span>
-                                            </div>
+                                            <span title={`From: ${String(row.changes[header].from)}`}>
+                                                <span className="text-red-500 line-through">{String(row.changes[header].from)}</span>
+                                                {' -> '}
+                                                <span className="text-green-500">{String(row.changes[header].to)}</span>
+                                            </span>
                                         ) : (
-                                            <span className="text-sm text-muted-foreground" title={String(row.db[header] ?? '')}>{String(row.db[header] ?? '')}</span>
+                                            <span className="text-muted-foreground" title={String(row.db[header])}>{String(row.db[header])}</span>
                                         )}
                                     </TableCell>
                                 ))}
