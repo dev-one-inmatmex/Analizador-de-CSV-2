@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseClient';
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -77,10 +77,10 @@ const saveToDatabaseFlow = ai.defineFlow(
     outputSchema: SaveToDatabaseOutputSchema,
   },
   async ({ targetTable, data, conflictKey }) => {
-    if (!supabase) {
+    if (!supabaseAdmin) {
         return { 
             success: false, 
-            message: 'La configuración de Supabase está incompleta. Por favor, edita el archivo .env con tus credenciales y reinicia el servidor.' 
+            message: 'La llave de administrador de Supabase (Service Role Key) no está configurada. Por favor, edita el archivo .env con tu SUPABASE_SERVICE_ROLE_KEY y reinicia el servidor.' 
         };
     }
 
@@ -108,7 +108,7 @@ const saveToDatabaseFlow = ai.defineFlow(
       };
     }
 
-    const query = supabase.from(targetTable);
+    const query = supabaseAdmin.from(targetTable);
     const { error } = await (
       conflictKey
       ? query.upsert(objects, { onConflict: conflictKey })

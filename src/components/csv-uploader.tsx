@@ -39,7 +39,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
   ventas: {
     pk: 'numero_venta',
     columns: [
-      'id', 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 
+      'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 
       'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 
       'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
       'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 
