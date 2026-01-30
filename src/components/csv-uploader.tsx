@@ -118,47 +118,56 @@ export default function CsvUploader() {
     setHeaderMap({});
   };
 
-  const processFile = (file: File) => {
-    resetAll();
-    setFile(file);
+    const processFile = (file: File) => {
+        resetAll();
+        setFile(file);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      
-      // Regex to split CSV row, handling quoted fields.
-      const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            
+            // Regex to split CSV row, handling quoted fields.
+            const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
 
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) {
-          toast({ title: 'Archivo CSV inválido', description: 'El archivo debe contener al menos una fila de cabeceras y una de datos.', variant: 'destructive' });
-          return;
-      }
+            const lines = text.split(/\r\n|\n/).map(l => l.trim()).filter(Boolean);
+            if (lines.length < 2) {
+                toast({ title: 'Archivo CSV inválido', description: 'El archivo debe contener al menos una fila de cabeceras y una de datos.', variant: 'destructive' });
+                return;
+            }
 
-      const headerRow = lines[0];
-      const dataRows = lines.slice(1);
+            const headerRow = lines[0];
+            const dataRows = lines.slice(1);
+            
+            const cleanCell = (cell: string): string => {
+                let value = cell.trim();
+                
+                // First, check for and strip Excel's `= "..."` wrapper.
+                if (value.startsWith('="') && value.endsWith('"')) {
+                    value = value.substring(2, value.length - 1);
+                }
+                
+                // Then, repeatedly remove any surrounding quotes.
+                // This correctly handles `"""123"""` by turning it into `123`.
+                while (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+                    value = value.substring(1, value.length - 1);
+                }
+                
+                // Finally, replace any escaped double quotes `""` with a single one `"`.
+                value = value.replace(/""/g, '"');
+                
+                return value;
+            };
 
-      const cleanCell = (cell: string): string => {
-        let value = cell.trim();
-        // Repeatedly remove surrounding quotes
-        while (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
-            value = value.substring(1, value.length - 1);
-        }
-        // Handle escaped quotes inside the string (e.g., "a""b")
-        value = value.replace(/""/g, '"');
-        return value;
-      };
+            const csvHeaders = headerRow.split(re).map(cleanCell);
+            const parsedData = dataRows.map(row => row.split(re).map(cleanCell));
 
-      const csvHeaders = headerRow.split(re).map(cleanCell);
-      const parsedData = dataRows.map(row => row.split(re).map(cleanCell));
-
-      setHeaders(csvHeaders);
-      setCsvData(parsedData);
-      toast({ title: 'Archivo Procesado', description: `${file.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
+            setHeaders(csvHeaders);
+            setCsvData(parsedData);
+            toast({ title: 'Archivo Procesado', description: `${file.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
+        };
+        reader.readAsText(file, 'latin1'); // Use 'latin1' to avoid issues with special characters
     };
-    reader.readAsText(file, 'latin1'); // Use 'latin1' to avoid issues with special characters
-  };
-  
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       processFile(event.target.files[0]);
