@@ -71,6 +71,61 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 };
 
 
+function parseValueForComparison(key: string, value: string): any {
+    const numericFields = [
+      'id', 'costo', 'tiempo_preparacion', 'producto_madre_id',
+      'numero_venta', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
+      'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
+      'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
+      'dinero_a_favor', 'unidades_reclamo', 'price',
+    ];
+  
+    const booleanFields = [
+      'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
+      'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
+    ];
+  
+    const dateFields = [
+      'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
+    ];
+
+    if (value === undefined || value === null || value.trim() === '' || value.toLowerCase() === 'null') {
+      return null;
+    }
+  
+    if (numericFields.includes(key)) {
+      const num = parseFloat(value.replace(',', '.')); // Handle decimal commas
+      return isNaN(num) ? null : num;
+    }
+  
+    if (booleanFields.includes(key)) {
+      const v = value.toLowerCase();
+      return v === 'true' || v === '1' || v === 'verdadero' || v === 'si' || v === 'sí';
+    }
+  
+    if (dateFields.includes(key)) {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date.getTime(); // Compare timestamps
+    }
+  
+    return value;
+}
+
+function parseDbValueForComparison(key: string, value: any): any {
+    const dateFields = [
+      'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
+    ];
+    
+    if (value === null || value === undefined) return null;
+
+    if (dateFields.includes(key)) {
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? null : date.getTime(); // Compare timestamps
+    }
+    
+    return value;
+}
+
 export default function CsvUploader() {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
@@ -118,6 +173,50 @@ export default function CsvUploader() {
     setHeaderMap({});
   };
 
+  const parseCsv = (text: string): { headers: string[], data: CsvRow[] } => {
+    const lines = text.split(/\r\n|\n/).filter(Boolean);
+    if (lines.length < 1) return { headers: [], data: [] };
+
+    // Auto-detect delimiter
+    const firstLine = lines[0];
+    let delimiter = ',';
+    if (firstLine.includes(';')) delimiter = ';';
+    else if (firstLine.includes('\t')) delimiter = '\t';
+    
+    const parseRow = (row: string): string[] => {
+        const result: string[] = [];
+        let currentField = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+            
+            if (char === '"') {
+                if (inQuotes && row[i+1] === '"') {
+                    // Escaped quote
+                    currentField += '"';
+                    i++; // Skip next quote
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === delimiter && !inQuotes) {
+                result.push(currentField);
+                currentField = '';
+            } else {
+                currentField += char;
+            }
+        }
+        result.push(currentField);
+        return result.map(field => field.trim());
+    };
+
+    const csvHeaders = parseRow(lines[0]);
+    const parsedData = lines.slice(1).map(line => parseRow(line));
+
+    return { headers: csvHeaders, data: parsedData };
+  };
+
+
     const processFile = (file: File) => {
         resetAll();
         setFile(file);
@@ -126,26 +225,17 @@ export default function CsvUploader() {
         reader.onload = (e) => {
             const text = e.target?.result as string;
             
-            const lines = text.split(/\r\n|\n/).map(l => l.trim()).filter(Boolean);
-            if (lines.length < 2) {
-                toast({ title: 'Archivo CSV inválido', description: 'El archivo debe contener al menos una fila de cabeceras y una de datos.', variant: 'destructive' });
+            if (!text) {
+                toast({ title: 'Archivo Vacío', description: 'El archivo seleccionado está vacío o no se pudo leer.', variant: 'destructive' });
                 return;
             }
 
-            const cleanCell = (cell: string): string => {
-                let value = cell.trim();
-                // Remove quotes only if they are at the beginning and end of the string.
-                if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
-                    value = value.substring(1, value.length - 1);
-                }
-                // Handle escaped quotes ("") inside the string
-                return value.replace(/""/g, '"');
-            };
+            const { headers: csvHeaders, data: parsedData } = parseCsv(text);
             
-            const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-
-            const csvHeaders = lines[0].split(re).map(cleanCell);
-            const parsedData = lines.slice(1).map(row => row.split(re).map(cleanCell));
+            if (csvHeaders.length === 0 || parsedData.length === 0) {
+                 toast({ title: 'Archivo CSV inválido', description: 'No se pudieron encontrar cabeceras o filas de datos. Revisa el formato.', variant: 'destructive' });
+                return;
+            }
 
             setHeaders(csvHeaders);
             setCsvData(parsedData);
@@ -175,35 +265,46 @@ export default function CsvUploader() {
         setComparison(null);
         setHeaderMap({});
         
-        toast({ title: 'Tabla Seleccionada', description: `Iniciando mapeo con IA para: ${tableName}` });
+        toast({ title: 'Tabla Seleccionada', description: `Analizando y mapeando para: ${tableName}` });
+
+        let finalMap: Record<number, string> = {};
 
         try {
           const mappingResult = await mapHeaders({ csvHeaders: headers, dbColumns: schema.columns });
-
-          const initialMap: Record<number, string> = {};
-          const usedDbColumns = new Set<string>();
-
-          headers.forEach((header, index) => {
-            const suggestedDbColumn = mappingResult.headerMap[header];
-            if (suggestedDbColumn && !usedDbColumns.has(suggestedDbColumn)) {
-              initialMap[index] = suggestedDbColumn;
-              usedDbColumns.add(suggestedDbColumn);
-            }
-          });
-
-          setHeaderMap(initialMap);
-
-          if (Object.keys(initialMap).length === 0) {
-            toast({ title: 'Mapeo por IA incompleto', description: 'Revisa y completa el mapeo manualmente.', variant: 'default' });
-          } else {
-            toast({ title: 'Mapeo por IA completado', description: 'Revisa las sugerencias antes de continuar.' });
+          
+          if(mappingResult && mappingResult.headerMap){
+            headers.forEach((header, index) => {
+                const suggestedDbColumn = mappingResult.headerMap[header];
+                if (suggestedDbColumn && schema.columns.includes(suggestedDbColumn)) {
+                    finalMap[index] = suggestedDbColumn;
+                }
+            });
           }
-          setCurrentStep('mapping');
         } catch (err: any) {
-          toast({ title: 'Error en Mapeo por IA', description: err.message, variant: 'destructive' });
-        } finally {
-            setIsLoading(false);
+          console.error("AI mapping failed, continuing with rule-based mapping.", err);
+          toast({ title: 'Mapeo por IA falló', description: "Continuando con mapeo por reglas.", variant: 'default' });
         }
+
+        // Rule-based mapping for anything the AI missed
+        headers.forEach((csvHeader, index) => {
+            if (!finalMap[index]) { // Only if not already mapped by AI
+                const directMatch = schema.columns.find(dbCol => dbCol.toLowerCase() === csvHeader.toLowerCase());
+                if (directMatch) {
+                    finalMap[index] = directMatch;
+                }
+            }
+        });
+
+        setHeaderMap(finalMap);
+        
+        if (Object.keys(finalMap).length === 0) {
+            toast({ title: 'Mapeo automático incompleto', description: 'Revisa y completa el mapeo manualmente.', variant: 'default' });
+        } else {
+            toast({ title: 'Mapeo automático completado', description: 'Revisa las sugerencias antes de continuar.' });
+        }
+        
+        setCurrentStep('mapping');
+        setIsLoading(false);
     }
   };
 
@@ -222,6 +323,7 @@ export default function CsvUploader() {
     }
     
     setIsLoading(true);
+    toast({ title: 'Analizando diferencias', description: 'Comparando tu archivo con la base de datos...', duration: 5000 });
     if (!isSupabaseConfigured) {
         toast({ title: 'Configuración de DB Incompleta', description: 'No se pueden comparar los datos.', variant: 'destructive' });
         setIsLoading(false);
@@ -277,19 +379,21 @@ export default function CsvUploader() {
           newRows.push({ index, data: csvRow });
         } else {
           const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
+          let hasChanges = false;
           for (const indexStr in cleanHeaderMap) {
              const csvIndex = parseInt(indexStr, 10);
              const dbKey = cleanHeaderMap[csvIndex];
              if (dbKey && Object.prototype.hasOwnProperty.call(dbRow, dbKey)) {
-                const csvVal = (csvRow[csvIndex] === null || csvRow[csvIndex] === undefined) ? '' : String(csvRow[csvIndex]).trim();
-                const dbVal = (dbRow[dbKey] === null || dbRow[dbKey] === undefined) ? '' : String(dbRow[dbKey]).trim();
+                const parsedCsvVal = parseValueForComparison(dbKey, csvRow[csvIndex]);
+                const parsedDbVal = parseDbValueForComparison(dbKey, dbRow[dbKey]);
                 
-                if (csvVal !== dbVal) {
+                if (parsedCsvVal !== parsedDbVal) {
                     changes[dbKey] = { from: dbRow[dbKey], to: csvRow[csvIndex] };
+                    hasChanges = true;
                 }
              }
           }
-          if (Object.keys(changes).length > 0) {
+          if (hasChanges) {
             updatedRows.push({ index, csv: csvRow, db: dbRow, changes });
           } else {
             unchangedRows.push({ index, data: csvRow });
@@ -336,12 +440,15 @@ export default function CsvUploader() {
             targetTable: targetTable.dbTable,
             data: { headers: dbHeaders, rows: mappedData.map(row => dbHeaders.map(h => row[h] || '')) },
             conflictKey: isUpsert ? targetTable.pk : undefined,
+            newCount: selectedNew.size,
+            updateCount: selectedUpdates.size,
         });
 
         if (result.success) {
-            toast({ title: 'Sincronización Exitosa', description: result.message });
+            toast({ title: 'Sincronización Exitosa', description: result.message, duration: 8000 });
             setSelectedNew(new Set());
             setSelectedUpdates(new Set());
+            toast({ title: 'Actualizando vista...', description: 'Recargando la comparación de datos.', duration: 2000 });
             await handleConfirmMappingAndCompare(); // Re-run comparison
         } else {
             throw new Error(result.message);
@@ -587,7 +694,7 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
                         return (
                             <TableRow key={index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow && onSelectRow(index)} className={cn(onSelectRow && 'cursor-pointer')}>
                                 {onSelectRow && <TableCell><Checkbox checked={isSelected} /></TableCell>}
-                                {data.map((cell, cellIndex) => <TableCell key={cellIndex}>{cell}</TableCell>)}
+                                {data.map((cell, cellIndex) => <TableCell key={cellIndex} className="truncate max-w-xs" title={cell}>{cell}</TableCell>)}
                             </TableRow>
                         );
                     })}
@@ -641,15 +748,15 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
                             <TableRow key={row.index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow(row.index)} className="cursor-pointer">
                                 <TableCell><Checkbox checked={isSelected} /></TableCell>
                                 {allHeaders.map(header => (
-                                    <TableCell key={header}>
+                                    <TableCell key={header} className="truncate max-w-[200px]">
                                         {header in row.changes ? (
-                                            <div>
+                                            <div title={`De: ${String(row.changes[header].from ?? 'Vacío')} | A: ${String(row.changes[header].to)}`}>
                                                 <span className="text-xs text-destructive line-through">{String(row.changes[header].from ?? 'Vacío')}</span>
                                                 <ArrowRight className="h-3 w-3 inline-block mx-1 text-muted-foreground" />
                                                 <span className="text-sm text-green-600 font-medium">{String(row.changes[header].to)}</span>
                                             </div>
                                         ) : (
-                                            <span className="text-sm text-muted-foreground">{String(row.db[header] ?? '')}</span>
+                                            <span className="text-sm text-muted-foreground" title={String(row.db[header] ?? '')}>{String(row.db[header] ?? '')}</span>
                                         )}
                                     </TableCell>
                                 ))}

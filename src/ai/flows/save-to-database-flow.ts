@@ -13,6 +13,8 @@ const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
   data: TableDataSchema.describe('Los datos de la tabla para guardar.'),
   conflictKey: z.string().optional().describe('La columna a usar para resolver conflictos en un upsert.'),
+  newCount: z.number().describe('El número de registros nuevos a insertar.'),
+  updateCount: z.number().describe('El número de registros a actualizar.'),
 });
 type SaveToDatabaseInput = z.infer<typeof SaveToDatabaseInputSchema>;
 
@@ -76,7 +78,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     inputSchema: SaveToDatabaseInputSchema,
     outputSchema: SaveToDatabaseOutputSchema,
   },
-  async ({ targetTable, data, conflictKey }) => {
+  async ({ targetTable, data, conflictKey, newCount, updateCount }) => {
     
     if (!supabaseAdmin) {
         return { 
@@ -130,9 +132,21 @@ const saveToDatabaseFlow = ai.defineFlow(
       };
     }
 
+    const now = new Date();
+    const formattedDate = `${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
+    
+    const messages = [];
+    if (newCount > 0) messages.push(`${newCount} registro${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`);
+    if (updateCount > 0) messages.push(`${updateCount} registro${updateCount > 1 ? 's' : ''} actualizado${updateCount > 1 ? 's' : ''}`);
+
+    let summary = messages.join(' y ');
+    if (summary) {
+        summary = `Resumen: ${summary.charAt(0).toUpperCase() + summary.slice(1)}.`;
+    }
+
     return {
       success: true,
-      message: `✅ ${objects.length} registros ${conflictKey ? 'sincronizados' : 'guardados'} en '${targetTable}'.`,
+      message: `Sincronización completada el ${formattedDate}. ${summary}`,
     };
   }
 );
