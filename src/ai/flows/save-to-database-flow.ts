@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseClient';
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -78,7 +78,7 @@ const saveToDatabaseFlow = ai.defineFlow(
   },
   async ({ targetTable, data, conflictKey }) => {
     
-    if (!supabase) {
+    if (!supabaseAdmin) {
         return { 
             success: false, 
             message: 'Error de Configuración: La llave de administrador (SUPABASE_SERVICE_ROLE_KEY) no se encuentra en tu archivo .env. Para poder guardar datos, debes añadir la llave "service_role" de tu proyecto de Supabase y reiniciar el servidor.' 
@@ -109,7 +109,7 @@ const saveToDatabaseFlow = ai.defineFlow(
       };
     }
 
-    const query = supabase.from(targetTable);
+    const query = supabaseAdmin.from(targetTable);
     const { error } = await (
       conflictKey
       ? query.upsert(objects, { onConflict: conflictKey })
