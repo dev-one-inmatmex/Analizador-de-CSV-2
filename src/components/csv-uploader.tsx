@@ -70,6 +70,9 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
   }
 };
 
+/* =========================
+   Comparison Helpers
+========================= */
 
 function parseValueForComparison(key: string, value: string): any {
     const numericFields = [
@@ -89,26 +92,38 @@ function parseValueForComparison(key: string, value: string): any {
       'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
     ];
 
-    if (value === undefined || value === null || value.trim() === '' || value.toLowerCase() === 'null') {
+    if (value === undefined || value === null) {
       return null;
     }
-  
+    
+    const trimmedValue = value.trim();
+    if (trimmedValue.toLowerCase() === 'null') {
+      return null;
+    }
+    if (trimmedValue === '') {
+      return '';
+    }
+    
     if (numericFields.includes(key)) {
-      const num = parseFloat(value.replace(',', '.')); // Handle decimal commas
-      return isNaN(num) ? null : num;
+      const num = parseFloat(trimmedValue.replace(',', '.'));
+      return isNaN(num) ? trimmedValue : num;
     }
   
     if (booleanFields.includes(key)) {
-      const v = value.toLowerCase();
-      return v === 'true' || v === '1' || v === 'verdadero' || v === 'si' || v === 'sí';
+      const v = trimmedValue.toLowerCase();
+      if (v === 'true' || v === '1' || v === 'verdadero' || v === 'si' || v === 'sí') return true;
+      if (v === 'false' || v === '0' || v === 'falso' || v === 'no') return false;
+      return trimmedValue;
     }
   
     if (dateFields.includes(key)) {
-      const date = new Date(value);
-      return isNaN(date.getTime()) ? null : date.getTime(); // Compare timestamps
+      const date = new Date(trimmedValue);
+      if (!isNaN(date.getTime()) && trimmedValue.length > 4) {
+          return date.toISOString();
+      }
     }
   
-    return value;
+    return trimmedValue;
 }
 
 function parseDbValueForComparison(key: string, value: any): any {
@@ -118,13 +133,14 @@ function parseDbValueForComparison(key: string, value: any): any {
     
     if (value === null || value === undefined) return null;
 
-    if (dateFields.includes(key)) {
-        const date = new Date(value);
-        return isNaN(date.getTime()) ? null : date.getTime(); // Compare timestamps
+    if (dateFields.includes(key) && value) {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? value : date.toISOString();
     }
     
     return value;
 }
+
 
 export default function CsvUploader() {
   const { toast } = useToast();
@@ -177,11 +193,10 @@ export default function CsvUploader() {
     const lines = text.split(/\r\n|\n/).filter(Boolean);
     if (lines.length < 1) return { headers: [], data: [] };
 
-    // Auto-detect delimiter
     const firstLine = lines[0];
     let delimiter = ',';
-    if (firstLine.includes(';')) delimiter = ';';
-    else if (firstLine.includes('\t')) delimiter = '\t';
+    if (firstLine.split(';').length > firstLine.split(',').length) delimiter = ';';
+    else if (firstLine.split('\t').length > firstLine.split(',').length) delimiter = '\t';
     
     const parseRow = (row: string): string[] => {
         const result: string[] = [];
@@ -193,9 +208,8 @@ export default function CsvUploader() {
             
             if (char === '"') {
                 if (inQuotes && row[i+1] === '"') {
-                    // Escaped quote
                     currentField += '"';
-                    i++; // Skip next quote
+                    i++;
                 } else {
                     inQuotes = !inQuotes;
                 }
@@ -285,9 +299,8 @@ export default function CsvUploader() {
           toast({ title: 'Mapeo por IA falló', description: "Continuando con mapeo por reglas.", variant: 'default' });
         }
 
-        // Rule-based mapping for anything the AI missed
         headers.forEach((csvHeader, index) => {
-            if (!finalMap[index]) { // Only if not already mapped by AI
+            if (!finalMap[index]) {
                 const directMatch = schema.columns.find(dbCol => dbCol.toLowerCase() === csvHeader.toLowerCase());
                 if (directMatch) {
                     finalMap[index] = directMatch;
@@ -597,8 +610,8 @@ export default function CsvUploader() {
                 </CardContent>
                 <CardFooter>
                     <Button onClick={handleConfirmMappingAndCompare} disabled={isLoading} size="lg">
-                        <Settings2 className="mr-2 h-5 w-5"/>
-                        Confirmar Mapeo y Analizar
+                        <GitCompareArrows className="mr-2 h-5 w-5"/>
+                        Analizar y Previsualizar Cambios
                     </Button>
                 </CardFooter>
             </Card>
@@ -624,10 +637,17 @@ export default function CsvUploader() {
                         pkIndex={pkHeaderIndex}
                         selection={selectedNew}
                         onSelectRow={(index) => toggleSelection(index, 'new')}
+                        rowClassName="bg-green-50 dark:bg-green-950"
                     />
                 </TabsContent>
                 <TabsContent value="updated" className="mt-4">
-                    <UpdateTable rows={comparison.updatedRows} pk={targetTable?.pk || ''} selection={selectedUpdates} onSelectRow={(index) => toggleSelection(index, 'update')} />
+                    <UpdateTable 
+                        rows={comparison.updatedRows} 
+                        pk={targetTable?.pk || ''} 
+                        selection={selectedUpdates} 
+                        onSelectRow={(index) => toggleSelection(index, 'update')}
+                        rowClassName="bg-yellow-50 dark:bg-yellow-950"
+                    />
                 </TabsContent>
                 <TabsContent value="unchanged" className="mt-4">
                     <DataTable rows={comparison.unchangedRows} headers={headers} pkIndex={pkHeaderIndex} />
@@ -659,9 +679,10 @@ interface DataTableProps {
     pkIndex: number;
     selection?: Set<number>;
     onSelectRow?: (index: number) => void;
+    rowClassName?: string;
 }
 
-function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTableProps) {
+function DataTable({ rows, headers, pkIndex, selection, onSelectRow, rowClassName }: DataTableProps) {
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros en esta categoría.</p>;
     
     const isAllSelected = selection ? rows.length > 0 && rows.every(r => selection.has(r.index)) : false;
@@ -685,14 +706,14 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
                                <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                            </TableHead>
                         )}
-                        {headers.map((h, i) => <TableHead key={`${h}-${i}`} className={cn(i === pkIndex && "font-bold text-primary")}>{h}</TableHead>)}
+                        {headers.map((h, i) => <TableHead key={`${h}-${i}`} className={cn(i === pkIndex && "font-bold text-primary", "truncate")}>{h}</TableHead>)}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {rows.map(({ index, data }) => {
                         const isSelected = selection ? selection.has(index) : false;
                         return (
-                            <TableRow key={index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow && onSelectRow(index)} className={cn(onSelectRow && 'cursor-pointer')}>
+                            <TableRow key={index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow && onSelectRow(index)} className={cn(onSelectRow && 'cursor-pointer', rowClassName)}>
                                 {onSelectRow && <TableCell><Checkbox checked={isSelected} /></TableCell>}
                                 {data.map((cell, cellIndex) => <TableCell key={cellIndex} className="truncate max-w-xs" title={cell}>{cell}</TableCell>)}
                             </TableRow>
@@ -709,9 +730,10 @@ interface UpdateTableProps {
     pk: string;
     selection: Set<number>;
     onSelectRow: (index: number) => void;
+    rowClassName?: string;
 }
 
-function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
+function UpdateTable({ rows, pk, selection, onSelectRow, rowClassName }: UpdateTableProps) {
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros para actualizar.</p>;
 
     const allHeaders = useMemo(() => {
@@ -745,7 +767,7 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
                     {rows.map(row => {
                         const isSelected = selection.has(row.index);
                         return (
-                            <TableRow key={row.index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow(row.index)} className="cursor-pointer">
+                            <TableRow key={row.index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow(row.index)} className={cn('cursor-pointer', rowClassName)}>
                                 <TableCell><Checkbox checked={isSelected} /></TableCell>
                                 {allHeaders.map(header => (
                                     <TableCell key={header} className="truncate max-w-[200px]">
