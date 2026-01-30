@@ -13,22 +13,3 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
 
-// --- Admin Client (for server-side use only) ---
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabaseAdmin: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-} else if (process.env.NODE_ENV !== 'production') {
-  console.warn(
-    'ADVERTENCIA: La SUPABASE_SERVICE_ROLE_KEY no está configurada en .env. Las operaciones de escritura (guardar en DB) fallarán.'
-  );
-}
-
-export { supabaseAdmin };

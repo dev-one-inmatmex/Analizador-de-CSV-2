@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -77,9 +77,17 @@ const saveToDatabaseFlow = ai.defineFlow(
     outputSchema: SaveToDatabaseOutputSchema,
   },
   async ({ targetTable, data, conflictKey }) => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!serviceKey || !supabaseAdmin) {
+    if (!supabaseUrl) {
+      return {
+        success: false,
+        message: 'Error de Configuración: La variable de entorno NEXT_PUBLIC_SUPABASE_URL no está definida. Revisa tu archivo .env y reinicia el servidor.',
+      };
+    }
+    
+    if (!serviceKey) {
         return { 
             success: false, 
             message: 'Error de Configuración: La llave de administrador (SUPABASE_SERVICE_ROLE_KEY) no se encuentra en tu archivo .env. Para poder guardar datos, debes añadir la llave "service_role" de tu proyecto de Supabase y reiniciar el servidor.' 
@@ -109,6 +117,7 @@ const saveToDatabaseFlow = ai.defineFlow(
         };
     }
 
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
     if (!data.headers || !data.rows) {
       return {
