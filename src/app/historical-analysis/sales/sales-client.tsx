@@ -1,183 +1,221 @@
-'use client'
+'use client';
 
-import * as React from 'react'
-import Link from 'next/link'
-import { ArrowLeft, LogOut, Loader2, Filter } from 'lucide-react'
-import { supabase } from '@/lib/supabaseClient'
-import type { ventas as VentasType } from '@/types/database'
+import * as React from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabaseClient';
+import { ArrowLeft, BarChart3, DollarSign, Filter, LogOut, Loader2, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import { es } from 'date-fns/locale';
+import type { DateRange } from 'react-day-picker';
 
-import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import GlobalNav from '@/components/global-nav'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import GlobalNav from '@/components/global-nav';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { useToast } from '@/hooks/use-toast';
+import type { ventas as VentasType } from '@/types/database';
 
-export default function VentasPage() {
-  const [ventas, setVentas] = React.useState<VentasType[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
+type KpiType = {
+    totalRevenue: number;
+    totalSales: number;
+    avgSale: number;
+}
 
-  React.useEffect(() => {
-    const fetchVentas = async () => {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('ventas')
-        .select('*')
-        .order('fecha_venta', { ascending: false })
-        .limit(100)
+export default function SalesAnalysisPage() {
+    const { toast } = useToast();
+    const [sales, setSales] = React.useState<VentasType[]>([]);
+    const [kpis, setKpis] = React.useState<KpiType>({ totalRevenue: 0, totalSales: 0, avgSale: 0 });
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
 
-      if (error) {
-        setError(error.message)
-        setVentas([])
-      } else {
-        setVentas(data as VentasType[])
-      }
-      setLoading(false)
-    }
+    const [date, setDate] = React.useState<DateRange | undefined>({
+        from: subDays(new Date(), 29),
+        to: new Date(),
+    });
 
-    fetchVentas()
-  }, [])
+    React.useEffect(() => {
+        const fetchSalesData = async () => {
+            setLoading(true);
+            setError(null);
 
-  if (loading) {
+            if (!supabase) {
+                setError("El cliente de Supabase no está configurado. Revisa tus variables de entorno en el archivo .env.");
+                setLoading(false);
+                return;
+            }
+
+            const { data, error: fetchError } = await supabase
+                .from('ventas')
+                .select('total, fecha_venta, numero_venta, titulo_publicacion, unidades, estado, descripcion_estado, comprador')
+                .order('fecha_venta', { ascending: false })
+                .limit(100);
+
+            if (fetchError) {
+                console.error("Error fetching sales data:", fetchError);
+                setError(fetchError.message);
+                setSales([]);
+                setKpis({ totalRevenue: 0, totalSales: 0, avgSale: 0 });
+            } else {
+                const fetchedSales = (data || []) as VentasType[];
+                setSales(fetchedSales);
+                
+                const totalRevenue = fetchedSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
+                const totalSales = fetchedSales.length;
+                const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0;
+                setKpis({ totalRevenue, totalSales, avgSale });
+            }
+            setLoading(false);
+        };
+
+        fetchSalesData();
+    }, []);
+    
+    const handleApplyFilters = () => {
+        toast({
+            title: "Función no implementada",
+            description: "La aplicación de filtros se añadirá en una futura actualización.",
+        });
+    };
+    
+    const safeDate = (d?: string | null) => d ? format(new Date(d), 'dd MMM yyyy', { locale: es }) : '—';
+    const money = (v?: number | null) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
+
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-      </div>
-    )
-  }
+        <div className="flex min-h-screen w-full flex-col bg-muted/40">
+            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+                <div className="flex items-center gap-4">
+                  <Link href="/historical-analysis" passHref>
+                    <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Volver</span></Button>
+                  </Link>
+                  <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas</h1>
+                </div>
+                 <div className="flex items-center gap-4">
+                    <Link href="/historical-analysis" passHref>
+                        <Button>
+                            <BarChart3 className="mr-2 h-4 w-4" />
+                            Análisis de Históricos
+                        </Button>
+                    </Link>
+                    <GlobalNav />
+                    <Button variant="outline">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Cerrar Sesión
+                    </Button>
+                </div>
+            </header>
 
-  return (
-    <>
-      <GlobalNav />
+            <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
+                {error && (
+                     <Alert variant="destructive" className="w-full">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Error al Cargar Datos de Ventas</AlertTitle>
+                        <AlertDescription>
+                            No se pudieron obtener los datos. Revisa tu conexión y la configuración de Supabase en el archivo <code>.env</code>.
+                            <p className="mt-2 font-mono text-xs bg-destructive/20 p-2 rounded">Error: {error}</p>
+                        </AlertDescription>
+                    </Alert>
+                )}
 
-      <main className="p-6 space-y-6">
-        {/* HEADER */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Historial de Ventas</h1>
+                <Card>
+                    <CardHeader className="flex flex-row items-center gap-4">
+                        <Filter className="h-6 w-6 text-muted-foreground" />
+                        <div>
+                            <CardTitle>Filtros</CardTitle>
+                            <CardDescription>Filtra por período para refinar el análisis. (Función en desarrollo)</CardDescription>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <DateRangePicker date={date} onSelect={setDate} />
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                            <Button onClick={handleApplyFilters}>
+                                <Filter className="mr-2 h-4 w-4" />
+                                Aplicar Filtros
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
 
-          <div className="flex gap-2">
-            <Link href="/historical-analysis">
-              <Button variant="outline">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver
-              </Button>
-            </Link>
-
-            <Button variant="outline">
-              <LogOut className="h-4 w-4 mr-2" />
-              Cerrar sesión
-            </Button>
-          </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{money(kpis.totalRevenue)}</div>
+                          <p className="text-xs text-muted-foreground">Basado en las últimas 100 ventas.</p>
+                        </CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Ventas Totales</CardTitle>
+                          <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{kpis.totalSales}</div>
+                          <p className="text-xs text-muted-foreground">Conteo de las últimas 100 transacciones.</p>
+                        </CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Venta Promedio</CardTitle>
+                          <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{money(kpis.avgSale)}</div>
+                          <p className="text-xs text-muted-foreground">Valor medio por transacción.</p>
+                        </CardContent>
+                    </Card>
+                </div>
+                
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Historial de Ventas Recientes</CardTitle>
+                        <CardDescription>Mostrando las últimas ventas registradas.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         {loading ? (
+                            <div className="flex justify-center items-center h-40">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                         ) : sales.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Fecha</TableHead>
+                                        <TableHead>Publicación</TableHead>
+                                        <TableHead>Comprador</TableHead>
+                                        <TableHead className="text-center">Unidades</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead className="text-right">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {sales.map((v, index) => (
+                                        <TableRow key={v.numero_venta || index}>
+                                            <TableCell className="text-sm text-muted-foreground">{safeDate(v.fecha_venta)}</TableCell>
+                                            <TableCell className="font-medium max-w-xs truncate" title={v.titulo_publicacion || ''}>{v.titulo_publicacion || 'N/A'}</TableCell>
+                                            <TableCell>{v.comprador || 'N/A'}</TableCell>
+                                            <TableCell className="text-center">{v.unidades}</TableCell>
+                                            <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{v.descripcion_estado || v.estado || 'N/A'}</Badge></TableCell>
+                                            <TableCell className="text-right font-bold">{money(v.total)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                         ) : !error && (
+                            <div className="text-center text-muted-foreground py-8">
+                                No se encontraron ventas para el período seleccionado.
+                            </div>
+                         )}
+                    </CardContent>
+                </Card>
+            </main>
         </div>
-
-        {/* ERROR */}
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* TABLA */}
-        <div className="border rounded-lg bg-white overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Venta #</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Publicación</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Variante</TableHead>
-                <TableHead className="text-center">Unidades</TableHead>
-                <TableHead className="text-right">Precio Unit.</TableHead>
-                <TableHead className="text-right">Ingreso Prod.</TableHead>
-                <TableHead className="text-right">Impuestos</TableHead>
-                <TableHead className="text-right">Ingreso Envío</TableHead>
-                <TableHead className="text-right">Costo Envío</TableHead>
-                <TableHead className="text-right">Dif. Peso</TableHead>
-                <TableHead className="text-right">Anulaciones</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-center">Fecha</TableHead>
-                <TableHead className="text-center">Estado</TableHead>
-                <TableHead>Comprador</TableHead>
-                <TableHead>País</TableHead>
-                <TableHead>CP</TableHead>
-                <TableHead>Tags</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {ventas.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
-                    No se encontraron ventas.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                ventas.map((v) => (
-                  <TableRow key={v.numero_venta}>
-                    <TableCell>{v.numero_venta}</TableCell>
-                    <TableCell>{v.sku ?? '—'}</TableCell>
-                    <TableCell>{v.numero_publicacion ?? '—'}</TableCell>
-                    <TableCell className="max-w-[240px] truncate">
-                      {v.titulo_publicacion ?? '—'}
-                    </TableCell>
-                    <TableCell>{v.variante ?? '—'}</TableCell>
-                    <TableCell className="text-center">{v.unidades}</TableCell>
-                    <TableCell className="text-right">
-                      ${v.precio_unitario.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${v.ingreso_productos.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${v.cargo_venta_impuestos.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${v.ingreso_envio.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${v.costo_envio.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${v.cargo_diferencia_peso.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${v.anulaciones_reembolsos.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      ${v.total.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {new Date(v.fecha_venta).toLocaleDateString('es-MX')}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={v.estado === 'paid' ? 'secondary' : 'outline'}>
-                        {v.descripcion_estado ?? v.estado ?? '—'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{v.comprador ?? '—'}</TableCell>
-                    <TableCell>{v.pais ?? '—'}</TableCell>
-                    <TableCell>{v.codigo_postal ?? '—'}</TableCell>
-                    <TableCell className="flex gap-1">
-                      {v.es_paquete_varios && <Badge>Paquete</Badge>}
-                      {v.negocio && <Badge>Negocio</Badge>}
-                      {v.reclamo_abierto && <Badge variant="destructive">Reclamo</Badge>}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </main>
-    </>
-  )
+    );
 }
