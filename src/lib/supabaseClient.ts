@@ -1,17 +1,34 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// --- Public Client (for client-side use) ---
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error(
+    'ADVERTENCIA: Faltan las variables de entorno públicas (NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY). El cliente público de Supabase no funcionará.'
+  );
+}
+
+export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
+
+
+// --- Admin Client (for server-side use only) ---
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Cliente público para el lado del cliente (navegador)
-// No arroja error si las claves no están presentes para no bloquear la app.
-export const supabase = (supabaseUrl && supabaseAnonKey) 
-    ? createClient(supabaseUrl, supabaseAnonKey) 
-    : null;
+let supabaseAdmin: SupabaseClient | null = null;
 
-// Cliente de administrador para el lado del servidor (omite RLS)
-// Se usará en flujos de Genkit y acciones de servidor que requieran permisos elevados.
-export const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey) 
-    ? createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } })
-    : null;
+if (supabaseUrl && supabaseServiceRoleKey) {
+  supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+} else if (process.env.NODE_ENV !== 'production') {
+  console.warn(
+    'ADVERTENCIA: La SUPABASE_SERVICE_ROLE_KEY no está configurada en .env. Las operaciones de escritura (guardar en DB) fallarán.'
+  );
+}
+
+export { supabaseAdmin };
