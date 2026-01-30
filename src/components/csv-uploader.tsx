@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
-import { mapHeaders } from '@/ai/flows/map-headers-flow';
 import { supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -279,39 +278,50 @@ export default function CsvUploader() {
         setComparison(null);
         setHeaderMap({});
         
-        toast({ title: 'Tabla Seleccionada', description: `Analizando y mapeando para: ${tableName}` });
+        toast({ title: 'Tabla Seleccionada', description: `Mapeando columnas para: ${tableName}` });
 
-        let finalMap: Record<number, string> = {};
+        const finalMap: Record<number, string> = {};
+        const usedDbCols = new Set<string>();
 
-        try {
-          const mappingResult = await mapHeaders({ csvHeaders: headers, dbColumns: schema.columns });
-          
-          if(mappingResult && mappingResult.headerMap){
-            headers.forEach((header, index) => {
-                const suggestedDbColumn = mappingResult.headerMap[header];
-                if (suggestedDbColumn && schema.columns.includes(suggestedDbColumn)) {
-                    finalMap[index] = suggestedDbColumn;
+        // Helper to normalize strings for comparison
+        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
+    
+        const dbColumnsNormalized = schema.columns.map(col => ({ original: col, normalized: normalize(col) }));
+    
+        headers.forEach((csvHeader) => {
+            const normalizedCsvHeader = normalize(csvHeader);
+            if (!normalizedCsvHeader) return;
+    
+            let bestMatch: { score: number, column: string, index: number } | null = null;
+    
+            for (const dbCol of dbColumnsNormalized) {
+                if (!dbCol.normalized || usedDbCols.has(dbCol.original)) continue;
+                
+                let score = 0;
+                if (normalizedCsvHeader === dbCol.normalized) {
+                    score = 100;
+                } else if (dbCol.normalized.includes(normalizedCsvHeader)) {
+                    score = (normalizedCsvHeader.length / dbCol.normalized.length) * 90;
+                } else if (normalizedCsvHeader.includes(dbCol.normalized)) {
+                    score = (dbCol.normalized.length / normalizedCsvHeader.length) * 90;
                 }
-            });
-          }
-        } catch (err: any) {
-          console.error("AI mapping failed, continuing with rule-based mapping.", err);
-          toast({ title: 'Mapeo por IA falló', description: "Continuando con mapeo por reglas.", variant: 'default' });
-        }
-
-        headers.forEach((csvHeader, index) => {
-            if (!finalMap[index]) {
-                const directMatch = schema.columns.find(dbCol => dbCol.toLowerCase() === csvHeader.toLowerCase());
-                if (directMatch) {
-                    finalMap[index] = directMatch;
+    
+                if (score > (bestMatch?.score || 0)) {
+                    const csvHeaderIndex = headers.indexOf(csvHeader);
+                    bestMatch = { score, column: dbCol.original, index: csvHeaderIndex };
                 }
+            }
+            
+            if (bestMatch && bestMatch.score > 50) {
+                finalMap[bestMatch.index] = bestMatch.column;
+                usedDbCols.add(bestMatch.column);
             }
         });
 
         setHeaderMap(finalMap);
         
         if (Object.keys(finalMap).length === 0) {
-            toast({ title: 'Mapeo automático incompleto', description: 'Revisa y completa el mapeo manualmente.', variant: 'default' });
+            toast({ title: 'Mapeo automático no encontró coincidencias', description: 'Por favor, mapea las columnas manualmente.', variant: 'default' });
         } else {
             toast({ title: 'Mapeo automático completado', description: 'Revisa las sugerencias antes de continuar.' });
         }
@@ -400,7 +410,7 @@ export default function CsvUploader() {
                 const parsedCsvVal = parseValueForComparison(dbKey, csvRow[csvIndex]);
                 const parsedDbVal = parseDbValueForComparison(dbKey, dbRow[dbKey]);
                 
-                if (parsedCsvVal !== parsedDbVal) {
+                if (String(parsedCsvVal) !== String(parsedDbVal)) {
                     changes[dbKey] = { from: dbRow[dbKey], to: csvRow[csvIndex] };
                     hasChanges = true;
                 }
@@ -565,7 +575,7 @@ export default function CsvUploader() {
             <Card>
                 <CardHeader>
                     <CardTitle>Paso 2: Revisar Mapeo de Columnas</CardTitle>
-                    <CardDescription>La IA ha sugerido un mapeo. Ajústalo si es necesario y luego confirma para analizar los datos.</CardDescription>
+                    <CardDescription>El sistema ha sugerido un mapeo. Ajústalo si es necesario y luego confirma para analizar los datos.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="border rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
@@ -710,7 +720,7 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
                     {rows.map(({ index, data }) => {
                         const isSelected = selection ? selection.has(index) : false;
                         return (
-                            <TableRow key={index} data-state={isSelected ? "selected" : ""}>
+                            <TableRow key={index} data-state={isSelected ? "selected" : ""} className={cn(isSelected && "bg-green-100/50 dark:bg-green-900/20")}>
                                 {onSelectRow && <TableCell><Checkbox checked={isSelected} onClick={() => onSelectRow(index)} /></TableCell>}
                                 {data.map((cell, cellIndex) => <TableCell key={cellIndex} className="truncate max-w-xs" title={cell}>{cell}</TableCell>)}
                             </TableRow>
@@ -763,18 +773,18 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
                     {rows.map(row => {
                         const isSelected = selection.has(row.index);
                         return (
-                            <TableRow key={row.index} data-state={isSelected ? "selected" : ""}>
+                            <TableRow key={row.index} data-state={isSelected ? "selected" : ""} className={cn(isSelected && "bg-yellow-100/50 dark:bg-yellow-900/20")}>
                                 <TableCell><Checkbox checked={isSelected} onClick={() => onSelectRow(row.index)} /></TableCell>
                                 {allHeaders.map(header => (
                                     <TableCell key={header} className="truncate max-w-[200px]">
                                         {header in row.changes ? (
                                             <span title={`From: ${String(row.changes[header].from)}`}>
-                                                <span className="text-red-500 line-through">{String(row.changes[header].from)}</span>
+                                                <span className="text-red-500 line-through">{String(row.changes[header].from ?? '')}</span>
                                                 {' -> '}
-                                                <span className="text-green-500">{String(row.changes[header].to)}</span>
+                                                <span className="text-green-500">{String(row.changes[header].to ?? '')}</span>
                                             </span>
                                         ) : (
-                                            <span className="text-muted-foreground" title={String(row.db[header])}>{String(row.db[header])}</span>
+                                            <span className="text-muted-foreground" title={String(row.db[header])}>{String(row.db[header] ?? '')}</span>
                                         )}
                                     </TableCell>
                                 ))}
