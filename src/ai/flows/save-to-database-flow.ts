@@ -143,16 +143,9 @@ const saveToDatabaseFlow = ai.defineFlow(
 
     if (error) {
       console.error('❌ Error de Supabase:', error);
-      
-      let userFriendlyMessage = `Error de base de datos: ${error.message}`;
-       // This is a fallback for other RLS issues, but the check above should catch the primary configuration error.
-      if (error.message.includes('row-level security')) {
-          userFriendlyMessage = `Error de Permisos (RLS): La base de datos bloqueó la escritura. Esto puede ocurrir si has cambiado las políticas de seguridad de la tabla '${targetTable}'. Asegúrate de que la llave 'service_role' que estás usando en .env sigue teniendo los permisos necesarios.`;
-      }
-
       return {
         success: false,
-        message: userFriendlyMessage,
+        message: `Error de base de datos: ${error.message}`,
       };
     }
 
