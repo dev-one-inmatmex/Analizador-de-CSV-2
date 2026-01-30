@@ -134,12 +134,11 @@ export default function CsvUploader() {
 
             const cleanCell = (cell: string): string => {
                 let value = cell.trim();
-                if (value.startsWith('="') && value.endsWith('"')) {
-                    value = value.substring(2, value.length - 1);
-                }
-                while (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+                // Remove quotes only if they are at the beginning and end of the string.
+                if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
                     value = value.substring(1, value.length - 1);
                 }
+                // Handle escaped quotes ("") inside the string
                 return value.replace(/""/g, '"');
             };
             
@@ -235,16 +234,18 @@ export default function CsvUploader() {
 
       if (csvPkHeaderIndexStr === undefined) {
           toast({
-            title: 'Clave Primaria Requerida',
-            description: `Para comparar los datos, por favor mapea una columna del CSV a la clave primaria de la tabla: '${dbPk}'.`,
-            variant: 'destructive',
+              title: 'Modo de "Solo Altas"',
+              description: `No se mapeó la clave primaria '${dbPk}'. Todos los registros se tratarán como nuevos.`,
+              variant: 'default',
           });
+          const newRows = csvData.map((data, index) => ({ index, data }));
+          setComparison({ newRows, updatedRows: [], unchangedRows: [] });
+          setCurrentStep('compare');
           setIsLoading(false);
           return;
       }
 
       const csvPkHeaderIndex = parseInt(csvPkHeaderIndexStr, 10);
-      
       const csvPks = csvData.map(row => row[csvPkHeaderIndex]).filter(Boolean);
 
       if (csvPks.length === 0) {
@@ -328,12 +329,13 @@ export default function CsvUploader() {
     });
 
     const dbHeaders = [...new Set(Object.values(cleanHeaderMap))];
+    const isUpsert = !!Object.values(cleanHeaderMap).find(col => col === targetTable.pk);
     
     try {
         const result = await saveToDatabase({
             targetTable: targetTable.dbTable,
             data: { headers: dbHeaders, rows: mappedData.map(row => dbHeaders.map(h => row[h] || '')) },
-            conflictKey: targetTable.pk,
+            conflictKey: isUpsert ? targetTable.pk : undefined,
         });
 
         if (result.success) {
