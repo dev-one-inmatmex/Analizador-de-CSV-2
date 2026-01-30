@@ -18,6 +18,7 @@ import {
 const prompt = ai.definePrompt({
   name: 'mapHeadersPrompt',
   input: { schema: MapHeadersInputSchema },
+  model: 'googleai/gemini-pro',
 
   config: {
     responseMimeType: 'application/json',

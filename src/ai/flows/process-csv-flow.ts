@@ -13,6 +13,7 @@ const prompt = ai.definePrompt({
     name: 'processCsvPrompt',
     input: { schema: ProcessCsvDataInputSchema },
     output: { schema: ProcessCsvDataOutputSchema },
+    model: 'googleai/gemini-pro',
     config: {
         responseMimeType: "application/json",
     },
