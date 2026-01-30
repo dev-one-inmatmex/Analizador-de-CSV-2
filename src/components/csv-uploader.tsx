@@ -118,12 +118,6 @@ export default function CsvUploader() {
     setHeaderMap({});
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      processFile(event.target.files[0]);
-    }
-  };
-
   const processFile = (file: File) => {
     resetAll();
     setFile(file);
@@ -132,7 +126,7 @@ export default function CsvUploader() {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       
-      // Regex to split CSV row, handling quoted fields
+      // Regex to split CSV row, handling quoted fields.
       const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
 
       const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -144,11 +138,19 @@ export default function CsvUploader() {
       const headerRow = lines[0];
       const dataRows = lines.slice(1);
 
-      const csvHeaders = headerRow.split(re).map(h => h.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
-      
-      const parsedData = dataRows.map(row => {
-          return row.split(re).map(cell => cell.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
-      });
+      const cleanCell = (cell: string): string => {
+        let value = cell.trim();
+        // Repeatedly remove surrounding quotes
+        while (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+            value = value.substring(1, value.length - 1);
+        }
+        // Handle escaped quotes inside the string (e.g., "a""b")
+        value = value.replace(/""/g, '"');
+        return value;
+      };
+
+      const csvHeaders = headerRow.split(re).map(cleanCell);
+      const parsedData = dataRows.map(row => row.split(re).map(cleanCell));
 
       setHeaders(csvHeaders);
       setCsvData(parsedData);
@@ -157,6 +159,12 @@ export default function CsvUploader() {
     reader.readAsText(file, 'latin1'); // Use 'latin1' to avoid issues with special characters
   };
   
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      processFile(event.target.files[0]);
+    }
+  };
+
   const handleTableSelectAndInitiateMapping = async (tableName: string) => {
     if (!tableName) {
         resetAll(true); // Keep file but reset steps
