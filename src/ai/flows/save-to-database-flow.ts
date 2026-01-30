@@ -84,6 +84,13 @@ const saveToDatabaseFlow = ai.defineFlow(
         };
     }
 
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY === process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        return {
+            success: false,
+            message: 'Error de configuración: La llave de administrador (SUPABASE_SERVICE_ROLE_KEY) es igual a la llave pública (NEXT_PUBLIC_SUPABASE_ANON_KEY). Debes usar la llave "service_role" para poder escribir en la base de datos.'
+        };
+    }
+
     if (!data.headers || !data.rows) {
       return {
         success: false,
