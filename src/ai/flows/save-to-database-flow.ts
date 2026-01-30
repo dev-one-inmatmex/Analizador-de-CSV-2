@@ -124,9 +124,15 @@ const saveToDatabaseFlow = ai.defineFlow(
 
     if (error) {
       console.error('❌ Error de Supabase:', error);
+      
+      let userFriendlyMessage = `Error de base de datos: ${error.message}`;
+      if (error.message.includes('row-level security policy')) {
+          userFriendlyMessage = 'Error de Permisos: La base de datos denegó la operación. Esto usualmente significa que la "SUPABASE_SERVICE_ROLE_KEY" en tu archivo .env es incorrecta o está ausente. Asegúrate de que sea la llave "service_role" correcta y reinicia el servidor.';
+      }
+
       return {
         success: false,
-        message: `Error de base de datos: ${error.message}`,
+        message: userFriendlyMessage,
       };
     }
 

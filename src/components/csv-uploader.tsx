@@ -126,40 +126,27 @@ export default function CsvUploader() {
         reader.onload = (e) => {
             const text = e.target?.result as string;
             
-            // Regex to split CSV row, handling quoted fields.
-            const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-
             const lines = text.split(/\r\n|\n/).map(l => l.trim()).filter(Boolean);
             if (lines.length < 2) {
                 toast({ title: 'Archivo CSV inválido', description: 'El archivo debe contener al menos una fila de cabeceras y una de datos.', variant: 'destructive' });
                 return;
             }
 
-            const headerRow = lines[0];
-            const dataRows = lines.slice(1);
-            
             const cleanCell = (cell: string): string => {
                 let value = cell.trim();
-                
-                // First, check for and strip Excel's `= "..."` wrapper.
                 if (value.startsWith('="') && value.endsWith('"')) {
                     value = value.substring(2, value.length - 1);
                 }
-                
-                // Then, repeatedly remove any surrounding quotes.
-                // This correctly handles `"""123"""` by turning it into `123`.
                 while (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
                     value = value.substring(1, value.length - 1);
                 }
-                
-                // Finally, replace any escaped double quotes `""` with a single one `"`.
-                value = value.replace(/""/g, '"');
-                
-                return value;
+                return value.replace(/""/g, '"');
             };
+            
+            const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
 
-            const csvHeaders = headerRow.split(re).map(cleanCell);
-            const parsedData = dataRows.map(row => row.split(re).map(cleanCell));
+            const csvHeaders = lines[0].split(re).map(cleanCell);
+            const parsedData = lines.slice(1).map(row => row.split(re).map(cleanCell));
 
             setHeaders(csvHeaders);
             setCsvData(parsedData);
@@ -248,12 +235,10 @@ export default function CsvUploader() {
 
       if (csvPkHeaderIndexStr === undefined) {
           toast({
-            title: 'Análisis sin Clave Primaria',
-            description: "No se mapeó una clave primaria. Todos los registros se tratarán como nuevos.",
+            title: 'Clave Primaria Requerida',
+            description: `Para comparar los datos, por favor mapea una columna del CSV a la clave primaria de la tabla: '${dbPk}'.`,
+            variant: 'destructive',
           });
-          const newRows = csvData.map((data, index) => ({ index, data }));
-          setComparison({ newRows, updatedRows: [], unchangedRows: [] });
-          setCurrentStep('compare');
           setIsLoading(false);
           return;
       }
