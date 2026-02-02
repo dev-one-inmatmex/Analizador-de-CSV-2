@@ -88,7 +88,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     if (!supabase) {
         return { 
             success: false, 
-            message: `Error de Configuración: No se ha configurado la conexión a la base de datos. Asegúrate de que las variables NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY estén definidas en tu archivo .env.`
+            message: `Error de Configuración: La conexión a la base de datos no está disponible. Asegúrate de que las variables de entorno NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY estén correctamente definidas en tu archivo .env.`
         };
     }
 
@@ -133,7 +133,7 @@ const saveToDatabaseFlow = ai.defineFlow(
       } else if (error.message.includes('ON CONFLICT') && conflictKey) {
         friendlyMessage = `Error de Actualización (Upsert): La columna '${conflictKey}' que se usa para identificar actualizaciones no tiene una restricción 'UNIQUE' en la base de datos.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Table Editor.\n2. Selecciona la tabla '${targetTable}'.\n3. Haz clic en el ícono de engranaje al lado del nombre de la columna '${conflictKey}' y selecciona 'Edit column'.\n4. En la sección 'Advanced', activa la opción 'is Unique' y guarda los cambios.`;
       } else if (error.code === '42501' || error.message.includes('row-level security')) {
-        friendlyMessage = `Error de Permisos (RLS): La base de datos bloqueó la escritura. Para permitir que la aplicación guarde datos, debes crear una política de seguridad (RLS) en tu tabla '${targetTable}' en Supabase.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Authentication > Policies.\n2. Selecciona la tabla '${targetTable}' y haz clic en "New Policy".\n3. Elige la opción "Enable insert/update access for all users" como plantilla y guárdala.`;
+        friendlyMessage = `Error de Permisos (RLS): La base de datos está protegiendo tus datos y ha bloqueado la escritura. Esto es una medida de seguridad de Supabase, no un error en el código de la aplicación.\n\nSOLUCIÓN: Para conceder permiso a la aplicación, necesitas crear una 'Política de Seguridad (RLS)' en tu panel de Supabase.\n1. Ve a 'Authentication' > 'Policies'.\n2. Selecciona la tabla '${targetTable}' y haz clic en 'New Policy'.\n3. Elige la plantilla "Enable insert/update access for all users" y guárdala.`;
       }
       
       return { success: false, message: friendlyMessage };
