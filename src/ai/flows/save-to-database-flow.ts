@@ -118,7 +118,9 @@ const saveToDatabaseFlow = ai.defineFlow(
       console.error('❌ Error de Supabase:', error);
       let friendlyMessage = `Error de base de datos: ${error.message}`;
 
-      if (error.code === '42501' || error.message.includes('row-level security')) {
+      if (error.message.includes('ON CONFLICT') && conflictKey) {
+        friendlyMessage = `Error de Actualización (Upsert): La columna '${conflictKey}' que se usa para identificar actualizaciones no tiene una restricción 'UNIQUE' en la base de datos.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Table Editor.\n2. Selecciona la tabla '${targetTable}'.\n3. Haz clic en el ícono de engranaje al lado del nombre de la columna '${conflictKey}' y selecciona 'Edit column'.\n4. En la sección 'Advanced', activa la opción 'is Unique' y guarda los cambios.`;
+      } else if (error.code === '42501' || error.message.includes('row-level security')) {
         friendlyMessage = `Error de Permisos (RLS): La base de datos bloqueó la escritura. Para permitir que la aplicación guarde datos, debes crear una política de seguridad (RLS) en tu tabla '${targetTable}' en Supabase.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Authentication > Policies.\n2. Selecciona la tabla '${targetTable}' y haz clic en "New Policy".\n3. Elige la opción "Enable insert/update access for all users" como plantilla y guárdala.`;
       }
       
