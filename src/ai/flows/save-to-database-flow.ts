@@ -106,8 +106,8 @@ const saveToDatabaseFlow = ai.defineFlow(
     const query = supabase.from(targetTable);
     const { error, count } = await (
       conflictKey
-      ? query.upsert(objects, { onConflict: conflictKey }).select('*', { count: 'exact', head: false })
-      : query.insert(objects).select('*', { count: 'exact', head: false })
+      ? query.upsert(objects, { onConflict: conflictKey, count: 'exact' })
+      : query.insert(objects, { count: 'exact' })
     );
 
 
