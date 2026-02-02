@@ -183,11 +183,11 @@ export default function VentasPage() {
                 <TableCell>{money(v.total)}</TableCell>
                 <TableCell>{v.venta_publicidad ? 'Sí' : 'No'}</TableCell>
                 <TableCell>{v.sku ?? '—'}</TableCell>
-                <TableCell>{v.numero_publicacion ?? '—'}</TableCell>
-                <TableCell>{v.tienda_oficial ?? '—'}</TableCell>
-                <TableCell>{v.titulo_publicacion ?? '—'}</TableCell>
+                <TableCell>{v.item_id ?? '—'}</TableCell>
+                <TableCell>{v.company ?? '—'}</TableCell>
+                <TableCell>{v.title ?? '—'}</TableCell>
                 <TableCell>{v.variante ?? '—'}</TableCell>
-                <TableCell>{money(v.precio_unitario)}</TableCell>
+                <TableCell>{money(v.price)}</TableCell>
                 <TableCell>{v.tipo_publicacion ?? '—'}</TableCell>
                 <TableCell>{v.factura_adjunta ?? '—'}</TableCell>
                 <TableCell>{v.datos_personales_empresa ?? '—'}</TableCell>

@@ -63,7 +63,7 @@ export default function ProductsPage() {
           supabase.from('publicaciones').select('*'),
           supabase.from('publicaciones_por_sku').select('*').order('publicaciones', { ascending: false }),
           supabase.from('skuxpublicaciones').select('*').limit(50),
-          supabase.from('catalogo_madre').select('*').order('nombre_madre', { ascending: true })
+          supabase.from('catalogo_madre').select('*').order('category', { ascending: true })
         ]);
 
         if (pubsRes.error) throw pubsRes.error;
@@ -175,133 +175,147 @@ export default function ProductsPage() {
                 </div>
             </div>
         ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            <div className="space-y-8">
-                {/* ============== PUBLICACIONES ============== */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Publicaciones Recientes</CardTitle>
-                        <CardDescription>Últimas 20 publicaciones añadidas.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Item ID</TableHead>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead>Título</TableHead>
-                                    <TableHead className="text-right">Precio</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {publications.map((pub) => (
-                                <TableRow key={pub.item_id}>
-                                    <TableCell className="font-mono text-primary">{pub.item_id}</TableCell>
-                                    <TableCell className="font-mono">{pub.sku}</TableCell>
-                                    <TableCell className="font-medium max-w-xs truncate" title={pub.title || ''}>{pub.title}</TableCell>
-                                    <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price)}</TableCell>
-                                    <TableCell className="text-center"><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell>
-                                </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+        <div className="space-y-8">
+            {/* ============== PUBLICACIONES ============== */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Publicaciones Recientes</CardTitle>
+                    <CardDescription>Últimas 20 publicaciones añadidas.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>ITEM_ID</TableHead>
+                                <TableHead>PRODUCT_NUMBER</TableHead>
+                                <TableHead>VARIATION_ID</TableHead>
+                                <TableHead>TITLE</TableHead>
+                                <TableHead>STATUS</TableHead>
+                                <TableHead>CATEGORY</TableHead>
+                                <TableHead className="text-right">PRICE</TableHead>
+                                <TableHead>COMPANY</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {publications.map((pub) => (
+                            <TableRow key={pub.id}>
+                                <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
+                                <TableCell className="font-mono">{pub.item_id}</TableCell>
+                                <TableCell className="font-mono">{pub.product_number ?? 'N/A'}</TableCell>
+                                <TableCell className="font-mono">{pub.variation_id ?? 'N/A'}</TableCell>
+                                <TableCell className="max-w-sm" title={pub.title ?? undefined}>{pub.title}</TableCell>
+                                <TableCell>
+                                    <Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge>
+                                </TableCell>
+                                <TableCell>{pub.category}</TableCell>
+                                <TableCell className="text-right font-semibold">
+                                    {new Intl.NumberFormat('es-MX', {
+                                    style: 'currency',
+                                    currency: 'MXN',
+                                    }).format(pub.price)}
+                                </TableCell>
+                                <TableCell>{pub.company}</TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
-                 {/* ============== SKU A PUBLICACION ============== */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Mapeo SKU a Producto Madre</CardTitle>
-                        <CardDescription>Relación entre SKUs, publicaciones y el producto principal.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead>ID Publicación</TableHead>
-                                    <TableHead>Producto Madre</TableHead>
-                                    <TableHead>Compañía (Pub.)</TableHead>
-                                    <TableHead>Categoría (Pub.)</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                            {skuMap.map((item, index) => (
-                                <TableRow key={`${item.sku}-${item.publicacion_id}-${index}`}>
-                                    <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell className="font-mono text-muted-foreground">{item.publicacion_id}</TableCell>
-                                    <TableCell className="font-medium text-primary">{item.nombre_madre}</TableCell>
-                                    <TableCell>{item.company}</TableCell>
-                                    <TableCell>{item.category}</TableCell>
-                                </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </div>
-            <div className="space-y-8">
-                 {/* ============== CONTEO SKU ============== */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Conteo de Publicaciones por SKU</CardTitle>
-                        <CardDescription>SKUs ordenados por la cantidad de publicaciones que tienen.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead>Título (Ejemplo)</TableHead>
-                                    <TableHead className="text-right"># de Publicaciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {skuCounts.map((item, index) => (
-                                <TableRow key={`${item.sku}-${index}`}>
-                                    <TableCell className="font-mono text-primary">{item.sku}</TableCell>
-                                    <TableCell className="font-medium text-muted-foreground max-w-xs truncate" title={item.publication_title || ''}>{item.publication_title}</TableCell>
-                                    <TableCell className="font-medium text-right">{item.publicaciones}</TableCell>
-                                </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+            {/* ============== CONTEO SKU ============== */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Conteo de Publicaciones por SKU</CardTitle>
+                    <CardDescription>SKUs ordenados por la cantidad de publicaciones que tienen.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>Título (Ejemplo)</TableHead>
+                                <TableHead className="text-right"># de Publicaciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {skuCounts.map((item, index) => (
+                            <TableRow key={`${item.sku}-${index}`}>
+                                <TableCell className="font-mono text-primary">{item.sku}</TableCell>
+                                <TableCell>{item.publication_title}</TableCell>
+                                <TableCell className="font-medium text-right">{item.publicaciones}</TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            
+            {/* ============== SKU A PUBLICACION ============== */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Mapeo SKU a Producto Madre</CardTitle>
+                    <CardDescription>Relación entre SKUs, publicaciones y el producto principal.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>ID Publicación</TableHead>
+                                <TableHead>Producto Madre</TableHead>
+                                <TableHead>Compañía (Pub.)</TableHead>
+                                <TableHead>Categoría (Pub.)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {skuMap.map((item, index) => (
+                            <TableRow key={`${item.sku}-${item.publicacion_id}-${index}`}>
+                                <TableCell className="font-mono">{item.sku}</TableCell>
+                                <TableCell className="font-mono text-muted-foreground">{item.publicacion_id}</TableCell>
+                                <TableCell className="font-medium text-primary">{item.nombre_madre}</TableCell>
+                                <TableCell>{item.company}</TableCell>
+                                <TableCell>{item.category}</TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
-                 {/* ============== CATALOGO MADRE ============== */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Catálogo de Productos Madre</CardTitle>
-                        <CardDescription>Listado maestro de los productos principales y su compañía.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead>Título Publicación</TableHead>
-                                    <TableHead>Categoría (Pub.)</TableHead>
-                                    <TableHead>Compañía</TableHead>
-                                    <TableHead className="text-right">Precio (Ejemplo)</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {motherCatalog.map((item, index) => (
-                                <TableRow key={`${item.sku}-${index}`}>
-                                    <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell className="font-medium text-primary">{item.publication_title || item.category}</TableCell>
-                                    <TableCell>{item.category || 'N/A'}</TableCell>
-                                    <TableCell>{item.company}</TableCell>
-                                    <TableCell className="text-right font-medium">{item.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price) : 'N/A'}</TableCell>
-                                </TableRow>
-                                ))};
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* ============== CATALOGO MADRE ============== */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Catálogo de Productos Madre</CardTitle>
+                    <CardDescription>Listado maestro de los productos principales y su compañía.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>Producto Madre</TableHead>
+                                <TableHead>Título Publicación</TableHead>
+                                <TableHead>Categoría (Pub.)</TableHead>
+                                <TableHead>Compañía</TableHead>
+                                <TableHead className="text-right">Precio (Ejemplo)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {motherCatalog.map((item, index) => (
+                            <TableRow key={`${item.sku}-${index}`}>
+                                <TableCell className="font-mono">{item.sku}</TableCell>
+                                <TableCell className="font-medium">{item.nombre_madre}</TableCell>
+                                <TableCell className="font-medium text-primary">{item.publication_title}</TableCell>
+                                <TableCell>{item.category || 'N/A'}</TableCell>
+                                <TableCell>{item.company}</TableCell>
+                                <TableCell className="text-right font-medium">{item.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price) : 'N/A'}</TableCell>
+                            </TableRow>
+                            ))};
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
         )}
       </main>
