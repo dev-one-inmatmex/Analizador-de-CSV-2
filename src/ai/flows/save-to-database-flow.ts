@@ -5,7 +5,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod'; // Usamos Zod directamente ya que Genkit no es estrictamente necesario aquí
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
 import { supabaseAdmin } from '@/lib/supabaseClient'; // Use the admin client for writes
 
@@ -13,8 +13,6 @@ const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
   data: TableDataSchema.describe('Los datos de la tabla para guardar.'),
   conflictKey: z.string().optional().describe('La columna a usar para resolver conflictos en un upsert.'),
-  newCount: z.number().describe('El número de registros nuevos a insertar.'),
-  updateCount: z.number().describe('El número de registros a actualizar.'),
 });
 type SaveToDatabaseInput = z.infer<typeof SaveToDatabaseInputSchema>;
 
@@ -35,7 +33,7 @@ function parseValue(key: string, value: string): any {
       'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 
       'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 
       'precio_unitario', 'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
-      'landed_cost', 'piezas_por_sku', 'tiempo_produccion'
+      'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra'
     ];
   
     const booleanFields = [
@@ -52,12 +50,12 @@ function parseValue(key: string, value: string): any {
     }
   
     // Keep text-based IDs as strings
-    if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id') {
+    if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id' || key === 'publicacion_id') {
       return value.trim();
     }
     
     if (numericFields.includes(key)) {
-      const num = parseFloat(value.replace(',', '.')); // Handle decimal commas
+      const num = parseFloat(value.replace(/,/g, '.').replace(/[^0-9.-]/g, ''));
       return isNaN(num) ? null : num;
     }
   
@@ -84,7 +82,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     inputSchema: SaveToDatabaseInputSchema,
     outputSchema: SaveToDatabaseOutputSchema,
   },
-  async ({ targetTable, data, conflictKey, newCount, updateCount }) => {
+  async ({ targetTable, data, conflictKey }) => {
     
     if (!supabaseAdmin) {
         return {
@@ -105,10 +103,16 @@ const saveToDatabaseFlow = ai.defineFlow(
         }
       });
       return obj;
+    }).filter(obj => {
+        // Filter out objects where the conflict key is null or undefined
+        if(conflictKey) {
+            return obj[conflictKey] !== null && obj[conflictKey] !== undefined && String(obj[conflictKey]).trim() !== '';
+        }
+        return true;
     });
 
     if (objects.length === 0) {
-      return { success: false, message: 'No hay filas de datos para guardar.' };
+      return { success: true, message: 'No hay filas válidas para guardar en este bloque.', processedCount: 0 };
     }
 
     const query = supabaseAdmin.from(targetTable);
@@ -140,22 +144,10 @@ const saveToDatabaseFlow = ai.defineFlow(
       
       return { success: false, message: friendlyMessage };
     }
-    
-    const now = new Date();
-    const formattedDate = `${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
-    
-    const messages = [];
-    if (newCount > 0) messages.push(`${newCount} registro${newCount > 1 ? 's' : ''} nuevo${newCount > 1 ? 's' : ''}`);
-    if (updateCount > 0) messages.push(`${updateCount} registro${updateCount > 1 ? 's' : ''} actualizado${updateCount > 1 ? 's' : ''}`);
-
-    let summary = messages.join(' y ');
-    if (summary) {
-        summary = `Resumen: ${summary.charAt(0).toUpperCase() + summary.slice(1)}.`;
-    }
 
     return {
       success: true,
-      message: `Sincronización completada el ${formattedDate}. ${summary}`,
+      message: `Bloque procesado.`,
       processedCount: objects.length,
     };
   }
