@@ -134,7 +134,12 @@ const saveToDatabaseFlow = ai.defineFlow(
         const constraintName = error.message.match(/"([^"]+)"/)?.[1] || 'desconocida';
         const columnNameMatch = constraintName.match(/_([^_]+)_key$/);
         const columnName = columnNameMatch ? columnNameMatch[1] : constraintName.replace(`${targetTable}_`, '').replace('_key', '');
-        friendlyMessage = `Error de Valor Duplicado: La columna '${columnName}' requiere un valor único, pero se encontró un duplicado al intentar guardar los datos. Por favor, revisa tu archivo CSV y los datos existentes en la tabla para resolver el conflicto.`;
+        
+        if (conflictKey) { // This means we were doing an UPSERT (update)
+            friendlyMessage = `Conflicto de Duplicado al Actualizar: No se pudo actualizar un registro porque el valor para la columna '${columnName}' ya existe en otra fila. Las columnas con restricción 'UNIQUE' no pueden tener valores repetidos en la tabla.`;
+        } else { // This means we were doing an INSERT
+            friendlyMessage = `Conflicto de Duplicado al Insertar: La columna '${columnName}' requiere un valor único, pero se intentó guardar un valor que ya existe. Por favor, revisa tu archivo CSV para encontrar el duplicado.`;
+        }
       } else if (error.message.includes('violates not-null constraint')) {
         const columnName = error.message.match(/column "([^"]+)"/)?.[1];
         friendlyMessage = `Error de Valor Nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía. Por favor, asegúrate de que todos los registros en tu archivo CSV tengan un valor para esta columna antes de sincronizar.`;
