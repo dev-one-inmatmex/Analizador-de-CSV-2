@@ -6,8 +6,6 @@ import type { publicaciones } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import {
   Table,
   TableBody,
