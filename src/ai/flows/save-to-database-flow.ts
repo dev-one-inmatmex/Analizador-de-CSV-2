@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabase } from '@/lib/supabaseClient'; // Use the public client
+import { supabaseAdmin } from '@/lib/supabaseClient'; // Use the admin client for writes
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -52,7 +52,7 @@ function parseValue(key: string, value: string): any {
     }
   
     // Keep text-based IDs as strings
-    if (key === 'id' || key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id') {
+    if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id') {
       return value.trim();
     }
     
@@ -86,6 +86,13 @@ const saveToDatabaseFlow = ai.defineFlow(
   },
   async ({ targetTable, data, conflictKey, newCount, updateCount }) => {
     
+    if (!supabaseAdmin) {
+        return {
+            success: false,
+            message: 'La llave de administrador de Supabase (Service Role Key) no está configurada. Por favor, edita el archivo .env con tu SUPABASE_SERVICE_ROLE_KEY y reinicia el servidor.'
+        };
+    }
+
     if (!data.headers || !data.rows) {
       return { success: false, message: 'Datos de tabla inválidos. Faltan encabezados o filas.' };
     }
@@ -104,11 +111,11 @@ const saveToDatabaseFlow = ai.defineFlow(
       return { success: false, message: 'No hay filas de datos para guardar.' };
     }
 
-    const query = supabase.from(targetTable);
-    const { error, count } = await (
+    const query = supabaseAdmin.from(targetTable);
+    const { error } = await (
       conflictKey
-      ? query.upsert(objects, { onConflict: conflictKey, count: 'exact' })
-      : query.insert(objects, { count: 'exact' })
+      ? query.upsert(objects, { onConflict: conflictKey })
+      : query.insert(objects)
     );
 
 
@@ -134,11 +141,6 @@ const saveToDatabaseFlow = ai.defineFlow(
       return { success: false, message: friendlyMessage };
     }
     
-    if ((count ?? 0) < objects.length) {
-        const warningMessage = `Se esperaba procesar ${objects.length} registros, pero solo se procesaron ${count ?? 0}. Esto puede deberse a que algunos datos no cumplen las restricciones de la tabla (ej. valores únicos, no nulos, o chequeos de validación). Por favor, revisa la configuración de tu tabla '${targetTable}' en Supabase y la calidad de tus datos.`;
-        return { success: false, message: warningMessage, processedCount: count ?? 0 };
-    }
-
     const now = new Date();
     const formattedDate = `${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
     
@@ -154,7 +156,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     return {
       success: true,
       message: `Sincronización completada el ${formattedDate}. ${summary}`,
-      processedCount: count ?? 0,
+      processedCount: objects.length,
     };
   }
 );

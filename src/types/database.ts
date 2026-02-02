@@ -6,7 +6,6 @@ export interface Usuario {
 }
 
 export interface ventas {
-    id?: number;
     numero_venta?: string;
     fecha_venta?: string | null;
     estado?: string | null;
