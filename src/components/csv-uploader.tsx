@@ -24,11 +24,6 @@ type ComparisonResult = {
   updatedRows: { index: number; csv: CsvRow; db: DbRow; changes: Record<string, { from: any; to: any }> }[];
   unchangedRows: { index: number; data: CsvRow }[];
 };
-type TableConfig = {
-  dbTable: string;
-  pk: string;
-  columns: string[];
-};
 type Step = 'upload' | 'mapping' | 'compare';
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -90,7 +85,7 @@ export default function CsvUploader() {
   const cleanHeaderMap = useMemo(() => {
     const cleanMap: Record<number, string> = {};
     for (const key in headerMap) {
-      if (Object.prototype.hasOwnProperty.call(headerMap, key)) {
+      if (Object.prototype.hasOwnProperty.call(headerMap, key) && headerMap[key] && headerMap[key] !== IGNORE_COLUMN_VALUE) {
         cleanMap[parseInt(key, 10)] = headerMap[key];
       }
     }
@@ -142,14 +137,14 @@ export default function CsvUploader() {
         setHeaders(csvHeaders);
         const parsedData = dataRows.map(row => row.map(cell => (cell || '').trim().replace(/"/g, '')));
         setCsvData(parsedData);
-        toast({ title: 'Archivo Procesado', description: `${fileToProcess.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
+        toast({ title: 'Archivo Procesado', description: `${file.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
     };
     reader.readAsText(fileToProcess, 'latin1');
   };
 
   const handleTableSelectAndInitiateMapping = async (tableName: string) => {
     if (!tableName) {
-        resetAll(true);
+        resetAll(true); // Keep file but reset steps
         return;
     }
 
@@ -159,20 +154,19 @@ export default function CsvUploader() {
         setSelectedTableName(tableName);
         const newTargetTable = { dbTable: tableName, pk: schema.pk, columns: schema.columns };
         setTargetTable(newTargetTable);
-        setComparison(null);
-        setHeaderMap({});
         
         toast({ title: 'Tabla Seleccionada', description: `Iniciando mapeo con IA para: ${tableName}` });
 
         try {
           const mappingResult = await mapHeaders({ csvHeaders: headers, dbColumns: schema.columns });
-          
+
           const initialMap: Record<number, string> = {};
-          const appliedHeaders = new Set<string>();
+          const usedDbColumns = new Set<string>();
           headers.forEach((header, index) => {
-            if (mappingResult.headerMap[header] && !appliedHeaders.has(mappingResult.headerMap[header])) {
-              initialMap[index] = mappingResult.headerMap[header];
-              appliedHeaders.add(mappingResult.headerMap[header]);
+            const suggestedDbColumn = mappingResult.headerMap[header];
+            if (suggestedDbColumn && !usedDbColumns.has(suggestedDbColumn)) {
+              initialMap[index] = suggestedDbColumn;
+              usedDbColumns.add(suggestedDbColumn);
             }
           });
           setHeaderMap(initialMap);
@@ -242,7 +236,7 @@ export default function CsvUploader() {
         setIsLoading(false);
         return;
       }
-
+      
       if (!supabase) throw new Error("Cliente de Supabase no disponible");
 
       const { data: dbData, error } = await supabase.from(targetTable.dbTable).select('*').in(dbPk, csvPks);
@@ -258,7 +252,7 @@ export default function CsvUploader() {
         const pkValue = String(csvRow[csvPkHeaderIndex]);
         const dbRow = dbMap.get(pkValue);
 
-        if (!dbRow) {
+        if (!pkValue || !dbRow) {
           newRows.push({ index, data: csvRow });
         } else {
           const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
@@ -286,7 +280,8 @@ export default function CsvUploader() {
       setCurrentStep('compare');
 
     } catch (err: any) {
-      toast({ title: 'Error de Comparación', description: `No se pudo conectar a la base de datos: ${err.message}`, variant: 'destructive' });
+      console.error(err);
+      toast({ title: 'Error de Comparación', description: `No se pudo comparar con la base de datos. Revisa la conexión, la configuración de la tabla y que la clave primaria mapeada sea correcta. Error: ${err.message}`, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -297,9 +292,10 @@ export default function CsvUploader() {
         toast({ title: 'Nada que Sincronizar', description: 'Por favor, selecciona registros para añadir o actualizar.', variant: 'destructive'});
         return;
     }
-
+    
     setIsSyncing(true);
     const dataToSync: CsvRow[] = [];
+
     selectedNew.forEach(index => dataToSync.push(csvData[index]));
     selectedUpdates.forEach(index => dataToSync.push(csvData[index]));
 
@@ -327,7 +323,7 @@ export default function CsvUploader() {
             toast({ title: 'Sincronización Exitosa', description: result.message });
             setSelectedNew(new Set());
             setSelectedUpdates(new Set());
-            await handleConfirmMappingAndCompare();
+            await handleConfirmMappingAndCompare(); // Re-run comparison
         } else {
             throw new Error(result.message);
         }
@@ -406,17 +402,7 @@ export default function CsvUploader() {
             )}
             </CardContent>
         </Card>
-        
-        {isLoading && (
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="flex flex-col items-center justify-center h-40 gap-2">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        <p className="text-muted-foreground">Procesando...</p>
-                    </div>
-                </CardContent>
-            </Card>
-        )}
+
         {currentStep === 'mapping' && !isLoading && targetTable && (
             <Card>
                 <CardHeader>
@@ -427,7 +413,7 @@ export default function CsvUploader() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
                         {headers.map((csvHeader, i) => (
                             <div key={`${csvHeader}-${i}`} className="grid grid-cols-2 items-center gap-2">
-                                <label className="text-sm font-medium text-right truncate" title={csvHeader}>{csvHeader}</label>
+                                <label className="text-sm font-medium text-right truncate">{csvHeader}</label>
                                 <Select
                                     value={headerMap[i] || IGNORE_COLUMN_VALUE}
                                     onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
@@ -516,7 +502,7 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros en esta categoría.</p>;
 
     const isAllSelected = selection ? rows.length > 0 && rows.every(r => selection.has(r.index)) : false;
-
+    
     const handleSelectAll = () => {
         if (!onSelectRow || !selection) return;
         if (isAllSelected) {
@@ -525,7 +511,7 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
             rows.forEach(r => !selection.has(r.index) && onSelectRow(r.index));
         }
     };
-
+    
     return (
         <div className="relative border rounded-lg max-h-96 overflow-auto">
             <Table>
@@ -536,7 +522,7 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
                                <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                            </TableHead>
                         )}
-                        {headers.map((h, i) => <TableHead key={i} className={cn(i === pkIndex && "font-bold text-primary")}>{h}</TableHead>)}
+                        {headers.map((h, i) => <TableHead key={`${h}-${i}`} className={cn(i === pkIndex && "font-bold text-primary")}>{h}</TableHead>)}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -579,7 +565,7 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
             rows.forEach(r => !selection.has(r.index) && onSelectRow(r.index));
         }
     };
-
+    
     return (
         <div className="relative border rounded-lg max-h-96 overflow-auto">
             <Table>
