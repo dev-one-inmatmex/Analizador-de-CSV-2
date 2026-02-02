@@ -21,6 +21,7 @@ type SaveToDatabaseInput = z.infer<typeof SaveToDatabaseInputSchema>;
 const SaveToDatabaseOutputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
+  processedCount: z.number().optional(),
 });
 type SaveToDatabaseOutput = z.infer<typeof SaveToDatabaseOutputSchema>;
 
@@ -88,10 +89,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     }
 
     if (!data.headers || !data.rows) {
-      return {
-        success: false,
-        message: 'Datos de tabla inválidos. Faltan encabezados o filas.',
-      };
+      return { success: false, message: 'Datos de tabla inválidos. Faltan encabezados o filas.' };
     }
 
     const objects = data.rows.map((row) => {
@@ -105,18 +103,16 @@ const saveToDatabaseFlow = ai.defineFlow(
     });
 
     if (objects.length === 0) {
-      return {
-        success: false,
-        message: 'No hay filas de datos para guardar.',
-      };
+      return { success: false, message: 'No hay filas de datos para guardar.' };
     }
 
     const query = supabaseAdmin.from(targetTable);
-    const { error } = await (
+    const { error, count } = await (
       conflictKey
-      ? query.upsert(objects, { onConflict: conflictKey })
-      : query.insert(objects)
+      ? query.upsert(objects, { onConflict: conflictKey }).select('*', { count: 'exact', head: false })
+      : query.insert(objects).select('*', { count: 'exact', head: false })
     );
+
 
     if (error) {
       console.error('❌ Error de Supabase:', error);
@@ -126,10 +122,12 @@ const saveToDatabaseFlow = ai.defineFlow(
         friendlyMessage = `Error de Permisos (RLS): La base de datos bloqueó la escritura. Esto usualmente significa que la SUPABASE_SERVICE_ROLE_KEY en tu archivo .env es incorrecta o no tiene los permisos necesarios.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Project Settings > API.\n2. En la sección "Project API keys", copia la llave "service_role" (es secreta).\n3. Pégala en tu archivo .env como SUPABASE_SERVICE_ROLE_KEY.\n4. Reinicia el servidor para aplicar los cambios.`;
       }
       
-      return {
-        success: false,
-        message: friendlyMessage,
-      };
+      return { success: false, message: friendlyMessage };
+    }
+    
+    if ((count ?? 0) < objects.length) {
+        const warningMessage = `Se esperaba procesar ${objects.length} registros, pero solo se procesaron ${count ?? 0}. Esto puede deberse a políticas de seguridad a nivel de fila (RLS) que impiden la escritura, o a que los datos no cumplen las restricciones de la tabla (ej. valores únicos, no nulos). Por favor, revisa la configuración de tu tabla '${targetTable}' en Supabase y los permisos de tu 'service_role' key.`;
+        return { success: false, message: warningMessage, processedCount: count ?? 0 };
     }
 
     const now = new Date();
@@ -147,6 +145,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     return {
       success: true,
       message: `Sincronización completada el ${formattedDate}. ${summary}`,
+      processedCount: count ?? 0,
     };
   }
 );

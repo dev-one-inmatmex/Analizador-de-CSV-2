@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 
 // Types
 type CsvRow = string[];
@@ -118,7 +119,8 @@ function parseValueForComparison(key: string, value: string): any {
     if (dateFields.includes(key)) {
       const date = new Date(trimmedValue);
       if (!isNaN(date.getTime()) && trimmedValue.length > 4) {
-          return date.toISOString();
+          // Compare just the date part for date fields, not time, to avoid timezone issues
+          return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
       }
     }
   
@@ -134,7 +136,21 @@ function parseDbValueForComparison(key: string, value: any): any {
 
     if (dateFields.includes(key) && value) {
       const date = new Date(value);
-      return isNaN(date.getTime()) ? value : date.toISOString();
+       if (!isNaN(date.getTime())) {
+          return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+       }
+    }
+    
+    const numericFields = [
+      'id', 'costo', 'tiempo_preparacion', 'producto_madre_id',
+      'numero_venta', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
+      'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
+      'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
+      'dinero_a_favor', 'unidades_reclamo', 'price',
+    ];
+    if (numericFields.includes(key) && typeof value === 'string') {
+        const num = parseFloat(value.replace(',', '.'));
+        return isNaN(num) ? value : num;
     }
     
     return value;
@@ -155,6 +171,8 @@ export default function CsvUploader() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncMessage, setSyncMessage] = useState('');
 
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [selectedNew, setSelectedNew] = useState<Set<number>>(new Set());
@@ -189,40 +207,35 @@ export default function CsvUploader() {
   };
 
   const parseCsv = (text: string): { headers: string[], data: CsvRow[] } => {
-    const lines = text.split(/\r\n|\n/).filter(Boolean);
+    const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
     if (lines.length < 1) return { headers: [], data: [] };
 
-    const firstLine = lines[0];
     let delimiter = ',';
-    if (firstLine.split(';').length > firstLine.split(',').length) delimiter = ';';
-    else if (firstLine.split('\t').length > firstLine.split(',').length) delimiter = '\t';
+    if (lines[0].split(';').length > lines[0].split(',').length) delimiter = ';';
+    else if (lines[0].split('\t').length > lines[0].split(',').length) delimiter = '\t';
     
-    const parseRow = (row: string): string[] => {
-        const result: string[] = [];
-        let currentField = '';
+    const parseRow = (rowStr: string): string[] => {
+        const result = [];
+        let field = '';
         let inQuotes = false;
-        
-        for (let i = 0; i < row.length; i++) {
-            const char = row[i];
-            
-            if (char === '"') {
-                if (inQuotes && row[i+1] === '"') {
-                    currentField += '"';
-                    i++;
-                } else {
-                    inQuotes = !inQuotes;
-                }
+        for (let i = 0; i < rowStr.length; i++) {
+            const char = rowStr[i];
+            if (char === '"' && inQuotes && i + 1 < rowStr.length && rowStr[i + 1] === '"') {
+                field += '"';
+                i++;
+            } else if (char === '"') {
+                inQuotes = !inQuotes;
             } else if (char === delimiter && !inQuotes) {
-                result.push(currentField);
-                currentField = '';
+                result.push(field);
+                field = '';
             } else {
-                currentField += char;
+                field += char;
             }
         }
-        result.push(currentField);
-        return result.map(field => field.trim());
+        result.push(field);
+        return result;
     };
-
+    
     const csvHeaders = parseRow(lines[0]);
     const parsedData = lines.slice(1).map(line => parseRow(line));
 
@@ -278,21 +291,20 @@ export default function CsvUploader() {
         setComparison(null);
         setHeaderMap({});
         
-        toast({ title: 'Tabla Seleccionada', description: `Mapeando columnas para: ${tableName}` });
+        toast({ title: 'Tabla Seleccionada', description: `Iniciando mapeo para: ${tableName}` });
 
         const finalMap: Record<number, string> = {};
         const usedDbCols = new Set<string>();
 
-        // Helper to normalize strings for comparison
         const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
     
         const dbColumnsNormalized = schema.columns.map(col => ({ original: col, normalized: normalize(col) }));
     
-        headers.forEach((csvHeader) => {
+        headers.forEach((csvHeader, csvIndex) => {
             const normalizedCsvHeader = normalize(csvHeader);
             if (!normalizedCsvHeader) return;
     
-            let bestMatch: { score: number, column: string, index: number } | null = null;
+            let bestMatch: { score: number, column: string } | null = null;
     
             for (const dbCol of dbColumnsNormalized) {
                 if (!dbCol.normalized || usedDbCols.has(dbCol.original)) continue;
@@ -307,24 +319,19 @@ export default function CsvUploader() {
                 }
     
                 if (score > (bestMatch?.score || 0)) {
-                    const csvHeaderIndex = headers.indexOf(csvHeader);
-                    bestMatch = { score, column: dbCol.original, index: csvHeaderIndex };
+                    bestMatch = { score, column: dbCol.original };
                 }
             }
             
             if (bestMatch && bestMatch.score > 50) {
-                finalMap[bestMatch.index] = bestMatch.column;
+                finalMap[csvIndex] = bestMatch.column;
                 usedDbCols.add(bestMatch.column);
             }
         });
 
         setHeaderMap(finalMap);
         
-        if (Object.keys(finalMap).length === 0) {
-            toast({ title: 'Mapeo automático no encontró coincidencias', description: 'Por favor, mapea las columnas manualmente.', variant: 'default' });
-        } else {
-            toast({ title: 'Mapeo automático completado', description: 'Revisa las sugerencias antes de continuar.' });
-        }
+        toast({ title: 'Mapeo Automático Completado', description: 'Revisa las sugerencias antes de continuar.' });
         
         setCurrentStep('mapping');
         setIsLoading(false);
@@ -411,6 +418,9 @@ export default function CsvUploader() {
                 const parsedDbVal = parseDbValueForComparison(dbKey, dbRow[dbKey]);
                 
                 if (String(parsedCsvVal) !== String(parsedDbVal)) {
+                    // Avoid false positives for empty/null values
+                    if (parsedCsvVal === null && (parsedDbVal === '' || parsedDbVal === null)) continue;
+                    if (parsedCsvVal === '' && (parsedDbVal === null || parsedDbVal === '')) continue;
                     changes[dbKey] = { from: dbRow[dbKey], to: csvRow[csvIndex] };
                     hasChanges = true;
                 }
@@ -441,46 +451,71 @@ export default function CsvUploader() {
     }
 
     setIsSyncing(true);
-    const dataToSync: CsvRow[] = [];
+    setSyncProgress(0);
+    setSyncMessage('Iniciando sincronización...');
     
-    selectedNew.forEach(index => dataToSync.push(csvData[index]));
-    selectedUpdates.forEach(index => dataToSync.push(csvData[index]));
+    const BATCH_SIZE = 50; // Process 50 rows at a time
+    const rowsToSync = [
+        ...Array.from(selectedNew).map(index => ({ type: 'new', data: csvData[index] })),
+        ...Array.from(selectedUpdates).map(index => ({ type: 'update', data: csvData[index] }))
+    ];
 
-    const mappedData = dataToSync.map(row => {
-        const newRow: Record<string, string> = {};
-        Object.entries(cleanHeaderMap).forEach(([indexStr, dbColumn]) => {
-          const index = parseInt(indexStr, 10);
-          newRow[dbColumn] = row[index];
+    const totalBatches = Math.ceil(rowsToSync.length / BATCH_SIZE);
+    let success = true;
+
+    for (let i = 0; i < totalBatches; i++) {
+        const batch = rowsToSync.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+        const newInBatch = batch.filter(r => r.type === 'new').length;
+        const updatedInBatch = batch.filter(r => r.type === 'update').length;
+
+        setSyncMessage(`Procesando lote ${i + 1} de ${totalBatches}... (${batch.length} registros)`);
+        
+        const dataForFlow = batch.map(r => r.data);
+        const mappedData = dataForFlow.map(row => {
+            const newRow: Record<string, string> = {};
+            Object.entries(cleanHeaderMap).forEach(([indexStr, dbColumn]) => {
+                const index = parseInt(indexStr, 10);
+                newRow[dbColumn] = row[index];
+            });
+            return newRow;
         });
-        return newRow;
-    });
 
-    const dbHeaders = [...new Set(Object.values(cleanHeaderMap))];
-    const isUpsert = !!Object.values(cleanHeaderMap).find(col => col === targetTable.pk);
-    
-    try {
-        const result = await saveToDatabase({
-            targetTable: targetTable.dbTable,
-            data: { headers: dbHeaders, rows: mappedData.map(row => dbHeaders.map(h => row[h] || '')) },
-            conflictKey: isUpsert ? targetTable.pk : undefined,
-            newCount: selectedNew.size,
-            updateCount: selectedUpdates.size,
-        });
+        const dbHeaders = [...new Set(Object.values(cleanHeaderMap))];
+        const isUpsert = !!Object.values(cleanHeaderMap).find(col => col === targetTable.pk);
+        
+        try {
+            const result = await saveToDatabase({
+                targetTable: targetTable.dbTable,
+                data: { headers: dbHeaders, rows: mappedData.map(row => dbHeaders.map(h => row[h] || '')) },
+                conflictKey: isUpsert ? targetTable.pk : undefined,
+                newCount: newInBatch,
+                updateCount: updatedInBatch,
+            });
 
-        if (result.success) {
-            toast({ title: 'Sincronización Exitosa', description: result.message, duration: 8000 });
-            setSelectedNew(new Set());
-            setSelectedUpdates(new Set());
-            toast({ title: 'Actualizando vista...', description: 'Recargando la comparación de datos.', duration: 2000 });
-            await handleConfirmMappingAndCompare(); // Re-run comparison
-        } else {
-            throw new Error(result.message);
+            if (!result.success) {
+                toast({ title: `Error en Lote ${i + 1}`, description: result.message, variant: 'destructive', duration: 10000 });
+                success = false;
+                break; // Stop on first error
+            }
+        } catch(err: any) {
+            toast({ title: `Error Crítico en Lote ${i + 1}`, description: err.message, variant: 'destructive', duration: 10000 });
+            success = false;
+            break;
         }
-    } catch(err: any) {
-        toast({ title: 'Error de Sincronización', description: err.message, variant: 'destructive' });
-    } finally {
-        setIsSyncing(false);
+
+        setSyncProgress(Math.round(((i + 1) / totalBatches) * 100));
     }
+
+    if (success) {
+        toast({ title: 'Sincronización Completa', description: 'Los datos se han guardado con éxito. Actualizando vista...' });
+        setSelectedNew(new Set());
+        setSelectedUpdates(new Set());
+        await handleConfirmMappingAndCompare();
+    } else {
+        toast({ title: 'Sincronización Interrumpida', description: 'La sincronización se detuvo debido a un error.', variant: 'destructive' });
+    }
+
+    setIsSyncing(false);
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => event.preventDefault();
@@ -662,17 +697,27 @@ export default function CsvUploader() {
                 </TabsContent>
             </Tabs>
           </CardContent>
-          {(selectedNew.size > 0 || selectedUpdates.size > 0) && (
-            <CardFooter className="flex-col items-center gap-4 pt-6">
-                <p className="text-sm text-muted-foreground">
-                    Se agregarán <span className="font-bold text-primary">{selectedNew.size}</span> registros y se actualizarán <span className="font-bold text-primary">{selectedUpdates.size}</span>.
-                </p>
-                <Button onClick={handleSync} disabled={isSyncing} size="lg" className="w-full max-w-md">
-                    {isSyncing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                    Guardar Cambios en la Base de Datos
-                </Button>
+          <CardFooter className="flex-col items-center gap-4 pt-6 border-t">
+            {isSyncing ? (
+                <div className="w-full text-center p-4">
+                    <Progress value={syncProgress} className="w-full mb-2" />
+                    <p className="text-sm text-muted-foreground mt-2">{syncMessage}</p>
+                    <p className="text-lg font-semibold">{syncProgress}%</p>
+                </div>
+            ) : (
+                (selectedNew.size > 0 || selectedUpdates.size > 0) && (
+                <>
+                    <p className="text-sm text-muted-foreground">
+                        Se agregarán <span className="font-bold text-primary">{selectedNew.size}</span> registros y se actualizarán <span className="font-bold text-primary">{selectedUpdates.size}</span>.
+                    </p>
+                    <Button onClick={handleSync} size="lg" className="w-full max-w-md">
+                        <Save className="mr-2 h-5 w-5" />
+                        Guardar Cambios en la Base de Datos
+                    </Button>
+                </>
+                )
+            )}
             </CardFooter>
-          )}
         </Card>
       )}
     </div>
@@ -778,10 +823,10 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
                                 {allHeaders.map(header => (
                                     <TableCell key={header} className="truncate max-w-[200px]">
                                         {header in row.changes ? (
-                                            <span title={`From: ${String(row.changes[header].from)}`}>
+                                            <span title={`De: ${String(row.changes[header].from ?? '')}\nA: ${String(row.changes[header].to ?? '')}`}>
                                                 <span className="text-red-500 line-through">{String(row.changes[header].from ?? '')}</span>
                                                 {' -> '}
-                                                <span className="text-green-500">{String(row.changes[header].to ?? '')}</span>
+                                                <span className="text-green-500 font-bold">{String(row.changes[header].to ?? '')}</span>
                                             </span>
                                         ) : (
                                             <span className="text-muted-foreground" title={String(row.db[header])}>{String(row.db[header] ?? '')}</span>
