@@ -511,8 +511,6 @@ export default function CsvUploader() {
         setSelectedNew(new Set());
         setSelectedUpdates(new Set());
         await handleConfirmMappingAndCompare();
-    } else {
-        toast({ title: 'Sincronización Interrumpida', description: 'La sincronización se detuvo debido a un error.', variant: 'destructive' });
     }
 
     setIsSyncing(false);
