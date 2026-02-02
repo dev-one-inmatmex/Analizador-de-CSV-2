@@ -199,7 +199,7 @@ export default function SalesAnalysisPage() {
                                     {sales.map((v, index) => (
                                         <TableRow key={v.numero_venta || index}>
                                             <TableCell className="text-sm text-muted-foreground">{safeDate(v.fecha_venta)}</TableCell>
-                                            <TableCell className="font-medium max-w-xs truncate" title={v.titulo_publicacion || ''}>{v.titulo_publicacion || 'N/A'}</TableCell>
+                                            <TableCell className="font-medium max-w-xs truncate" title={v.title || ''}>{v.title || 'N/A'}</TableCell>
                                             <TableCell>{v.comprador || 'N/A'}</TableCell>
                                             <TableCell className="text-center">{v.unidades}</TableCell>
                                             <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{v.descripcion_estado || v.estado || 'N/A'}</Badge></TableCell>

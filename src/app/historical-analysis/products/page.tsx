@@ -234,7 +234,6 @@ export default function ProductsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>SKU</TableHead>
-                                <TableHead>Título (Ejemplo)</TableHead>
                                 <TableHead className="text-right"># de Publicaciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -242,7 +241,6 @@ export default function ProductsPage() {
                             {skuCounts.map((item, index) => (
                             <TableRow key={`${item.sku}-${index}`}>
                                 <TableCell className="font-mono text-primary">{item.sku}</TableCell>
-                                <TableCell>{item.publication_title}</TableCell>
                                 <TableCell className="font-medium text-right">{item.publicaciones}</TableCell>
                             </TableRow>
                             ))}
@@ -263,18 +261,14 @@ export default function ProductsPage() {
                             <TableRow>
                                 <TableHead>SKU</TableHead>
                                 <TableHead>ID Publicación</TableHead>
-                                <TableHead>Producto Madre</TableHead>
-                                <TableHead>Compañía (Pub.)</TableHead>
-                                <TableHead>Categoría (Pub.)</TableHead>
+                                <TableHead>Categoría</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                         {skuMap.map((item, index) => (
-                            <TableRow key={`${item.sku}-${item.publicacion_id}-${index}`}>
-                                <TableCell className="font-mono">{item.sku}</TableCell>
-                                <TableCell className="font-mono text-muted-foreground">{item.publicacion_id}</TableCell>
-                                <TableCell className="font-medium text-primary">{item.nombre_madre}</TableCell>
-                                <TableCell>{item.company}</TableCell>
+                            <TableRow key={`${item.sku}-${item.item_id}-${index}`}>
+                                <TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell>
+                                <TableCell className="font-mono">{item.item_id}</TableCell>
                                 <TableCell>{item.category}</TableCell>
                             </TableRow>
                             ))}
@@ -294,24 +288,16 @@ export default function ProductsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>SKU</TableHead>
-                                <TableHead>Producto Madre</TableHead>
-                                <TableHead>Título Publicación</TableHead>
                                 <TableHead>Categoría (Pub.)</TableHead>
-                                <TableHead>Compañía</TableHead>
-                                <TableHead className="text-right">Precio (Ejemplo)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {motherCatalog.map((item, index) => (
                             <TableRow key={`${item.sku}-${index}`}>
-                                <TableCell className="font-mono">{item.sku}</TableCell>
-                                <TableCell className="font-medium">{item.nombre_madre}</TableCell>
-                                <TableCell className="font-medium text-primary">{item.publication_title}</TableCell>
-                                <TableCell>{item.category || 'N/A'}</TableCell>
-                                <TableCell>{item.company}</TableCell>
-                                <TableCell className="text-right font-medium">{item.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price) : 'N/A'}</TableCell>
+                                <TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell>
+                                <TableCell>{item.category}</TableCell>
                             </TableRow>
-                            ))};
+                            ))}
                         </TableBody>
                     </Table>
                 </CardContent>
