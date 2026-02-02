@@ -60,22 +60,63 @@ export default function ProductsPage() {
 
         let combinedError = '';
 
-        if (baseMadreResult.error) {
-            combinedError += `Productos Madre: ${baseMadreResult.error.message}. `;
-        } else {
-            setBaseMadre(baseMadreResult.data as base_madre_productos[]);
+        // Process Publications
+        const publicationsData = (publicationsResult.data as publicaciones[]) || [];
+        if (publicationsResult.error) {
+          combinedError += `Publicaciones: ${publicationsResult.error.message}. `;
         }
+        setPublications(publicationsData);
 
+        // Process SKUs
         if (skusResult.error) {
           combinedError += `SKUs: ${skusResult.error.message}. `;
         } else {
           setSkus(skusResult.data as SkuWithProduct[]);
         }
 
-        if (publicationsResult.error) {
-          combinedError += `Publicaciones: ${publicationsResult.error.message}.`;
+        // Process Base Madre, augment it, and add default if needed
+        if (baseMadreResult.error) {
+            combinedError += `Productos Madre: ${baseMadreResult.error.message}. `;
+            setBaseMadre([]);
         } else {
-          setPublications(publicationsResult.data as publicaciones[]);
+            let processedBaseMadre = (baseMadreResult.data as base_madre_productos[]) || [];
+
+            // Augment with publication info
+            if (processedBaseMadre.length > 0 && publicationsData.length > 0) {
+                const publicationsMap = new Map<string, publicaciones>();
+                publicationsData.forEach(p => {
+                    if (p.sku) publicationsMap.set(p.sku, p);
+                });
+
+                processedBaseMadre = processedBaseMadre.map(bmp => {
+                    if (bmp.sku && publicationsMap.has(bmp.sku)) {
+                        const pub = publicationsMap.get(bmp.sku)!;
+                        return {
+                            ...bmp,
+                            category: pub.category || bmp.category,
+                            company: pub.company || bmp.company,
+                        };
+                    }
+                    return bmp;
+                });
+            }
+            
+            // Add a default/example record if the list is empty
+            if (processedBaseMadre.length === 0) {
+                const defaultPubInfo = publicationsData.find(p => p.sku) ?? { sku: 'SKU-EJEMPLO', category: 'Categoría Ejemplo', company: 'Empresa Ejemplo'};
+                processedBaseMadre.push({
+                    id: 0,
+                    tiempo_produccion: 15,
+                    landed_cost: 123.45,
+                    piezas_por_sku: 100,
+                    sbm: 'SBM-123',
+                    created_at: new Date().toISOString(),
+                    sku: defaultPubInfo.sku,
+                    category: defaultPubInfo.category,
+                    company: defaultPubInfo.company,
+                });
+            }
+            setBaseMadre(processedBaseMadre);
         }
 
         if (combinedError) setError(combinedError.trim());
