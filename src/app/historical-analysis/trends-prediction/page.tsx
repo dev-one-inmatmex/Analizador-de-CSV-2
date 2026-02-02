@@ -1,10 +1,11 @@
+
 'use client';
 
 import { ArrowLeft, BrainCircuit, TrendingUp, Filter, LineChart as LineChartIcon, BarChart3, Bot, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 import { addMonths, format, subDays } from 'date-fns';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
 
 import { Button } from '@/components/ui/button';
@@ -31,8 +32,7 @@ const generateSalesHistory = () => Array.from({ length: 12 }, (_, i) => ({
 
 const generateSalesPrediction = (history: {date: string, ventas: number}[]) => Array.from({ length: 6 }, (_, i) => ({
   date: format(addMonths(new Date(), i), 'MMM yy'),
-  ventas: i === 0 ? history[11].ventas : undefined, // Start from last historical point
-  prediccion: Math.floor(Math.random() * 150000) + (history[11].ventas * (1 + (i * 0.05))),
+  prediccion: Math.floor(Math.random() * 150000) + (history[history.length - 1].ventas * (1 + (i * 0.05))),
 }));
 
 const predictionByCategoryData = [
@@ -60,6 +60,17 @@ export default function TrendsPredictionPage() {
   
   const [salesHistory, setSalesHistory] = React.useState(generateSalesHistory());
   const [salesPrediction, setSalesPrediction] = React.useState(() => generateSalesPrediction(salesHistory));
+
+  const chartData = React.useMemo(() => {
+    const lastHistoryPoint = salesHistory[salesHistory.length - 1];
+    const predictionWithJunction = salesPrediction.map((p, i) => i === 0 ? { ...p, prediccion: lastHistoryPoint.ventas } : p);
+
+    return [
+      ...salesHistory,
+      ...predictionWithJunction.slice(1).map(p => ({ date: p.date, prediccion: p.prediccion })),
+    ];
+  }, [salesHistory, salesPrediction]);
+
 
   React.useEffect(() => {
     setDate({
@@ -209,12 +220,18 @@ export default function TrendsPredictionPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Histórico de Ventas vs. Predicción Futura</CardTitle>
+              <CardTitle>Proyección de Tendencia de Ventas</CardTitle>
               <CardDescription>Comparativa visual entre las ventas reales pasadas y la proyección de la IA para los próximos 6 meses.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={[...salesHistory, ...salesPrediction.slice(1)]}>
+                    <AreaChart data={chartData}>
+                        <defs>
+                            <linearGradient id="colorPrediction" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} />
@@ -227,21 +244,23 @@ export default function TrendsPredictionPage() {
                                             <span className="font-bold text-muted-foreground">{label}</span>
                                         </div>
                                         {payload.map((item, index) => (
+                                            item.value ? (
                                             <div key={index} className="flex flex-col">
                                                 <span className="text-[0.70rem] uppercase text-muted-foreground">{item.name}</span>
-                                                <span className="font-bold" style={{ color: item.color }}>
+                                                <span className="font-bold" style={{ color: item.color || item.stroke }}>
                                                     {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.value as number)}
                                                 </span>
                                             </div>
+                                            ) : null
                                         ))}
                                     </div>
                                 </div>
                             ) : null
                         }/>
                         <Legend />
-                        <Line type="monotone" dataKey="ventas" name="Ventas Históricas" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                        <Line type="monotone" dataKey="prediccion" name="Predicción IA" stroke="hsl(var(--chart-2))" strokeWidth={2} strokeDasharray="5 5" />
-                    </LineChart>
+                        <Line type="monotone" dataKey="ventas" name="Ventas Históricas" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} connectNulls />
+                        <Area type="monotone" dataKey="prediccion" name="Predicción IA" stroke="hsl(var(--chart-2))" strokeWidth={2} fillOpacity={1} fill="url(#colorPrediction)" />
+                    </AreaChart>
                 </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -256,7 +275,7 @@ export default function TrendsPredictionPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="category" />
                         <YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`}/>
-                        <Tooltip />
+                        <Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} />
                         <Bar dataKey="prediction" name="Venta Prevista" fill="hsl(var(--primary))" />
                     </BarChart>
                 </ResponsiveContainer>
