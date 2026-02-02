@@ -167,8 +167,8 @@ export default function CsvUploader() {
         return;
     }
     
-    setIsLoading(true);
     setCurrentStep('analyzing');
+    setIsLoading(true);
     setLoadingMessage('Analizando datos... Comparando con la base de datos.');
 
     try {
@@ -220,7 +220,11 @@ export default function CsvUploader() {
         }
         
         setAnalysisResult(result);
-        toast({ title: 'Análisis Completo', description: `Se encontraron ${result.toInsert.length} nuevos, ${result.toUpdate.length} para actualizar, y ${result.noChange.length} sin cambios.` });
+        setCurrentStep('results');
+        toast({
+          title: 'Análisis Completo',
+          description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} duplicados (para actualizar), y ${result.noChange.length} sin cambios.`
+        });
 
     } catch (e: any) {
         toast({ title: 'Error en el Análisis', description: e.message, variant: 'destructive' });
@@ -243,11 +247,15 @@ export default function CsvUploader() {
       }
 
       setCurrentStep('syncing');
+      setIsLoading(true);
       setProgress(0);
       setLoadingMessage('Sincronizando datos con la base de datos...');
       const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '' };
 
       const CHUNK_SIZE = 100;
+      const totalChunks = Math.ceil(dataToInsert.length / CHUNK_SIZE) + Math.ceil(dataToUpdate.length / CHUNK_SIZE);
+      let chunksProcessed = 0;
+
 
       // --- Process Inserts ---
       if (dataToInsert.length > 0) {
@@ -268,7 +276,8 @@ export default function CsvUploader() {
             } catch (e: any) {
                  finalSummary.errors.push({ block: i + 1, message: e.message, type: 'insert' });
             }
-            setProgress(((i + 1) / (totalInsertChunks + Math.ceil(dataToUpdate.length / CHUNK_SIZE))) * 100);
+            chunksProcessed++;
+            setProgress((chunksProcessed / totalChunks) * 100);
         }
       }
 
@@ -291,13 +300,15 @@ export default function CsvUploader() {
             } catch (e: any) {
                 finalSummary.errors.push({ block: i + 1, message: e.message, type: 'update' });
             }
-            setProgress(((dataToInsert.length / CHUNK_SIZE) + (i + 1)) / (Math.ceil(dataToInsert.length / CHUNK_SIZE) + totalUpdateChunks) * 100);
+            chunksProcessed++;
+            setProgress((chunksProcessed / totalChunks) * 100);
         }
       }
       
       finalSummary.log = `Sincronización completada el ${new Date().toLocaleString()}. Nuevos: ${finalSummary.inserted}, Actualizados: ${finalSummary.updated}, Errores: ${finalSummary.errors.length}.`;
       setSyncSummary(finalSummary);
       setCurrentStep('results');
+      setIsLoading(false);
       toast({ title: 'Sincronización Completada', description: 'El proceso de carga de datos ha finalizado.' });
   }
 
@@ -352,13 +363,16 @@ export default function CsvUploader() {
                   <Card>
                     <CardHeader>
                       <CardTitle>Paso 2: Mapeo de Columnas</CardTitle>
-                      <CardDescription>Revisa el mapeo automático. La clave primaria <span className="font-bold text-primary">{primaryKey}</span> debe estar mapeada.</CardDescription>
+                      <CardDescription>Revisa el mapeo automático. La clave primaria <Badge variant="outline">{primaryKey}</Badge> debe estar mapeada para continuar.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <ScrollArea className="h-[450px] w-full rounded-md border">
                         <Table>
                           <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
-                            <TableRow><TableHead>Columna en Archivo CSV</TableHead><TableHead>Mapear a Columna en '{selectedTableName}'</TableHead></TableRow>
+                            <TableRow>
+                              <TableHead>Columna en Archivo CSV</TableHead>
+                              <TableHead>Mapear a Columna en '{selectedTableName}'</TableHead>
+                            </TableRow>
                           </TableHeader>
                           <TableBody>
                             {headers.map(csvHeader => (
@@ -371,7 +385,7 @@ export default function CsvUploader() {
                                       <SelectItem value={IGNORE_COLUMN_VALUE}>-- Ignorar esta columna --</SelectItem>
                                       {tableColumns.map(col => (
                                         <SelectItem key={col} value={col} disabled={usedDbColumns.has(col) && headerMap[csvHeader] !== col}>
-                                          {col} {col === primaryKey && '(Clave Primaria)'}
+                                          {col} {col === primaryKey && <span className="text-xs text-primary font-bold ml-2">(PK)</span>}
                                         </SelectItem>
                                       ))}
                                     </SelectContent>
@@ -412,60 +426,8 @@ export default function CsvUploader() {
                 </Card>
             );
         case 'results':
-            const allMappedHeaders = Array.from(usedDbColumns);
-            return (
-              <>
-                {!analysisResult && !syncSummary && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Paso 3: Analizar y Sincronizar</CardTitle>
-                            <CardDescription>Compara los datos del CSV con la tabla de destino y sincroniza los cambios.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Button onClick={handleAnalyzeData} size="lg" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Search className="mr-2 h-5 w-5"/>}
-                                {isLoading ? 'Analizando...' : 'Analizar Datos'}
-                            </Button>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {analysisResult && !syncSummary && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Resultados del Análisis</CardTitle>
-                      <CardDescription>Revisa los cambios y elige qué sincronizar.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Tabs defaultValue="toInsert">
-                        <TabsList className="grid w-full grid-cols-3">
-                          <TabsTrigger value="toInsert">Nuevos ({analysisResult.toInsert.length})</TabsTrigger>
-                          <TabsTrigger value="toUpdate">A Actualizar ({analysisResult.toUpdate.length})</TabsTrigger>
-                          <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="toInsert">
-                          <ScrollArea className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{row[h]}</TableCell>)}</TableRow>)}</TableBody></Table></ScrollArea>
-                        </TabsContent>
-                        <TabsContent value="toUpdate">
-                           <ScrollArea className="h-96"><Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old)}</TableCell><TableCell className="text-green-600">{String(values.new)}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table></ScrollArea>
-                        </TabsContent>
-                        <TabsContent value="noChange">
-                           <ScrollArea className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{row[h]}</TableCell>)}</TableRow>)}</TableBody></Table></ScrollArea>
-                        </TabsContent>
-                      </Tabs>
-                    </CardContent>
-                    <CardFooter className="flex justify-between">
-                        <div className="flex gap-2">
-                           <Button onClick={() => handleSyncData('insert')} disabled={analysisResult.toInsert.length === 0}><Database className="mr-2"/>Sincronizar Nuevos</Button>
-                           <Button onClick={() => handleSyncData('update')} disabled={analysisResult.toUpdate.length === 0}><RefreshCcw className="mr-2"/>Sincronizar Actualizaciones</Button>
-                           <Button onClick={() => handleSyncData('all')}><Save className="mr-2"/>Sincronizar Todo</Button>
-                        </div>
-                        <Button variant="outline" onClick={() => resetAll(true)}>Cancelar</Button>
-                    </CardFooter>
-                  </Card>
-                )}
-
-                {syncSummary && (
+            if (syncSummary) { // Final result screen
+               return (
                     <Card>
                       <CardHeader><CardTitle>Sincronización Finalizada</CardTitle><CardDescription>La carga de datos ha terminado. Aquí tienes el resumen.</CardDescription></CardHeader>
                       <CardContent className="space-y-4">
@@ -502,9 +464,48 @@ export default function CsvUploader() {
                          <Button variant="outline" onClick={() => resetAll(false)}>Empezar de Nuevo</Button>
                       </CardFooter>
                     </Card>
-                )}
-              </>
-            );
+                );
+            }
+
+            if (analysisResult) { // Analysis result screen
+              const allMappedHeaders = Array.from(usedDbColumns);
+              return (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Paso 3: Resultados del Análisis</CardTitle>
+                      <CardDescription>Revisa los cambios detectados y elige qué acción sincronizar con la base de datos.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Tabs defaultValue="toInsert">
+                        <TabsList className="grid w-full grid-cols-3">
+                          <TabsTrigger value="toInsert">Nuevos ({analysisResult.toInsert.length})</TabsTrigger>
+                          <TabsTrigger value="toUpdate">Duplicados a Actualizar ({analysisResult.toUpdate.length})</TabsTrigger>
+                          <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="toInsert">
+                          <ScrollArea className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h])}</TableCell>)}</TableRow>)}</TableBody></Table></ScrollArea>
+                        </TabsContent>
+                        <TabsContent value="toUpdate">
+                           <ScrollArea className="h-96"><Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old)}</TableCell><TableCell className="text-green-600">{String(values.new)}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table></ScrollArea>
+                        </TabsContent>
+                        <TabsContent value="noChange">
+                           <ScrollArea className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h])}</TableCell>)}</TableRow>)}</TableBody></Table></ScrollArea>
+                        </TabsContent>
+                      </Tabs>
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                        <div className="flex gap-2">
+                           <Button onClick={() => handleSyncData('insert')} disabled={analysisResult.toInsert.length === 0 || isLoading}><Database className="mr-2"/>Insertar Nuevos</Button>
+                           <Button onClick={() => handleSyncData('update')} disabled={analysisResult.toUpdate.length === 0 || isLoading}><RefreshCcw className="mr-2"/>Actualizar Duplicados</Button>
+                           <Button onClick={() => handleSyncData('all')} disabled={isLoading}><Save className="mr-2"/>Aplicar Todo</Button>
+                        </div>
+                        <Button variant="outline" onClick={() => resetAll(true)}>Cancelar</Button>
+                    </CardFooter>
+                  </Card>
+              );
+            }
+            // Fallback screen for results if something goes wrong
+            return <Card><CardContent>Error: No hay resultados de análisis para mostrar.</CardContent></Card>;
     }
   }
 
