@@ -93,8 +93,8 @@ export interface publicaciones_por_sku{
 
 export interface skuxpublicaciones{
   sku: string | null;
-  item_id: string | null;
-  category: string | null;
+  publicacion_id: string | null;
+  nombre_madre: string | null;
 }
 
 export interface catalogo_madre{
