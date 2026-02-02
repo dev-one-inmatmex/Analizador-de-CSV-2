@@ -23,7 +23,7 @@ if (supabaseUrl && serviceKey && serviceKey !== supabaseAnonKey) {
 } else if (serviceKey && serviceKey === supabaseAnonKey) {
     console.warn('ADVERTENCIA: Tu SUPABASE_SERVICE_ROLE_KEY es la misma que tu llave pública (anon). Esto no concederá permisos de escritura. Usa la llave "service_role".')
 } else {
-  console.warn('ADVERTENCIA: La SUPABASE_SERVICE_ROLE_KEY no está configurada. Las operaciones de escritura en la base de datos fallarán.')
+  console.warn('ACCIÓN REQUERIDA: La variable SUPABASE_SERVICE_ROLE_KEY no está en tu archivo .env. La aplicación funcionará, pero no podrás guardar datos en la base de datos hasta que la configures.')
 }
 
 export { supabaseAdmin }

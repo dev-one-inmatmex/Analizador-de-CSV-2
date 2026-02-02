@@ -84,7 +84,7 @@ const saveToDatabaseFlow = ai.defineFlow(
     if (!supabaseAdmin) {
         return { 
             success: false, 
-            message: 'Error de Configuración: La llave de administrador (SUPABASE_SERVICE_ROLE_KEY) no se encuentra en tu archivo .env. Para poder guardar datos, debes añadir la llave "service_role" de tu proyecto de Supabase y reiniciar el servidor.' 
+            message: `Error de Configuración: La llave de administrador (SUPABASE_SERVICE_ROLE_KEY) no está configurada en tu archivo .env. Para poder guardar datos, sigue estos pasos:\n1. Ve a tu panel de Supabase > Project Settings > API.\n2. En "Project API keys", copia la llave "service_role" (secreta).\n3. Pégala en tu archivo .env como SUPABASE_SERVICE_ROLE_KEY=tu_llave_aqui.\n4. Reinicia el servidor.`
         };
     }
 
