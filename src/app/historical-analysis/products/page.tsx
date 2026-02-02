@@ -288,7 +288,7 @@ export default function ProductsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>SKU</TableHead>
-                                <TableHead>Categoría (Pub.)</TableHead>
+                                <TableHead>Categoría</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
