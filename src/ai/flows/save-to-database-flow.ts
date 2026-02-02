@@ -31,7 +31,7 @@ type SaveToDatabaseOutput = z.infer<typeof SaveToDatabaseOutputSchema>;
 
 function parseValue(key: string, value: string): any {
     const numericFields = [
-      'costo', 'tiempo_preparacion', 'id_producto_madre', 'unidades', 
+      'costo', 'tiempo_preparacion', 'unidades', 
       'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 
       'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 
       'precio_unitario', 'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',

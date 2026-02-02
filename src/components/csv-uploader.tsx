@@ -60,14 +60,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     pk: 'sku',
     columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at']
   },
-  skus: {
-    pk: 'sku',
-    columns: ['id', 'sku', 'variacion', 'id_producto_madre', 'costo', 'fecha_registro', 'tiempo_preparacion']
-  },
-  productos_madre: {
-    pk: 'id_producto_madre',
-    columns: ['id', 'id_producto_madre', 'nombre_madre', 'costo', 'tiempo_preparacion', 'observaciones', 'fecha_registro']
-  },
   base_madre_productos: {
     pk: 'sku',
     columns: ['id', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'created_at', 'sku', 'category', 'company']
@@ -80,7 +72,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 
 function parseValueForComparison(key: string, value: string): any {
     const numericFields = [
-      'id', 'costo', 'tiempo_preparacion', 'producto_madre_id',
+      'id', 'costo', 'tiempo_preparacion',
       'numero_venta', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
       'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
       'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
@@ -146,7 +138,7 @@ function parseDbValueForComparison(key: string, value: any): any {
     }
     
     const numericFields = [
-      'id', 'costo', 'tiempo_preparacion', 'producto_madre_id',
+      'id', 'costo', 'tiempo_preparacion',
       'numero_venta', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
       'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
       'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
@@ -843,5 +835,3 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
         </div>
     );
 }
-
-    

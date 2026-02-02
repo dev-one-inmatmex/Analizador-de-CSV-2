@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import type { SkuWithProduct, publicaciones, base_madre_productos } from '@/types/database';
+import type { publicaciones, base_madre_productos } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
@@ -20,7 +20,6 @@ import { Badge } from '@/components/ui/badge';
 import GlobalNav from '@/components/global-nav';
 
 export default function ProductsPage() {
-  const [skus, setSkus] = useState<SkuWithProduct[]>([]);
   const [publications, setPublications] = useState<publicaciones[]>([]);
   const [baseMadre, setBaseMadre] = useState<base_madre_productos[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,16 +39,11 @@ export default function ProductsPage() {
       }
 
       try {
-        const [baseMadreResult, skusResult, publicationsResult] = await Promise.all([
+        const [baseMadreResult, publicationsResult] = await Promise.all([
           supabase
             .from('base_madre_productos')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(20),
-          supabase
-            .from('skus')
-            .select('*, productos_madre(*)')
-            .order('fecha_registro', { ascending: false })
             .limit(20),
           supabase
             .from('publicaciones')
@@ -66,13 +60,6 @@ export default function ProductsPage() {
           combinedError += `Publicaciones: ${publicationsResult.error.message}. `;
         }
         setPublications(publicationsData);
-
-        // Process SKUs
-        if (skusResult.error) {
-          combinedError += `SKUs: ${skusResult.error.message}. `;
-        } else {
-          setSkus(skusResult.data as SkuWithProduct[]);
-        }
 
         // Process Base Madre, augment it, and add default if needed
         if (baseMadreResult.error) {
@@ -229,78 +216,6 @@ export default function ProductsPage() {
                     <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No se encontraron productos madre base.
-                    </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-            </Table>
-            </div>
-        </section>
-
-
-        {/* ================= SKUS ================= */}
-        <section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            SKUs Recientes
-            </h2>
-
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Producto Madre</TableHead>
-                    <TableHead>Variación</TableHead>
-                    <TableHead className="text-right">Costo</TableHead>
-                    <TableHead className="text-right">Prep. (min)</TableHead>
-                    <TableHead className="text-center">Registrado</TableHead>
-                </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                {skus.length > 0 ? (
-                    skus.map((sku) => (
-                    <TableRow key={sku.sku}>
-                        <TableCell className="font-mono text-primary">
-                        {sku.sku}
-                        </TableCell>
-
-                        <TableCell>
-                        {sku.productos_madre?.nombre_madre ?? 'N/A'}
-                        </TableCell>
-
-                        <TableCell>
-                        {sku.variacion ?? '—'}
-                        </TableCell>
-
-                        <TableCell className="text-right">
-                        {new Intl.NumberFormat('es-MX', {
-                            style: 'currency',
-                            currency: 'MXN',
-                        }).format(
-                            sku.costo ??
-                            sku.productos_madre?.costo ??
-                            0
-                        )}
-                        </TableCell>
-
-                        <TableCell className="text-right">
-                        {sku.tiempo_preparacion ?? '—'}
-                        </TableCell>
-
-                        <TableCell className="text-center">
-                        {format(
-                            new Date(sku.fecha_registro),
-                            'dd MMM yyyy',
-                            { locale: es }
-                        )}
-                        </TableCell>
-                    </TableRow>
-                    ))
-                ) : (
-                    <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No se encontraron SKUs.
                     </TableCell>
                     </TableRow>
                 )}
