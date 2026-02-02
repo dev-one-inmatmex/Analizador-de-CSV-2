@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
     categorias_madre: { pk: 'sku', columns: ['sku', 'landed_cost', 'tiempo_produccion', 'tiempo_recompra', 'proveedor'] },
-    publicaciones: { pk: 'sku', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at'] },
+    publicaciones: { pk: 'item_id', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at'] },
     publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
     skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'category'] },
     skuxpublicaciones: { pk: 'publicacion_id', columns: ['sku', 'publicacion_id', 'nombre_madre'] },
@@ -397,7 +397,7 @@ export default function CsvUploader() {
                         </Table>
                       </ScrollArea>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex justify-center">
                       <Button onClick={handleAnalyzeData} size="lg"><Search className="mr-2 h-5 w-5"/>Analizar Datos</Button>
                     </CardFooter>
                   </Card>
@@ -460,7 +460,7 @@ export default function CsvUploader() {
                           </div>
                         )}
                       </CardContent>
-                      <CardFooter>
+                      <CardFooter className="flex justify-center">
                          <Button variant="outline" onClick={() => resetAll(false)}>Empezar de Nuevo</Button>
                       </CardFooter>
                     </Card>
