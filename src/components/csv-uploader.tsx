@@ -57,7 +57,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     ]
   },
   publicaciones: {
-    pk: 'sku',
+    pk: 'item_id',
     columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at']
   },
   base_madre_productos: {
@@ -261,7 +261,28 @@ export default function CsvUploader() {
 
             setHeaders(csvHeaders);
             setCsvData(parsedData);
-            toast({ title: 'Archivo Procesado', description: `${file.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
+            
+            // Automatic detection based on headers
+            let bestMatch = { table: '', score: 0 };
+            const normalize = (s: string) => s.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
+            const normalizedCsvHeaders = csvHeaders.map(normalize);
+
+            for (const tableName in TABLE_SCHEMAS) {
+                const schema = TABLE_SCHEMAS[tableName];
+                const normalizedSchemaCols = schema.columns.map(normalize);
+                const matchedHeaders = normalizedCsvHeaders.filter(header => header && normalizedSchemaCols.includes(header));
+                
+                if (matchedHeaders.length > bestMatch.score) {
+                    bestMatch = { table: tableName, score: matchedHeaders.length };
+                }
+            }
+
+            if (bestMatch.score > 2) {
+                toast({ title: 'Tabla Detectada Automáticamente', description: `Los encabezados coinciden con la tabla: ${bestMatch.table}. Puedes cambiarla si es incorrecto.` });
+                handleTableSelectAndInitiateMapping(bestMatch.table);
+            } else {
+                toast({ title: 'Selección Manual Requerida', description: 'No se pudo identificar una tabla. Por favor, selecciona una de la lista.' });
+            }
         };
         reader.readAsText(file, 'latin1'); // Use 'latin1' to avoid issues with special characters
     };
@@ -540,7 +561,7 @@ export default function CsvUploader() {
         <Card>
             <CardHeader>
                 <CardTitle>Paso 1: Cargar y Seleccionar</CardTitle>
-                <CardDescription>Arrastra o selecciona un archivo CSV, luego elige la tabla de destino.</CardDescription>
+                <CardDescription>Arrastra o selecciona un archivo CSV. El sistema intentará detectar la tabla de destino analizando sus encabezados.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             {!file ? (
