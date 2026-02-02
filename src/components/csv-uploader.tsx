@@ -19,10 +19,10 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
     categorias_madre: { pk: 'sku', columns: ['sku', 'landed_cost', 'tiempo_produccion', 'tiempo_recompra', 'proveedor'] },
-    publicaciones: { pk: 'sku', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at'] },
+    publicaciones: { pk: 'item_id', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at'] },
     publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
     skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'category'] },
-    skuxpublicaciones: { pk: 'publicacion_id', columns: ['sku', 'publicacion_id', 'nombre_madre'] },
+    skuxpublicaciones: { pk: 'item_id', columns: ['sku', 'item_id', 'nombre_madre'] },
     ventas: { pk: 'numero_venta', columns: ['numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'] },
 };
 
@@ -39,7 +39,7 @@ type AnalysisResult = {
 type SyncSummary = {
   inserted: number;
   updated: number;
-  errors: { block: number; message: string; type: 'insert' | 'update' }[];
+  errors: { block: number; recordIdentifier?: string; message: string; type: 'insert' | 'update' }[];
   log: string;
 };
 
@@ -253,56 +253,55 @@ export default function CsvUploader() {
       const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '' };
 
       const CHUNK_SIZE = 100;
-      const totalChunks = Math.ceil(dataToInsert.length / CHUNK_SIZE) + Math.ceil(dataToUpdate.length / CHUNK_SIZE);
       let chunksProcessed = 0;
+      
+      const insertChunks = [];
+      if (dataToInsert.length > 0) {
+          for (let i = 0; i < dataToInsert.length; i += CHUNK_SIZE) {
+              insertChunks.push(dataToInsert.slice(i, i + CHUNK_SIZE));
+          }
+      }
 
+      const updateChunks = [];
+      if (dataToUpdate.length > 0) {
+          for (let i = 0; i < dataToUpdate.length; i += CHUNK_SIZE) {
+              updateChunks.push(dataToUpdate.slice(i, i + CHUNK_SIZE));
+          }
+      }
+      
+      const totalChunks = insertChunks.length + updateChunks.length;
 
       // --- Process Inserts ---
-      if (dataToInsert.length > 0) {
-        const totalInsertChunks = Math.ceil(dataToInsert.length / CHUNK_SIZE);
-        for (let i = 0; i < totalInsertChunks; i++) {
-            const chunk = dataToInsert.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-            try {
-                const result = await saveToDatabase({
-                    targetTable: selectedTableName,
-                    data: { headers: Object.keys(chunk[0]), rows: chunk.map(row => Object.values(row)) },
-                });
+      for (let i = 0; i < insertChunks.length; i++) {
+        const chunk = insertChunks[i];
+        const result = await saveToDatabase({
+            targetTable: selectedTableName,
+            data: { headers: Object.keys(chunk[0]), rows: chunk.map(Object.values) },
+        });
 
-                if (result.success) {
-                    finalSummary.inserted += result.processedCount ?? 0;
-                } else {
-                    finalSummary.errors.push({ block: i + 1, message: result.message, type: 'insert' });
-                }
-            } catch (e: any) {
-                 finalSummary.errors.push({ block: i + 1, message: e.message, type: 'insert' });
-            }
-            chunksProcessed++;
-            setProgress((chunksProcessed / totalChunks) * 100);
+        finalSummary.inserted += result.processedCount;
+        if (result.errors) {
+            result.errors.forEach(err => finalSummary.errors.push({ block: i + 1, recordIdentifier: err.recordIdentifier, message: err.message, type: 'insert' }));
         }
+        chunksProcessed++;
+        setProgress((chunksProcessed / totalChunks) * 100);
       }
 
       // --- Process Updates ---
-      if (dataToUpdate.length > 0) {
-        const totalUpdateChunks = Math.ceil(dataToUpdate.length / CHUNK_SIZE);
-        for (let i = 0; i < totalUpdateChunks; i++) {
-            const chunk = dataToUpdate.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-            try {
-                const result = await saveToDatabase({
-                    targetTable: selectedTableName,
-                    data: { headers: Object.keys(chunk[0]), rows: chunk.map(row => Object.values(row)) },
-                    conflictKey: primaryKey,
-                });
-                if (result.success) {
-                    finalSummary.updated += result.processedCount ?? 0;
-                } else {
-                    finalSummary.errors.push({ block: i + 1, message: result.message, type: 'update' });
-                }
-            } catch (e: any) {
-                finalSummary.errors.push({ block: i + 1, message: e.message, type: 'update' });
-            }
-            chunksProcessed++;
-            setProgress((chunksProcessed / totalChunks) * 100);
+      for (let i = 0; i < updateChunks.length; i++) {
+        const chunk = updateChunks[i];
+        const result = await saveToDatabase({
+            targetTable: selectedTableName,
+            data: { headers: Object.keys(chunk[0]), rows: chunk.map(Object.values) },
+            conflictKey: primaryKey,
+        });
+
+        finalSummary.updated += result.processedCount;
+        if (result.errors) {
+            result.errors.forEach(err => finalSummary.errors.push({ block: i + 1, recordIdentifier: err.recordIdentifier, message: err.message, type: 'update' }));
         }
+        chunksProcessed++;
+        setProgress((chunksProcessed / totalChunks) * 100);
       }
       
       finalSummary.log = `Sincronización completada el ${new Date().toLocaleString()}. Nuevos: ${finalSummary.inserted}, Actualizados: ${finalSummary.updated}, Errores: ${finalSummary.errors.length}.`;
@@ -437,7 +436,7 @@ export default function CsvUploader() {
                           <AlertDescription>
                             <p><span className="font-bold">{syncSummary.inserted}</span> registros insertados.</p>
                             <p><span className="font-bold">{syncSummary.updated}</span> registros actualizados.</p>
-                            <p><span className="font-bold">{syncSummary.errors.length}</span> bloques con errores.</p>
+                            <p><span className="font-bold">{syncSummary.errors.length}</span> registros con errores.</p>
                           </AlertDescription>
                         </Alert>
                         <div className="space-y-2">
@@ -451,7 +450,10 @@ export default function CsvUploader() {
                               <div className="space-y-2 text-sm">
                                 {syncSummary.errors.map((err, i) => (
                                   <div key={i} className="p-2 bg-destructive/10 rounded-md">
-                                    <p className="font-semibold text-destructive">Error en Bloque #{err.block} ({err.type}):</p>
+                                    <p className="font-semibold text-destructive">
+                                      Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'}
+                                      {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
+                                    </p>
                                     <p className="font-mono text-xs">{err.message}</p>
                                   </div>
                                 ))}
