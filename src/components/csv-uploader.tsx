@@ -1,17 +1,17 @@
-
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, RefreshCw, GitCompareArrows } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, RefreshCw, GitCompareArrows, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
-import { supabaseAdmin, supabase } from '@/lib/supabaseClient';
+import { mapHeaders } from '@/ai/flows/map-headers-flow';
+import { supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,7 +30,6 @@ type TableConfig = {
   pk: string;
   columns: string[];
 };
-type Step = 'upload' | 'mapping' | 'compare';
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
@@ -160,11 +159,12 @@ export default function CsvUploader() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   
-  const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [selectedTableName, setSelectedTableName] = useState<string>("");
   const [targetTable, setTargetTable] = useState<TableConfig | null>(null);
-  const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
+  const [userHeaderMap, setUserHeaderMap] = useState<Record<number, string>>({});
+  const [isMappingConfirmed, setIsMappingConfirmed] = useState(false);
   
+  const [isMapping, setIsMapping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
@@ -178,13 +178,13 @@ export default function CsvUploader() {
 
   const cleanHeaderMap = useMemo(() => {
     const cleanMap: Record<number, string> = {};
-    for (const key in headerMap) {
-      if (Object.prototype.hasOwnProperty.call(headerMap, key) && headerMap[key] && headerMap[key] !== IGNORE_COLUMN_VALUE) {
-        cleanMap[parseInt(key, 10)] = headerMap[key];
+    for (const key in userHeaderMap) {
+      if (Object.prototype.hasOwnProperty.call(userHeaderMap, key) && userHeaderMap[key] && userHeaderMap[key] !== IGNORE_COLUMN_VALUE) {
+        cleanMap[parseInt(key, 10)] = userHeaderMap[key];
       }
     }
     return cleanMap;
-  }, [headerMap]);
+  }, [userHeaderMap]);
 
   const resetAll = () => {
     setFile(null);
@@ -195,8 +195,8 @@ export default function CsvUploader() {
     setSelectedUpdates(new Set());
     setSelectedTableName("");
     setTargetTable(null);
-    setCurrentStep('upload');
-    setHeaderMap({});
+    setUserHeaderMap({});
+    setIsMappingConfirmed(false);
     if (inputRef.current) inputRef.current.value = '';
   };
   
@@ -237,12 +237,9 @@ export default function CsvUploader() {
   };
 
   const processFile = (fileToProcess: File) => {
+    resetAll();
     setFile(fileToProcess);
-    setComparison(null);
-    setHeaderMap({});
-    setSelectedTableName("");
-    setTargetTable(null);
-
+    
     const reader = new FileReader();
     reader.onload = (e) => {
         const text = e.target?.result as string;
@@ -261,114 +258,93 @@ export default function CsvUploader() {
 
         setHeaders(csvHeaders);
         setCsvData(parsedData);
-        setCurrentStep('mapping');
         toast({ title: 'Archivo Procesado', description: `Se cargaron ${parsedData.length} filas. Ahora, selecciona la tabla de destino.` });
     };
     reader.readAsText(fileToProcess, 'latin1');
   };
   
-  const handleTableSelect = (tableName: string) => {
+  const handleTableSelect = async (tableName: string) => {
     if (!tableName) {
         setSelectedTableName("");
         setTargetTable(null);
-        setHeaderMap({});
+        setComparison(null);
+        setUserHeaderMap({});
+        setIsMappingConfirmed(false);
         return;
     }
+    const schema = TABLE_SCHEMAS[tableName];
+    if (schema) {
+        setSelectedTableName(tableName);
+        const newTargetTable = { dbTable: tableName, pk: schema.pk, columns: schema.columns };
+        setTargetTable(newTargetTable);
+        toast({ title: 'Tabla Seleccionada', description: `Iniciando mapeo de cabeceras para: ${tableName}` });
 
-    if (tableName) {
-        const schema = TABLE_SCHEMAS[tableName];
-        if (schema) {
-            setSelectedTableName(tableName);
-            const newTargetTable = { dbTable: tableName, pk: schema.pk, columns: schema.columns };
-            setTargetTable(newTargetTable);
-            toast({ title: 'Tabla Seleccionada', description: `Mapea las columnas para la tabla: ${tableName}` });
-
-            // Auto-map headers
-            const finalMap: Record<number, string> = {};
-            const usedDbCols = new Set<string>();
-            const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
-            const dbColumnsNormalized = newTargetTable.columns.map(col => ({ original: col, normalized: normalize(col) }));
-        
-            headers.forEach((csvHeader, csvIndex) => {
-                const normalizedCsvHeader = normalize(csvHeader);
-                if (!normalizedCsvHeader) return;
-        
-                let bestMatch: { score: number, column: string } | null = null;
-        
-                for (const dbCol of dbColumnsNormalized) {
-                    if (!dbCol.normalized || usedDbCols.has(dbCol.original)) continue;
-                    
-                    let score = 0;
-                    if (normalizedCsvHeader === dbCol.normalized) {
-                        score = 100;
-                    } else if (dbCol.normalized.includes(normalizedCsvHeader)) {
-                        score = (normalizedCsvHeader.length / dbCol.normalized.length) * 90;
-                    } else if (normalizedCsvHeader.includes(dbCol.normalized)) {
-                        score = (dbCol.normalized.length / normalizedCsvHeader.length) * 90;
-                    }
-
-                    if (score > (bestMatch?.score || 0)) {
-                        bestMatch = { score, column: dbCol.original };
-                    }
-                }
-                
-                if (bestMatch && bestMatch.score > 50) {
-                    finalMap[csvIndex] = bestMatch.column;
-                    usedDbCols.add(bestMatch.column);
-                }
-            });
-            setHeaderMap(finalMap);
+        setIsMapping(true);
+        setIsMappingConfirmed(false);
+        setComparison(null);
+        setUserHeaderMap({});
+        try {
+          const mappingResult = await mapHeaders({ csvHeaders: headers, dbColumns: schema.columns });
+          const finalUserMap: Record<number, string> = {};
+          headers.forEach((h, i) => {
+            if (mappingResult.headerMap[h]) {
+              finalUserMap[i] = mappingResult.headerMap[h];
+            }
+          });
+          setUserHeaderMap(finalUserMap);
+          toast({ title: 'Mapeo de IA Completo', description: `La IA ha sugerido un mapeo. Por favor, revísalo.` });
+        } catch (err: any) {
+          toast({ title: 'Error en Mapeo IA', description: err.message, variant: 'destructive' });
+        } finally {
+          setIsMapping(false);
         }
-    } else {
-        setSelectedTableName("");
-        setTargetTable(null);
     }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      processFile(event.target.files[0]);
-    }
+  const handleUserMapChange = (csvIndex: number, dbColumn: string) => {
+    setUserHeaderMap(prev => ({
+        ...prev,
+        [csvIndex]: dbColumn === IGNORE_COLUMN_VALUE ? '' : dbColumn
+    }));
   };
 
-  const handleConfirmMappingAndCompare = async () => {
-    if (!targetTable || !Object.keys(cleanHeaderMap).length) {
-        toast({ title: 'Mapeo Incompleto', description: 'Asegúrate de que las columnas importantes estén mapeadas.', variant: 'destructive' });
+  const handleConfirmMapping = async () => {
+    if(!targetTable) return;
+    setIsMappingConfirmed(true);
+    toast({ title: 'Mapeo Confirmado', description: 'Iniciando comparación con la base de datos.' });
+    await handleCompareData(targetTable, cleanHeaderMap);
+  };
+
+  const handleCompareData = async (currentTable: TableConfig | null, currentHeaderMap: Record<number, string> | null) => {
+    if (!currentTable || !currentHeaderMap || csvData.length === 0) {
         return;
+    }
+    if (!isSupabaseConfigured) {
+      toast({ title: 'Configuración de DB Incompleta', description: 'No se pueden comparar los datos.', variant: 'destructive' });
+      return;
     }
     
     setIsLoading(true);
-    toast({ title: 'Analizando diferencias', description: 'Comparando tu archivo con la base de datos...', duration: 5000 });
-    if (!isSupabaseConfigured) {
-        toast({ title: 'Configuración de DB Incompleta', description: 'No se pueden comparar los datos.', variant: 'destructive' });
+    setComparison(null);
+    try {
+      const dbPk = currentTable.pk;
+      const csvPkHeaderIndexStr = Object.keys(currentHeaderMap).find(key => currentHeaderMap[parseInt(key, 10)] === dbPk);
+      if (csvPkHeaderIndexStr === undefined) {
+        toast({
+          title: 'Clave Primaria no Mapeada',
+          description: `La clave primaria '${dbPk}' debe estar mapeada a una cabecera del CSV.`,
+          variant: 'destructive',
+        });
         setIsLoading(false);
         return;
-    }
-    
-    try {
-      const dbPk = targetTable.pk;
-      const csvPkHeaderIndexStr = Object.keys(cleanHeaderMap).find(key => cleanHeaderMap[parseInt(key, 10)] === dbPk);
-
-      if (csvPkHeaderIndexStr === undefined) {
-          toast({
-              title: 'Modo de "Solo Altas"',
-              description: `No se mapeó la clave primaria '${dbPk}'. Todos los registros se tratarán como nuevos.`,
-              variant: 'default',
-          });
-          const newRows = csvData.map((data, index) => ({ index, data }));
-          setComparison({ newRows, updatedRows: [], unchangedRows: [] });
-          setCurrentStep('compare');
-          setIsLoading(false);
-          return;
       }
-
       const csvPkHeaderIndex = parseInt(csvPkHeaderIndexStr, 10);
       const csvPks = csvData.map(row => row[csvPkHeaderIndex]).filter(Boolean);
 
       if (csvPks.length === 0) {
         toast({
           title: 'Clave Primaria Vacía',
-          description: `La columna mapeada como clave primaria ('${headers[csvPkHeaderIndex]}') está vacía en tu CSV.`,
+          description: `La columna '${headers[csvPkHeaderIndex]}' está vacía en tu CSV.`,
           variant: 'destructive',
         });
         setIsLoading(false);
@@ -377,7 +353,7 @@ export default function CsvUploader() {
       
       if (!supabase) throw new Error("Cliente de Supabase no disponible");
 
-      const { data: dbData, error } = await supabase.from(targetTable.dbTable).select('*').in(dbPk, csvPks);
+      const { data: dbData, error } = await supabase.from(currentTable.dbTable).select('*').in(dbPk, csvPks);
       if (error) throw error;
 
       const dbMap = new Map(dbData.map(row => [String(row[dbPk]), row]));
@@ -395,15 +371,14 @@ export default function CsvUploader() {
         } else {
           const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
           let hasChanges = false;
-          for (const indexStr in cleanHeaderMap) {
+          for (const indexStr in currentHeaderMap) {
              const csvIndex = parseInt(indexStr, 10);
-             const dbKey = cleanHeaderMap[csvIndex];
+             const dbKey = currentHeaderMap[csvIndex];
              if (dbKey && Object.prototype.hasOwnProperty.call(dbRow, dbKey)) {
                 const parsedCsvVal = parseValueForComparison(dbKey, csvRow[csvIndex]);
                 const parsedDbVal = parseDbValueForComparison(dbKey, dbRow[dbKey]);
                 
                 if (String(parsedCsvVal) !== String(parsedDbVal)) {
-                    // Avoid false positives for empty/null values
                     if (parsedCsvVal === null && (parsedDbVal === '' || parsedDbVal === null)) continue;
                     if (parsedCsvVal === '' && (parsedDbVal === null || parsedDbVal === '')) continue;
                     changes[dbKey] = { from: dbRow[dbKey], to: csvRow[csvIndex] };
@@ -420,17 +395,16 @@ export default function CsvUploader() {
       });
       
       setComparison({ newRows, updatedRows, unchangedRows });
-      setCurrentStep('compare');
 
     } catch (err: any) {
-      toast({ title: 'Error de Comparación', description: `No se pudo comparar con la base de datos. Revisa la conexión, la configuración de la tabla y que la clave primaria mapeada sea correcta. Error: ${err.message}`, variant: 'destructive' });
+      toast({ title: 'Error de Comparación', description: `No se pudo comparar con la base de datos. Error: ${err.message}`, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   const handleSync = async () => {
-    if (!targetTable || !Object.keys(cleanHeaderMap).length || (!selectedNew.size && !selectedUpdates.size)) {
+    if (!targetTable || !userHeaderMap || (!selectedNew.size && !selectedUpdates.size)) {
         toast({ title: 'Nada que Sincronizar', description: 'Por favor, selecciona registros para añadir o actualizar.', variant: 'destructive'});
         return;
     }
@@ -439,7 +413,7 @@ export default function CsvUploader() {
     setSyncProgress(0);
     setSyncMessage('Iniciando sincronización...');
     
-    const BATCH_SIZE = 50; // Process 50 rows at a time
+    const BATCH_SIZE = 50; 
     const rowsToSync = [
         ...Array.from(selectedNew).map(index => ({ type: 'new', data: csvData[index] })),
         ...Array.from(selectedUpdates).map(index => ({ type: 'update', data: csvData[index] }))
@@ -455,17 +429,12 @@ export default function CsvUploader() {
 
         setSyncMessage(`Procesando lote ${i + 1} de ${totalBatches}... (${batch.length} registros)`);
         
-        const dbHeaders = [...new Set(Object.values(cleanHeaderMap))];
-        
         const isUpsert = !!Object.values(cleanHeaderMap).find(col => col === targetTable.pk);
         
         try {
             const result = await saveToDatabase({
                 targetTable: targetTable.dbTable,
-                data: { headers: dbHeaders, rows: batch.map(item => dbHeaders.map(h => {
-                    const csvHeaderIndex = Object.keys(cleanHeaderMap).find(key => cleanHeaderMap[parseInt(key,10)] === h);
-                    return csvHeaderIndex !== undefined ? item.data[parseInt(csvHeaderIndex,10)] : '';
-                })) },
+                data: { headers: Object.values(cleanHeaderMap), rows: batch.map(item => Object.keys(cleanHeaderMap).map(csvIndex => item.data[parseInt(csvIndex,10)])) },
                 conflictKey: isUpsert ? targetTable.pk : undefined,
                 newCount: newInBatch,
                 updateCount: updatedInBatch,
@@ -474,7 +443,7 @@ export default function CsvUploader() {
             if (!result.success) {
                 toast({ title: `Error en Lote ${i + 1}`, description: result.message, variant: 'destructive', duration: 10000 });
                 success = false;
-                break; // Stop on first error
+                break; 
             }
         } catch(err: any) {
             toast({ title: `Error Crítico en Lote ${i + 1}`, description: err.message, variant: 'destructive', duration: 10000 });
@@ -489,10 +458,16 @@ export default function CsvUploader() {
         toast({ title: 'Sincronización Completa', description: 'Los datos se han guardado con éxito. Actualizando vista...' });
         setSelectedNew(new Set());
         setSelectedUpdates(new Set());
-        await handleConfirmMappingAndCompare();
+        await handleCompareData(targetTable, cleanHeaderMap);
     }
 
     setIsSyncing(false);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      processFile(event.target.files[0]);
+    }
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => event.preventDefault();
@@ -511,10 +486,6 @@ export default function CsvUploader() {
         else next.add(index);
         return next;
     });
-  };
-
-  const handleMappingChange = (csvIndex: number, dbColumn: string) => {
-    setHeaderMap(prev => ({...prev, [csvIndex]: dbColumn}));
   };
 
   const pkHeaderIndex = useMemo(() => {
@@ -554,134 +525,170 @@ export default function CsvUploader() {
             </CardContent>
         </Card>
 
-        {currentStep === 'mapping' && !isLoading && (
+        <Card className={cn(!file && "bg-muted/50 pointer-events-none opacity-50")}>
+            <CardHeader>
+                <CardTitle>Paso 2: Seleccionar Tabla de Destino</CardTitle>
+                <CardDescription>Elige la tabla con la que quieres comparar y sincronizar tu archivo CSV.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || !file || isMapping}>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla..." : "Configuración de Supabase incompleta"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {Object.keys(TABLE_SCHEMAS).map(tableName => (
+                            <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                 {!isSupabaseConfigured && (
+                    <Alert variant="destructive" className="mt-4">
+                        <AlertTitle>Acción Requerida</AlertTitle>
+                        <AlertDescription>
+                            La conexión con la base de datos no está configurada. Edita el archivo <code>.env</code> y reinicia el servidor.
+                        </AlertDescription>
+                    </Alert>
+                )}
+            </CardContent>
+        </Card>
+        
+        { isMapping && (
             <Card>
-                <CardHeader>
-                    <CardTitle>Paso 2: Seleccionar Tabla y Mapear Columnas</CardTitle>
-                    <CardDescription>Elige la tabla de destino y ajusta el mapeo de columnas sugerido por el sistema.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label htmlFor="table-select">Tabla de Destino</Label>
-                        <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured}>
-                            <SelectTrigger id="table-select" className="w-full">
-                                <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla..." : "Configuración de Supabase incompleta"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {Object.keys(TABLE_SCHEMAS).map(tableName => (
-                                    <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                <CardContent className="pt-6">
+                    <div className="flex flex-col items-center justify-center h-24 gap-2">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <p className="text-muted-foreground">La IA está sugiriendo un mapeo...</p>
                     </div>
-
-                    {targetTable && (
-                        <div className="border rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
-                            <Table>
-                                <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm">
-                                    <TableRow>
-                                        <TableHead className="w-[50%]">Cabecera del CSV</TableHead>
-                                        <TableHead className="w-[50%]">Columna de la Base de Datos</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {headers.map((csvHeader, i) => (
-                                        <TableRow key={`${csvHeader}-${i}`}>
-                                            <TableCell className="font-medium truncate" title={csvHeader}>
-                                                {csvHeader}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Select
-                                                    value={headerMap[i] || IGNORE_COLUMN_VALUE}
-                                                    onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Ignorar esta columna" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value={IGNORE_COLUMN_VALUE}>
-                                                            -- Ignorar esta columna --
-                                                        </SelectItem>
-                                                        {targetTable.columns.map(col => (
-                                                            <SelectItem key={col} value={col}>
-                                                                {col}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    )}
                 </CardContent>
-                <CardFooter>
-                    <Button onClick={handleConfirmMappingAndCompare} disabled={isLoading || !targetTable} size="lg">
-                        <GitCompareArrows className="mr-2 h-5 w-5"/>
-                        Analizar y Previsualizar Cambios
-                    </Button>
-                </CardFooter>
             </Card>
         )}
-
-      {currentStep === 'compare' && comparison && !isLoading && (
+        {targetTable && !isMapping && !isMappingConfirmed && (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Wand2 className="text-primary"/>Paso 3: Revisar Mapeo de Columnas</CardTitle>
+                    <CardDescription>La IA ha sugerido un mapeo. Revisa y ajusta las columnas según sea necesario. Las no mapeadas no se sincronizarán.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="border rounded-lg max-h-80 overflow-auto">
+                        <Table>
+                             <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                                <TableRow>
+                                    <TableHead>Cabecera CSV</TableHead>
+                                    <TableHead className="w-12 text-center"></TableHead>
+                                    <TableHead>Columna Base de Datos</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {headers.map((csvHeader, index) => (
+                                    <TableRow key={csvHeader}>
+                                        <TableCell className="font-medium">{csvHeader}</TableCell>
+                                        <TableCell className="text-center">
+                                            <ArrowRight className="h-4 w-4 text-muted-foreground"/>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Select 
+                                                value={userHeaderMap[index] || IGNORE_COLUMN_VALUE}
+                                                onValueChange={(dbColumn) => handleUserMapChange(index, dbColumn)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccionar columna..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value={IGNORE_COLUMN_VALUE}>No mapear</SelectItem>
+                                                    {targetTable.columns.map(col => (
+                                                        <SelectItem key={col} value={col}>{col}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                     <Button onClick={handleConfirmMapping} className="w-full">
+                        Confirmar Mapeo y Comparar Datos
+                    </Button>
+                </CardContent>
+            </Card>
+        )}
+      {(isLoading || (comparison && isMappingConfirmed)) && (
         <Card>
           <CardHeader>
-            <CardTitle>Paso 3: Comparar y Sincronizar</CardTitle>
-            <CardDescription>Revisa los datos. Selecciona lo que quieres sincronizar y guarda los cambios.</CardDescription>
+            <div className="flex items-center justify-between">
+                <div>
+                    <CardTitle>Paso 4: Comparar y Seleccionar Datos</CardTitle>
+                    <CardDescription>Revisa los datos del CSV y compáralos con la base de datos. Selecciona lo que quieres sincronizar.</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => handleCompareData(targetTable, cleanHeaderMap)} disabled={isLoading || !targetTable || !userHeaderMap}>
+                    <RefreshCw className={cn("w-5 h-5", (isLoading || isMapping) && "animate-spin")} />
+                </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="new">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="new">Nuevos ({comparison.newRows.length})</TabsTrigger>
-                    <TabsTrigger value="updated">Actualizaciones ({comparison.updatedRows.length})</TabsTrigger>
-                    <TabsTrigger value="unchanged">Sin Cambios ({comparison.unchangedRows.length})</TabsTrigger>
-                </TabsList>
-                <TabsContent value="new" className="mt-4">
-                    <DataTable 
-                        rows={comparison.newRows}
-                        headers={headers}
-                        pkIndex={pkHeaderIndex}
-                        selection={selectedNew}
-                        onSelectRow={(index) => toggleSelection(index, 'new')}
-                    />
-                </TabsContent>
-                <TabsContent value="updated" className="mt-4">
-                    <UpdateTable 
-                        rows={comparison.updatedRows} 
-                        pk={targetTable?.pk || ''} 
-                        selection={selectedUpdates} 
-                        onSelectRow={(index) => toggleSelection(index, 'update')}
-                    />
-                </TabsContent>
-                <TabsContent value="unchanged" className="mt-4">
-                    <DataTable rows={comparison.unchangedRows} headers={headers} pkIndex={pkHeaderIndex} />
-                </TabsContent>
-            </Tabs>
-          </CardContent>
-          <CardFooter className="flex-col items-center gap-4 pt-6 border-t">
-            {isSyncing ? (
-                <div className="w-full text-center p-4">
-                    <Progress value={syncProgress} className="w-full mb-2" />
-                    <p className="text-sm text-muted-foreground mt-2">{syncMessage}</p>
-                    <p className="text-lg font-semibold">{syncProgress}%</p>
+             {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-40 gap-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground">Comparando con la base de datos...</p>
                 </div>
+             ) : comparison ? (
+                <Tabs defaultValue="new">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="new">Nuevos ({comparison.newRows.length})</TabsTrigger>
+                        <TabsTrigger value="updated">Actualizaciones ({comparison.updatedRows.length})</TabsTrigger>
+                        <TabsTrigger value="unchanged">Sin Cambios ({comparison.unchangedRows.length})</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="new" className="mt-4">
+                        <DataTable 
+                            rows={comparison.newRows}
+                            headers={headers}
+                            pkIndex={pkHeaderIndex}
+                            selection={selectedNew}
+                            onSelectRow={(index) => toggleSelection(index, 'new')}
+                        />
+                    </TabsContent>
+                    <TabsContent value="updated" className="mt-4">
+                        <UpdateTable rows={comparison.updatedRows} pk={targetTable.pk} selection={selectedUpdates} onSelectRow={(index) => toggleSelection(index, 'update')} />
+                    </TabsContent>
+                    <TabsContent value="unchanged" className="mt-4">
+                        <DataTable rows={comparison.unchangedRows} headers={headers} pkIndex={pkHeaderIndex} />
+                    </TabsContent>
+                </Tabs>
             ) : (
-                (selectedNew.size > 0 || selectedUpdates.size > 0) && (
-                <>
-                    <p className="text-sm text-muted-foreground">
-                        Se agregarán <span className="font-bold text-primary">{selectedNew.size}</span> registros y se actualizarán <span className="font-bold text-primary">{selectedUpdates.size}</span>.
-                    </p>
-                    <Button onClick={handleSync} size="lg" className="w-full max-w-md">
-                        <Save className="mr-2 h-5 w-5" />
-                        Guardar Cambios en la Base de Datos
-                    </Button>
-                </>
+                 !isMapping && targetTable && (
+                    <Alert>
+                        <GitCompareArrows className="h-4 w-4" />
+                        <AlertTitle>Sin datos para comparar</AlertTitle>
+                        <AlertDescription>No se pudo realizar la comparación. Verifica el mapeo de la clave primaria o el contenido del archivo.</AlertDescription>
+                    </Alert>
                 )
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {(selectedNew.size > 0 || selectedUpdates.size > 0) && (
+        <Card>
+            <CardHeader>
+                <CardTitle>Paso 5: Sincronizar Cambios</CardTitle>
+                <CardDescription>
+                    Se agregarán <span className="font-bold text-primary">{selectedNew.size}</span> registros nuevos y se actualizarán <span className="font-bold text-primary">{selectedUpdates.size}</span> registros existentes.
+                </CardDescription>
+            </CardHeader>
+            <CardFooter>
+                 <Button onClick={handleSync} size="lg" className="w-full max-w-md mx-auto" disabled={isSyncing}>
+                    <Save className="mr-2 h-5 w-5" />
+                    {isSyncing ? `Sincronizando... ${syncProgress}%` : `Guardar ${selectedNew.size + selectedUpdates.size} Cambios`}
+                </Button>
             </CardFooter>
+             {isSyncing && (
+                <CardContent>
+                    <div className="w-full text-center p-4">
+                        <Progress value={syncProgress} className="w-full mb-2" />
+                        <p className="text-sm text-muted-foreground mt-2">{syncMessage}</p>
+                    </div>
+                </CardContent>
+            )}
         </Card>
       )}
     </div>
@@ -805,5 +812,3 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
         </div>
     );
 }
-
-    
