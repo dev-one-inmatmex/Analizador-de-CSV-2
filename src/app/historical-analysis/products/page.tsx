@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import type { publicaciones, base_madre_productos } from '@/types/database';
+import type { publicaciones } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
@@ -21,7 +21,6 @@ import GlobalNav from '@/components/global-nav';
 
 export default function ProductsPage() {
   const [publications, setPublications] = useState<publicaciones[]>([]);
-  const [baseMadre, setBaseMadre] = useState<base_madre_productos[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,74 +38,17 @@ export default function ProductsPage() {
       }
 
       try {
-        const [baseMadreResult, publicationsResult] = await Promise.all([
-          supabase
-            .from('base_madre_productos')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(20),
-          supabase
+        const {data, error} = await supabase
             .from('publicaciones')
             .select('*')
             .order('item_id', { ascending: false })
-            .limit(20),
-        ]);
+            .limit(20);
 
-        let combinedError = '';
-
-        // Process Publications
-        const publicationsData = (publicationsResult.data as publicaciones[]) || [];
-        if (publicationsResult.error) {
-          combinedError += `Publicaciones: ${publicationsResult.error.message}. `;
+        if (error) {
+          throw error;
         }
-        setPublications(publicationsData);
-
-        // Process Base Madre, augment it, and add default if needed
-        if (baseMadreResult.error) {
-            combinedError += `Productos Madre: ${baseMadreResult.error.message}. `;
-            setBaseMadre([]);
-        } else {
-            let processedBaseMadre = (baseMadreResult.data as base_madre_productos[]) || [];
-
-            // Augment with publication info
-            if (processedBaseMadre.length > 0 && publicationsData.length > 0) {
-                const publicationsMap = new Map<string, publicaciones>();
-                publicationsData.forEach(p => {
-                    if (p.sku) publicationsMap.set(p.sku, p);
-                });
-
-                processedBaseMadre = processedBaseMadre.map(bmp => {
-                    if (bmp.sku && publicationsMap.has(bmp.sku)) {
-                        const pub = publicationsMap.get(bmp.sku)!;
-                        return {
-                            ...bmp,
-                            category: pub.category || bmp.category,
-                            company: pub.company || bmp.company,
-                        };
-                    }
-                    return bmp;
-                });
-            }
-            
-            // Add a default/example record if the list is empty
-            if (processedBaseMadre.length === 0) {
-                const defaultPubInfo = publicationsData.find(p => p.sku) ?? { sku: 'SKU-EJEMPLO', category: 'Categoría Ejemplo', company: 'Empresa Ejemplo'};
-                processedBaseMadre.push({
-                    id: 0,
-                    tiempo_produccion: 15,
-                    landed_cost: 123.45,
-                    piezas_por_sku: 100,
-                    sbm: 'SBM-123',
-                    created_at: new Date().toISOString(),
-                    sku: defaultPubInfo.sku,
-                    category: defaultPubInfo.category,
-                    company: defaultPubInfo.company,
-                });
-            }
-            setBaseMadre(processedBaseMadre);
-        }
-
-        if (combinedError) setError(combinedError.trim());
+        
+        setPublications((data as publicaciones[]) || []);
       } catch (e: any) {
         let errorMessage = 'Ocurrió un error inesperado.';
         if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
@@ -172,58 +114,6 @@ export default function ProductsPage() {
             </div>
         )}
         
-        {/* ================= BASE MADRE PRODUCTOS ================= */}
-        <section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            Productos Madre Base
-            </h2>
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Compañía</TableHead>
-                    <TableHead className="text-right">Landed Cost</TableHead>
-                    <TableHead className="text-right">Tiempo Prod.</TableHead>
-                    <TableHead className="text-right">Piezas/SKU</TableHead>
-                    <TableHead>SBM</TableHead>
-                    <TableHead className="text-center">Fecha Creación</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {baseMadre.length > 0 ? (
-                    baseMadre.map((p) => (
-                    <TableRow key={p.id}>
-                        <TableCell className="font-mono text-primary">{p.sku ?? 'N/A'}</TableCell>
-                        <TableCell>{p.category ?? '—'}</TableCell>
-                        <TableCell>{p.company ?? '—'}</TableCell>
-                        <TableCell className="text-right">
-                        {new Intl.NumberFormat('es-MX', {
-                            style: 'currency',
-                            currency: 'MXN',
-                        }).format(p.landed_cost ?? 0)}
-                        </TableCell>
-                        <TableCell className="text-right">{p.tiempo_produccion ?? '—'}</TableCell>
-                        <TableCell className="text-right">{p.piezas_por_sku ?? '—'}</TableCell>
-                        <TableCell>{p.sbm ?? '—'}</TableCell>
-                        <TableCell className="text-center">
-                        {format(new Date(p.created_at), 'dd MMM yyyy', { locale: es })}
-                        </TableCell>
-                    </TableRow>
-                    ))
-                ) : (
-                    <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        No se encontraron productos madre base.
-                    </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-            </Table>
-            </div>
-        </section>
-
         {/* ============== PUBLICACIONES ============== */}
         <section>
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">

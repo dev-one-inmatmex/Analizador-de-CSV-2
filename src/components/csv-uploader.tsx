@@ -58,10 +58,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
   publicaciones: {
     pk: 'item_id',
     columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at']
-  },
-  base_madre_productos: {
-    pk: 'sku',
-    columns: ['id', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'created_at', 'sku', 'category', 'company']
   }
 };
 
@@ -142,7 +138,7 @@ export default function CsvUploader() {
         setHeaders(csvHeaders);
         const parsedData = dataRows.map(row => row.map(cell => (cell || '').trim().replace(/"/g, '')));
         setCsvData(parsedData);
-        toast({ title: 'Archivo Procesado', description: `${file.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
+        toast({ title: 'Archivo Procesado', description: `${fileToProcess.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
     };
     reader.readAsText(fileToProcess, 'latin1');
   };
@@ -536,7 +532,7 @@ function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTable
                         return (
                             <TableRow key={index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow && onSelectRow(index)} className={cn(onSelectRow && 'cursor-pointer')}>
                                 {onSelectRow && <TableCell><Checkbox checked={isSelected} /></TableCell>}
-                                {data.map((cell, cellIndex) => <TableCell key={cellIndex} className="truncate max-w-xs" title={cell}>{cell}</TableCell>)}
+                                {data.map((cell, cellIndex) => <TableCell key={cellIndex}>{cell}</TableCell>)}
                             </TableRow>
                         );
                     })}

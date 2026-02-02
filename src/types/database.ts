@@ -79,16 +79,16 @@ export interface publicaciones {
     sku: string | null;
     product_number: string | null;
     variation_id: string | null;
-    title: string | null;
+    title: string;
     status: string | null;
     category: string | null; 
-    price: number | null;
+    price: number;
     company: string | null;
     created_at: string;      // timestamptz
   }
   
 
-export interface base_madre_productos {
+export interface skus_unicos {
   id: number;
   tiempo_produccion?: number | null;
   landed_cost?: number | null;
