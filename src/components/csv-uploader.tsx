@@ -67,6 +67,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
   productos_madre: {
     pk: 'id_producto_madre',
     columns: ['id', 'id_producto_madre', 'nombre_madre', 'costo', 'tiempo_preparacion', 'observaciones', 'fecha_registro']
+  },
+  base_madre_productos: {
+    pk: 'sku',
+    columns: ['id', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'created_at', 'sku', 'category', 'company']
   }
 };
 

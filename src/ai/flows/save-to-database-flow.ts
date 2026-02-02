@@ -34,7 +34,8 @@ function parseValue(key: string, value: string): any {
       'costo', 'tiempo_preparacion', 'id_producto_madre', 'unidades', 
       'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 
       'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 
-      'precio_unitario', 'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price'
+      'precio_unitario', 'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
+      'landed_cost', 'piezas_por_sku', 'tiempo_produccion'
     ];
   
     const booleanFields = [

@@ -111,3 +111,15 @@ export interface skus {
 export type SkuWithProduct = skus & {
   productos_madre: productos_madre | null;
 };
+
+export interface base_madre_productos {
+  id: number;
+  tiempo_produccion?: number | null;
+  landed_cost?: number | null;
+  piezas_por_sku?: number | null;
+  sbm?: string | null;
+  created_at: string;
+  sku?: string | null;
+  category?: string | null;
+  company?: string | null;
+}
