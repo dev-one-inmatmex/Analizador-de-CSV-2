@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin, supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,7 +30,7 @@ type TableConfig = {
   pk: string;
   columns: string[];
 };
-type Step = 'table-select' | 'upload' | 'mapping' | 'compare';
+type Step = 'upload' | 'mapping' | 'compare';
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
@@ -160,7 +160,7 @@ export default function CsvUploader() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
   
-  const [currentStep, setCurrentStep] = useState<Step>('table-select');
+  const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [selectedTableName, setSelectedTableName] = useState<string>("");
   const [targetTable, setTargetTable] = useState<TableConfig | null>(null);
   const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
@@ -186,33 +186,20 @@ export default function CsvUploader() {
     return cleanMap;
   }, [headerMap]);
 
-  const handleTableSelect = (tableName: string) => {
-    // Reset everything related to file processing
+  const resetAll = () => {
     setFile(null);
     setHeaders([]);
     setCsvData([]);
-    if (inputRef.current) inputRef.current.value = '';
     setComparison(null);
     setSelectedNew(new Set());
     setSelectedUpdates(new Set());
-    setHeaderMap({});
+    setSelectedTableName("");
+    setTargetTable(null);
     setCurrentStep('upload');
-
-    if (tableName) {
-        const schema = TABLE_SCHEMAS[tableName];
-        if (schema) {
-            setSelectedTableName(tableName);
-            const newTargetTable = { dbTable: tableName, pk: schema.pk, columns: schema.columns };
-            setTargetTable(newTargetTable);
-            toast({ title: 'Tabla Seleccionada', description: `Listo para cargar datos para la tabla: ${tableName}` });
-        }
-    } else {
-        setSelectedTableName("");
-        setTargetTable(null);
-        setCurrentStep('table-select');
-    }
+    setHeaderMap({});
+    if (inputRef.current) inputRef.current.value = '';
   };
-
+  
   const parseCsv = (text: string): { headers: string[], data: CsvRow[] } => {
     const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
     if (lines.length < 1) return { headers: [], data: [] };
@@ -249,54 +236,12 @@ export default function CsvUploader() {
     return { headers: csvHeaders, data: parsedData };
   };
 
-  const initiateMapping = (csvHeaders: string[]) => {
-      if (!targetTable) return;
-      setIsLoading(true);
-      const finalMap: Record<number, string> = {};
-      const usedDbCols = new Set<string>();
-
-      const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
-  
-      const dbColumnsNormalized = targetTable.columns.map(col => ({ original: col, normalized: normalize(col) }));
-  
-      csvHeaders.forEach((csvHeader, csvIndex) => {
-          const normalizedCsvHeader = normalize(csvHeader);
-          if (!normalizedCsvHeader) return;
-  
-          let bestMatch: { score: number, column: string } | null = null;
-  
-          for (const dbCol of dbColumnsNormalized) {
-              if (!dbCol.normalized || usedDbCols.has(dbCol.original)) continue;
-              
-              let score = 0;
-              if (normalizedCsvHeader === dbCol.normalized) {
-                  score = 100;
-              } else if (dbCol.normalized.includes(normalizedCsvHeader)) {
-                  score = (normalizedCsvHeader.length / dbCol.normalized.length) * 90;
-              } else if (normalizedCsvHeader.includes(dbCol.normalized)) {
-                  score = (dbCol.normalized.length / normalizedCsvHeader.length) * 90;
-              }
-
-              if (score > (bestMatch?.score || 0)) {
-                  bestMatch = { score, column: dbCol.original };
-              }
-          }
-          
-          if (bestMatch && bestMatch.score > 50) {
-              finalMap[csvIndex] = bestMatch.column;
-              usedDbCols.add(bestMatch.column);
-          }
-      });
-
-      setHeaderMap(finalMap);
-      toast({ title: 'Mapeo Automático Sugerido', description: 'Revisa las sugerencias antes de continuar.' });
-      setCurrentStep('mapping');
-      setIsLoading(false);
-  }
-
   const processFile = (fileToProcess: File) => {
     setFile(fileToProcess);
     setComparison(null);
+    setHeaderMap({});
+    setSelectedTableName("");
+    setTargetTable(null);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -316,9 +261,68 @@ export default function CsvUploader() {
 
         setHeaders(csvHeaders);
         setCsvData(parsedData);
-        initiateMapping(csvHeaders);
+        setCurrentStep('mapping');
+        toast({ title: 'Archivo Procesado', description: `Se cargaron ${parsedData.length} filas. Ahora, selecciona la tabla de destino.` });
     };
     reader.readAsText(fileToProcess, 'latin1');
+  };
+  
+  const handleTableSelect = (tableName: string) => {
+    if (!tableName) {
+        setSelectedTableName("");
+        setTargetTable(null);
+        setHeaderMap({});
+        return;
+    }
+
+    if (tableName) {
+        const schema = TABLE_SCHEMAS[tableName];
+        if (schema) {
+            setSelectedTableName(tableName);
+            const newTargetTable = { dbTable: tableName, pk: schema.pk, columns: schema.columns };
+            setTargetTable(newTargetTable);
+            toast({ title: 'Tabla Seleccionada', description: `Mapea las columnas para la tabla: ${tableName}` });
+
+            // Auto-map headers
+            const finalMap: Record<number, string> = {};
+            const usedDbCols = new Set<string>();
+            const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
+            const dbColumnsNormalized = newTargetTable.columns.map(col => ({ original: col, normalized: normalize(col) }));
+        
+            headers.forEach((csvHeader, csvIndex) => {
+                const normalizedCsvHeader = normalize(csvHeader);
+                if (!normalizedCsvHeader) return;
+        
+                let bestMatch: { score: number, column: string } | null = null;
+        
+                for (const dbCol of dbColumnsNormalized) {
+                    if (!dbCol.normalized || usedDbCols.has(dbCol.original)) continue;
+                    
+                    let score = 0;
+                    if (normalizedCsvHeader === dbCol.normalized) {
+                        score = 100;
+                    } else if (dbCol.normalized.includes(normalizedCsvHeader)) {
+                        score = (normalizedCsvHeader.length / dbCol.normalized.length) * 90;
+                    } else if (normalizedCsvHeader.includes(dbCol.normalized)) {
+                        score = (dbCol.normalized.length / normalizedCsvHeader.length) * 90;
+                    }
+
+                    if (score > (bestMatch?.score || 0)) {
+                        bestMatch = { score, column: dbCol.original };
+                    }
+                }
+                
+                if (bestMatch && bestMatch.score > 50) {
+                    finalMap[csvIndex] = bestMatch.column;
+                    usedDbCols.add(bestMatch.column);
+                }
+            });
+            setHeaderMap(finalMap);
+        }
+    } else {
+        setSelectedTableName("");
+        setTargetTable(null);
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -326,7 +330,7 @@ export default function CsvUploader() {
       processFile(event.target.files[0]);
     }
   };
-  
+
   const handleConfirmMappingAndCompare = async () => {
     if (!targetTable || !Object.keys(cleanHeaderMap).length) {
         toast({ title: 'Mapeo Incompleto', description: 'Asegúrate de que las columnas importantes estén mapeadas.', variant: 'destructive' });
@@ -459,8 +463,8 @@ export default function CsvUploader() {
             const result = await saveToDatabase({
                 targetTable: targetTable.dbTable,
                 data: { headers: dbHeaders, rows: batch.map(item => dbHeaders.map(h => {
-                    const csvIndex = headers.findIndex(header => cleanHeaderMap[headers.indexOf(header)] === h);
-                    return csvIndex !== -1 ? item.data[csvIndex] : '';
+                    const csvHeaderIndex = Object.keys(cleanHeaderMap).find(key => cleanHeaderMap[parseInt(key,10)] === h);
+                    return csvHeaderIndex !== undefined ? item.data[parseInt(csvHeaderIndex,10)] : '';
                 })) },
                 conflictKey: isUpsert ? targetTable.pk : undefined,
                 newCount: newInBatch,
@@ -494,7 +498,7 @@ export default function CsvUploader() {
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => event.preventDefault();
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (targetTable && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
       processFile(event.dataTransfer.files[0]);
     }
   };
@@ -509,6 +513,10 @@ export default function CsvUploader() {
     });
   };
 
+  const handleMappingChange = (csvIndex: number, dbColumn: string) => {
+    setHeaderMap(prev => ({...prev, [csvIndex]: dbColumn}));
+  };
+
   const pkHeaderIndex = useMemo(() => {
     const idxStr = Object.keys(cleanHeaderMap).find(key => cleanHeaderMap[parseInt(key,10)] === targetTable?.pk);
     return idxStr !== undefined ? parseInt(idxStr, 10) : -1;
@@ -518,40 +526,8 @@ export default function CsvUploader() {
     <div className="w-full max-w-7xl mx-auto space-y-6">
         <Card>
             <CardHeader>
-                <CardTitle>Paso 1: Seleccionar Tabla de Destino</CardTitle>
-                <CardDescription>Elige la tabla de la base de datos que deseas actualizar.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isSyncing}>
-                    <SelectTrigger className="w-full">
-                        <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla..." : "Configuración de Supabase incompleta"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Object.keys(TABLE_SCHEMAS).map(tableName => (
-                            <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                 {!isSupabaseConfigured && (
-                    <Alert variant="destructive" className="mt-4">
-                        <AlertTitle>Acción Requerida</AlertTitle>
-                        <AlertDescription>
-                            La conexión con la base de datos no está configurada. Edita <code>.env</code> y reinicia el servidor.
-                        </AlertDescription>
-                    </Alert>
-                )}
-            </CardContent>
-        </Card>
-
-        <Card className={cn((!targetTable || isSyncing) && "bg-muted/50 pointer-events-none opacity-50")}>
-            <CardHeader>
-                <CardTitle>Paso 2: Cargar Documento CSV</CardTitle>
-                <CardDescription>
-                    {targetTable ? 
-                        <>Arrastra y suelta un archivo CSV aquí. El sistema comparará los registros con la tabla <span className='font-bold text-primary'>{selectedTableName}</span>.</> :
-                        "Primero selecciona una tabla de destino."
-                    }
-                </CardDescription>
+                <CardTitle>Paso 1: Cargar Documento CSV</CardTitle>
+                <CardDescription>Arrastra y suelta un archivo CSV, o haz clic para seleccionarlo.</CardDescription>
             </CardHeader>
             <CardContent>
             {!file ? (
@@ -572,72 +548,77 @@ export default function CsvUploader() {
                         <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
                         <Badge variant="secondary">{csvData.length} filas</Badge>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => { setFile(null); setCsvData([]); setHeaders([]); setComparison(null); if(inputRef.current) inputRef.current.value=''; setCurrentStep('upload'); }}><X className="w-4 h-4" /><span className="sr-only">Eliminar</span></Button>
+                    <Button variant="ghost" size="icon" onClick={resetAll}><X className="w-4 h-4" /><span className="sr-only">Eliminar</span></Button>
                 </div>
             )}
             </CardContent>
         </Card>
 
-        {isLoading && currentStep !== 'table-select' && (
-            <Card>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center h-40 gap-2">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        <p className="text-muted-foreground">Procesando...</p>
-                    </div>
-                </CardContent>
-            </Card>
-        )}
-
-        {currentStep === 'mapping' && !isLoading && targetTable && (
+        {currentStep === 'mapping' && !isLoading && (
             <Card>
                 <CardHeader>
-                    <CardTitle>Paso 3: Revisar Mapeo de Columnas</CardTitle>
-                    <CardDescription>El sistema ha sugerido un mapeo. Ajústalo si es necesario y luego confirma para analizar los datos.</CardDescription>
+                    <CardTitle>Paso 2: Seleccionar Tabla y Mapear Columnas</CardTitle>
+                    <CardDescription>Elige la tabla de destino y ajusta el mapeo de columnas sugerido por el sistema.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="border rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
-                        <Table>
-                            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm">
-                                <TableRow>
-                                    <TableHead className="w-[50%]">Cabecera del CSV</TableHead>
-                                    <TableHead className="w-[50%]">Columna de la Base de Datos</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {headers.map((csvHeader, i) => (
-                                    <TableRow key={`${csvHeader}-${i}`}>
-                                        <TableCell className="font-medium truncate" title={csvHeader}>
-                                            {csvHeader}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={headerMap[i] || IGNORE_COLUMN_VALUE}
-                                                onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Ignorar esta columna" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value={IGNORE_COLUMN_VALUE}>
-                                                        -- Ignorar esta columna --
-                                                    </SelectItem>
-                                                    {targetTable.columns.map(col => (
-                                                        <SelectItem key={col} value={col}>
-                                                            {col}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                    </TableRow>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label htmlFor="table-select">Tabla de Destino</Label>
+                        <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured}>
+                            <SelectTrigger id="table-select" className="w-full">
+                                <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla..." : "Configuración de Supabase incompleta"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.keys(TABLE_SCHEMAS).map(tableName => (
+                                    <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
                                 ))}
-                            </TableBody>
-                        </Table>
+                            </SelectContent>
+                        </Select>
                     </div>
+
+                    {targetTable && (
+                        <div className="border rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
+                            <Table>
+                                <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm">
+                                    <TableRow>
+                                        <TableHead className="w-[50%]">Cabecera del CSV</TableHead>
+                                        <TableHead className="w-[50%]">Columna de la Base de Datos</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {headers.map((csvHeader, i) => (
+                                        <TableRow key={`${csvHeader}-${i}`}>
+                                            <TableCell className="font-medium truncate" title={csvHeader}>
+                                                {csvHeader}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Select
+                                                    value={headerMap[i] || IGNORE_COLUMN_VALUE}
+                                                    onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Ignorar esta columna" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value={IGNORE_COLUMN_VALUE}>
+                                                            -- Ignorar esta columna --
+                                                        </SelectItem>
+                                                        {targetTable.columns.map(col => (
+                                                            <SelectItem key={col} value={col}>
+                                                                {col}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
                 </CardContent>
                 <CardFooter>
-                    <Button onClick={handleConfirmMappingAndCompare} disabled={isLoading} size="lg">
+                    <Button onClick={handleConfirmMappingAndCompare} disabled={isLoading || !targetTable} size="lg">
                         <GitCompareArrows className="mr-2 h-5 w-5"/>
                         Analizar y Previsualizar Cambios
                     </Button>
@@ -648,7 +629,7 @@ export default function CsvUploader() {
       {currentStep === 'compare' && comparison && !isLoading && (
         <Card>
           <CardHeader>
-            <CardTitle>Paso 4: Comparar y Sincronizar</CardTitle>
+            <CardTitle>Paso 3: Comparar y Sincronizar</CardTitle>
             <CardDescription>Revisa los datos. Selecciona lo que quieres sincronizar y guarda los cambios.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -824,3 +805,5 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
         </div>
     );
 }
+
+    
