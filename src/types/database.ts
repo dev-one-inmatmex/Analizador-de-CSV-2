@@ -22,11 +22,11 @@ export interface ventas {
     total?: number | null;
     venta_publicidad?: boolean | null;
     sku?: string | null;
-    numero_publicacion?: string | null;
-    tienda_oficial?: string | null;
-    titulo_publicacion?: string | null;
+    item_id?: string | null;
+    company?: string | null;
+    title?: string | null;
     variante?: string | null;
-    precio_unitario?: number | null;
+    price?: number | null;
     tipo_publicacion?: string | null;
     factura_adjunta?: string | null;
     datos_personales_empresa?: string | null;
@@ -74,7 +74,7 @@ export interface ventas {
 
 export interface publicaciones {
     id: string;              // PK (uuid o text) → OK
-    item_id: string | null;         // ID de la publicación (ML)
+    item_id: string;         // ID de la publicación (ML)
     sku: string | null;
     product_number: string | null;
     variation_id: string | null;

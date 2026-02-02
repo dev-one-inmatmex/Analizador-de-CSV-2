@@ -18,6 +18,10 @@ import { Badge } from '@/components/ui/badge';
 import GlobalNav from '@/components/global-nav';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+type EnrichedPublicationCount = publicaciones_por_sku & { publication_title?: string };
+type EnrichedSkuMap = skuxpublicaciones & { company?: string; category?: string };
+type EnrichedMotherCatalog = catalogo_madre & { publication_title?: string; price?: number; category?: string };
+
 type LoadingState = {
     publicaciones: boolean;
     conteoSkus: boolean;
@@ -27,9 +31,9 @@ type LoadingState = {
 
 export default function ProductsPage() {
   const [publications, setPublications] = useState<publicaciones[]>([]);
-  const [skuCounts, setSkuCounts] = useState<publicaciones_por_sku[]>([]);
-  const [skuMap, setSkuMap] = useState<skuxpublicaciones[]>([]);
-  const [motherCatalog, setMotherCatalog] = useState<catalogo_madre[]>([]);
+  const [skuCounts, setSkuCounts] = useState<EnrichedPublicationCount[]>([]);
+  const [skuMap, setSkuMap] = useState<EnrichedSkuMap[]>([]);
+  const [motherCatalog, setMotherCatalog] = useState<EnrichedMotherCatalog[]>([]);
 
   const [loading, setLoading] = useState<LoadingState>({
     publicaciones: true,
@@ -51,31 +55,63 @@ export default function ProductsPage() {
 
       try {
         const [
-            pubs,
-            counts,
-            maps,
-            catalog
+            pubsRes,
+            countsRes,
+            mapsRes,
+            catalogRes
         ] = await Promise.all([
-          supabase.from('publicaciones').select('*').order('created_at', { ascending: false }).limit(20),
+          supabase.from('publicaciones').select('*'),
           supabase.from('publicaciones_por_sku').select('*').order('publicaciones', { ascending: false }),
           supabase.from('skuxpublicaciones').select('*').limit(50),
           supabase.from('catalogo_madre').select('*').order('nombre_madre', { ascending: true })
         ]);
 
-        if (pubs.error) throw pubs.error;
-        setPublications((pubs.data as publicaciones[]) || []);
+        if (pubsRes.error) throw pubsRes.error;
+        const allPublications = (pubsRes.data as publicaciones[]) || [];
+        setPublications(allPublications.slice(0, 20).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
         setLoading(prev => ({ ...prev, publicaciones: false }));
 
-        if (counts.error) throw counts.error;
-        setSkuCounts((counts.data as publicaciones_por_sku[]) || []);
+        const pubsMap = new Map<string, publicaciones>();
+        for (const pub of allPublications) {
+            if (pub.sku && !pubsMap.has(pub.sku)) {
+                pubsMap.set(pub.sku, pub);
+            }
+        }
+        
+        if (countsRes.error) throw countsRes.error;
+        const rawSkuCounts = (countsRes.data as publicaciones_por_sku[]) || [];
+        const enrichedSkuCounts: EnrichedPublicationCount[] = rawSkuCounts.map(item => ({
+            ...item,
+            publication_title: item.sku ? (pubsMap.get(item.sku)?.title || 'N/A') : 'N/A',
+        }));
+        setSkuCounts(enrichedSkuCounts);
         setLoading(prev => ({ ...prev, conteoSkus: false }));
 
-        if (maps.error) throw maps.error;
-        setSkuMap((maps.data as skuxpublicaciones[]) || []);
+        if (mapsRes.error) throw mapsRes.error;
+        const rawSkuMap = (mapsRes.data as skuxpublicaciones[]) || [];
+        const enrichedSkuMap: EnrichedSkuMap[] = rawSkuMap.map(item => {
+            const pub = item.sku ? pubsMap.get(item.sku) : undefined;
+            return {
+                ...item,
+                company: pub?.company || 'N/A',
+                category: pub?.category || 'N/A',
+            };
+        });
+        setSkuMap(enrichedSkuMap);
         setLoading(prev => ({ ...prev, mapeoSkus: false }));
 
-        if (catalog.error) throw catalog.error;
-        setMotherCatalog((catalog.data as catalogo_madre[]) || []);
+        if (catalogRes.error) throw catalogRes.error;
+        const rawMotherCatalog = (catalogRes.data as catalogo_madre[]) || [];
+        const enrichedMotherCatalog: EnrichedMotherCatalog[] = rawMotherCatalog.map(item => {
+            const pub = item.sku ? pubsMap.get(item.sku) : undefined;
+            return {
+                ...item,
+                publication_title: pub?.title,
+                price: pub?.price,
+                category: pub?.category
+            };
+        });
+        setMotherCatalog(enrichedMotherCatalog);
         setLoading(prev => ({ ...prev, catalogoMadre: false }));
 
       } catch (e: any) {
@@ -186,6 +222,8 @@ export default function ProductsPage() {
                                     <TableHead>SKU</TableHead>
                                     <TableHead>ID Publicación</TableHead>
                                     <TableHead>Producto Madre</TableHead>
+                                    <TableHead>Compañía (Pub.)</TableHead>
+                                    <TableHead>Categoría (Pub.)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -194,6 +232,8 @@ export default function ProductsPage() {
                                     <TableCell className="font-mono">{item.sku}</TableCell>
                                     <TableCell className="font-mono text-muted-foreground">{item.publicacion_id}</TableCell>
                                     <TableCell className="font-medium text-primary">{item.nombre_madre}</TableCell>
+                                    <TableCell>{item.company}</TableCell>
+                                    <TableCell>{item.category}</TableCell>
                                 </TableRow>
                                 ))}
                             </TableBody>
@@ -213,6 +253,7 @@ export default function ProductsPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>SKU</TableHead>
+                                    <TableHead>Título (Ejemplo)</TableHead>
                                     <TableHead className="text-right"># de Publicaciones</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -220,6 +261,7 @@ export default function ProductsPage() {
                                 {skuCounts.map((item, index) => (
                                 <TableRow key={`${item.sku}-${index}`}>
                                     <TableCell className="font-mono text-primary">{item.sku}</TableCell>
+                                    <TableCell className="font-medium text-muted-foreground max-w-xs truncate" title={item.publication_title || ''}>{item.publication_title}</TableCell>
                                     <TableCell className="font-medium text-right">{item.publicaciones}</TableCell>
                                 </TableRow>
                                 ))}
@@ -239,16 +281,20 @@ export default function ProductsPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>SKU</TableHead>
-                                    <TableHead>Nombre Producto Madre</TableHead>
+                                    <TableHead>Título Publicación</TableHead>
+                                    <TableHead>Categoría (Pub.)</TableHead>
                                     <TableHead>Compañía</TableHead>
+                                    <TableHead className="text-right">Precio (Ejemplo)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {motherCatalog.map((item, index) => (
                                 <TableRow key={`${item.sku}-${index}`}>
                                     <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell className="font-medium text-primary">{item.nombre_madre}</TableCell>
+                                    <TableCell className="font-medium text-primary">{item.publication_title || item.nombre_madre}</TableCell>
+                                    <TableCell>{item.category || 'N/A'}</TableCell>
                                     <TableCell>{item.company}</TableCell>
+                                    <TableCell className="text-right font-medium">{item.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price) : 'N/A'}</TableCell>
                                 </TableRow>
                                 ))}
                             </TableBody>

@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import GlobalNav from '@/components/global-nav';
 import { supabase } from '@/lib/supabaseClient';
-import type { skus_unicos } from '@/types/database';
+import type { skus_unicos, publicaciones } from '@/types/database';
 
 // --- MOCK DATA ---
 
@@ -87,6 +87,8 @@ const inventoryDetailData = [
 const allCategories = ['Todas', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes', 'Otros'];
 const allStatuses = ['Todos', 'En Stock', 'Bajo Stock'];
 
+type EnrichedSku = skus_unicos & Partial<Pick<publicaciones, 'title' | 'price' | 'company'>>;
+
 const chartConfigCategory = {
   value: { label: 'Valor' },
   ...Object.fromEntries(stockByCategoryData.map(d => [d.category, { label: d.category, color: d.color }]))
@@ -105,7 +107,7 @@ export default function InventoryAnalysisPage() {
   const [status, setStatus] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
-  const [skusUnicos, setSkusUnicos] = React.useState<skus_unicos[]>([]);
+  const [skusUnicos, setSkusUnicos] = React.useState<EnrichedSku[]>([]);
   const [loadingSkus, setLoadingSkus] = React.useState(true);
 
   React.useEffect(() => {
@@ -118,18 +120,42 @@ export default function InventoryAnalysisPage() {
     const fetchSkusUnicos = async () => {
         if (!supabase) return;
         setLoadingSkus(true);
-        const { data, error } = await supabase
-            .from('skus_unicos')
-            .select('*')
-            .order('sku', { ascending: true });
-        
-        if (error) {
-            console.error('Error fetching unique SKUs:', error);
-            toast({ title: 'Error', description: 'No se pudieron cargar los SKUs únicos.', variant: 'destructive'});
-        } else {
-            setSkusUnicos((data as skus_unicos[]) || []);
+        try {
+            const [skusRes, pubsRes] = await Promise.all([
+                supabase.from('skus_unicos').select('*').order('sku', { ascending: true }),
+                supabase.from('publicaciones').select('*')
+            ]);
+
+            if (skusRes.error) throw skusRes.error;
+            if (pubsRes.error) throw pubsRes.error;
+
+            const skusData = (skusRes.data as skus_unicos[]) || [];
+            const pubsData = (pubsRes.data as publicaciones[]) || [];
+
+            const pubsMap = new Map<string, publicaciones>();
+            for (const pub of pubsData) {
+                if (pub.sku && !pubsMap.has(pub.sku)) {
+                    pubsMap.set(pub.sku, pub);
+                }
+            }
+
+            const enrichedSkus: EnrichedSku[] = skusData.map(sku => {
+                const matchingPub = sku.sku ? pubsMap.get(sku.sku) : undefined;
+                return {
+                    ...sku,
+                    title: matchingPub?.title,
+                    price: matchingPub?.price,
+                    company: matchingPub?.company,
+                };
+            });
+            setSkusUnicos(enrichedSkus);
+
+        } catch (error: any) {
+             console.error('Error fetching unique SKUs:', error);
+             toast({ title: 'Error', description: 'No se pudieron cargar los SKUs únicos.', variant: 'destructive'});
+        } finally {
+            setLoadingSkus(false);
         }
-        setLoadingSkus(false);
     };
 
     fetchSkusUnicos();
@@ -425,20 +451,24 @@ export default function InventoryAnalysisPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>SKU</TableHead>
-                                    <TableHead>Producto Madre</TableHead>
+                                    <TableHead>Título (Publicación)</TableHead>
+                                    <TableHead>Compañía</TableHead>
                                     <TableHead>Categoría</TableHead>
                                     <TableHead className="text-right">Tiempo Producción (días)</TableHead>
                                     <TableHead className="text-right">Costo (Landed)</TableHead>
+                                    <TableHead className="text-right">Precio Venta (Ej.)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {skusUnicos.map((sku) => (
                                     <TableRow key={sku.sku}>
                                         <TableCell className="font-mono">{sku.sku}</TableCell>
-                                        <TableCell className="font-medium">{sku.nombre_madre}</TableCell>
+                                        <TableCell className="font-medium">{sku.title || sku.nombre_madre || 'N/A'}</TableCell>
+                                        <TableCell>{sku.company || 'N/A'}</TableCell>
                                         <TableCell>{sku.category}</TableCell>
                                         <TableCell className="text-right">{sku.tiempo_produccion}</TableCell>
                                         <TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell>
+                                        <TableCell className="text-right font-medium">{sku.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.price) : 'N/A'}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
