@@ -24,6 +24,11 @@ type ComparisonResult = {
   updatedRows: { index: number; csv: CsvRow; db: DbRow; changes: Record<string, { from: any; to: any }> }[];
   unchangedRows: { index: number; data: CsvRow }[];
 };
+type TableConfig = {
+  dbTable: string;
+  pk: string;
+  columns: string[];
+};
 type Step = 'upload' | 'mapping' | 'compare';
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
