@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { UploadCloud, File as FileIcon, X, Loader2, Save, Wand2, RefreshCw, GitCompareArrows, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Types
-type CsvRow = Record<string, string>;
+type CsvRow = string[];
 type DbRow = Record<string, any>;
 type ComparisonResult = {
   newRows: { index: number; data: CsvRow }[];
@@ -30,6 +30,8 @@ type TableConfig = {
   columns: string[];
 };
 type Step = 'upload' | 'mapping' | 'compare';
+
+const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
 // Defines the structure of the database tables for header-based detection.
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
@@ -63,18 +65,18 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
   }
 };
 
+
 export default function CsvUploader() {
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [csvData, setCsvData] = useState<CsvRow[]>([]);
-
+  
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [selectedTableName, setSelectedTableName] = useState<string>("");
   const [targetTable, setTargetTable] = useState<TableConfig | null>(null);
-  
-  const [headerMap, setHeaderMap] = useState<Record<string, string>>({});
+  const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -84,6 +86,16 @@ export default function CsvUploader() {
   const [selectedUpdates, setSelectedUpdates] = useState<Set<number>>(new Set());
   
   const isSupabaseConfigured = !!supabase;
+
+  const cleanHeaderMap = useMemo(() => {
+    const cleanMap: Record<number, string> = {};
+    for (const key in headerMap) {
+      if (Object.prototype.hasOwnProperty.call(headerMap, key)) {
+        cleanMap[parseInt(key, 10)] = headerMap[key];
+      }
+    }
+    return cleanMap;
+  }, [headerMap]);
 
   const resetAll = (keepFile = false) => {
     setCurrentStep('upload');
@@ -114,52 +126,7 @@ export default function CsvUploader() {
       processFile(event.dataTransfer.files[0]);
     }
   };
-
-  const parseCsv = (text: string): { headers: string[], data: CsvRow[] } => {
-    const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
-    if (lines.length < 1) return { headers: [], data: [] };
-
-    let delimiter = ',';
-    if (lines[0].split(';').length > lines[0].split(',').length) delimiter = ';';
-    else if (lines[0].split('\t').length > lines[0].split(',').length) delimiter = '\t';
-    
-    const parseRow = (rowStr: string): string[] => {
-        const result = [];
-        let field = '';
-        let inQuotes = false;
-        for (let i = 0; i < rowStr.length; i++) {
-            const char = rowStr[i];
-            if (char === '"' && inQuotes && i + 1 < rowStr.length && rowStr[i + 1] === '"') {
-                field += '"';
-                i++;
-            } else if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === delimiter && !inQuotes) {
-                result.push(field);
-                field = '';
-            } else {
-                field += char;
-            }
-        }
-        result.push(field);
-        return result;
-    };
-    
-    const csvHeaders = parseRow(lines[0]);
-    const dataRows = lines.slice(1);
-    
-    const parsedData = dataRows.map(rowStr => {
-        const row = parseRow(rowStr);
-        const rowObject: CsvRow = {};
-        csvHeaders.forEach((header, index) => {
-            rowObject[header] = row[index] || '';
-        });
-        return rowObject;
-    }).filter(row => Object.values(row).some(cell => cell.trim() !== ''));
-
-    return { headers: csvHeaders, data: parsedData };
-  };
-
+  
   const processFile = (fileToProcess: File) => {
     resetAll();
     setFile(fileToProcess);
@@ -168,17 +135,21 @@ export default function CsvUploader() {
     reader.onload = (e) => {
         const text = e.target?.result as string;
         if (!text) return;
-        const { headers: csvHeaders, data: parsedData } = parseCsv(text);
+        const rows = text.split(/\r\n|\n/).map(row => row.trim().split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/));
+        const csvHeaders = rows[0].map(h => (h || '').trim().replace(/"/g, ''));
+        const dataRows = rows.slice(1).filter(row => row.length > 1 && row.some(cell => cell.trim() !== ''));
+        
         setHeaders(csvHeaders);
+        const parsedData = dataRows.map(row => row.map(cell => (cell || '').trim().replace(/"/g, '')));
         setCsvData(parsedData);
-        toast({ title: 'Archivo Procesado', description: `${parsedData.length} filas cargadas. Ahora selecciona la tabla de destino.` });
+        toast({ title: 'Archivo Procesado', description: `${fileToProcess.name} ha sido cargado. Ahora selecciona la tabla de destino.` });
     };
     reader.readAsText(fileToProcess, 'latin1');
   };
 
   const handleTableSelectAndInitiateMapping = async (tableName: string) => {
     if (!tableName) {
-        resetAll(true); // Keep file but reset steps
+        resetAll(true);
         return;
     }
 
@@ -195,9 +166,18 @@ export default function CsvUploader() {
 
         try {
           const mappingResult = await mapHeaders({ csvHeaders: headers, dbColumns: schema.columns });
-          setHeaderMap(mappingResult.headerMap);
+          
+          const initialMap: Record<number, string> = {};
+          const appliedHeaders = new Set<string>();
+          headers.forEach((header, index) => {
+            if (mappingResult.headerMap[header] && !appliedHeaders.has(mappingResult.headerMap[header])) {
+              initialMap[index] = mappingResult.headerMap[header];
+              appliedHeaders.add(mappingResult.headerMap[header]);
+            }
+          });
+          setHeaderMap(initialMap);
 
-          if (Object.keys(mappingResult.headerMap).length === 0) {
+          if (Object.keys(initialMap).length === 0) {
             toast({ title: 'Mapeo por IA incompleto', description: 'Revisa y completa el mapeo manualmente.', variant: 'default' });
           } else {
             toast({ title: 'Mapeo por IA completado', description: 'Revisa las sugerencias antes de continuar.' });
@@ -211,15 +191,20 @@ export default function CsvUploader() {
     }
   };
 
-  const handleMappingChange = (csvHeader: string, dbColumn: string) => {
-    setHeaderMap(prev => ({
-        ...prev,
-        [csvHeader]: dbColumn,
-    }));
+  const handleMappingChange = (csvHeaderIndex: number, dbColumn: string) => {
+    setHeaderMap(prev => {
+        const newMap = { ...prev };
+        if (dbColumn === IGNORE_COLUMN_VALUE) {
+            delete newMap[csvHeaderIndex];
+        } else {
+            newMap[csvHeaderIndex] = dbColumn;
+        }
+        return newMap;
+    });
   };
 
   const handleConfirmMappingAndCompare = async () => {
-    if (!targetTable || !Object.keys(headerMap).length) {
+    if (!targetTable || !Object.keys(cleanHeaderMap).length) {
         toast({ title: 'Mapeo Incompleto', description: 'Asegúrate de que las columnas importantes estén mapeadas.', variant: 'destructive' });
         return;
     }
@@ -233,9 +218,9 @@ export default function CsvUploader() {
 
     try {
       const dbPk = targetTable.pk;
-      const csvPkHeader = Object.keys(headerMap).find(key => headerMap[key] === dbPk);
+      const csvPkHeaderIndexStr = Object.keys(cleanHeaderMap).find(key => cleanHeaderMap[parseInt(key, 10)] === dbPk);
 
-      if (!csvPkHeader) {
+      if (csvPkHeaderIndexStr === undefined) {
         toast({
           title: 'Clave Primaria no Mapeada',
           description: `La clave primaria '${dbPk}' es necesaria para la comparación. Por favor, mapea una columna del CSV a '${dbPk}'.`,
@@ -244,46 +229,48 @@ export default function CsvUploader() {
         setIsLoading(false);
         return;
       }
-      
-      const csvPks = csvData.map(row => row[csvPkHeader]).filter(Boolean);
+      const csvPkHeaderIndex = parseInt(csvPkHeaderIndexStr, 10);
+
+      const csvPks = csvData.map(row => row[csvPkHeaderIndex]).filter(Boolean);
 
       if (csvPks.length === 0) {
         toast({
           title: 'Clave Primaria Vacía',
-          description: `La columna '${csvPkHeader}' está vacía en tu CSV.`,
+          description: `La columna mapeada como clave primaria ('${headers[csvPkHeaderIndex]}') está vacía en tu CSV.`,
           variant: 'destructive',
         });
         setIsLoading(false);
         return;
       }
-      
+
       if (!supabase) throw new Error("Cliente de Supabase no disponible");
 
       const { data: dbData, error } = await supabase.from(targetTable.dbTable).select('*').in(dbPk, csvPks);
       if (error) throw error;
 
       const dbMap = new Map(dbData.map(row => [String(row[dbPk]), row]));
-      
+
       const newRows: ComparisonResult['newRows'] = [];
       const updatedRows: ComparisonResult['updatedRows'] = [];
       const unchangedRows: ComparisonResult['unchangedRows'] = [];
 
       csvData.forEach((csvRow, index) => {
-        const pkValue = String(csvRow[csvPkHeader]);
+        const pkValue = String(csvRow[csvPkHeaderIndex]);
         const dbRow = dbMap.get(pkValue);
 
-        if (!pkValue || !dbRow) {
+        if (!dbRow) {
           newRows.push({ index, data: csvRow });
         } else {
           const changes: ComparisonResult['updatedRows'][0]['changes'] = {};
-          for (const csvHeader in headerMap) {
-             const dbKey = headerMap[csvHeader];
-             if (dbKey && Object.prototype.hasOwnProperty.call(dbRow, dbKey) && Object.prototype.hasOwnProperty.call(csvRow, csvHeader)) {
-                const csvVal = (csvRow[csvHeader] === null || csvRow[csvHeader] === undefined) ? '' : String(csvRow[csvHeader]).trim();
+          for (const indexStr in cleanHeaderMap) {
+             const csvIndex = parseInt(indexStr, 10);
+             const dbKey = cleanHeaderMap[csvIndex];
+             if (dbKey && Object.prototype.hasOwnProperty.call(dbRow, dbKey)) {
+                const csvVal = (csvRow[csvIndex] === null || csvRow[csvIndex] === undefined) ? '' : String(csvRow[csvIndex]).trim();
                 const dbVal = (dbRow[dbKey] === null || dbRow[dbKey] === undefined) ? '' : String(dbRow[dbKey]).trim();
 
                 if (csvVal !== dbVal) {
-                    changes[dbKey] = { from: dbRow[dbKey], to: csvRow[csvHeader] };
+                    changes[dbKey] = { from: dbRow[dbKey], to: csvRow[csvIndex] };
                 }
              }
           }
@@ -301,12 +288,12 @@ export default function CsvUploader() {
     } catch (err: any) {
       toast({ title: 'Error de Comparación', description: `No se pudo conectar a la base de datos: ${err.message}`, variant: 'destructive' });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
   const handleSync = async () => {
-    if (!targetTable || !Object.keys(headerMap).length || (!selectedNew.size && !selectedUpdates.size)) {
+    if (!targetTable || !Object.keys(cleanHeaderMap).length || (!selectedNew.size && !selectedUpdates.size)) {
         toast({ title: 'Nada que Sincronizar', description: 'Por favor, selecciona registros para añadir o actualizar.', variant: 'destructive'});
         return;
     }
@@ -318,16 +305,14 @@ export default function CsvUploader() {
 
     const mappedData = dataToSync.map(row => {
         const newRow: Record<string, string> = {};
-        for (const csvHeader in row) {
-            const dbColumn = headerMap[csvHeader];
-            if (dbColumn) {
-                newRow[dbColumn] = row[csvHeader];
-            }
-        }
+        Object.entries(cleanHeaderMap).forEach(([indexStr, dbColumn]) => {
+          const index = parseInt(indexStr, 10);
+          newRow[dbColumn] = row[index];
+        });
         return newRow;
     });
 
-    const dbHeaders = [...new Set(mappedData.flatMap(Object.keys))];
+    const dbHeaders = [...new Set(Object.values(cleanHeaderMap))];
 
     try {
         const result = await saveToDatabase({
@@ -335,14 +320,14 @@ export default function CsvUploader() {
             data: { headers: dbHeaders, rows: mappedData.map(row => dbHeaders.map(h => row[h] || '')) },
             conflictKey: targetTable.pk,
             newCount: selectedNew.size,
-            updateCount: selectedUpdates.size
+            updateCount: selectedUpdates.size,
         });
 
         if (result.success) {
             toast({ title: 'Sincronización Exitosa', description: result.message });
             setSelectedNew(new Set());
             setSelectedUpdates(new Set());
-            await handleConfirmMappingAndCompare(); // Re-run comparison
+            await handleConfirmMappingAndCompare();
         } else {
             throw new Error(result.message);
         }
@@ -362,6 +347,11 @@ export default function CsvUploader() {
         return next;
     });
   };
+
+  const pkHeaderIndex = useMemo(() => {
+    const idxStr = Object.keys(cleanHeaderMap).find(key => cleanHeaderMap[parseInt(key,10)] === targetTable?.pk);
+    return idxStr !== undefined ? parseInt(idxStr, 10) : -1;
+  }, [cleanHeaderMap, targetTable]);
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
@@ -427,7 +417,6 @@ export default function CsvUploader() {
                 </CardContent>
             </Card>
         )}
-
         {currentStep === 'mapping' && !isLoading && targetTable && (
             <Card>
                 <CardHeader>
@@ -436,18 +425,18 @@ export default function CsvUploader() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
-                        {headers.map((csvHeader) => (
-                            <div key={csvHeader} className="grid grid-cols-2 items-center gap-2">
+                        {headers.map((csvHeader, i) => (
+                            <div key={`${csvHeader}-${i}`} className="grid grid-cols-2 items-center gap-2">
                                 <label className="text-sm font-medium text-right truncate" title={csvHeader}>{csvHeader}</label>
                                 <Select
-                                    value={headerMap[csvHeader] || ""}
-                                    onValueChange={(newDbColumn) => handleMappingChange(csvHeader, newDbColumn)}
+                                    value={headerMap[i] || IGNORE_COLUMN_VALUE}
+                                    onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Ignorar columna" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Ignorar columna</SelectItem>
+                                        <SelectItem value={IGNORE_COLUMN_VALUE}>Ignorar columna</SelectItem>
                                         {targetTable.columns.map(col => (
                                             <SelectItem key={col} value={col}>{col}</SelectItem>
                                         ))}
@@ -483,7 +472,7 @@ export default function CsvUploader() {
                     <DataTable 
                         rows={comparison.newRows}
                         headers={headers}
-                        pk={Object.keys(headerMap).find(key => headerMap[key] === targetTable?.pk) || ''}
+                        pkIndex={pkHeaderIndex}
                         selection={selectedNew}
                         onSelectRow={(index) => toggleSelection(index, 'new')}
                     />
@@ -492,7 +481,7 @@ export default function CsvUploader() {
                     <UpdateTable rows={comparison.updatedRows} pk={targetTable?.pk || ''} selection={selectedUpdates} onSelectRow={(index) => toggleSelection(index, 'update')} />
                 </TabsContent>
                 <TabsContent value="unchanged" className="mt-4">
-                    <DataTable rows={comparison.unchangedRows} headers={headers} pk={Object.keys(headerMap).find(key => headerMap[key] === targetTable?.pk) || ''} />
+                    <DataTable rows={comparison.unchangedRows} headers={headers} pkIndex={pkHeaderIndex} />
                 </TabsContent>
             </Tabs>
           </CardContent>
@@ -518,14 +507,14 @@ export default function CsvUploader() {
 interface DataTableProps {
     rows: { index: number, data: CsvRow }[];
     headers: string[];
-    pk: string;
+    pkIndex: number;
     selection?: Set<number>;
     onSelectRow?: (index: number) => void;
 }
 
-function DataTable({ rows, headers, pk, selection, onSelectRow }: DataTableProps) {
+function DataTable({ rows, headers, pkIndex, selection, onSelectRow }: DataTableProps) {
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros en esta categoría.</p>;
-    
+
     const isAllSelected = selection ? rows.length > 0 && rows.every(r => selection.has(r.index)) : false;
 
     const handleSelectAll = () => {
@@ -547,7 +536,7 @@ function DataTable({ rows, headers, pk, selection, onSelectRow }: DataTableProps
                                <Checkbox checked={isAllSelected} onCheckedChange={handleSelectAll} />
                            </TableHead>
                         )}
-                        {headers.map((h) => <TableHead key={h} className={cn(h === pk && "font-bold text-primary")}>{h}</TableHead>)}
+                        {headers.map((h, i) => <TableHead key={i} className={cn(i === pkIndex && "font-bold text-primary")}>{h}</TableHead>)}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -556,7 +545,7 @@ function DataTable({ rows, headers, pk, selection, onSelectRow }: DataTableProps
                         return (
                             <TableRow key={index} data-state={isSelected ? "selected" : ""} onClick={() => onSelectRow && onSelectRow(index)} className={cn(onSelectRow && 'cursor-pointer')}>
                                 {onSelectRow && <TableCell><Checkbox checked={isSelected} /></TableCell>}
-                                {headers.map((h, i) => <TableCell key={i} className="truncate max-w-xs" title={data[h]}>{data[h]}</TableCell>)}
+                                {data.map((cell, cellIndex) => <TableCell key={cellIndex} className="truncate max-w-xs" title={cell}>{cell}</TableCell>)}
                             </TableRow>
                         );
                     })}
@@ -576,9 +565,11 @@ interface UpdateTableProps {
 function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
     if (rows.length === 0) return <p className="text-center text-muted-foreground py-8">No hay registros para actualizar.</p>;
 
-    const allHeaders = [...new Set(rows.flatMap(row => Object.keys(row.changes)))].sort();
-    if (!allHeaders.includes(pk)) allHeaders.unshift(pk);
-
+    const allHeaders = useMemo(() => {
+        const h = new Set<string>();
+        rows.forEach(row => { Object.keys(row.changes).forEach(key => h.add(key)); });
+        return [pk, ...Array.from(h).filter(header => header !== pk).sort()];
+    }, [rows, pk]);
 
     const isAllSelected = rows.length > 0 && rows.every(r => selection.has(r.index));
     const handleSelectAll = () => {
