@@ -269,7 +269,7 @@ export default function ProductsPage() {
                             <TableRow key={`${item.sku}-${item.item_id}-${index}`}>
                                 <TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell>
                                 <TableCell className="font-mono">{item.item_id}</TableCell>
-                                <TableCell>{item.category}</TableCell>
+                                <TableCell>{item.nombre_madre}</TableCell>
                             </TableRow>
                             ))}
                         </TableBody>

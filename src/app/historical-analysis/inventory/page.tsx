@@ -37,7 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import GlobalNav from '@/components/global-nav';
 import { supabase } from '@/lib/supabaseClient';
-import type { skus_unicos, publicaciones } from '@/types/database';
+import type { skus_unicos, publicaciones, categorias_madre } from '@/types/database';
 
 // --- MOCK DATA ---
 
@@ -88,6 +88,8 @@ const allCategories = ['Todas', 'Electrónica', 'Ropa', 'Hogar', 'Juguetes', 'Ot
 const allStatuses = ['Todos', 'En Stock', 'Bajo Stock'];
 
 type EnrichedSku = skus_unicos & Partial<Pick<publicaciones, 'title' | 'price' | 'company'>>;
+type EnrichedCategoriaMadre = categorias_madre & Partial<Pick<publicaciones, 'title'>>;
+
 
 const chartConfigCategory = {
   value: { label: 'Valor' },
@@ -107,8 +109,13 @@ export default function InventoryAnalysisPage() {
   const [status, setStatus] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
+  
   const [skusUnicos, setSkusUnicos] = React.useState<EnrichedSku[]>([]);
   const [loadingSkus, setLoadingSkus] = React.useState(true);
+  
+  const [categoriasMadre, setCategoriasMadre] = React.useState<EnrichedCategoriaMadre[]>([]);
+  const [loadingCategorias, setLoadingCategorias] = React.useState(true);
+
 
   React.useEffect(() => {
     setDate({
@@ -117,21 +124,23 @@ export default function InventoryAnalysisPage() {
     });
     setIsClient(true);
 
-    const fetchSkusUnicos = async () => {
+    const fetchData = async () => {
         if (!supabase) return;
         setLoadingSkus(true);
+        setLoadingCategorias(true);
         try {
-            const [skusRes, pubsRes] = await Promise.all([
+            const [skusRes, pubsRes, categoriasRes] = await Promise.all([
                 supabase.from('skus_unicos').select('*').order('sku', { ascending: true }),
-                supabase.from('publicaciones').select('*')
+                supabase.from('publicaciones').select('*'),
+                supabase.from('categorias_madre').select('*').order('sku', { ascending: true }),
             ]);
 
             if (skusRes.error) throw skusRes.error;
             if (pubsRes.error) throw pubsRes.error;
+            if (categoriasRes.error) throw categoriasRes.error;
 
-            const skusData = (skusRes.data as skus_unicos[]) || [];
+
             const pubsData = (pubsRes.data as publicaciones[]) || [];
-
             const pubsMap = new Map<string, publicaciones>();
             for (const pub of pubsData) {
                 if (pub.sku && !pubsMap.has(pub.sku)) {
@@ -139,6 +148,8 @@ export default function InventoryAnalysisPage() {
                 }
             }
 
+            // Enrich SKUs Unicos
+            const skusData = (skusRes.data as skus_unicos[]) || [];
             const enrichedSkus: EnrichedSku[] = skusData.map(sku => {
                 const matchingPub = sku.sku ? pubsMap.get(sku.sku) : undefined;
                 return {
@@ -149,16 +160,29 @@ export default function InventoryAnalysisPage() {
                 };
             });
             setSkusUnicos(enrichedSkus);
+            
+            // Enrich Categorias Madre
+            const categoriasData = (categoriasRes.data as categorias_madre[]) || [];
+            const enrichedCategorias: EnrichedCategoriaMadre[] = categoriasData.map(cat => {
+                const matchingPub = cat.sku ? pubsMap.get(cat.sku) : undefined;
+                return {
+                    ...cat,
+                    title: matchingPub?.title,
+                };
+            });
+            setCategoriasMadre(enrichedCategorias);
+
 
         } catch (error: any) {
-             console.error('Error fetching unique SKUs:', error);
-             toast({ title: 'Error', description: 'No se pudieron cargar los SKUs únicos.', variant: 'destructive'});
+             console.error('Error fetching inventory data:', error);
+             toast({ title: 'Error', description: 'No se pudieron cargar los datos de inventario.', variant: 'destructive'});
         } finally {
             setLoadingSkus(false);
+            setLoadingCategorias(false);
         }
     };
 
-    fetchSkusUnicos();
+    fetchData();
   }, [toast]);
 
   const [kpis, setKpis] = React.useState(kpiData);
@@ -335,6 +359,7 @@ export default function InventoryAnalysisPage() {
             <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
             <TabsTrigger value="details">Detalle de Inventario</TabsTrigger>
             <TabsTrigger value="skus">SKUs Únicos</TabsTrigger>
+            <TabsTrigger value="categorias">Categorías Madre</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -469,6 +494,46 @@ export default function InventoryAnalysisPage() {
                                         <TableCell className="text-right">{sku.tiempo_produccion}</TableCell>
                                         <TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell>
                                         <TableCell className="text-right font-medium">{sku.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.price) : 'N/A'}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="categorias" className="space-y-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Datos de Categorías Madre</CardTitle>
+                    <CardDescription>Información de costos, producción y proveedores por categoría de producto madre.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {loadingCategorias ? (
+                         <div className="flex items-center justify-center h-40">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                         </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead>Título (Publicación)</TableHead>
+                                    <TableHead>Proveedor</TableHead>
+                                    <TableHead className="text-right">Tiempo Producción (días)</TableHead>
+                                    <TableHead className="text-right">Tiempo Recompra (días)</TableHead>
+                                    <TableHead className="text-right">Costo (Landed)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {categoriasMadre.map((cat) => (
+                                    <TableRow key={cat.sku}>
+                                        <TableCell className="font-mono">{cat.sku}</TableCell>
+                                        <TableCell className="font-medium">{cat.title || 'N/A'}</TableCell>
+                                        <TableCell>{cat.proveedor || 'N/A'}</TableCell>
+                                        <TableCell className="text-right">{cat.tiempo_produccion}</TableCell>
+                                        <TableCell className="text-right">{cat.tiempo_recompra}</TableCell>
+                                        <TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
