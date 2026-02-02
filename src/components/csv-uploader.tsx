@@ -16,10 +16,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
   catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
   categorias_madre: { pk: 'sku', columns: ['sku', 'landed_cost', 'tiempo_produccion', 'tiempo_recompra', 'proveedor'] },
-  publicaciones: { pk: 'item_id', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at'] },
+  publicaciones: { pk: 'sku', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at'] },
   publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
   skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'category'] },
-  skuxpublicaciones: { pk: 'item_id', columns: ['sku', 'item_id', 'nombre_madre'] },
+  skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
   ventas: { pk: 'numero_venta', columns: ['numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'tienda_oficial', 'titulo_publicacion', 'variante', 'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'] },
 };
 
@@ -191,6 +191,8 @@ export default function CsvUploader() {
 
   const usedDbColumns = useMemo(() => new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE)), [headerMap]);
 
+  const columnLength = Math.ceil(headers.length / 3);
+
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
       <Card>
@@ -242,26 +244,82 @@ export default function CsvUploader() {
             <CardDescription>Revisa el mapeo automático y ajusta las columnas que no coincidan. La clave primaria <span className="font-bold text-primary">{primaryKey}</span> debe estar mapeada.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
-              {headers.map((csvHeader, i) => (
-                <div key={i} className="grid grid-cols-[1fr,auto,1fr] items-center gap-2">
-                  <label className="text-sm font-medium text-right truncate" title={csvHeader}>{csvHeader || `Columna ${i+1}`}</label>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  <Select value={headerMap[i] || IGNORE_COLUMN_VALUE} onValueChange={(newDbColumn) => handleMappingChange(i, newDbColumn)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Ignorar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={IGNORE_COLUMN_VALUE}>Ignorar columna</SelectItem>
-                      {tableColumns.map(col => (
-                        <SelectItem key={col} value={col} disabled={usedDbColumns.has(col) && headerMap[i] !== col}>
-                          {col} {col === primaryKey && ' (PK)'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8">
+              {/* Column 1 */}
+              <div className="flex flex-col gap-y-4">
+                {headers.slice(0, columnLength).map((csvHeader, index) => {
+                  const csvIndex = index;
+                  return (
+                    <div key={csvIndex} className="grid grid-cols-[1fr,auto,1fr] items-center gap-2">
+                      <label className="text-sm font-medium text-right truncate" title={csvHeader}>{csvHeader || `Columna ${csvIndex + 1}`}</label>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      <Select value={headerMap[csvIndex] || IGNORE_COLUMN_VALUE} onValueChange={(newDbColumn) => handleMappingChange(csvIndex, newDbColumn)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ignorar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={IGNORE_COLUMN_VALUE}>Ignorar columna</SelectItem>
+                          {tableColumns.map(col => (
+                            <SelectItem key={col} value={col} disabled={usedDbColumns.has(col) && headerMap[csvIndex] !== col}>
+                              {col} {col === primaryKey && ' (PK)'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Column 2 */}
+              <div className="flex flex-col gap-y-4">
+                {headers.slice(columnLength, columnLength * 2).map((csvHeader, index) => {
+                  const csvIndex = index + columnLength;
+                  return (
+                    <div key={csvIndex} className="grid grid-cols-[1fr,auto,1fr] items-center gap-2">
+                      <label className="text-sm font-medium text-right truncate" title={csvHeader}>{csvHeader || `Columna ${csvIndex + 1}`}</label>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      <Select value={headerMap[csvIndex] || IGNORE_COLUMN_VALUE} onValueChange={(newDbColumn) => handleMappingChange(csvIndex, newDbColumn)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ignorar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={IGNORE_COLUMN_VALUE}>Ignorar columna</SelectItem>
+                          {tableColumns.map(col => (
+                            <SelectItem key={col} value={col} disabled={usedDbColumns.has(col) && headerMap[csvIndex] !== col}>
+                              {col} {col === primaryKey && ' (PK)'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Column 3 */}
+              <div className="flex flex-col gap-y-4">
+                {headers.slice(columnLength * 2).map((csvHeader, index) => {
+                  const csvIndex = index + columnLength * 2;
+                  return (
+                    <div key={csvIndex} className="grid grid-cols-[1fr,auto,1fr] items-center gap-2">
+                      <label className="text-sm font-medium text-right truncate" title={csvHeader}>{csvHeader || `Columna ${csvIndex + 1}`}</label>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      <Select value={headerMap[csvIndex] || IGNORE_COLUMN_VALUE} onValueChange={(newDbColumn) => handleMappingChange(csvIndex, newDbColumn)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ignorar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={IGNORE_COLUMN_VALUE}>Ignorar columna</SelectItem>
+                          {tableColumns.map(col => (
+                            <SelectItem key={col} value={col} disabled={usedDbColumns.has(col) && headerMap[csvIndex] !== col}>
+                              {col} {col === primaryKey && ' (PK)'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
           <CardFooter>
