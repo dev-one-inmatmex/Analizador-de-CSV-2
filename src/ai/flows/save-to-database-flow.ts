@@ -31,11 +31,10 @@ type SaveToDatabaseOutput = z.infer<typeof SaveToDatabaseOutputSchema>;
 
 function parseValue(key: string, value: string): any {
     const numericFields = [
-      'costo', 'tiempo_preparacion', 'id_producto_madre',
-      'unidades', 'ingreso_productos', 'cargo_venta_impuestos',
-      'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso',
-      'anulaciones_reembolsos', 'total', 'precio_unitario', 'unidades_envio',
-      'dinero_a_favor', 'unidades_reclamo', 'price',
+      'costo', 'tiempo_preparacion', 'id_producto_madre', 'unidades', 
+      'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 
+      'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 
+      'precio_unitario', 'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price'
     ];
   
     const booleanFields = [
@@ -51,6 +50,11 @@ function parseValue(key: string, value: string): any {
       return null;
     }
   
+    // Keep text-based IDs as strings
+    if (key === 'id' || key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id') {
+      return value.trim();
+    }
+    
     if (numericFields.includes(key)) {
       const num = parseFloat(value.replace(',', '.')); // Handle decimal commas
       return isNaN(num) ? null : num;
@@ -118,7 +122,12 @@ const saveToDatabaseFlow = ai.defineFlow(
       console.error('❌ Error de Supabase:', error);
       let friendlyMessage = `Error de base de datos: ${error.message}`;
 
-      if (error.message.includes('violates not-null constraint')) {
+      if (error.message.includes('duplicate key value violates unique constraint')) {
+        const constraintName = error.message.match(/"([^"]+)"/)?.[1] || 'desconocida';
+        const columnNameMatch = constraintName.match(/_([^_]+)_key$/);
+        const columnName = columnNameMatch ? columnNameMatch[1] : constraintName.replace(`${targetTable}_`, '').replace('_key', '');
+        friendlyMessage = `Error de Valor Duplicado: La columna '${columnName}' requiere un valor único, pero se encontró un duplicado al intentar guardar los datos. Por favor, revisa tu archivo CSV y los datos existentes en la tabla para resolver el conflicto.`;
+      } else if (error.message.includes('violates not-null constraint')) {
         const columnName = error.message.match(/column "([^"]+)"/)?.[1];
         friendlyMessage = `Error de Valor Nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía. Por favor, asegúrate de que todos los registros en tu archivo CSV tengan un valor para esta columna antes de sincronizar.`;
       } else if (error.message.includes('ON CONFLICT') && conflictKey) {
