@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient';
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -81,10 +81,10 @@ const saveToDatabaseFlow = ai.defineFlow(
   },
   async ({ targetTable, data, conflictKey, newCount, updateCount }) => {
     
-    if (!supabaseAdmin) {
+    if (!supabase) {
         return { 
             success: false, 
-            message: `Error de Configuración: La llave de administrador (SUPABASE_SERVICE_ROLE_KEY) no está configurada en tu archivo .env. Para poder guardar datos, sigue estos pasos:\n1. Ve a tu panel de Supabase > Project Settings > API.\n2. En "Project API keys", copia la llave "service_role" (secreta).\n3. Pégala en tu archivo .env como SUPABASE_SERVICE_ROLE_KEY=tu_llave_aqui.\n4. Reinicia el servidor.`
+            message: `Error de Configuración: No se ha configurado la conexión a la base de datos. Asegúrate de que las variables NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY estén definidas en tu archivo .env.`
         };
     }
 
@@ -106,7 +106,7 @@ const saveToDatabaseFlow = ai.defineFlow(
       return { success: false, message: 'No hay filas de datos para guardar.' };
     }
 
-    const query = supabaseAdmin.from(targetTable);
+    const query = supabase.from(targetTable);
     const { error, count } = await (
       conflictKey
       ? query.upsert(objects, { onConflict: conflictKey }).select('*', { count: 'exact', head: false })
@@ -119,14 +119,14 @@ const saveToDatabaseFlow = ai.defineFlow(
       let friendlyMessage = `Error de base de datos: ${error.message}`;
 
       if (error.code === '42501' || error.message.includes('row-level security')) {
-        friendlyMessage = `Error de Permisos (RLS): La base de datos bloqueó la escritura. Esto usualmente significa que la SUPABASE_SERVICE_ROLE_KEY en tu archivo .env es incorrecta o no tiene los permisos necesarios.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Project Settings > API.\n2. En la sección "Project API keys", copia la llave "service_role" (es secreta).\n3. Pégala en tu archivo .env como SUPABASE_SERVICE_ROLE_KEY.\n4. Reinicia el servidor para aplicar los cambios.`;
+        friendlyMessage = `Error de Permisos (RLS): La base de datos bloqueó la escritura. Para permitir que la aplicación guarde datos, debes crear una política de seguridad (RLS) en tu tabla '${targetTable}' en Supabase.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Authentication > Policies.\n2. Selecciona la tabla '${targetTable}' y haz clic en "New Policy".\n3. Elige la opción "Enable insert/update access for all users" como plantilla y guárdala.`;
       }
       
       return { success: false, message: friendlyMessage };
     }
     
     if ((count ?? 0) < objects.length) {
-        const warningMessage = `Se esperaba procesar ${objects.length} registros, pero solo se procesaron ${count ?? 0}. Esto puede deberse a políticas de seguridad a nivel de fila (RLS) que impiden la escritura, o a que los datos no cumplen las restricciones de la tabla (ej. valores únicos, no nulos). Por favor, revisa la configuración de tu tabla '${targetTable}' en Supabase y los permisos de tu 'service_role' key.`;
+        const warningMessage = `Se esperaba procesar ${objects.length} registros, pero solo se procesaron ${count ?? 0}. Esto puede deberse a políticas de seguridad a nivel de fila (RLS) que impiden la escritura, o a que los datos no cumplen las restricciones de la tabla (ej. valores únicos, no nulos). Por favor, revisa la configuración de tu tabla '${targetTable}' en Supabase.`;
         return { success: false, message: warningMessage, processedCount: count ?? 0 };
     }
 

@@ -1,29 +1,17 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  // Using console.error instead of throwing an error to avoid crashing the server on build.
-  console.error('ADVERTENCIA: Faltan las variables de entorno públicas de Supabase. El cliente público no funcionará.')
-}
-export const supabase = createClient(supabaseUrl!, supabaseAnonKey!)
+let supabase: SupabaseClient | null = null;
 
-// --- Admin Client for server-side operations ---
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-let supabaseAdmin: SupabaseClient | null = null
-
-if (supabaseUrl && serviceKey && serviceKey !== supabaseAnonKey) {
-  supabaseAdmin = createClient(supabaseUrl, serviceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
-} else if (serviceKey && serviceKey === supabaseAnonKey) {
-    console.warn('ADVERTENCIA: Tu SUPABASE_SERVICE_ROLE_KEY es la misma que tu llave pública (anon). Esto no concederá permisos de escritura. Usa la llave "service_role".')
+if (supabaseUrl && supabaseAnonKey) {
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
 } else {
-  console.warn('ACCIÓN REQUERIDA: La variable SUPABASE_SERVICE_ROLE_KEY no está en tu archivo .env. La aplicación funcionará, pero no podrás guardar datos en la base de datos hasta que la configures.')
+  // This warning will show up in the server console during build/dev
+  console.warn('ADVERTENCIA: Faltan las variables de entorno públicas de Supabase (NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY). La conexión con la base de datos no funcionará.');
 }
 
-export { supabaseAdmin }
+// We export the client, which might be null.
+// Components and flows that use it are responsible for checking if it's null.
+export { supabase };
