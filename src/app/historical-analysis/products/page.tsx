@@ -108,7 +108,7 @@ export default function ProductsPage() {
                 ...item,
                 publication_title: pub?.title,
                 price: pub?.price,
-                category: pub?.category
+                category: pub?.category ?? undefined
             };
         });
         setMotherCatalog(enrichedMotherCatalog);
@@ -291,12 +291,12 @@ export default function ProductsPage() {
                                 {motherCatalog.map((item, index) => (
                                 <TableRow key={`${item.sku}-${index}`}>
                                     <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell className="font-medium text-primary">{item.publication_title || item.nombre_madre}</TableCell>
+                                    <TableCell className="font-medium text-primary">{item.publication_title || item.category}</TableCell>
                                     <TableCell>{item.category || 'N/A'}</TableCell>
                                     <TableCell>{item.company}</TableCell>
                                     <TableCell className="text-right font-medium">{item.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price) : 'N/A'}</TableCell>
                                 </TableRow>
-                                ))}
+                                ))};
                             </TableBody>
                         </Table>
                     </CardContent>

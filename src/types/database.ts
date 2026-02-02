@@ -85,7 +85,6 @@ export interface publicaciones {
     company: string | null;
     created_at: string;      // timestamptz
   }
-  
 
 export interface publicaciones_por_sku{
   sku?: string | null;
