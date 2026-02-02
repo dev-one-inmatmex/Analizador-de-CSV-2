@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabaseAdmin } from '@/lib/supabaseClient'; // Use the admin client
+import { supabase } from '@/lib/supabaseClient'; // Use the public client
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -85,13 +85,6 @@ const saveToDatabaseFlow = ai.defineFlow(
   },
   async ({ targetTable, data, conflictKey, newCount, updateCount }) => {
     
-    if (!supabaseAdmin) {
-        return { 
-            success: false, 
-            message: `Error de Configuración del Servidor: La conexión de administrador a la base de datos no está disponible. Las operaciones de escritura requieren la SUPABASE_SERVICE_ROLE_KEY. Por favor, asegúrate de que las variables de entorno NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY estén correctamente definidas en tu archivo .env y reinicia el servidor.`
-        };
-    }
-
     if (!data.headers || !data.rows) {
       return { success: false, message: 'Datos de tabla inválidos. Faltan encabezados o filas.' };
     }
@@ -110,7 +103,7 @@ const saveToDatabaseFlow = ai.defineFlow(
       return { success: false, message: 'No hay filas de datos para guardar.' };
     }
 
-    const query = supabaseAdmin.from(targetTable);
+    const query = supabase.from(targetTable);
     const { error, count } = await (
       conflictKey
       ? query.upsert(objects, { onConflict: conflictKey }).select('*', { count: 'exact', head: false })
@@ -119,10 +112,13 @@ const saveToDatabaseFlow = ai.defineFlow(
 
 
     if (error) {
-      console.error('❌ Error de Supabase (Admin):', error);
+      console.error('❌ Error de Supabase:', error);
       let friendlyMessage = `Error de base de datos: ${error.message}`;
 
-      if (error.message.includes('duplicate key value violates unique constraint')) {
+      if (error.code === '42501' || error.message.includes('new row violates row-level security policy')) {
+        const operation = conflictKey ? 'INSERT o UPDATE' : 'INSERT';
+        friendlyMessage = `Error de Permisos (RLS): La base de datos rechazó la operación de escritura. Para permitir que la aplicación guarde datos, debes crear una política de Seguridad a Nivel de Fila (RLS) en Supabase para la tabla '${targetTable}' que permita la operación '${operation}'.\n\nACCIÓN REQUERIDA:\n1. Ve a tu panel de Supabase > Authentication > Policies.\n2. Selecciona la tabla '${targetTable}' y haz clic en 'New Policy'.\n3. Elige 'Enable ${operation} access to all users'.\n4. Revisa y guarda la política.`;
+      } else if (error.message.includes('duplicate key value violates unique constraint')) {
         const constraintName = error.message.match(/"([^"]+)"/)?.[1] || 'desconocida';
         const columnNameMatch = constraintName.match(/_([^_]+)_key$/);
         const columnName = columnNameMatch ? columnNameMatch[1] : constraintName.replace(`${targetTable}_`, '').replace('_key', '');
