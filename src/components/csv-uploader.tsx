@@ -35,6 +35,30 @@ const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
 // Defines the structure of the database tables for header-based detection.
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
+  catalogo_madre: {
+    pk: 'sku',
+    columns: ['sku', 'nombre_madre', 'company']
+  },
+  categorias_madre: {
+    pk: 'sku',
+    columns: ['sku', 'landed_cost', 'tiempo_produccion', 'tiempo_recompra', 'proveedor']
+  },
+  publicaciones: {
+    pk: 'item_id',
+    columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at']
+  },
+  publicaciones_por_sku: {
+    pk: 'sku',
+    columns: ['sku', 'publicaciones']
+  },
+  skus_unicos: {
+    pk: 'sku',
+    columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'category']
+  },
+  skuxpublicaciones: {
+    pk: 'item_id',
+    columns: ['sku', 'item_id', 'nombre_madre']
+  },
   ventas: {
     pk: 'numero_venta',
     columns: [
@@ -55,10 +79,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
       'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'
     ]
   },
-  publicaciones: {
-    pk: 'item_id',
-    columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at']
-  }
 };
 
 
@@ -385,7 +405,7 @@ export default function CsvUploader() {
                                 <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla de destino..." : "Configuración de Supabase incompleta"} />
                             </SelectTrigger>
                             <SelectContent>
-                                {Object.keys(TABLE_SCHEMAS).map(tableName => (
+                                {Object.keys(TABLE_SCHEMAS).sort().map(tableName => (
                                     <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
                                 ))}
                             </SelectContent>
