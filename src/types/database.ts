@@ -69,6 +69,7 @@ export interface ventas {
     reclamo_cerrado?: boolean | null;
     con_mediacion?: boolean | null;
     created_at?: string;
+    id?: number; // Keep id optional for cases where it might exist
   }
   
 
