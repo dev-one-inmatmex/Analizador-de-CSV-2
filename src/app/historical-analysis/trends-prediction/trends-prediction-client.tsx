@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import GlobalNav from '@/components/global-nav';
-import type { SalesPredictionOutput } from '@/ai/flows/predict-sales-flow';
+import type { SalesPredictionOutput } from '@/ai/schemas/sales-prediction-schemas';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type TrendsPredictionClientProps = {

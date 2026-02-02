@@ -1,7 +1,8 @@
 
 import { supabase } from '@/lib/supabaseClient';
 import { unstable_noStore as noStore } from 'next/cache';
-import { predictSales, SalesPredictionOutput } from '@/ai/flows/predict-sales-flow';
+import { predictSales } from '@/ai/flows/predict-sales-flow';
+import { SalesPredictionOutput } from '@/ai/schemas/sales-prediction-schemas';
 import TrendsPredictionClient from './trends-prediction-client';
 import { addMonths, format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -108,7 +109,7 @@ export default async function TrendsPredictionPage() {
               try {
                   const rawSales = await getRawSalesForAI();
                   if (rawSales.length > 0) {
-                      predictionResult = await predictSales({ salesHistory: rawSales });
+                      predictionResult = await predictSales({ salesHistory: rawSales, predictionMonths: 6 });
                   }
               } catch (aiError: any) {
                   console.error('AI prediction failed:', aiError.message);
