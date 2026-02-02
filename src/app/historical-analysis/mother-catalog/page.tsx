@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import type { publicaciones } from '@/types/database';
+import type { catalogo_madre } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
@@ -14,11 +14,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import GlobalNav from '@/components/global-nav';
 
-export default function ProductsPage() {
-  const [publications, setPublications] = useState<publicaciones[]>([]);
+export default function MotherCatalogPage() {
+  const [data, setData] = useState<catalogo_madre[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,17 +35,16 @@ export default function ProductsPage() {
       }
 
       try {
-        const {data, error} = await supabase
-            .from('publicaciones')
+        const { data, error } = await supabase
+            .from('catalogo_madre')
             .select('*')
-            .order('created_at', { ascending: false })
-            .limit(20);
+            .order('nombre_madre', { ascending: true });
 
         if (error) {
           throw error;
         }
         
-        setPublications((data as publicaciones[]) || []);
+        setData((data as catalogo_madre[]) || []);
       } catch (e: any) {
         let errorMessage = 'Ocurrió un error inesperado.';
         if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
@@ -70,7 +68,7 @@ export default function ProductsPage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-muted-foreground">
-            Cargando datos de publicaciones…
+            Cargando datos del Catálogo Madre…
           </p>
         </div>
       </div>
@@ -87,7 +85,7 @@ export default function ProductsPage() {
               <span className="sr-only">Volver</span>
             </Button>
           </Link>
-          <h1 className="text-xl font-bold tracking-tight">Análisis de Publicaciones</h1>
+          <h1 className="text-xl font-bold tracking-tight">Catálogo de Productos Madre</h1>
         </div>
         <div className="flex items-center gap-4">
             <Link href="/historical-analysis" passHref>
@@ -114,66 +112,32 @@ export default function ProductsPage() {
         
         <section>
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            Publicaciones Recientes
+            Listado de Productos Madre
             </h2>
 
             <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
             <Table>
                 <TableHeader>
                 <TableRow>
-                    <TableHead>Item ID</TableHead>
                     <TableHead>SKU</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead className="text-right">Precio</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                    <TableHead>Empresa</TableHead>
+                    <TableHead>Nombre Producto Madre</TableHead>
+                    <TableHead>Compañía</TableHead>
                 </TableRow>
                 </TableHeader>
 
                 <TableBody>
-                {publications.length > 0 ? (
-                    publications.map((pub) => (
-                    <TableRow key={pub.item_id}>
-                        <TableCell className="font-mono text-primary">
-                        {pub.item_id}
-                        </TableCell>
-
-                        <TableCell className="font-mono">
-                        {pub.sku}
-                        </TableCell>
-                        
-                        <TableCell className="font-medium max-w-xs truncate" title={pub.title || ''}>
-                        {pub.title}
-                        </TableCell>
-
-                        <TableCell className="text-right font-semibold">
-                        {new Intl.NumberFormat('es-MX', {
-                            style: 'currency',
-                            currency: 'MXN',
-                        }).format(pub.price)}
-                        </TableCell>
-
-                        <TableCell className="text-center">
-                        <Badge
-                            variant={
-                            pub.status === 'active'
-                                ? 'secondary'
-                                : 'outline'
-                            }
-                        >
-                            {pub.status}
-                        </Badge>
-                        </TableCell>
-
-                        <TableCell>
-                        {pub.company}
-                        </TableCell>
+                {data.length > 0 ? (
+                    data.map((item, index) => (
+                    <TableRow key={`${item.sku}-${index}`}>
+                        <TableCell className="font-mono">{item.sku}</TableCell>
+                        <TableCell className="font-medium text-primary">{item.nombre_madre}</TableCell>
+                        <TableCell>{item.company}</TableCell>
                     </TableRow>
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No se encontraron publicaciones.
+                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                        No se encontraron registros en el catálogo madre.
                     </TableCell>
                     </TableRow>
                 )}
