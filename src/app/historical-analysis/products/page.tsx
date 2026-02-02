@@ -1,188 +1,102 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import type { publicaciones } from '@/types/database';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import GlobalNav from '@/components/global-nav';
+import type { publicaciones, publicaciones_por_sku, skuxpublicaciones } from '@/types/database';
+import { unstable_noStore as noStore } from 'next/cache';
+import ProductsClientPage from './products-client';
 
-export default function ProductsPage() {
-  const [publications, setPublications] = useState<publicaciones[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Define a new type that extends 'publicaciones' with an optional 'nombre_madre'
+export type PublicationWithMadre = publicaciones & { nombre_madre?: string | null };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
+async function getPublications(): Promise<publicaciones[]> {
+  noStore();
+  if (!supabase) return [];
 
-      if (!supabase) {
-        setError(
-          'El cliente de Supabase no está disponible. Revisa la configuración en src/lib/supabaseClient.ts'
-        );
-        setLoading(false);
-        return;
-      }
+  try {
+    const { data, error } = await supabase
+      .from('publicaciones')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-      try {
-        const {data, error} = await supabase
-            .from('publicaciones')
-            .select('*')
-            .order('item_id', { ascending: false })
-            .limit(20);
-
-        if (error) {
-          throw error;
-        }
-        
-        setPublications((data as publicaciones[]) || []);
-      } catch (e: any) {
-        let errorMessage = 'Ocurrió un error inesperado.';
-        if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
-          errorMessage =
-            'Error de red: No se pudo conectar a la base de datos. Revisa tu conexión a internet y asegúrate de que las variables NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY estén correctamente configuradas en tu archivo .env.';
-        } else {
-          errorMessage = e.message || String(e);
-        }
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground">
-            Cargando datos de publicaciones…
-          </p>
-        </div>
-      </div>
-    );
+    if (error) throw error;
+    return (data as publicaciones[]) || [];
+  } catch (e: any) {
+    console.error('Error fetching publications:', e.message);
+    return [];
   }
+}
+
+async function getSkuPublicationCount(): Promise<publicaciones_por_sku[]> {
+    noStore();
+    if (!supabase) return [];
+
+    try {
+        const { data, error } = await supabase
+            .from('publicaciones_por_sku')
+            .select('sku, publicaciones')
+            .order('publicaciones', { ascending: false })
+            .limit(10);
+        
+        if (error) throw error;
+        return data || [];
+    } catch(e: any) {
+        console.error('Error fetching SKU publication count:', e.message);
+        return [];
+    }
+}
+
+async function getMadreNamesForPublications(publicationIds: string[]): Promise<Record<string, string>> {
+    noStore();
+    if (!supabase || publicationIds.length === 0) return {};
+
+    try {
+        const { data, error } = await supabase
+            .from('skuxpublicaciones')
+            .select('publicacion_id, nombre_madre')
+            .in('publicacion_id', publicationIds);
+
+        if (error) throw error;
+        
+        const madreNameMap: Record<string, string> = {};
+        data.forEach(item => {
+            if(item.publicacion_id) {
+                madreNameMap[item.publicacion_id] = item.nombre_madre;
+            }
+        });
+
+        return madreNameMap;
+    } catch (e: any) {
+        console.error('Error fetching madre names:', e.message);
+        return {};
+    }
+}
+
+
+export default async function ProductsPage() {
+    const publications = await getPublications();
+    const skuCounts = await getSkuPublicationCount();
+    
+    let publicationsWithMadre: PublicationWithMadre[] = [];
+    let errorMessage: string | null = null;
+    
+    if (publications.length > 0) {
+        const publicationIds = publications.map(p => p.item_id).filter((id): id is string => id !== null);
+        
+        try {
+            const madreNamesMap = await getMadreNamesForPublications(publicationIds);
+            publicationsWithMadre = publications.map(pub => ({
+                ...pub,
+                nombre_madre: pub.item_id ? madreNamesMap[pub.item_id] : null,
+            }));
+        } catch(e: any) {
+            errorMessage = e.message;
+        }
+    }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          <Link href="/historical-analysis" passHref>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Volver</span>
-            </Button>
-          </Link>
-          <h1 className="text-xl font-bold tracking-tight">Análisis de Publicaciones</h1>
-        </div>
-        <div className="flex items-center gap-4">
-            <Link href="/historical-analysis" passHref>
-                <Button>
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Análisis de Históricos
-                </Button>
-            </Link>
-            <GlobalNav />
-            <Button variant="outline">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
-            </Button>
-        </div>
-      </header>
-
-      <main className="flex-1 p-4 md:p-8">
-        {error && (
-            <div className="p-4 mb-6 text-red-800 bg-red-100 border border-red-300 rounded-lg">
-            <p className="font-bold">Error al cargar datos:</p>
-            <p className="text-sm mt-1 font-mono">{error}</p>
-            </div>
-        )}
-        
-        {/* ============== PUBLICACIONES ============== */}
-        <section>
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            Publicaciones Recientes
-            </h2>
-
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Item ID</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead className="text-right">Precio</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                    <TableHead>Empresa</TableHead>
-                </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                {publications.length > 0 ? (
-                    publications.map((pub) => (
-                    <TableRow key={pub.item_id}>
-                        <TableCell className="font-mono text-primary">
-                        {pub.item_id}
-                        </TableCell>
-
-                        <TableCell className="font-mono">
-                        {pub.sku}
-                        </TableCell>
-                        
-                        <TableCell className="font-medium max-w-xs truncate" title={pub.title}>
-                        {pub.title}
-                        </TableCell>
-
-                        <TableCell className="text-right font-semibold">
-                        {new Intl.NumberFormat('es-MX', {
-                            style: 'currency',
-                            currency: 'MXN',
-                        }).format(pub.price)}
-                        </TableCell>
-
-                        <TableCell className="text-center">
-                        <Badge
-                            variant={
-                            pub.status === 'active'
-                                ? 'secondary'
-                                : 'outline'
-                            }
-                        >
-                            {pub.status}
-                        </Badge>
-                        </TableCell>
-
-                        <TableCell>
-                        {pub.company}
-                        </TableCell>
-                    </TableRow>
-                    ))
-                ) : (
-                    <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No se encontraron publicaciones.
-                    </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-            </Table>
-            </div>
-        </section>
-      </main>
-    </div>
+    <ProductsClientPage
+      initialPublications={publicationsWithMadre}
+      skuPublicationCount={skuCounts}
+      error={errorMessage}
+    />
   );
 }

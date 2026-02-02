@@ -87,14 +87,19 @@ export interface publicaciones {
   }
   
 
-export interface skus_unicos {
-  id: number;
-  tiempo_produccion?: number | null;
-  landed_cost?: number | null;
-  piezas_por_sku?: number | null;
-  sbm?: string | null;
-  created_at: string;
+export interface publicaciones_por_sku{
   sku?: string | null;
-  category?: string | null;
+  publicaciones?: number | null;
+}
+
+export interface skuxpublicaciones{
+  sku: string | null;
+  publicacion_id: string | null;
+  nombre_madre: string | null;
+}
+
+export interface catalogo_madre{
+  sku?: string | null;
+  nombre_madre: string | null;
   company?: string | null;
 }
