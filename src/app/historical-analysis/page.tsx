@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BarChart3, Package, ShoppingCart, ClipboardList, BrainCircuit, GitCompareArrows, Users, LogOut, Hash, GitMerge, BookCopy } from 'lucide-react';
+import { ArrowLeft, BarChart3, Package, ShoppingCart, ClipboardList, BrainCircuit, GitCompareArrows, Users, LogOut } from 'lucide-react';
 import GlobalNav from '@/components/global-nav';
 
 export default function HistoricalAnalysisPage() {
@@ -55,13 +55,14 @@ export default function HistoricalAnalysisPage() {
                 <Package className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Inventario</CardTitle>
                 <CardDescription>
-                  Gestiona el ciclo de vida de tu materia prima. Visualiza entradas, salidas y existencias actuales para optimizar tu stock y evitar quiebres.
+                  Gestiona el ciclo de vida de tu materia prima, costos y producción. Visualiza existencias, SKUs únicos y optimiza tu stock.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <List>
                   <ListItem>Análisis de movimientos de producto.</ListItem>
-                  <ListItem>Control y visualización de existencias actuales.</ListItem>
+                  <ListItem>Control de existencias y costos de SKU.</ListItem>
+                  <ListItem>Visualización de tiempos de producción.</ListItem>
                 </List>
               </CardContent>
             </Card>
@@ -89,65 +90,14 @@ export default function HistoricalAnalysisPage() {
                 <ClipboardList className="mb-2 h-8 w-8 text-primary" />
                 <CardTitle>Análisis de Publicaciones</CardTitle>
                 <CardDescription>
-                  Analiza el rendimiento de tus publicaciones, precios, estado y su relación con los SKUs para optimizar tu estrategia de ventas.
+                  Analiza el rendimiento, la jerarquía y el catálogo de tus publicaciones para optimizar tu estrategia de ventas.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <List>
-                  <ListItem>Análisis de precios y estado.</ListItem>
-                  <ListItem>Rendimiento por compañía.</ListItem>
-                  <ListItem>Relación entre SKUs y publicaciones.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-           <Link href="/historical-analysis/sku-publication-count" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <Hash className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>SKUs por Publicación</CardTitle>
-                <CardDescription>
-                    Analiza qué SKUs tienen más publicaciones asociadas.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Identifica productos diversificados.</ListItem>
-                  <ListItem>Visualiza el conteo de publicaciones por SKU.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-           <Link href="/historical-analysis/sku-publication-map" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <GitMerge className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>SKU a Producto Madre</CardTitle>
-                <CardDescription>
-                    Visualiza la relación entre SKUs, publicaciones y el producto madre.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Rastrea la jerarquía de productos.</ListItem>
-                  <ListItem>Entiende la estructura de tu catálogo.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-           <Link href="/historical-analysis/mother-catalog" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <BookCopy className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Catálogo de Productos Madre</CardTitle>
-                <CardDescription>
-                    Consulta el listado maestro de productos madre y sus SKUs.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Vista centralizada de productos principales.</ListItem>
-                  <ListItem>Facilita la gestión de inventario y ventas.</ListItem>
+                  <ListItem>Jerarquía de Catálogo Madre, SKU y publicación.</ListItem>
+                  <ListItem>Rendimiento por compañía y estado.</ListItem>
+                  <ListItem>Conteo de publicaciones por SKU.</ListItem>
                 </List>
               </CardContent>
             </Card>

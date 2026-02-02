@@ -103,3 +103,13 @@ export interface catalogo_madre{
   nombre_madre: string | null;
   company?: string | null;
 }
+
+export interface skus_unicos{
+  sku: string | null;
+  nombre_madre: string | null;
+  tiempo_produccion: number;
+  landed_cost: number | null;
+  piezas_por_sku: number | null;
+  sbm: string | null;
+  category: string | null;
+}

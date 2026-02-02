@@ -36,7 +36,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import GlobalNav from '@/components/global-nav';
-
+import { supabase } from '@/lib/supabaseClient';
+import type { skus_unicos } from '@/types/database';
 
 // --- MOCK DATA ---
 
@@ -104,6 +105,8 @@ export default function InventoryAnalysisPage() {
   const [status, setStatus] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
+  const [skusUnicos, setSkusUnicos] = React.useState<skus_unicos[]>([]);
+  const [loadingSkus, setLoadingSkus] = React.useState(true);
 
   React.useEffect(() => {
     setDate({
@@ -111,7 +114,26 @@ export default function InventoryAnalysisPage() {
       to: new Date(),
     });
     setIsClient(true);
-  }, []);
+
+    const fetchSkusUnicos = async () => {
+        if (!supabase) return;
+        setLoadingSkus(true);
+        const { data, error } = await supabase
+            .from('skus_unicos')
+            .select('*')
+            .order('sku', { ascending: true });
+        
+        if (error) {
+            console.error('Error fetching unique SKUs:', error);
+            toast({ title: 'Error', description: 'No se pudieron cargar los SKUs únicos.', variant: 'destructive'});
+        } else {
+            setSkusUnicos((data as skus_unicos[]) || []);
+        }
+        setLoadingSkus(false);
+    };
+
+    fetchSkusUnicos();
+  }, [toast]);
 
   const [kpis, setKpis] = React.useState(kpiData);
   const [displayedInventoryDetail, setDisplayedInventoryDetail] = React.useState(inventoryDetailData);
@@ -286,6 +308,7 @@ export default function InventoryAnalysisPage() {
           <TabsList>
             <TabsTrigger value="overview">Resumen Gráfico</TabsTrigger>
             <TabsTrigger value="details">Detalle de Inventario</TabsTrigger>
+            <TabsTrigger value="skus">SKUs Únicos</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -384,6 +407,44 @@ export default function InventoryAnalysisPage() {
                       </TableBody>
                   </Table>
               </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="skus" className="space-y-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Datos de SKUs Únicos</CardTitle>
+                    <CardDescription>Información detallada de costos y producción para cada SKU maestro.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {loadingSkus ? (
+                         <div className="flex items-center justify-center h-40">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                         </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead>Producto Madre</TableHead>
+                                    <TableHead>Categoría</TableHead>
+                                    <TableHead className="text-right">Tiempo Producción (días)</TableHead>
+                                    <TableHead className="text-right">Costo (Landed)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {skusUnicos.map((sku) => (
+                                    <TableRow key={sku.sku}>
+                                        <TableCell className="font-mono">{sku.sku}</TableCell>
+                                        <TableCell className="font-medium">{sku.nombre_madre}</TableCell>
+                                        <TableCell>{sku.category}</TableCell>
+                                        <TableCell className="text-right">{sku.tiempo_produccion}</TableCell>
+                                        <TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
