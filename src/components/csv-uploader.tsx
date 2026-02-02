@@ -57,7 +57,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     ]
   },
   publicaciones: {
-    pk: 'item_id',
+    pk: 'sku',
     columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at']
   },
   skus: {
@@ -841,3 +841,5 @@ function UpdateTable({ rows, pk, selection, onSelectRow }: UpdateTableProps) {
         </div>
     );
 }
+
+    

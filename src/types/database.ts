@@ -75,15 +75,15 @@ export interface ventas {
 
 export interface publicaciones {
     id: string;              // PK (uuid o text) → OK
-    item_id: string;         // ID de la publicación (ML)
-    sku: string;
+    item_id: string | null;         // ID de la publicación (ML)
+    sku: string | null;
     product_number: string | null;
     variation_id: string | null;
-    title: string;
-    status: string;
-    category: string; 
-    price: number;
-    company: string;
+    title: string | null;
+    status: string | null;
+    category: string | null; 
+    price: number | null;
+    company: string | null;
     created_at: string;      // timestamptz
   }
   
