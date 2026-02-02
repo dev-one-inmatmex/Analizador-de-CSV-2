@@ -7,7 +7,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { TableDataSchema } from '@/ai/schemas/csv-schemas';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseClient'; // Use the admin client
 
 const SaveToDatabaseInputSchema = z.object({
   targetTable: z.string().describe('El nombre de la tabla de la base de datos de destino.'),
@@ -85,10 +85,10 @@ const saveToDatabaseFlow = ai.defineFlow(
   },
   async ({ targetTable, data, conflictKey, newCount, updateCount }) => {
     
-    if (!supabase) {
+    if (!supabaseAdmin) {
         return { 
             success: false, 
-            message: `Error de Configuración: La conexión a la base de datos no está disponible. Asegúrate de que las variables de entorno NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY estén correctamente definidas en tu archivo .env.`
+            message: `Error de Configuración del Servidor: La conexión de administrador a la base de datos no está disponible. Las operaciones de escritura requieren la SUPABASE_SERVICE_ROLE_KEY. Por favor, asegúrate de que las variables de entorno NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY estén correctamente definidas en tu archivo .env y reinicia el servidor.`
         };
     }
 
@@ -110,7 +110,7 @@ const saveToDatabaseFlow = ai.defineFlow(
       return { success: false, message: 'No hay filas de datos para guardar.' };
     }
 
-    const query = supabase.from(targetTable);
+    const query = supabaseAdmin.from(targetTable);
     const { error, count } = await (
       conflictKey
       ? query.upsert(objects, { onConflict: conflictKey }).select('*', { count: 'exact', head: false })
@@ -119,7 +119,7 @@ const saveToDatabaseFlow = ai.defineFlow(
 
 
     if (error) {
-      console.error('❌ Error de Supabase:', error);
+      console.error('❌ Error de Supabase (Admin):', error);
       let friendlyMessage = `Error de base de datos: ${error.message}`;
 
       if (error.message.includes('duplicate key value violates unique constraint')) {
@@ -132,15 +132,13 @@ const saveToDatabaseFlow = ai.defineFlow(
         friendlyMessage = `Error de Valor Nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía. Por favor, asegúrate de que todos los registros en tu archivo CSV tengan un valor para esta columna antes de sincronizar.`;
       } else if (error.message.includes('ON CONFLICT') && conflictKey) {
         friendlyMessage = `Error de Actualización (Upsert): La columna '${conflictKey}' que se usa para identificar actualizaciones no tiene una restricción 'UNIQUE' en la base de datos.\n\nSOLUCIÓN:\n1. Ve a tu panel de Supabase > Table Editor.\n2. Selecciona la tabla '${targetTable}'.\n3. Haz clic en el ícono de engranaje al lado del nombre de la columna '${conflictKey}' y selecciona 'Edit column'.\n4. En la sección 'Advanced', activa la opción 'is Unique' y guarda los cambios.`;
-      } else if (error.code === '42501' || error.message.includes('row-level security')) {
-        friendlyMessage = `Error de Permisos (RLS): La base de datos está protegiendo tus datos y ha bloqueado la escritura. Esto es una medida de seguridad de Supabase, no un error en el código de la aplicación.\n\nSOLUCIÓN: Para conceder permiso a la aplicación, necesitas crear una 'Política de Seguridad (RLS)' en tu panel de Supabase.\n1. Ve a 'Authentication' > 'Policies'.\n2. Selecciona la tabla '${targetTable}' y haz clic en 'New Policy'.\n3. Elige la plantilla "Enable insert/update access for all users" y guárdala.`;
       }
       
       return { success: false, message: friendlyMessage };
     }
     
     if ((count ?? 0) < objects.length) {
-        const warningMessage = `Se esperaba procesar ${objects.length} registros, pero solo se procesaron ${count ?? 0}. Esto puede deberse a políticas de seguridad a nivel de fila (RLS) que impiden la escritura, o a que los datos no cumplen las restricciones de la tabla (ej. valores únicos, no nulos). Por favor, revisa la configuración de tu tabla '${targetTable}' en Supabase.`;
+        const warningMessage = `Se esperaba procesar ${objects.length} registros, pero solo se procesaron ${count ?? 0}. Esto puede deberse a que algunos datos no cumplen las restricciones de la tabla (ej. valores únicos, no nulos, o chequeos de validación). Por favor, revisa la configuración de tu tabla '${targetTable}' en Supabase y la calidad de tus datos.`;
         return { success: false, message: warningMessage, processedCount: count ?? 0 };
     }
 
