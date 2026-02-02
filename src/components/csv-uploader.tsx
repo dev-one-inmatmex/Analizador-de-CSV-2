@@ -493,13 +493,16 @@ export default function CsvUploader() {
                         </TabsContent>
                       </Tabs>
                     </CardContent>
-                    <CardFooter className="flex justify-between">
-                        <div className="flex gap-2">
-                           <Button onClick={() => handleSyncData('insert')} disabled={analysisResult.toInsert.length === 0 || isLoading}><Database className="mr-2"/>Insertar Nuevos</Button>
-                           <Button onClick={() => handleSyncData('update')} disabled={analysisResult.toUpdate.length === 0 || isLoading}><RefreshCcw className="mr-2"/>Actualizar Duplicados</Button>
-                           <Button onClick={() => handleSyncData('all')} disabled={isLoading}><Save className="mr-2"/>Aplicar Todo</Button>
-                        </div>
-                        <Button variant="outline" onClick={() => resetAll(true)}>Cancelar</Button>
+                    <CardFooter className="flex justify-center gap-4">
+                        <Button size="lg" onClick={() => handleSyncData('insert')} disabled={analysisResult.toInsert.length === 0 || isLoading}>
+                            <Database className="mr-2 h-5 w-5"/>Insertar Nuevos
+                        </Button>
+                        <Button size="lg" onClick={() => handleSyncData('update')} disabled={analysisResult.toUpdate.length === 0 || isLoading}>
+                            <RefreshCcw className="mr-2 h-5 w-5"/>Actualizar Duplicados
+                        </Button>
+                        <Button size="lg" onClick={() => handleSyncData('all')} disabled={isLoading}>
+                            <Save className="mr-2 h-5 w-5"/>Aplicar Todo
+                        </Button>
                     </CardFooter>
                   </Card>
               );
