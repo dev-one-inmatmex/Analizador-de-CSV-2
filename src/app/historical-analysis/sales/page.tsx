@@ -20,6 +20,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+// This defines the order and name of all columns to display
+const VENTA_COLUMNS = [
+    'id', 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 
+    'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 
+    'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
+    'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 
+    'sku', 'numero_publicacion', 'tienda_oficial', 'titulo_publicacion', 'variante', 
+    'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 
+    'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 
+    'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 
+    'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 
+    'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 
+    'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 
+    'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 
+    'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 
+    'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 
+    'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'
+] as const;
+
 export default function SalesAnalysisPage() {
   const [ventasData, setVentasData] = useState<VentasType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,10 +55,9 @@ export default function SalesAnalysisPage() {
         return;
       }
 
-      // Fetch a curated list of columns instead of '*'
       const { data, error } = await supabase
         .from('ventas')
-        .select('id, numero_venta, fecha_venta, titulo_publicacion, unidades, descripcion_estado, estado, comprador, total')
+        .select('*') // Fetch all columns
         .order('fecha_venta', { ascending: false, nullsFirst: false })
         .limit(50);
 
@@ -56,8 +74,40 @@ export default function SalesAnalysisPage() {
     fetchVentas();
   }, []);
 
-  const safeDate = (d?: string | null) => d ? format(new Date(d), 'dd MMM yyyy', { locale: es }) : '—';
-  const money = (v?: number | null) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
+  const renderCellContent = (item: VentasType, column: typeof VENTA_COLUMNS[number]) => {
+    const value = item[column as keyof VentasType];
+
+    if (value === null || value === undefined) {
+      return <span className="text-muted-foreground">N/A</span>;
+    }
+    
+    if (typeof value === 'boolean') {
+      return value ? 'Sí' : 'No';
+    }
+
+    if (['fecha_venta', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at'].includes(column)) {
+        try {
+            return format(new Date(value as string), 'dd MMM yyyy, HH:mm', { locale: es });
+        } catch {
+            return String(value);
+        }
+    }
+
+    if (['total', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'precio_unitario', 'dinero_a_favor'].includes(column)) {
+      return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number);
+    }
+    
+    if (column === 'estado' && typeof value === 'string') {
+        return <Badge variant={value === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{item.descripcion_estado || String(value)}</Badge>
+    }
+
+    if (column === 'titulo_publicacion') {
+        return <span className="max-w-xs truncate" title={String(value)}>{String(value)}</span>
+    }
+
+    return String(value);
+  };
+
 
   if (loading) {
     return (
@@ -108,35 +158,29 @@ export default function SalesAnalysisPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Historial de Ventas Recientes</CardTitle>
-                <CardDescription>Mostrando las últimas 50 ventas registradas.</CardDescription>
+                <CardDescription>Mostrando las últimas 50 ventas registradas con todas sus columnas.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Publicación</TableHead>
-                            <TableHead>Comprador</TableHead>
-                            <TableHead className="text-center">Unidades</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
+                            {VENTA_COLUMNS.map(col => <TableHead key={col} className="whitespace-nowrap capitalize">{col.replace(/_/g, ' ')}</TableHead>)}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {ventasData.length > 0 ? (
                             ventasData.map((v) => (
                             <TableRow key={v.id || v.numero_venta}>
-                                <TableCell className="text-sm text-muted-foreground">{safeDate(v.fecha_venta)}</TableCell>
-                                <TableCell className="font-medium max-w-sm truncate" title={v.titulo_publicacion || ''}>{v.titulo_publicacion || 'N/A'}</TableCell>
-                                <TableCell>{v.comprador || 'N/A'}</TableCell>
-                                <TableCell className="text-center">{v.unidades}</TableCell>
-                                <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{v.descripcion_estado || v.estado || 'N/A'}</Badge></TableCell>
-                                <TableCell className="text-right font-bold">{money(v.total)}</TableCell>
+                                {VENTA_COLUMNS.map(col => (
+                                    <TableCell key={`${v.id}-${col}`} className="whitespace-nowrap">
+                                        {renderCellContent(v, col)}
+                                    </TableCell>
+                                ))}
                             </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                <TableCell colSpan={VENTA_COLUMNS.length} className="text-center py-8 text-muted-foreground">
                                     No se encontraron ventas.
                                 </TableCell>
                             </TableRow>
