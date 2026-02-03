@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { UploadCloud, File as FileIcon, X, Loader2, Save, ChevronRight, CheckCircle, AlertTriangle, Search, Database, RefreshCcw, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -23,7 +23,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
     skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'nombre_madre'] },
     skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
-    ventas: { pk: 'numero_venta', columns: ['numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'] },
+    ventas: { pk: 'numero_venta', columns: [ 'id', 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'tienda_oficial', 'item_id', 'company', 'titulo_publicacion', 'variante', 'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'] },
 };
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -94,7 +94,26 @@ export default function CsvUploader() {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       if (!text) return;
-      const rows = text.split(/\r\n|\n/).map(row => row.trim().split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/));
+
+      const lines = text.split(/\r\n|\n/);
+      const headerLine = lines[0] || '';
+      
+      const delimiters = [',', ';', '\t'];
+      let bestDelimiter = ',';
+      let maxCount = 0;
+      
+      delimiters.forEach(d => {
+        const count = headerLine.split(d).length - 1;
+        if (count > maxCount) {
+          maxCount = count;
+          bestDelimiter = d;
+        }
+      });
+      
+      // Use regex for splitting to handle quoted fields
+      const splitRegex = new RegExp(`${bestDelimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
+      const rows = lines.map(row => row.trim().split(splitRegex));
+      
       const csvHeaders = rows[0].map(h => (h || '').trim().replace(/"/g, ''));
       const dataRows = rows.slice(1).filter(row => row.length > 1 && row.some(cell => cell.trim() !== ''));
       
@@ -255,59 +274,41 @@ export default function CsvUploader() {
       const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
 
       const CHUNK_SIZE = 100;
+      
+      const recordsToProcess = dataToInsert.map(r => ({ type: 'insert', data: r }))
+        .concat(dataToUpdate.map(r => ({ type: 'update', data: r })));
+
+      const totalChunks = Math.ceil(recordsToProcess.length / CHUNK_SIZE);
       let chunksProcessed = 0;
-      
-      const insertChunks = [];
-      if (dataToInsert.length > 0) {
-          for (let i = 0; i < dataToInsert.length; i += CHUNK_SIZE) {
-              insertChunks.push(dataToInsert.slice(i, i + CHUNK_SIZE));
-          }
-      }
 
-      const updateChunks = [];
-      if (dataToUpdate.length > 0) {
-          for (let i = 0; i < dataToUpdate.length; i += CHUNK_SIZE) {
-              updateChunks.push(dataToUpdate.slice(i, i + CHUNK_SIZE));
-          }
-      }
-      
-      const totalChunks = insertChunks.length + updateChunks.length;
+      for (let i = 0; i < recordsToProcess.length; i += CHUNK_SIZE) {
+        const chunk = recordsToProcess.slice(i, i + CHUNK_SIZE);
+        
+        const insertChunk = chunk.filter(c => c.type === 'insert').map(c => c.data);
+        const updateChunk = chunk.filter(c => c.type === 'update').map(c => c.data);
 
-      // --- Process Inserts ---
-      for (let i = 0; i < insertChunks.length; i++) {
-        const chunk = insertChunks[i];
-        const result = await saveToDatabase({
-            targetTable: selectedTableName,
-            data: { headers: Object.keys(chunk[0]), rows: chunk.map(Object.values) },
-        });
+        if (insertChunk.length > 0) {
+            const result = await saveToDatabase({
+                targetTable: selectedTableName,
+                data: { headers: Object.keys(insertChunk[0]), rows: insertChunk.map(Object.values) },
+            });
 
-        finalSummary.inserted += result.processedCount;
-        if(result.successfulRecords) {
-            finalSummary.insertedRecords.push(...result.successfulRecords);
+            finalSummary.inserted += result.processedCount;
+            if(result.successfulRecords) finalSummary.insertedRecords.push(...result.successfulRecords);
+            if (result.errors) result.errors.forEach(err => finalSummary.errors.push({ block: i / CHUNK_SIZE + 1, ...err, type: 'insert' }));
         }
-        if (result.errors) {
-            result.errors.forEach(err => finalSummary.errors.push({ block: i + 1, recordIdentifier: err.recordIdentifier, message: err.message, type: 'insert' }));
-        }
-        chunksProcessed++;
-        setProgress((chunksProcessed / totalChunks) * 100);
-      }
 
-      // --- Process Updates ---
-      for (let i = 0; i < updateChunks.length; i++) {
-        const chunk = updateChunks[i];
-        const result = await saveToDatabase({
-            targetTable: selectedTableName,
-            data: { headers: Object.keys(chunk[0]), rows: chunk.map(Object.values) },
-            conflictKey: primaryKey,
-        });
-
-        finalSummary.updated += result.processedCount;
-        if(result.successfulRecords) {
-            finalSummary.updatedRecords.push(...result.successfulRecords);
+        if (updateChunk.length > 0) {
+             const result = await saveToDatabase({
+                targetTable: selectedTableName,
+                data: { headers: Object.keys(updateChunk[0]), rows: updateChunk.map(Object.values) },
+                conflictKey: primaryKey,
+            });
+            finalSummary.updated += result.processedCount;
+            if(result.successfulRecords) finalSummary.updatedRecords.push(...result.successfulRecords);
+            if (result.errors) result.errors.forEach(err => finalSummary.errors.push({ block: i / CHUNK_SIZE + 1, ...err, type: 'update' }));
         }
-        if (result.errors) {
-            result.errors.forEach(err => finalSummary.errors.push({ block: i + 1, recordIdentifier: err.recordIdentifier, message: err.message, type: 'update' }));
-        }
+        
         chunksProcessed++;
         setProgress((chunksProcessed / totalChunks) * 100);
       }
@@ -319,7 +320,7 @@ export default function CsvUploader() {
       toast({ title: 'Sincronización Completada', description: 'El proceso de carga de datos ha finalizado.' });
   }
 
-  const usedDbColumns = useMemo(() => new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE)), [headerMap]);
+  const usedDbColumns = React.useMemo(() => new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE)), [headerMap]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -337,7 +338,7 @@ export default function CsvUploader() {
                       <div className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-secondary/50 border-border hover:bg-secondary hover:border-primary transition-colors col-span-2" onClick={() => inputRef.current?.click()}>
                         <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
                         <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold text-primary">Haz clic para cargar</span> o arrastra y suelta</p>
-                        <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files && processFile(e.target.files[0])} />
+                        <input ref={inputRef} type="file" accept=".csv,.tsv" className="hidden" onChange={(e) => e.target.files && processFile(e.target.files[0])} />
                       </div>
                     ) : (
                       <>
