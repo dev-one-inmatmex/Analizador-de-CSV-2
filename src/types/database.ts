@@ -119,6 +119,6 @@ export interface categorias_madre{
   proveedor?: string | null;
   piezas_por_sku?: number | null;
   piezas_por_contenedor?: number | null;
-  bodega?: string | null;
-  bloque?: string | null;
+  bodega: string | null;
+  bloque: string | null;
 }

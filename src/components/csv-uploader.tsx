@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Save, ChevronRight, CheckCircle, AlertTriangle, Search, Database, RefreshCcw } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, ChevronRight, CheckCircle, AlertTriangle, Search, Database, RefreshCcw, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -437,7 +437,16 @@ export default function CsvUploader() {
                const allMappedHeaders = Array.from(usedDbColumns);
                return (
                     <Card>
-                      <CardHeader><CardTitle>Sincronización Finalizada</CardTitle><CardDescription>La carga de datos ha terminado. Aquí tienes el resumen.</CardDescription></CardHeader>
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Sincronización Finalizada</CardTitle>
+                          <CardDescription>La carga de datos ha terminado. Aquí tienes el resumen.</CardDescription>
+                        </div>
+                        <Button variant="outline" onClick={() => resetAll(false)}>
+                          <Undo2 className="mr-2 h-4 w-4" />
+                          Empezar de Nuevo
+                        </Button>
+                      </CardHeader>
                       <CardContent className="space-y-6">
                         <Alert variant={syncSummary.errors.length > 0 ? "destructive" : "default"}>
                           {syncSummary.errors.length === 0 ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
@@ -517,9 +526,6 @@ export default function CsvUploader() {
                           </div>
                         )}
                       </CardContent>
-                      <CardFooter className="flex justify-center">
-                         <Button variant="outline" onClick={() => resetAll(false)}>Empezar de Nuevo</Button>
-                      </CardFooter>
                     </Card>
                 );
             }
