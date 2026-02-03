@@ -73,17 +73,16 @@ export interface ventas {
   
 
 export interface publicaciones {
-    id: string;              // PK (uuid o text) → OK
-    item_id: string;         // ID de la publicación (ML)
-    sku: string | null;
-    product_number: string | null;
-    variation_id: string | null;
-    title: string;
-    status: string | null;
-    category: string | null; 
-    price: number;
-    company: string | null;
-    created_at: string;      // timestamptz
+    item_id?: string;         // ID de la publicación (ML)
+    sku?: string;// PK (uuid o text) → OK
+    product_number?: string;
+    variation_id?: string;
+    title?: string;
+    status?: string;
+    nombre_madre?: string; 
+    price?: number;
+    company?: string;
+    created_at?: string;      // timestamptz
   }
 
 export interface publicaciones_por_sku{
@@ -92,32 +91,34 @@ export interface publicaciones_por_sku{
 }
 
 export interface skuxpublicaciones{
-  sku: string | null;
-  item_id: string | null;
-  nombre_madre: string | null;
+  sku?: string | null;
+  item_id?: string | null;
+  nombre_madre?: string;
 
 }
 
 export interface catalogo_madre{
-  sku?: string | null;
-  nombre_madre: string | null;
-  company?: string | null;
+  sku?: string;
+  nombre_madre?: string;
 }
 
 export interface skus_unicos{
-  sku: string | null;
-  nombre_madre: string | null;
-  tiempo_produccion: number;
-  landed_cost: number | null;
-  piezas_por_sku: number | null;
-  sbm: string | null;
-  category: string | null;
+  sku?: string | null;
+  nombre_madre?: string;
+  tiempo_produccion?: number;
+  landed_cost?: number | null;
+  piezas_por_sku?: number | null;
+  sbm?: string | null;
 }
 
 export interface categorias_madre{
-  sku: string | null;
-  landed_cost: number | null;
-  tiempo_produccion: number;
-  tiempo_recompra : number;
-  proveedor: string | null;
+  sku?: string | null;
+  landed_cost?: number | null;
+  tiempo_preparacion?: number | null;
+  tiempo_recompra?: number | null;
+  proveedor?: string | null;
+  piezas_por_sku?: number | null;
+  piezas_por_contenedor?: number | null;
+  bodega?: string | null;
+  bloque?: string | null;
 }

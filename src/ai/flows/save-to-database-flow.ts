@@ -27,6 +27,7 @@ const SaveToDatabaseOutputSchema = z.object({
   processedCount: z.number().describe('Número de registros procesados exitosamente en el bloque.'),
   errorCount: z.number().describe('Número de registros que fallaron en el bloque.'),
   errors: z.array(RowErrorSchema).optional().describe('Un array de los errores encontrados.'),
+  successfulRecords: z.array(z.any()).optional().describe('Un array de los registros procesados exitosamente.'),
 });
 type SaveToDatabaseOutput = z.infer<typeof SaveToDatabaseOutputSchema>;
 
@@ -153,11 +154,12 @@ const saveToDatabaseFlow = ai.defineFlow(
     });
 
     if (objects.length === 0) {
-      return { success: true, message: 'No hay filas válidas para guardar en este bloque.', processedCount: 0, errorCount: 0 };
+      return { success: true, message: 'No hay filas válidas para guardar en este bloque.', processedCount: 0, errorCount: 0, successfulRecords: [] };
     }
 
     let processedCount = 0;
     const errors: z.infer<typeof RowErrorSchema>[] = [];
+    const successfulRecords: any[] = [];
 
     for (const object of objects) {
         const query = supabaseAdmin.from(targetTable);
@@ -173,6 +175,7 @@ const saveToDatabaseFlow = ai.defineFlow(
             errors.push({ recordIdentifier, message: friendlyMessage });
         } else {
             processedCount++;
+            successfulRecords.push(object);
         }
     }
 
@@ -182,6 +185,7 @@ const saveToDatabaseFlow = ai.defineFlow(
       processedCount: processedCount,
       errorCount: errors.length,
       errors: errors,
+      successfulRecords: successfulRecords,
     };
   }
 );

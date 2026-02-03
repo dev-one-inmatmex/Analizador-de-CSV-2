@@ -17,12 +17,12 @@ import { Badge } from '@/components/ui/badge';
 
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
-    catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
-    categorias_madre: { pk: 'sku', columns: ['sku', 'landed_cost', 'tiempo_produccion', 'tiempo_recompra', 'proveedor'] },
-    publicaciones: { pk: 'item_id', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'category', 'price', 'company', 'created_at'] },
+    catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
+    categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
+    publicaciones: { pk: 'sku', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
     publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
-    skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'category'] },
-    skuxpublicaciones: { pk: 'item_id', columns: ['sku', 'item_id', 'nombre_madre'] },
+    skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm', 'nombre_madre'] },
+    skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
     ventas: { pk: 'numero_venta', columns: ['numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'] },
 };
 
@@ -41,6 +41,8 @@ type SyncSummary = {
   updated: number;
   errors: { block: number; recordIdentifier?: string; message: string; type: 'insert' | 'update' }[];
   log: string;
+  insertedRecords: CsvRowObject[];
+  updatedRecords: CsvRowObject[];
 };
 
 export default function CsvUploader() {
@@ -250,7 +252,7 @@ export default function CsvUploader() {
       setIsLoading(true);
       setProgress(0);
       setLoadingMessage('Sincronizando datos con la base de datos...');
-      const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '' };
+      const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
 
       const CHUNK_SIZE = 100;
       let chunksProcessed = 0;
@@ -280,6 +282,9 @@ export default function CsvUploader() {
         });
 
         finalSummary.inserted += result.processedCount;
+        if(result.successfulRecords) {
+            finalSummary.insertedRecords.push(...result.successfulRecords);
+        }
         if (result.errors) {
             result.errors.forEach(err => finalSummary.errors.push({ block: i + 1, recordIdentifier: err.recordIdentifier, message: err.message, type: 'insert' }));
         }
@@ -297,6 +302,9 @@ export default function CsvUploader() {
         });
 
         finalSummary.updated += result.processedCount;
+        if(result.successfulRecords) {
+            finalSummary.updatedRecords.push(...result.successfulRecords);
+        }
         if (result.errors) {
             result.errors.forEach(err => finalSummary.errors.push({ block: i + 1, recordIdentifier: err.recordIdentifier, message: err.message, type: 'update' }));
         }
@@ -370,7 +378,7 @@ export default function CsvUploader() {
                           <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
                             <TableRow>
                               <TableHead>Columna en Archivo CSV</TableHead>
-                              <TableHead>Mapear a Columna en '{selectedTableName}'</TableHead>
+                              <TableHead>Mapear a Columna de Destino</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -426,23 +434,70 @@ export default function CsvUploader() {
             );
         case 'results':
             if (syncSummary) { // Final result screen
+               const allMappedHeaders = Array.from(usedDbColumns);
                return (
                     <Card>
                       <CardHeader><CardTitle>Sincronización Finalizada</CardTitle><CardDescription>La carga de datos ha terminado. Aquí tienes el resumen.</CardDescription></CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-6">
                         <Alert variant={syncSummary.errors.length > 0 ? "destructive" : "default"}>
                           {syncSummary.errors.length === 0 ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                           <AlertTitle>Resumen de Carga</AlertTitle>
                           <AlertDescription>
                             <p><span className="font-bold">{syncSummary.inserted}</span> registros insertados.</p>
                             <p><span className="font-bold">{syncSummary.updated}</span> registros actualizados.</p>
-                            <p><span className="font-bold">{syncSummary.errors.length}</span> registros con errores.</p>
+                            {syncSummary.errors.length > 0 && <p><span className="font-bold text-destructive">{syncSummary.errors.length}</span> registros con errores.</p>}
                           </AlertDescription>
                         </Alert>
+
+                        {syncSummary.insertedRecords.length > 0 && (
+                            <div className="space-y-2">
+                                <h3 className="font-semibold">Registros Insertados ({syncSummary.insertedRecords.length})</h3>
+                                <ScrollArea className="h-60 w-full rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                {allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {syncSummary.insertedRecords.map((row, i) => (
+                                                <TableRow key={`inserted-${i}`}>
+                                                    {allMappedHeaders.map(h => <TableCell key={h}>{String(row[h])}</TableCell>)}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </ScrollArea>
+                            </div>
+                        )}
+
+                        {syncSummary.updatedRecords.length > 0 && (
+                            <div className="space-y-2">
+                                <h3 className="font-semibold">Registros Actualizados ({syncSummary.updatedRecords.length})</h3>
+                                <ScrollArea className="h-60 w-full rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                {allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {syncSummary.updatedRecords.map((row, i) => (
+                                                <TableRow key={`updated-${i}`}>
+                                                    {allMappedHeaders.map(h => <TableCell key={h}>{String(row[h])}</TableCell>)}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </ScrollArea>
+                            </div>
+                        )}
+                        
                         <div className="space-y-2">
                           <h3 className="font-semibold">Registro de Cambios:</h3>
                           <p className="text-sm text-muted-foreground font-mono p-2 bg-muted rounded-md">{syncSummary.log}</p>
                         </div>
+
                         {syncSummary.errors.length > 0 && (
                           <div>
                             <h3 className="font-semibold mb-2">Detalle de Errores:</h3>
@@ -481,7 +536,7 @@ export default function CsvUploader() {
                       <Tabs defaultValue="toInsert">
                         <TabsList className="grid w-full grid-cols-3">
                           <TabsTrigger value="toInsert">Nuevos ({analysisResult.toInsert.length})</TabsTrigger>
-                          <TabsTrigger value="toUpdate">Duplicados a Actualizar ({analysisResult.toUpdate.length})</TabsTrigger>
+                          <TabsTrigger value="toUpdate">A Actualizar ({analysisResult.toUpdate.length})</TabsTrigger>
                           <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
                         </TabsList>
                         <TabsContent value="toInsert">
