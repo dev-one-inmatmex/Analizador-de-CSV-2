@@ -22,13 +22,11 @@ export interface ventas {
     total: number | null;
     venta_publicidad: boolean | null;
     sku: string | null;
-    numero_publicacion: string | null;
-    tienda_oficial: string | null;
     item_id: string | null;
     company: string | null;
-    titulo_publicacion: string | null;
+    title: string | null;
     variante: string | null;
-    precio_unitario: number | null;
+    price: number | null;
     tipo_publicacion: string | null;
     factura_adjunta: string | null;
     datos_personales_empresa: string | null;

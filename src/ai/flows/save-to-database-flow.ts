@@ -263,6 +263,7 @@ function parseValue(key: string, value: string): any {
     'tiempo_produccion',
     'publicaciones',
     'tiempo_recompra',
+    'dinero_a_favor',
   ];
 
   const booleanFields = [
@@ -271,6 +272,9 @@ function parseValue(key: string, value: string): any {
     'venta_publicidad',
     'negocio',
     'revisado_por_ml',
+    'reclamo_abierto',
+    'reclamo_cerrado',
+    'con_mediacion'
   ];
 
   const dateFields = [
@@ -279,11 +283,14 @@ function parseValue(key: string, value: string): any {
     'fecha_entregado',
     'created_at',
     'fecha_registro',
+    'fecha_en_camino_envio',
+    'fecha_entregado_envio',
+    'fecha_revision'
   ];
 
   // IDs siempre como string
   if (
-    ['sku', 'item_id', 'publicacion_id', 'numero_venta', 'variation_id'].includes(key)
+    ['sku', 'item_id', 'numero_venta'].includes(key)
   ) {
     return value.trim();
   }
