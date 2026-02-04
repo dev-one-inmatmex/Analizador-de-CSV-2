@@ -119,7 +119,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setRawRows(dataRows);
        toast({ title: 'Archivo Procesado', description: `${dataRows.length} filas de datos encontradas.` });
      };
-     reader.readAsText(fileToProcess, 'latin1');
+     reader.readAsText(fileToProcess, 'UTF-8');
    };
 
    const handleTableSelect = (tableName: string) => {
@@ -462,7 +462,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.insertedRecords.length > 0 && (
                              <div className="space-y-2">
                                  <h3 className="font-semibold">Registros Insertados ({syncSummary.insertedRecords.length})</h3>
-                                 <div className="h-60 w-full rounded-md border overflow-auto">
+                                 <div className="h-60 w-full rounded-md border">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -478,7 +478,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.updatedRecords.length > 0 && (
                              <div className="space-y-2">
                                 <h3 className="font-semibold">Registros Actualizados ({syncSummary.updatedRecords.length})</h3>
-                                 <div className="h-60 w-full rounded-md border overflow-auto">
+                                 <div className="h-60 w-full rounded-md border">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -535,13 +535,13 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                            <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
                          </TabsList>
                          <TabsContent value="toInsert">
-                           <div className="overflow-auto h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
+                           <div className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
                          </TabsContent>
                          <TabsContent value="toUpdate">
-                            <div className="overflow-auto h-96"><Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table></div>
+                            <div className="h-96"><Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table></div>
                          </TabsContent>
                          <TabsContent value="noChange">
-                            <div className="overflow-auto h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
+                            <div className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
                          </TabsContent>
                        </Tabs>
                      </CardContent>
