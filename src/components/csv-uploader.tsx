@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef } from 'react';
@@ -22,8 +23,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      publicaciones: { pk: 'item_id', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'numero_publicacion', 'tienda_oficial'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
-     skuxpublicaciones: { pk: 'publicacion_id', columns: ['sku', 'item_id', 'nombre_madre', 'publicacion_id'] },
-     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'titulo_publicacion', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'numero_publicacion', 'tienda_oficial'] },
+     skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
+     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'titulo_publicacion', 'variante', 'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
 
  const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -113,10 +114,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        });
       
        const splitRegex = new RegExp(`${bestDelimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
-       const rows = lines.map(row => row.trim().split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')));
-      
-       const csvHeaders = rows[0];
-       const dataRows = rows.slice(1).filter(row => row.length > 1 && row.some(cell => cell.trim() !== ''));
+       const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
+       const dataRows = lines.slice(1).filter(row => row.length > 1 && row.some(cell => cell.trim() !== '')).map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')));
        
        setHeaders(csvHeaders);
        setRawRows(dataRows);
@@ -289,8 +288,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                 });
 
                 if (result.successfulRecords) {
-                    const insertedChunk = result.successfulRecords.filter((r: CsvRowObject) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
-                    const updatedChunk = result.successfulRecords.filter((r: CsvRowObject) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
+                    const insertedChunk = result.successfulRecords.filter((r) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
+                    const updatedChunk = result.successfulRecords.filter((r) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
                     
                     finalSummary.inserted += insertedChunk.length;
                     finalSummary.updated += updatedChunk.length;
@@ -305,7 +304,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                             block: i + 1,
                             recordIdentifier: e.recordIdentifier,
                             message: e.message,
-                            type: dataToInsert.some((r: CsvRowObject) => String(r[primaryKey]) === String(e.recordIdentifier)) ? 'insert' : 'update'
+                            type: dataToInsert.some((r) => String(r[primaryKey]) === String(e.recordIdentifier)) ? 'insert' : 'update'
                         });
                     });
                 }
@@ -466,7 +465,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.insertedRecords.length > 0 && (
                              <div className="space-y-2">
                                  <h3 className="font-semibold">Registros Insertados ({syncSummary.insertedRecords.length})</h3>
-                                 <ScrollArea className="h-60 w-full rounded-md border">
+                                 <div className="h-60 w-full rounded-md border overflow-auto">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -475,14 +474,14 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                                              ))}
                                          </TableBody>
                                      </Table>
-                                 </ScrollArea>
+                                 </div>
                              </div>
                          )}
 
                          {syncSummary.updatedRecords.length > 0 && (
                              <div className="space-y-2">
                                 <h3 className="font-semibold">Registros Actualizados ({syncSummary.updatedRecords.length})</h3>
-                                 <ScrollArea className="h-60 w-full rounded-md border">
+                                 <div className="h-60 w-full rounded-md border overflow-auto">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -491,7 +490,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                                              ))}
                                          </TableBody>
                                      </Table>
-                                 </ScrollArea>
+                                 </div>
                              </div>
                          )}
                         
@@ -539,19 +538,19 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                            <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
                          </TabsList>
                          <TabsContent value="toInsert">
-                            <ScrollArea className="h-96 w-full rounded-md border">
-                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
-                            </ScrollArea>
+                            <div className="h-96 w-full rounded-md border overflow-auto">
+                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={`insert-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
+                            </div>
                          </TabsContent>
                          <TabsContent value="toUpdate">
-                            <ScrollArea className="h-96 w-full rounded-md border">
+                            <div className="h-96 w-full rounded-md border overflow-auto">
                                 <Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table>
-                            </ScrollArea>
+                            </div>
                          </TabsContent>
                          <TabsContent value="noChange">
-                            <ScrollArea className="h-96 w-full rounded-md border">
-                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
-                           </ScrollArea>
+                            <div className="h-96 w-full rounded-md border overflow-auto">
+                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={`nochange-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
+                           </div>
                          </TabsContent>
                        </Tabs>
                      </CardContent>
