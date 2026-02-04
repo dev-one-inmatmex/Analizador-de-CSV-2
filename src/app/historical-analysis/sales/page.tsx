@@ -22,12 +22,12 @@ import { es } from 'date-fns/locale';
 
 // This defines the order and name of all columns to display
 const VENTA_COLUMNS = [
-    'id', 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 
+    'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 
     'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 
     'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
     'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 
-    'sku', 'numero_publicacion', 'tienda_oficial', 'titulo_publicacion', 'variante', 
-    'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 
+    'sku', 'numero_publicacion', 'company', 'title', 'variante', 
+    'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 
     'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 
     'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 
     'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 
@@ -36,7 +36,7 @@ const VENTA_COLUMNS = [
     'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 
     'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 
     'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 
-    'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'
+    'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'
 ] as const;
 
 export default function SalesAnalysisPage() {
@@ -101,7 +101,7 @@ export default function SalesAnalysisPage() {
         return <Badge variant={value === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{item.descripcion_estado || String(value)}</Badge>
     }
 
-    if (column === 'titulo_publicacion') {
+    if (column === 'title') {
         return <span className="max-w-xs truncate" title={String(value)}>{String(value)}</span>
     }
 

@@ -24,7 +24,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
-     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'titulo_publicacion', 'variante', 'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
+     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'tienda_oficial', 'titulo_publicacion', 'variante', 'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
 
  const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -115,13 +115,15 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
       
        const splitRegex = new RegExp(`${bestDelimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
        const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
-       const dataRows = lines.slice(1).filter(row => row.trim() !== '').map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')));
+       const dataRows = lines.slice(1)
+         .map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')))
+         .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''));
        
        setHeaders(csvHeaders);
        setRawRows(dataRows);
        toast({ title: 'Archivo Procesado', description: `${dataRows.length} filas de datos encontradas.` });
      };
-     reader.readAsText(fileToProcess, 'UTF-8');
+     reader.readAsText(fileToProcess, 'windows-1252');
    };
 
    const handleTableSelect = (tableName: string) => {
@@ -192,7 +194,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                  }
              });
              return newRow;
-         });
+         }).filter(row => Object.values(row).some(val => val !== null && val !== undefined && String(val).trim() !== ''));
 
          const csvPkValues = mappedCsvData.map(row => row[primaryKey]).filter(Boolean);
          if (csvPkValues.length === 0) {
@@ -277,44 +279,59 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const chunk = allData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
             if (chunk.length === 0) continue;
 
-            try {
-                const result = await saveToDatabase({
-                    targetTable: selectedTableName,
-                    data: {
-                        headers: Object.keys(chunk[0]),
-                        rows: chunk.map((row: CsvRowObject) => Object.values(row).map(String))
-                    },
-                    conflictKey: primaryKey,
-                });
+            const recordsToProcess = chunk.map((record: CsvRowObject) => {
+              const obj: Record<string, any> = {};
+              for (const key of Object.keys(record)) {
+                  obj[key] = record[key];
+              }
+              return obj;
+            });
+            
+            const successfulRecords: CsvRowObject[] = [];
+            const errors: any[] = [];
 
-                if (result.successfulRecords) {
-                    const insertedChunk = result.successfulRecords.filter((r: any) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
-                    const updatedChunk = result.successfulRecords.filter((r: any) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
-                    
-                    finalSummary.inserted += insertedChunk.length;
-                    finalSummary.updated += updatedChunk.length;
-                    
-                    finalSummary.insertedRecords.push(...(insertedChunk as CsvRowObject[]));
-                    finalSummary.updatedRecords.push(...(updatedChunk as CsvRowObject[]));
-                }
+            for (const record of recordsToProcess) {
+              const isUpdate = dataToUpdate.some(u => String(u[primaryKey]) === String(record[primaryKey]));
+              const query = supabase.from(selectedTableName);
 
-                if (result.errors) {
-                    result.errors.forEach((e: RowError) => {
-                        finalSummary.errors.push({
-                            block: i + 1,
-                            recordIdentifier: e.recordIdentifier,
-                            message: e.message,
-                            type: dataToInsert.some((r) => String(r[primaryKey]) === String(e.recordIdentifier)) ? 'insert' : 'update'
-                        });
+              const { data: resultData, error } = await (isUpdate
+                  ? query.upsert(record, { onConflict: primaryKey })
+                  : query.insert(record)
+              );
+
+              if (error) {
+                  errors.push({
+                      recordIdentifier: record[primaryKey],
+                      message: error.message,
+                  });
+              } else {
+                  successfulRecords.push(record);
+              }
+            }
+
+
+            if (successfulRecords) {
+                const insertedChunk = successfulRecords.filter((r: any) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
+                const updatedChunk = successfulRecords.filter((r: any) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
+                
+                finalSummary.inserted += insertedChunk.length;
+                finalSummary.updated += updatedChunk.length;
+                
+                finalSummary.insertedRecords.push(...(insertedChunk as CsvRowObject[]));
+                finalSummary.updatedRecords.push(...(updatedChunk as CsvRowObject[]));
+            }
+
+            if (errors) {
+                errors.forEach((e: any) => {
+                    finalSummary.errors.push({
+                        block: i + 1,
+                        recordIdentifier: e.recordIdentifier,
+                        message: e.message,
+                        type: dataToInsert.some((r) => String(r[primaryKey]) === String(e.recordIdentifier)) ? 'insert' : 'update'
                     });
-                }
-            } catch (error: any) {
-                finalSummary.errors.push({
-                    block: i + 1,
-                    message: error.message || 'Error desconocido durante la sincronización del bloque.',
-                    type: 'update' // Simplified as we can't know for sure
                 });
             }
+
 
             setProgress(((i + 1) / totalChunks) * 100);
         }
