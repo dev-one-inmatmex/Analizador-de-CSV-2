@@ -115,7 +115,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
       
        const splitRegex = new RegExp(`${bestDelimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
        const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
-       const dataRows = lines.slice(1).filter(row => row.length > 1 && row.some(cell => cell.trim() !== '')).map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')));
+       const dataRows = lines.slice(1).filter(row => row.trim() !== '').map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')));
        
        setHeaders(csvHeaders);
        setRawRows(dataRows);
@@ -288,8 +288,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                 });
 
                 if (result.successfulRecords) {
-                    const insertedChunk = result.successfulRecords.filter((r) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
-                    const updatedChunk = result.successfulRecords.filter((r) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
+                    const insertedChunk = result.successfulRecords.filter((r: any) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
+                    const updatedChunk = result.successfulRecords.filter((r: any) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
                     
                     finalSummary.inserted += insertedChunk.length;
                     finalSummary.updated += updatedChunk.length;
