@@ -24,9 +24,21 @@ type KpiType = {
     avgSale: number;
 }
 
+// Define a specific type for the data used in this component to resolve type errors
+type SaleDisplayRecord = Pick<VentasType,
+  'total' |
+  'fecha_venta' |
+  'numero_venta' |
+  'title' |
+  'unidades' |
+  'estado' |
+  'descripcion_estado' |
+  'comprador'
+>;
+
 export default function SalesAnalysisPage() {
     const { toast } = useToast();
-    const [sales, setSales] = React.useState<VentasType[]>([]);
+    const [sales, setSales] = React.useState<SaleDisplayRecord[]>([]);
     const [kpis, setKpis] = React.useState<KpiType>({ totalRevenue: 0, totalSales: 0, avgSale: 0 });
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
@@ -47,9 +59,10 @@ export default function SalesAnalysisPage() {
                 return;
             }
 
+            // Corrected select to fetch 'title' instead of 'titulo_publicacion' to match VentasType
             const { data, error: fetchError } = await supabase
                 .from('ventas')
-                .select('total, fecha_venta, numero_venta, titulo_publicacion, unidades, estado, descripcion_estado, comprador')
+                .select('total, fecha_venta, numero_venta, title, unidades, estado, descripcion_estado, comprador')
                 .order('fecha_venta', { ascending: false })
                 .limit(100);
 
@@ -59,7 +72,8 @@ export default function SalesAnalysisPage() {
                 setSales([]);
                 setKpis({ totalRevenue: 0, totalSales: 0, avgSale: 0 });
             } else {
-                const fetchedSales = (data || []) as VentasType[];
+                // Corrected type assertion to use the specific SaleDisplayRecord type
+                const fetchedSales = (data || []) as SaleDisplayRecord[];
                 setSales(fetchedSales);
                 
                 const totalRevenue = fetchedSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
