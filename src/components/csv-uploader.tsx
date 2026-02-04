@@ -24,7 +24,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
-     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
+     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
 
  const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -48,6 +48,63 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
  
  type SaveToDatabaseOutput = Awaited<ReturnType<typeof saveToDatabase>>;
  type RowError = NonNullable<SaveToDatabaseOutput['errors']>[number];
+
+ function parseValue(key: string, value: any): any {
+    // Handle null/empty values first
+    if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') {
+      return null;
+    }
+  
+    // Combine all field types for comprehensive parsing
+    const numericFields = [
+      'costo', 'tiempo_preparacion', 'unidades', 'ingreso_productos', 
+      'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
+      'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
+      'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
+      'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra'
+    ];
+  
+    const booleanFields = [
+      'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
+      'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
+    ];
+  
+    const dateFields = [
+      'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
+      'fecha_en_camino_envio', 'fecha_entregado_envio'
+    ];
+
+    // Ensure value is a string before calling string methods
+    const stringValue = String(value);
+
+    // Keep text-based IDs as strings, but trim whitespace
+    if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id' || key === 'publicacion_id') {
+      return stringValue.trim();
+    }
+    
+    // Parse numeric fields
+    if (numericFields.includes(key)) {
+      const num = parseFloat(stringValue.replace(/,/g, '.').replace(/[^0-9.-]/g, ''));
+      return isNaN(num) ? null : num;
+    }
+  
+    // Parse boolean fields, handling "Sí"
+    if (booleanFields.includes(key)) {
+      const v = stringValue.toLowerCase();
+      return v === 'true' || v === '1' || v === 'verdadero' || v === 'si' || v === 'sí';
+    }
+  
+    // Parse date fields
+    if (dateFields.includes(key)) {
+      // Avoid parsing already valid date objects
+      if (value instanceof Date) return value.toISOString();
+      const date = new Date(stringValue);
+      return isNaN(date.getTime()) ? null : date.toISOString();
+    }
+  
+    // Return the original value (trimmed if it's a string) for any other fields
+    return typeof stringValue === 'string' ? stringValue.trim() : stringValue;
+}
 
  export default function CsvUploader() {
    const { toast } = useToast();
@@ -279,15 +336,13 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const chunk = allData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
             if (chunk.length === 0) continue;
 
-            const recordsToProcess = chunk.map((record: CsvRowObject) => {
-                const obj: Record<string, any> = {};
-                for (const key of Object.keys(record)) {
-                  const value = record[key];
-                  // Convert empty strings or whitespace-only strings to null
-                  obj[key] = (typeof value === 'string' && value.trim() === '') ? null : value;
-                }
-                return obj;
+            const recordsToProcess = chunk.map((unparsedRecord: CsvRowObject) => {
+              const parsedRecord: Record<string, any> = {};
+              Object.keys(unparsedRecord).forEach(key => {
+                parsedRecord[key] = parseValue(key, unparsedRecord[key]);
               });
+              return parsedRecord;
+            });
             
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];
@@ -399,7 +454,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                        <CardDescription>Revisa el mapeo. La clave primaria <Badge variant="outline">{primaryKey}</Badge> debe estar mapeada para continuar.</CardDescription>
                      </CardHeader>
                      <CardContent>
-                       <ScrollArea className="h-[450px] w-full rounded-md border">
+                       <div className="relative w-full overflow-auto">
                          <Table>
                            <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
                              <TableRow>
@@ -428,7 +483,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                             ))}
                            </TableBody>
                          </Table>
-                       </ScrollArea>
+                       </div>
                      </CardContent>
                      <CardFooter className="flex justify-center">
                        <Button onClick={handleAnalyzeData} size="lg" disabled={isLoading} className="w-auto">
@@ -484,7 +539,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.insertedRecords.length > 0 && (
                              <div className="space-y-2">
                                  <h3 className="font-semibold">Registros Insertados ({syncSummary.insertedRecords.length})</h3>
-                                 <div className="h-60 w-full rounded-md border overflow-auto">
+                                 <div className="relative w-full overflow-auto h-60 border rounded-md">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -500,7 +555,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.updatedRecords.length > 0 && (
                              <div className="space-y-2">
                                 <h3 className="font-semibold">Registros Actualizados ({syncSummary.updatedRecords.length})</h3>
-                                 <div className="h-60 w-full rounded-md border overflow-auto">
+                                 <div className="relative w-full overflow-auto h-60 border rounded-md">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -521,7 +576,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.errors.length > 0 && (
                            <div>
                              <h3 className="font-semibold mb-2">Detalle de Errores:</h3>
-                             <ScrollArea className="h-40 w-full rounded-md border p-4">
+                             <div className="relative w-full overflow-auto h-40 border rounded-md p-4">
                                <div className="space-y-2 text-sm">
                                  {syncSummary.errors.map((err, i) => (
                                    <div key={i} className="p-2 bg-destructive/10 rounded-md">
@@ -533,7 +588,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                                    </div>
                                  ))}
                                </div>
-                             </ScrollArea>
+                             </div>
                            </div>
                          )}
                        </CardContent>
@@ -557,17 +612,17 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                            <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
                          </TabsList>
                          <TabsContent value="toInsert">
-                            <div className="h-96 w-full rounded-md border overflow-auto">
+                            <div className="relative w-full overflow-auto h-96 border rounded-md">
                                 <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={`insert-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
                             </div>
                          </TabsContent>
                          <TabsContent value="toUpdate">
-                            <div className="h-96 w-full rounded-md border overflow-auto">
+                            <div className="relative w-full overflow-auto h-96 border rounded-md">
                                 <Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table>
                             </div>
                          </TabsContent>
                          <TabsContent value="noChange">
-                            <div className="h-96 w-full rounded-md border overflow-auto">
+                            <div className="relative w-full overflow-auto h-96 border rounded-md">
                                 <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={`nochange-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
                            </div>
                          </TabsContent>
@@ -600,3 +655,5 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      </div>
    );
  }
+
+    
