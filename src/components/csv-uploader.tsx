@@ -44,6 +44,9 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
    insertedRecords: CsvRowObject[];
    updatedRecords: CsvRowObject[];
  };
+ 
+ type SaveToDatabaseOutput = Awaited<ReturnType<typeof saveToDatabase>>;
+ type RowError = NonNullable<SaveToDatabaseOutput['errors']>[number];
 
  export default function CsvUploader() {
    const { toast } = useToast();
@@ -271,50 +274,51 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        const CHUNK_SIZE = 100;
        const totalChunks = Math.ceil(allData.length / CHUNK_SIZE);
        
-       for (let i = 0; i < totalChunks; i++) {
-         const chunk = allData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-         const { data, error } = await saveToDatabase({
-           targetTable: selectedTableName,
-           data: {
-             headers: Object.keys(chunk[0]),
-             rows: chunk.map(row => Object.values(row))
-           },
-           conflictKey: primaryKey,
-         });
+        for (let i = 0; i < totalChunks; i++) {
+            const chunk = allData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            if (chunk.length === 0) continue;
 
-         if (data) {
-           finalSummary.inserted += syncType !== 'update' ? data.successfulRecords?.filter(r => dataToInsert.some(i => i[primaryKey] === r[primaryKey])).length || 0 : 0;
-           finalSummary.updated += syncType !== 'insert' ? data.successfulRecords?.filter(r => dataToUpdate.some(u => u[primaryKey] === r[primaryKey])).length || 0 : 0;
-           
-           if(data.successfulRecords) {
-                const inserted = data.successfulRecords.filter(r => dataToInsert.some(i => i[primaryKey] === r[primaryKey]));
-                const updated = data.successfulRecords.filter(r => dataToUpdate.some(u => u[primaryKey] === r[primaryKey]));
-                finalSummary.insertedRecords.push(...(inserted as CsvRowObject[]));
-                finalSummary.updatedRecords.push(...(updated as CsvRowObject[]));
-           }
+            try {
+                const result = await saveToDatabase({
+                    targetTable: selectedTableName,
+                    data: {
+                        headers: Object.keys(chunk[0]),
+                        rows: chunk.map((row: CsvRowObject) => Object.values(row).map(String))
+                    },
+                    conflictKey: primaryKey,
+                });
 
-           if (data.errors) {
-               data.errors.forEach(e => {
-                   finalSummary.errors.push({
-                       block: i + 1,
-                       recordIdentifier: e.recordIdentifier,
-                       message: e.message,
-                       type: 'update' // Simplified
-                   })
-               })
-           }
-         }
+                if (result.successfulRecords) {
+                    const insertedChunk = result.successfulRecords.filter((r: CsvRowObject) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
+                    const updatedChunk = result.successfulRecords.filter((r: CsvRowObject) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
+                    
+                    finalSummary.inserted += insertedChunk.length;
+                    finalSummary.updated += updatedChunk.length;
+                    
+                    finalSummary.insertedRecords.push(...(insertedChunk as CsvRowObject[]));
+                    finalSummary.updatedRecords.push(...(updatedChunk as CsvRowObject[]));
+                }
 
-         if (error) {
-            finalSummary.errors.push({ 
-                block: i + 1, 
-                message: (error as Error).message,
-                type: 'update'
-            });
-         }
-         
-         setProgress(((i + 1) / totalChunks) * 100);
-       }
+                if (result.errors) {
+                    result.errors.forEach((e: RowError) => {
+                        finalSummary.errors.push({
+                            block: i + 1,
+                            recordIdentifier: e.recordIdentifier,
+                            message: e.message,
+                            type: dataToInsert.some((r: CsvRowObject) => String(r[primaryKey]) === String(e.recordIdentifier)) ? 'insert' : 'update'
+                        });
+                    });
+                }
+            } catch (error: any) {
+                finalSummary.errors.push({
+                    block: i + 1,
+                    message: error.message || 'Error desconocido durante la sincronización del bloque.',
+                    type: 'update' // Simplified as we can't know for sure
+                });
+            }
+
+            setProgress(((i + 1) / totalChunks) * 100);
+        }
       
        finalSummary.log = `Sincronización completada el ${new Date().toLocaleString()}. Nuevos: ${finalSummary.inserted}, Actualizados: ${finalSummary.updated}, Errores: ${finalSummary.errors.length}.`;
        setSyncSummary(finalSummary);
@@ -462,7 +466,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.insertedRecords.length > 0 && (
                              <div className="space-y-2">
                                  <h3 className="font-semibold">Registros Insertados ({syncSummary.insertedRecords.length})</h3>
-                                 <div className="h-60 w-full rounded-md border">
+                                 <ScrollArea className="h-60 w-full rounded-md border">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -471,14 +475,14 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                                              ))}
                                          </TableBody>
                                      </Table>
-                                 </div>
+                                 </ScrollArea>
                              </div>
                          )}
 
                          {syncSummary.updatedRecords.length > 0 && (
                              <div className="space-y-2">
                                 <h3 className="font-semibold">Registros Actualizados ({syncSummary.updatedRecords.length})</h3>
-                                 <div className="h-60 w-full rounded-md border">
+                                 <ScrollArea className="h-60 w-full rounded-md border">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -487,7 +491,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                                              ))}
                                          </TableBody>
                                      </Table>
-                                 </div>
+                                 </ScrollArea>
                              </div>
                          )}
                         
@@ -535,13 +539,19 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                            <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
                          </TabsList>
                          <TabsContent value="toInsert">
-                           <div className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
+                            <ScrollArea className="h-96 w-full rounded-md border">
+                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
+                            </ScrollArea>
                          </TabsContent>
                          <TabsContent value="toUpdate">
-                            <div className="h-96"><Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table></div>
+                            <ScrollArea className="h-96 w-full rounded-md border">
+                                <Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table>
+                            </ScrollArea>
                          </TabsContent>
                          <TabsContent value="noChange">
-                            <div className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
+                            <ScrollArea className="h-96 w-full rounded-md border">
+                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
+                           </ScrollArea>
                          </TabsContent>
                        </Tabs>
                      </CardContent>
