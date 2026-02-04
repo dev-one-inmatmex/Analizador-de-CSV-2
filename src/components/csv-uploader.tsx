@@ -20,11 +20,11 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
-     publicaciones: { pk: 'item_id', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'numero_publicacion', 'tienda_oficial'] },
+     publicaciones: { pk: 'sku', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
-     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'tienda_oficial', 'titulo_publicacion', 'variante', 'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
+     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
 
  const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -117,7 +117,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
        const dataRows = lines.slice(1)
          .map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')))
-         .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''));
+         .filter(row => row.some(cell => cell.trim() !== ''));
        
        setHeaders(csvHeaders);
        setRawRows(dataRows);
@@ -280,12 +280,14 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             if (chunk.length === 0) continue;
 
             const recordsToProcess = chunk.map((record: CsvRowObject) => {
-              const obj: Record<string, any> = {};
-              for (const key of Object.keys(record)) {
-                  obj[key] = record[key];
-              }
-              return obj;
-            });
+                const obj: Record<string, any> = {};
+                for (const key of Object.keys(record)) {
+                  const value = record[key];
+                  // Convert empty strings or whitespace-only strings to null
+                  obj[key] = (typeof value === 'string' && value.trim() === '') ? null : value;
+                }
+                return obj;
+              });
             
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];
