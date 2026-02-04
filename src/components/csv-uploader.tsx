@@ -347,20 +347,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             });
             
             if (selectedTableName === 'ventas') {
-                const validRecords: CsvRowObject[] = [];
-                recordsToProcess.forEach(record => {
-                    if (record.fecha_venta) {
-                        validRecords.push(record);
-                    } else {
-                        finalSummary.errors.push({
-                            block: i + 1,
-                            recordIdentifier: String(record[primaryKey] || `Fila desconocida en bloque ${i+1}`),
-                            message: "Error de Validación: La columna 'fecha_venta' es obligatoria y no puede estar vacía.",
-                            type: dataToInsert.some((r) => String(r[primaryKey]) === String(record[primaryKey])) ? 'insert' : 'update'
-                        });
-                    }
-                });
-                recordsToProcess = validRecords;
+                recordsToProcess = recordsToProcess.filter(record => !!record.fecha_venta);
             }
             
             const successfulRecords: CsvRowObject[] = [];
