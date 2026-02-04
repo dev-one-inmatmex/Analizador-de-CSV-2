@@ -24,7 +24,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
-     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
+     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
 
  const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -84,6 +84,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     
     // Parse numeric fields
     if (numericFields.includes(key)) {
+      // If the string is empty after trimming, return null to avoid "invalid input syntax for type numeric"
+      if (stringValue.trim() === '') return null;
       const num = parseFloat(stringValue.replace(/,/g, '.').replace(/[^0-9.-]/g, ''));
       return isNaN(num) ? null : num;
     }
@@ -174,7 +176,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
        const dataRows = lines.slice(1)
          .map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')))
-         .filter(row => row.some(cell => cell.trim() !== ''));
+         .filter(row => row.join('').trim() !== '');
        
        setHeaders(csvHeaders);
        setRawRows(dataRows);
@@ -336,13 +338,30 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const chunk = allData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
             if (chunk.length === 0) continue;
 
-            const recordsToProcess = chunk.map((unparsedRecord: CsvRowObject) => {
+            let recordsToProcess = chunk.map((unparsedRecord: CsvRowObject) => {
               const parsedRecord: Record<string, any> = {};
               Object.keys(unparsedRecord).forEach(key => {
                 parsedRecord[key] = parseValue(key, unparsedRecord[key]);
               });
               return parsedRecord;
             });
+            
+            if (selectedTableName === 'ventas') {
+                const validRecords: CsvRowObject[] = [];
+                recordsToProcess.forEach(record => {
+                    if (record.fecha_venta) {
+                        validRecords.push(record);
+                    } else {
+                        finalSummary.errors.push({
+                            block: i + 1,
+                            recordIdentifier: String(record[primaryKey] || `Fila desconocida en bloque ${i+1}`),
+                            message: "Error de Validación: La columna 'fecha_venta' es obligatoria y no puede estar vacía.",
+                            type: dataToInsert.some((r) => String(r[primaryKey]) === String(record[primaryKey])) ? 'insert' : 'update'
+                        });
+                    }
+                });
+                recordsToProcess = validRecords;
+            }
             
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];

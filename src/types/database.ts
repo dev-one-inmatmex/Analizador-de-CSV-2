@@ -44,7 +44,7 @@ export interface ventas {
     estado_comprador: string;
     codigo_postal: string;
     pais: string;
-    forma_entrega_envio: string;
+    forma_entrega_envio: string | null;
     fecha_en_camino_envio: string | null;
     fecha_entregado_envio: string | null;
     transportista_envio: string | null;
