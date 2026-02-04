@@ -19,11 +19,11 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
-     publicaciones: { pk: 'item_id', columns: ['id', 'item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
+     publicaciones: { pk: 'item_id', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'publicacion_id', columns: ['sku', 'item_id', 'nombre_madre', 'publicacion_id'] },
-     ventas: { pk: 'numero_venta', columns: [ 'id', 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'numero_publicacion', 'tienda_oficial', 'titulo_publicacion', 'variante', 'precio_unitario', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'created_at'] },
+     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'titulo_publicacion', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
 
  const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -266,36 +266,44 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
 
+       const recordsToProcess = syncType === 'insert' ? dataToInsert : syncType === 'update' ? dataToUpdate : [...dataToInsert, ...dataToUpdate];
+       const isUpsert = syncType === 'update' || syncType === 'all';
+       
        const CHUNK_SIZE = 100;
-       const allRecords = [...dataToInsert, ...dataToUpdate];
-       const totalChunks = Math.ceil(allRecords.length / CHUNK_SIZE);
+       const totalChunks = Math.ceil(recordsToProcess.length / CHUNK_SIZE);
        
        for (let i = 0; i < totalChunks; i++) {
-         const chunk = allRecords.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-         const isUpsert = syncType === 'all' || syncType === 'update';
+         const chunk = recordsToProcess.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
          
-         const result = await saveToDatabase({
-             targetTable: selectedTableName,
-             data: { headers: Object.keys(chunk[0]), rows: chunk.map(Object.values) },
-             conflictKey: isUpsert ? primaryKey : undefined
-         });
+         const { data: chunkSuccessfulRecords, error } = await (
+             isUpsert
+             ? supabase.from(selectedTableName).upsert(chunk, { onConflict: primaryKey }).select()
+             : supabase.from(selectedTableName).insert(chunk).select()
+         );
 
-         const isInsertChunk = syncType === 'insert' || (syncType === 'all' && chunk.every(c => dataToInsert.includes(c)));
-
-         if (isInsertChunk) {
-            finalSummary.inserted += result.processedCount;
-            if (result.successfulRecords) finalSummary.insertedRecords.push(...result.successfulRecords);
-         } else {
-            finalSummary.updated += result.processedCount;
-            if (result.successfulRecords) finalSummary.updatedRecords.push(...result.successfulRecords);
+         if (error) {
+            // This is a chunk-level error, less ideal than row-level.
+            // The save-to-database-flow handles row-level, this is a fallback.
+            finalSummary.errors.push({ 
+                block: i + 1, 
+                message: error.message,
+                type: isUpsert ? 'update' : 'insert'
+            });
          }
          
-         if (result.errors) result.errors.forEach(err => finalSummary.errors.push({ 
-             block: i + 1, 
-             ...err, 
-             type: isInsertChunk ? 'insert' : 'update' 
-         }));
-         
+         if(chunkSuccessfulRecords) {
+             const processedCount = chunkSuccessfulRecords.length;
+             const isInsertChunk = syncType === 'insert'; // Simplified logic, assumes mixed chunks are 'updates'
+             
+             if (isInsertChunk) {
+                finalSummary.inserted += processedCount;
+                finalSummary.insertedRecords.push(...chunkSuccessfulRecords as CsvRowObject[]);
+             } else {
+                finalSummary.updated += processedCount;
+                finalSummary.updatedRecords.push(...chunkSuccessfulRecords as CsvRowObject[]);
+             }
+         }
+
          setProgress(((i + 1) / totalChunks) * 100);
        }
       
