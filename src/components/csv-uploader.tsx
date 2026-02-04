@@ -75,17 +75,17 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     ];
 
     // Ensure value is a string before calling string methods
-    const stringValue = String(value);
+    const stringValue = String(value).trim();
 
     // Keep text-based IDs as strings, but trim whitespace
     if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id' || key === 'publicacion_id') {
-      return stringValue.trim();
+      return stringValue;
     }
     
     // Parse numeric fields
     if (numericFields.includes(key)) {
       // If the string is empty after trimming, return null to avoid "invalid input syntax for type numeric"
-      if (stringValue.trim() === '') return null;
+      if (stringValue === '') return null;
       const num = parseFloat(stringValue.replace(/,/g, '.').replace(/[^0-9.-]/g, ''));
       return isNaN(num) ? null : num;
     }
@@ -98,10 +98,38 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
   
     // Parse date fields
     if (dateFields.includes(key)) {
-      // Avoid parsing already valid date objects
-      if (value instanceof Date) return value.toISOString();
-      const date = new Date(stringValue);
-      return isNaN(date.getTime()) ? null : date.toISOString();
+        if (value instanceof Date) return value.toISOString();
+    
+        const strValue = String(value).trim();
+        if (!strValue) return null;
+    
+        // Regex to handle DD/MM/YYYY or DD-MM-YYYY, with optional time
+        const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
+        const match = strValue.match(dateTimeRegex);
+    
+        let date;
+        if (match) {
+            // We assume DD/MM/YYYY for es locale. This is a common source of bugs if format is MM/DD/YYYY.
+            const day = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10);
+            const year = parseInt(match[3], 10);
+            const hour = match[4] ? parseInt(match[4], 10) : 0;
+            const minute = match[5] ? parseInt(match[5], 10) : 0;
+            const second = match[6] ? parseInt(match[6], 10) : 0;
+            
+            // Basic validation for year and month
+            if (year > 1900 && year < 3000 && month >= 1 && month <= 12) {
+                 date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+            } else {
+                // If regex matches but values are weird, treat as invalid
+                 date = new Date('invalid');
+            }
+        } else {
+            // Fallback to default browser parsing (for ISO formats YYYY-MM-DD etc.)
+            date = new Date(strValue);
+        }
+    
+        return isNaN(date.getTime()) ? null : date.toISOString();
     }
   
     // Return the original value (trimmed if it's a string) for any other fields
@@ -345,10 +373,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
               });
               return parsedRecord;
             });
-            
-            if (selectedTableName === 'ventas') {
-                recordsToProcess = recordsToProcess.filter(record => !!record.fecha_venta);
-            }
             
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];
@@ -661,5 +685,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      </div>
    );
  }
+
+    
 
     
