@@ -19,11 +19,11 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
-     publicaciones: { pk: 'item_id', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
+     publicaciones: { pk: 'item_id', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'numero_publicacion', 'tienda_oficial'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'publicacion_id', columns: ['sku', 'item_id', 'nombre_madre', 'publicacion_id'] },
-     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'titulo_publicacion', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
+     ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'titulo_publicacion', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion', 'numero_publicacion', 'tienda_oficial'] },
  };
 
  const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -119,7 +119,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setRawRows(dataRows);
        toast({ title: 'Archivo Procesado', description: `${dataRows.length} filas de datos encontradas.` });
      };
-     reader.readAsText(fileToProcess, 'UTF-8');
+     reader.readAsText(fileToProcess, 'latin1');
    };
 
    const handleTableSelect = (tableName: string) => {
@@ -266,44 +266,53 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
 
-       const recordsToProcess = syncType === 'insert' ? dataToInsert : syncType === 'update' ? dataToUpdate : [...dataToInsert, ...dataToUpdate];
-       const isUpsert = syncType === 'update' || syncType === 'all';
-       
+       const allData = [...dataToInsert, ...dataToUpdate];
+      
        const CHUNK_SIZE = 100;
-       const totalChunks = Math.ceil(recordsToProcess.length / CHUNK_SIZE);
+       const totalChunks = Math.ceil(allData.length / CHUNK_SIZE);
        
        for (let i = 0; i < totalChunks; i++) {
-         const chunk = recordsToProcess.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-         
-         const { data: chunkSuccessfulRecords, error } = await (
-             isUpsert
-             ? supabase.from(selectedTableName).upsert(chunk, { onConflict: primaryKey }).select()
-             : supabase.from(selectedTableName).insert(chunk).select()
-         );
+         const chunk = allData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+         const { data, error } = await saveToDatabase({
+           targetTable: selectedTableName,
+           data: {
+             headers: Object.keys(chunk[0]),
+             rows: chunk.map(row => Object.values(row))
+           },
+           conflictKey: primaryKey,
+         });
+
+         if (data) {
+           finalSummary.inserted += syncType !== 'update' ? data.successfulRecords?.filter(r => dataToInsert.some(i => i[primaryKey] === r[primaryKey])).length || 0 : 0;
+           finalSummary.updated += syncType !== 'insert' ? data.successfulRecords?.filter(r => dataToUpdate.some(u => u[primaryKey] === r[primaryKey])).length || 0 : 0;
+           
+           if(data.successfulRecords) {
+                const inserted = data.successfulRecords.filter(r => dataToInsert.some(i => i[primaryKey] === r[primaryKey]));
+                const updated = data.successfulRecords.filter(r => dataToUpdate.some(u => u[primaryKey] === r[primaryKey]));
+                finalSummary.insertedRecords.push(...(inserted as CsvRowObject[]));
+                finalSummary.updatedRecords.push(...(updated as CsvRowObject[]));
+           }
+
+           if (data.errors) {
+               data.errors.forEach(e => {
+                   finalSummary.errors.push({
+                       block: i + 1,
+                       recordIdentifier: e.recordIdentifier,
+                       message: e.message,
+                       type: 'update' // Simplified
+                   })
+               })
+           }
+         }
 
          if (error) {
-            // This is a chunk-level error, less ideal than row-level.
-            // The save-to-database-flow handles row-level, this is a fallback.
             finalSummary.errors.push({ 
                 block: i + 1, 
-                message: error.message,
-                type: isUpsert ? 'update' : 'insert'
+                message: (error as Error).message,
+                type: 'update'
             });
          }
          
-         if(chunkSuccessfulRecords) {
-             const processedCount = chunkSuccessfulRecords.length;
-             const isInsertChunk = syncType === 'insert'; // Simplified logic, assumes mixed chunks are 'updates'
-             
-             if (isInsertChunk) {
-                finalSummary.inserted += processedCount;
-                finalSummary.insertedRecords.push(...chunkSuccessfulRecords as CsvRowObject[]);
-             } else {
-                finalSummary.updated += processedCount;
-                finalSummary.updatedRecords.push(...chunkSuccessfulRecords as CsvRowObject[]);
-             }
-         }
-
          setProgress(((i + 1) / totalChunks) * 100);
        }
       
@@ -453,7 +462,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                          {syncSummary.insertedRecords.length > 0 && (
                              <div className="space-y-2">
                                  <h3 className="font-semibold">Registros Insertados ({syncSummary.insertedRecords.length})</h3>
-                                 <ScrollArea className="h-60 w-full rounded-md border">
+                                 <div className="h-60 w-full rounded-md border overflow-auto">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -462,14 +471,14 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                                              ))}
                                          </TableBody>
                                      </Table>
-                                 </ScrollArea>
+                                 </div>
                              </div>
                          )}
 
                          {syncSummary.updatedRecords.length > 0 && (
                              <div className="space-y-2">
                                 <h3 className="font-semibold">Registros Actualizados ({syncSummary.updatedRecords.length})</h3>
-                                 <ScrollArea className="h-60 w-full rounded-md border">
+                                 <div className="h-60 w-full rounded-md border overflow-auto">
                                      <Table>
                                          <TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                                          <TableBody>
@@ -478,7 +487,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                                              ))}
                                          </TableBody>
                                      </Table>
-                                 </ScrollArea>
+                                 </div>
                              </div>
                          )}
                         
@@ -526,13 +535,13 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                            <TabsTrigger value="noChange">Sin Cambios ({analysisResult.noChange.length})</TabsTrigger>
                          </TabsList>
                          <TabsContent value="toInsert">
-                           <ScrollArea className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></ScrollArea>
+                           <div className="overflow-auto h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
                          </TabsContent>
                          <TabsContent value="toUpdate">
-                            <ScrollArea className="h-96"><Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table></ScrollArea>
+                            <div className="overflow-auto h-96"><Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table></div>
                          </TabsContent>
                          <TabsContent value="noChange">
-                            <ScrollArea className="h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></ScrollArea>
+                            <div className="overflow-auto h-96"><Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={i}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table></div>
                          </TabsContent>
                        </Tabs>
                      </CardContent>
@@ -563,4 +572,3 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      </div>
    );
  }
-   
