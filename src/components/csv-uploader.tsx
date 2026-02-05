@@ -135,11 +135,11 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     
         const strValue = String(value).trim();
         if (!strValue) return null;
-    
+
+        // Attempt 1: Custom regex for DD/MM/YYYY, common in Spanish regions
         const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
         const match = strValue.match(dateTimeRegex);
     
-        let date;
         if (match) {
             const day = parseInt(match[1], 10);
             const month = parseInt(match[2], 10);
@@ -148,16 +148,23 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const minute = match[5] ? parseInt(match[5], 10) : 0;
             const second = match[6] ? parseInt(match[6], 10) : 0;
             
-            if (year > 1900 && year < 3000 && month >= 1 && month <= 12) {
-                 date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-            } else {
-                 date = new Date('invalid');
+            if (year > 1900 && year < 3000 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                 const potentialDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+                 // Verify that the constructed date is valid (e.g., month didn't overflow)
+                 if (!isNaN(potentialDate.getTime()) && potentialDate.getUTCMonth() === month - 1) {
+                     return potentialDate.toISOString();
+                 }
             }
-        } else {
-            date = new Date(strValue);
         }
-    
-        return isNaN(date.getTime()) ? null : date.toISOString();
+
+        // Attempt 2: Fallback to native parser for ISO formats etc.
+        const nativeDate = new Date(strValue);
+        if (!isNaN(nativeDate.getTime())) {
+            return nativeDate.toISOString();
+        }
+        
+        // If all else fails
+        return null;
     }
   
     return typeof value === 'string' ? value.trim() : value;
@@ -397,12 +404,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setProgress(0);
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
-
-       if (selectedTableName === 'ventas') {
-          const requiredField = 'fecha_venta';
-          dataToInsert = dataToInsert.filter(record => record[requiredField] != null && String(record[requiredField]).trim() !== '');
-          dataToUpdate = dataToUpdate.filter(record => record[requiredField] != null && String(record[requiredField]).trim() !== '');
-       }
 
        if (selectedTableName === 'publicaciones') {
           dataToInsert = dataToInsert.filter(record => record.company != null && String(record.company).trim() !== '');
@@ -750,3 +751,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 
     
 
+
+
+    
