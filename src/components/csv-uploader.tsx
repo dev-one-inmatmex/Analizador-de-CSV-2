@@ -50,7 +50,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 
     // Handle Foreign Key Violation
     if (error.code === '23503' || message.includes('violates foreign key constraint')) {
-        const constraint = message.match(/constraint "([^"]+)"/)?.[1] || 'desconocida';
         const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) is not present in table "([^"]+)"\./);
         if (detailMatch) {
             const fkColumn = detailMatch[1];
@@ -58,7 +57,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const parentTable = detailMatch[3];
             return `Error de Referencia: El valor '${fkValue}' para la columna '${fkColumn}' no existe en la tabla de referencia '${parentTable}'. Asegúrate de que este SKU/ID exista en la tabla principal primero.`;
         }
-        return `Error de Referencia (Foreign Key): Se violó la restricción '${constraint}'. Un valor que intentas usar no existe en la tabla principal a la que está conectado.`;
+        return `Error de Referencia (Foreign Key): Un valor que intentas usar no existe en la tabla principal a la que está conectado.`;
     }
 
     if (message.includes('violates not-null constraint')) {
@@ -73,12 +72,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const duplicateValue = detailMatch[2];
             return `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe en otro registro de la base de datos.`;
         }
-
-        const constraintName = message.match(/constraint "([^"]+)"/)?.[1];
-        if (constraintName) {
-            return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraintName}'. Un valor que intentas guardar ya existe.`;
-        }
-        
         return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
     }
 
@@ -136,7 +129,31 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         const strValue = String(value).trim();
         if (!strValue) return null;
 
-        // Attempt 1: Custom regex for DD/MM/YYYY, common in Spanish regions
+        // Attempt 1: Spanish format "DD de MMMM de YYYY"
+        const spanishDateMatch = strValue.match(/(\d{1,2}) de (\w+) de (\d{4})/i);
+        if (spanishDateMatch) {
+            const monthMap: { [key: string]: number } = {
+                'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+                'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+            };
+            try {
+                const day = parseInt(spanishDateMatch[1], 10);
+                const monthStr = spanishDateMatch[2].toLowerCase().substring(0, 3);
+                const year = parseInt(spanishDateMatch[3], 10);
+
+                if (monthMap[monthStr] !== undefined) {
+                    const month = monthMap[monthStr];
+                    const date = new Date(Date.UTC(year, month, day));
+                    if (!isNaN(date.getTime()) && date.getUTCMonth() === month) {
+                        return date.toISOString();
+                    }
+                }
+            } catch (e) {
+                // Fall through to next method
+            }
+        }
+
+        // Attempt 2: Custom regex for DD/MM/YYYY, common in Spanish regions
         const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
         const match = strValue.match(dateTimeRegex);
     
@@ -150,20 +167,18 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             
             if (year > 1900 && year < 3000 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
                  const potentialDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-                 // Verify that the constructed date is valid (e.g., month didn't overflow)
                  if (!isNaN(potentialDate.getTime()) && potentialDate.getUTCMonth() === month - 1) {
                      return potentialDate.toISOString();
                  }
             }
         }
 
-        // Attempt 2: Fallback to native parser for ISO formats etc.
+        // Attempt 3: Fallback to native parser for ISO formats etc.
         const nativeDate = new Date(strValue);
         if (!isNaN(nativeDate.getTime())) {
             return nativeDate.toISOString();
         }
         
-        // If all else fails
         return null;
     }
   
