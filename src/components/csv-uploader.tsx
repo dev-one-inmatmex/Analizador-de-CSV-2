@@ -129,6 +129,20 @@ const dateFields = [
         const strValue = String(value).trim();
         if (!strValue) return null;
 
+        const spanishDateRegex = /(\d{1,2})\s+de\s+([a-zA-Z]+)\s+de\s+(\d{4})/;
+        const spanishMatch = strValue.match(spanishDateRegex);
+        if (spanishMatch) {
+            const day = parseInt(spanishMatch[1], 10);
+            const year = parseInt(spanishMatch[3], 10);
+            const monthName = spanishMatch[2].toLowerCase();
+            const monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+            const month = monthNames.indexOf(monthName);
+            if (month !== -1) {
+                const date = new Date(Date.UTC(year, month, day));
+                if (!isNaN(date.getTime())) return date.toISOString();
+            }
+        }
+        
         // Matches DD/MM/YYYY HH:MM:SS or DD-MM-YYYY HH:MM:SS
         const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
         const match = strValue.match(dateTimeRegex);
@@ -350,9 +364,30 @@ const dateFields = [
                  let hasChanged = false;
 
                  for (const key in csvRow) {
-                     if (key !== primaryKey && String(csvRow[key] ?? '') !== String(dbRow[key] ?? '')) {
-                         hasChanged = true;
-                         diff[key] = { old: dbRow[key], new: csvRow[key] };
+                     if (key !== primaryKey) {
+                        const csvValue = csvRow[key];
+                        const dbValue = dbRow[key];
+                        
+                        const parsedCsv = parseValue(key, csvValue);
+                        const parsedDb = parseValue(key, dbValue);
+
+                        let areEqual = false;
+                        if (parsedCsv === null && (parsedDb === null || parsedDb === '')) {
+                            areEqual = true;
+                        } else if (dateFields.includes(key)) {
+                            const d1 = parsedCsv ? new Date(parsedCsv).setUTCHours(0,0,0,0) : null;
+                            const d2 = parsedDb ? new Date(parsedDb).setUTCHours(0,0,0,0) : null;
+                            areEqual = d1 === d2;
+                        } else if (typeof parsedCsv === 'number' && typeof parsedDb === 'number') {
+                            areEqual = Math.abs(parsedCsv - parsedDb) < 0.001;
+                        } else {
+                            areEqual = String(parsedCsv ?? '') === String(parsedDb ?? '');
+                        }
+
+                        if (!areEqual) {
+                           hasChanged = true;
+                           diff[key] = { old: dbValue, new: csvValue };
+                        }
                      }
                  }
 
@@ -367,6 +402,7 @@ const dateFields = [
          }
         
          setAnalysisResult(result);
+         setCurrentStep('results');
          toast({
            title: 'Análisis Completo',
            description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} para actualizar, y ${result.noChange.length} sin cambios.`
@@ -745,5 +781,7 @@ const dateFields = [
      </div>
    );
  }
+
+    
 
     
