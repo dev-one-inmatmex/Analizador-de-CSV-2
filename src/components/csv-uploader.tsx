@@ -49,12 +49,12 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     const details = error.details || '';
 
     if (error.code === '23503' || message.includes('violates foreign key constraint')) {
-        const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) is not present in table "([^"]+)"\./);
+        const detailMatch = details.match(/Key \((.+?)\)=\((.+?)\) is not present in table "(.+?)"\./);
         if (detailMatch) {
-            const fkColumn = detailMatch[1];
+            const fkColumn = detailMatch[1].replace(/"/g, '');
             const fkValue = detailMatch[2];
-            const parentTable = detailMatch[3];
-            return `Error de Referencia: El valor '${fkValue}' para la columna '${fkColumn}' no existe en la tabla de referencia '${parentTable}'. Asegúrate de que este SKU/ID exista en la tabla principal primero.`;
+            const parentTable = detailMatch[3].replace(/"/g, '');
+            return `Error de Referencia: El valor '${fkValue}' para la columna '${fkColumn}' no existe en la tabla de referencia '${parentTable}'. Asegúrate de que este SKU/ID exista primero en la tabla principal.`;
         }
         return `Error de Referencia (Foreign Key): Un valor que intentas usar no existe en la tabla principal a la que está conectado.`;
     }
@@ -65,12 +65,19 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     }
 
     if (error.code === '23505' || message.includes('duplicate key value violates unique constraint')) {
-        const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) already exists\./);
+        const detailMatch = details.match(/Key \((.+?)\)=\((.+?)\) already exists\./);
         if (detailMatch) {
-            const columnName = detailMatch[1];
+            const columnName = detailMatch[1].replace(/"/g, '');
             const duplicateValue = detailMatch[2];
-            return `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe en otro registro de la base de datos.`;
+            return `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe y debe ser único.`;
         }
+        
+        const messageMatch = message.match(/constraint "([^"]+)"/);
+        if (messageMatch) {
+            const constraintName = messageMatch[1];
+            return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraintName}'. Revisa los datos de tu archivo.`;
+        }
+
         return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
     }
 
@@ -143,7 +150,6 @@ const dateFields = [
             }
         }
         
-        // Matches DD/MM/YYYY HH:MM:SS or DD-MM-YYYY HH:MM:SS
         const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
         const match = strValue.match(dateTimeRegex);
     
@@ -781,6 +787,8 @@ const dateFields = [
      </div>
    );
  }
+
+    
 
     
 
