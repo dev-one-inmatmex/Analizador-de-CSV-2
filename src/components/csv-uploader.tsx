@@ -9,9 +9,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { saveToDatabase } from '@/ai/flows/save-to-database-flow';
 import { supabase } from '@/lib/supabaseClient';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
-     publicaciones: { pk: 'sku', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
+     publicaciones: { pk: 'item_id', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
@@ -46,8 +44,32 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
    updatedRecords: CsvRowObject[];
  };
  
- type SaveToDatabaseOutput = Awaited<ReturnType<typeof saveToDatabase>>;
- type RowError = NonNullable<SaveToDatabaseOutput['errors']>[number];
+ function formatSupabaseError(error: any, record: CsvRowObject): string {
+    const message = error.message || 'Error desconocido.';
+
+    if (message.includes('violates not-null constraint')) {
+        const columnName = message.match(/column "([^"]+)"/)?.[1];
+        return `Error de valor nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía. Revisa tu archivo CSV.`;
+    }
+
+    if (message.includes('duplicate key value violates unique constraint')) {
+        const constraintName = message.match(/constraint "([^"]+)"/)?.[1];
+        if (constraintName) {
+            const columnNameMatch = constraintName.match(/_([^_]+)_key$/);
+            const columnName = columnNameMatch ? columnNameMatch[1] : constraintName.replace(/^[a-zA-Z0-9_]+_/, '').replace(/_key$/, '');
+            const duplicateValue = record[columnName];
+            return `Conflicto de duplicado: El valor '${duplicateValue}' en la columna '${columnName}' ya existe en otro registro.`;
+        }
+        return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
+    }
+
+    if (error.code === '42501' || message.includes('violates row-level security policy')) {
+        return `Error de Permisos (RLS): La base de datos rechazó la escritura. Revisa las políticas de seguridad de la tabla.`;
+    }
+    
+    return message;
+}
+
 
  function parseValue(key: string, value: any): any {
     // Handle null/empty values first
@@ -84,7 +106,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     
     // Parse numeric fields
     if (numericFields.includes(key)) {
-      // If the string is empty after trimming, return null to avoid "invalid input syntax for type numeric"
       if (stringValue === '') return null;
       const num = parseFloat(stringValue.replace(/,/g, '.').replace(/[^0-9.-]/g, ''));
       return isNaN(num) ? null : num;
@@ -103,13 +124,11 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         const strValue = String(value).trim();
         if (!strValue) return null;
     
-        // Regex to handle DD/MM/YYYY or DD-MM-YYYY, with optional time
         const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
         const match = strValue.match(dateTimeRegex);
     
         let date;
         if (match) {
-            // We assume DD/MM/YYYY for es locale. This is a common source of bugs if format is MM/DD/YYYY.
             const day = parseInt(match[1], 10);
             const month = parseInt(match[2], 10);
             const year = parseInt(match[3], 10);
@@ -117,22 +136,18 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const minute = match[5] ? parseInt(match[5], 10) : 0;
             const second = match[6] ? parseInt(match[6], 10) : 0;
             
-            // Basic validation for year and month
             if (year > 1900 && year < 3000 && month >= 1 && month <= 12) {
                  date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
             } else {
-                // If regex matches but values are weird, treat as invalid
                  date = new Date('invalid');
             }
         } else {
-            // Fallback to default browser parsing (for ISO formats YYYY-MM-DD etc.)
             date = new Date(strValue);
         }
     
         return isNaN(date.getTime()) ? null : date.toISOString();
     }
   
-    // Return the original value (trimmed if it's a string) for any other fields
     return typeof value === 'string' ? value.trim() : value;
 }
 
@@ -375,8 +390,12 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             });
             
             if (selectedTableName === 'catalogo_madre') {
-                recordsToProcess = recordsToProcess.filter(record => record.nombre_madre !== null);
+                recordsToProcess = recordsToProcess.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
             }
+             if (selectedTableName === 'publicaciones') {
+                recordsToProcess = recordsToProcess.filter(record => record.company != null && String(record.company).trim() !== '');
+            }
+
 
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];
@@ -393,7 +412,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
               if (error) {
                   errors.push({
                       recordIdentifier: record[primaryKey],
-                      message: error.message,
+                      message: formatSupabaseError(error, record),
                   });
               } else if (!resultData || resultData.length === 0) {
                   errors.push({
@@ -694,9 +713,3 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      </div>
    );
  }
-
-    
-
-    
-
-    
