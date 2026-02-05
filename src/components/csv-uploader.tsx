@@ -133,7 +133,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     }
   
     // Return the original value (trimmed if it's a string) for any other fields
-    return typeof stringValue === 'string' ? stringValue.trim() : stringValue;
+    return typeof value === 'string' ? value.trim() : value;
 }
 
  export default function CsvUploader() {
@@ -204,7 +204,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
        const dataRows = lines.slice(1)
          .map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')))
-         .filter(row => row.join('').trim() !== '');
+         .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''));
        
        setHeaders(csvHeaders);
        setRawRows(dataRows);
@@ -386,8 +386,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
               const query = supabase.from(selectedTableName);
 
               const { data: resultData, error } = await (isUpdate
-                  ? query.upsert(record, { onConflict: primaryKey })
-                  : query.insert(record)
+                  ? query.upsert(record, { onConflict: primaryKey }).select()
+                  : query.insert(record).select()
               );
 
               if (error) {
@@ -395,8 +395,13 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                       recordIdentifier: record[primaryKey],
                       message: error.message,
                   });
+              } else if (!resultData || resultData.length === 0) {
+                  errors.push({
+                      recordIdentifier: record[primaryKey],
+                      message: "Operación bloqueada por la base de datos (posiblemente por políticas de seguridad RLS). El registro no se guardó.",
+                  });
               } else {
-                  successfulRecords.push(record);
+                  successfulRecords.push(resultData[0]);
               }
             }
 
