@@ -114,11 +114,11 @@ export interface skus_unicos{
 export interface categorias_madre{
   sku: string;
   landed_cost: number;
-  tiempo_preparacion: number;
-  tiempo_recompra: number;
-  proveedor: string;
-  piezas_por_sku: number;
-  piezas_por_contenedor: number;
-  bodega: string;
-  bloque: string;
+  tiempo_preparacion: number | null;
+  tiempo_recompra: number | null;
+  proveedor: string | null;
+  piezas_por_sku: number | null;
+  piezas_por_contenedor: number | null;
+  bodega: string |null; 
+  bloque: string | null;
 }

@@ -54,8 +54,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     }
 
     if (message.includes('duplicate key value violates unique constraint')) {
-        // First, try parsing the detailed message which is most reliable.
-        // e.g., "Key (variation_id)=(some_value) already exists."
         const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) already exists\./);
         if (detailMatch) {
             const columnName = detailMatch[1];
@@ -63,10 +61,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             return `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe en otro registro de la base de datos.`;
         }
 
-        // Fallback if 'details' is not available or doesn't match
         const constraintName = message.match(/constraint "([^"]+)"/)?.[1];
         if (constraintName) {
-            // This is a guess. The constraint name might not directly map to a single column name.
             return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraintName}'. Un valor que intentas guardar ya existe.`;
         }
         
@@ -82,12 +78,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 
 
  function parseValue(key: string, value: any): any {
-    // Handle null/empty values first
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') {
       return null;
     }
   
-    // Combine all field types for comprehensive parsing
     const numericFields = [
       'costo', 'tiempo_preparacion', 'unidades', 'ingreso_productos', 
       'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
@@ -106,28 +100,23 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
       'fecha_en_camino_envio', 'fecha_entregado_envio'
     ];
 
-    // Ensure value is a string before calling string methods
     const stringValue = String(value).trim();
 
-    // Keep text-based IDs as strings, but trim whitespace
     if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id' || key === 'publicacion_id') {
       return stringValue;
     }
     
-    // Parse numeric fields
     if (numericFields.includes(key)) {
       if (stringValue === '') return null;
       const num = parseFloat(stringValue.replace(/,/g, '.').replace(/[^0-9.-]/g, ''));
       return isNaN(num) ? null : num;
     }
   
-    // Parse boolean fields, handling "Sí"
     if (booleanFields.includes(key)) {
       const v = stringValue.toLowerCase();
       return v === 'true' || v === '1' || v === 'verdadero' || v === 'si' || v === 'sí';
     }
   
-    // Parse date fields
     if (dateFields.includes(key)) {
         if (value instanceof Date) return value.toISOString();
     
@@ -229,7 +218,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
        const dataRows = lines.slice(1)
          .map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')))
-         .filter(row => row.length > 1 || (row.length === 1 && row[0] !== ''));
+         .filter(row => row.some(cell => cell && cell.trim() !== ''));
        
        setHeaders(csvHeaders);
        setRawRows(dataRows);
@@ -313,9 +302,23 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             throw new Error("No se encontraron valores válidos en la columna de clave primaria mapeada en tu CSV.");
          }
          
-         const { data: existingData, error } = await supabase.from(selectedTableName).select('*').in(primaryKey, csvPkValues);
+        const CHUNK_SIZE = 500;
+        let existingData: CsvRowObject[] = [];
 
-         if (error) throw error;
+        for (let i = 0; i < csvPkValues.length; i += CHUNK_SIZE) {
+            const chunk = csvPkValues.slice(i, i + CHUNK_SIZE);
+            const { data: chunkData, error } = await supabase
+                .from(selectedTableName)
+                .select('*')
+                .in(primaryKey, chunk);
+
+            if (error) {
+                throw error;
+            }
+            if (chunkData) {
+                existingData = existingData.concat(chunkData);
+            }
+        }
         
          const existingDataMap = new Map(existingData.map((row: CsvRowObject) => [String(row[primaryKey]), row]));
         
@@ -382,11 +385,17 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
 
-       let allData = [...dataToInsert, ...dataToUpdate];
-      
        if (selectedTableName === 'publicaciones') {
-          allData = allData.filter(record => record.company != null && String(record.company).trim() !== '');
+          dataToInsert = dataToInsert.filter(record => record.company != null && String(record.company).trim() !== '');
+          dataToUpdate = dataToUpdate.filter(record => record.company != null && String(record.company).trim() !== '');
        }
+
+       if (selectedTableName === 'catalogo_madre') {
+           dataToInsert = dataToInsert.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
+           dataToUpdate = dataToUpdate.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
+       }
+       
+       let allData = [...dataToInsert, ...dataToUpdate];
 
        const CHUNK_SIZE = 100;
        const totalChunks = Math.ceil(allData.length / CHUNK_SIZE);
@@ -395,7 +404,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const chunk = allData.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
             if (chunk.length === 0) continue;
 
-            let recordsToProcess = chunk.map((unparsedRecord: CsvRowObject) => {
+            const recordsToProcess = chunk.map((unparsedRecord: CsvRowObject) => {
               const parsedRecord: Record<string, any> = {};
               Object.keys(unparsedRecord).forEach(key => {
                 parsedRecord[key] = parseValue(key, unparsedRecord[key]);
@@ -403,10 +412,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
               return parsedRecord;
             });
             
-            if (selectedTableName === 'catalogo_madre') {
-                recordsToProcess = recordsToProcess.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
-            }
-
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];
 
