@@ -82,30 +82,30 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     return message;
 }
 
+const numericFields = [
+  'costo', 'tiempo_preparacion', 'unidades', 'ingreso_productos', 
+  'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
+  'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
+  'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
+  'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra'
+];
+
+const booleanFields = [
+  'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
+  'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
+];
+
+const dateFields = [
+  'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
+  'fecha_en_camino_envio', 'fecha_entregado_envio'
+];
+
 
  function parseValue(key: string, value: any): any {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') {
       return null;
     }
   
-    const numericFields = [
-      'costo', 'tiempo_preparacion', 'unidades', 'ingreso_productos', 
-      'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
-      'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
-      'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
-      'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra'
-    ];
-  
-    const booleanFields = [
-      'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
-      'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
-    ];
-  
-    const dateFields = [
-      'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
-      'fecha_en_camino_envio', 'fecha_entregado_envio'
-    ];
-
     const stringValue = String(value).trim();
 
     if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id' || key === 'publicacion_id') {
@@ -369,9 +369,24 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
                  let hasChanged = false;
 
                  for (const key in csvRow) {
-                     const csvValue = csvRow[key] !== null && csvRow[key] !== undefined ? String(csvRow[key]) : "";
-                     const dbValue = dbRow[key] !== null && dbRow[key] !== undefined ? String(dbRow[key]) : "";
-                     if (key !== primaryKey && csvValue !== dbValue) {
+                    if (!dbRow.hasOwnProperty(key)) continue;
+
+                    const parsedCsvValue = parseValue(key, csvRow[key]);
+                    const parsedDbValue = parseValue(key, dbRow[key]);
+
+                    let valuesDiffer = false;
+                    
+                    if (dateFields.includes(key)) {
+                        const d1_str = parsedCsvValue ? new Date(parsedCsvValue).toISOString().slice(0, 10) : null;
+                        const d2_str = parsedDbValue ? new Date(parsedDbValue).toISOString().slice(0, 10) : null;
+                        if (d1_str !== d2_str) {
+                            valuesDiffer = true;
+                        }
+                    } else if (parsedCsvValue !== parsedDbValue) {
+                         valuesDiffer = true;
+                    }
+
+                     if (key !== primaryKey && valuesDiffer) {
                          hasChanged = true;
                          diff[key] = { old: dbRow[key], new: csvRow[key] };
                      }
@@ -391,10 +406,11 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
          setCurrentStep('results');
          toast({
            title: 'Análisis Completo',
-           description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} duplicados (para actualizar), y ${result.noChange.length} sin cambios.`
+           description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} para actualizar, y ${result.noChange.length} sin cambios.`
          });
 
      } catch (e: any) {
+         console.error("Analysis error:", e);
          toast({ title: 'Error en el Análisis', description: e.message, variant: 'destructive' });
          setCurrentStep('mapping');
      } finally {
@@ -428,6 +444,11 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        if (selectedTableName === 'catalogo_madre') {
            dataToInsert = dataToInsert.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
            dataToUpdate = dataToUpdate.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
+       }
+
+       if (selectedTableName === 'ventas') {
+           dataToInsert = dataToInsert.filter(record => record.fecha_venta != null && String(record.fecha_venta).trim() !== '');
+           dataToUpdate = dataToUpdate.filter(record => record.fecha_venta != null && String(record.fecha_venta).trim() !== '');
        }
        
        let allData = [...dataToInsert, ...dataToUpdate];
@@ -766,6 +787,9 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 
     
 
+
+
+    
 
 
     
