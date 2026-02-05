@@ -357,7 +357,12 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
 
-       const allData = [...dataToInsert, ...dataToUpdate];
+       let allData = [...dataToInsert, ...dataToUpdate];
+
+       // Filtra los registros que no cumplen con las restricciones NOT NULL de la base de datos antes de enviarlos.
+       if (selectedTableName === 'catalogo_madre') {
+           allData = allData.filter(row => row['nombre_madre'] && String(row['nombre_madre']).trim() !== '');
+       }
       
        const CHUNK_SIZE = 100;
        const totalChunks = Math.ceil(allData.length / CHUNK_SIZE);
@@ -685,6 +690,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      </div>
    );
  }
+
+    
 
     
 
