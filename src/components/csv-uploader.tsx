@@ -48,6 +48,19 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     const message = error.message || 'Error desconocido.';
     const details = error.details || '';
 
+    // Handle Foreign Key Violation
+    if (error.code === '23503' || message.includes('violates foreign key constraint')) {
+        const constraint = message.match(/constraint "([^"]+)"/)?.[1] || 'desconocida';
+        const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) is not present in table "([^"]+)"\./);
+        if (detailMatch) {
+            const fkColumn = detailMatch[1];
+            const fkValue = detailMatch[2];
+            const parentTable = detailMatch[3];
+            return `Error de Referencia: El valor '${fkValue}' para la columna '${fkColumn}' no existe en la tabla de referencia '${parentTable}'. Asegúrate de que este SKU/ID exista en la tabla principal primero.`;
+        }
+        return `Error de Referencia (Foreign Key): Se violó la restricción '${constraint}'. Un valor que intentas usar no existe en la tabla principal a la que está conectado.`;
+    }
+
     if (message.includes('violates not-null constraint')) {
         const columnName = message.match(/column "([^"]+)"/)?.[1];
         return `Error de valor nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía. Revisa tu archivo CSV.`;
@@ -384,6 +397,12 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setProgress(0);
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
+
+       if (selectedTableName === 'ventas') {
+          const requiredField = 'fecha_venta';
+          dataToInsert = dataToInsert.filter(record => record[requiredField] != null && String(record[requiredField]).trim() !== '');
+          dataToUpdate = dataToUpdate.filter(record => record[requiredField] != null && String(record[requiredField]).trim() !== '');
+       }
 
        if (selectedTableName === 'publicaciones') {
           dataToInsert = dataToInsert.filter(record => record.company != null && String(record.company).trim() !== '');
@@ -730,3 +749,4 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
  }
 
     
+
