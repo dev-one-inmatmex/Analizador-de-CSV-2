@@ -369,7 +369,7 @@ const dateFields = [
          setAnalysisResult(result);
          toast({
            title: 'Análisis Completo',
-           description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} para actualizar, y ${result.toChange.length} sin cambios.`
+           description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} para actualizar, y ${result.noChange.length} sin cambios.`
          });
 
      } catch (e: any) {
