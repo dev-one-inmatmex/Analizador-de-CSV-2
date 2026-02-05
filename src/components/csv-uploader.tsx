@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
-     publicaciones: { pk: 'item_id', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
+     publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_produccion', 'landed_cost', 'piezas_por_sku', 'sbm'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
@@ -46,6 +46,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
  
  function formatSupabaseError(error: any, record: CsvRowObject): string {
     const message = error.message || 'Error desconocido.';
+    const details = error.details || '';
 
     if (message.includes('violates not-null constraint')) {
         const columnName = message.match(/column "([^"]+)"/)?.[1];
@@ -53,13 +54,22 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     }
 
     if (message.includes('duplicate key value violates unique constraint')) {
+        // First, try parsing the detailed message which is most reliable.
+        // e.g., "Key (variation_id)=(some_value) already exists."
+        const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) already exists\./);
+        if (detailMatch) {
+            const columnName = detailMatch[1];
+            const duplicateValue = detailMatch[2];
+            return `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe en otro registro de la base de datos.`;
+        }
+
+        // Fallback if 'details' is not available or doesn't match
         const constraintName = message.match(/constraint "([^"]+)"/)?.[1];
         if (constraintName) {
-            const columnNameMatch = constraintName.match(/_([^_]+)_key$/);
-            const columnName = columnNameMatch ? columnNameMatch[1] : constraintName.replace(/^[a-zA-Z0-9_]+_/, '').replace(/_key$/, '');
-            const duplicateValue = record[columnName];
-            return `Conflicto de duplicado: El valor '${duplicateValue}' en la columna '${columnName}' ya existe en otro registro.`;
+            // This is a guess. The constraint name might not directly map to a single column name.
+            return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraintName}'. Un valor que intentas guardar ya existe.`;
         }
+        
         return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
     }
 
@@ -372,8 +382,12 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
 
-       const allData = [...dataToInsert, ...dataToUpdate];
+       let allData = [...dataToInsert, ...dataToUpdate];
       
+       if (selectedTableName === 'publicaciones') {
+          allData = allData.filter(record => record.company != null && String(record.company).trim() !== '');
+       }
+
        const CHUNK_SIZE = 100;
        const totalChunks = Math.ceil(allData.length / CHUNK_SIZE);
        
@@ -392,10 +406,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             if (selectedTableName === 'catalogo_madre') {
                 recordsToProcess = recordsToProcess.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
             }
-             if (selectedTableName === 'publicaciones') {
-                recordsToProcess = recordsToProcess.filter(record => record.company != null && String(record.company).trim() !== '');
-            }
-
 
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];
@@ -713,3 +723,5 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      </div>
    );
  }
+
+    
