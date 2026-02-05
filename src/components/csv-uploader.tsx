@@ -352,6 +352,9 @@ const dateFields = [
                 .in(primaryKey, chunk);
 
             if (error) {
+                if (error.message.includes('Request URL too long')) {
+                    throw new Error('El archivo CSV es demasiado grande para analizarlo de una vez. Intenta con un archivo más pequeño.');
+                }
                 throw error;
             }
             if (chunkData) {
@@ -373,31 +376,7 @@ const dateFields = [
                  let hasChanged = false;
 
                  for (const key in csvRow) {
-                     if (!dbRow.hasOwnProperty(key)) continue;
-
-                     const csvValueParsed = parseValue(key, csvRow[key]);
-                     const dbValueParsed = parseValue(key, dbRow[key]);
-
-                     let valuesDiffer = false;
-                     if (csvValueParsed === null && dbValueParsed === null) {
-                        valuesDiffer = false;
-                     } else if (csvValueParsed === null || dbValueParsed === null) {
-                        valuesDiffer = true;
-                     } else if (dateFields.includes(key)) {
-                        const d1 = String(csvValueParsed).slice(0, 10);
-                        const d2 = String(dbValueParsed).slice(0, 10);
-                        if (d1 !== d2) valuesDiffer = true;
-                     } else if (numericFields.includes(key)) {
-                        if (Math.abs(Number(csvValueParsed) - Number(dbValueParsed)) > 1e-9) {
-                            valuesDiffer = true;
-                        }
-                     } else { // Booleans and strings
-                        if (String(csvValueParsed) !== String(dbValueParsed)) {
-                            valuesDiffer = true;
-                        }
-                     }
-
-                     if (key !== primaryKey && valuesDiffer) {
+                     if (key !== primaryKey && String(csvRow[key] ?? '') !== String(dbRow[key] ?? '')) {
                          hasChanged = true;
                          diff[key] = { old: dbRow[key], new: csvRow[key] };
                      }
