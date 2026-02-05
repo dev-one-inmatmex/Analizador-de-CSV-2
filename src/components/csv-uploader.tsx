@@ -373,45 +373,29 @@ const dateFields = [
                  let hasChanged = false;
 
                  for (const key in csvRow) {
-                    if (!dbRow.hasOwnProperty(key)) continue;
+                     if (!dbRow.hasOwnProperty(key)) continue;
 
-                    const canonicalCsvValue = parseValue(key, csvRow[key]);
-                    const dbValue = dbRow[key];
+                     const csvValueParsed = parseValue(key, csvRow[key]);
+                     const dbValueParsed = parseValue(key, dbRow[key]);
 
-                    let valuesDiffer = false;
-
-                    // Standardize DB value before comparison
-                    const canonicalDbValue = (dbValue instanceof Date) ? dbValue.toISOString() : dbValue;
-
-                    if (canonicalCsvValue === null && (canonicalDbValue === null || canonicalDbValue === undefined)) {
+                     let valuesDiffer = false;
+                     if (csvValueParsed === null && dbValueParsed === null) {
                         valuesDiffer = false;
-                    } else if (canonicalCsvValue === null || canonicalDbValue === null || canonicalDbValue === undefined) {
+                     } else if (csvValueParsed === null || dbValueParsed === null) {
                         valuesDiffer = true;
-                    } else if (dateFields.includes(key)) {
-                        try {
-                            const d1 = new Date(canonicalCsvValue).toISOString().slice(0, 10);
-                            const d2 = new Date(canonicalDbValue).toISOString().slice(0, 10);
-                            if (d1 !== d2) {
-                                valuesDiffer = true;
-                            }
-                        } catch {
-                            if (String(canonicalCsvValue) !== String(canonicalDbValue)) {
-                                valuesDiffer = true;
-                            }
-                        }
-                    } else if (numericFields.includes(key)) {
-                        if (Math.abs(Number(canonicalCsvValue) - Number(canonicalDbValue)) > 1e-9) {
+                     } else if (dateFields.includes(key)) {
+                        const d1 = String(csvValueParsed).slice(0, 10);
+                        const d2 = String(dbValueParsed).slice(0, 10);
+                        if (d1 !== d2) valuesDiffer = true;
+                     } else if (numericFields.includes(key)) {
+                        if (Math.abs(Number(csvValueParsed) - Number(dbValueParsed)) > 1e-9) {
                             valuesDiffer = true;
                         }
-                    } else if (booleanFields.includes(key)) {
-                        if (Boolean(canonicalCsvValue) !== Boolean(canonicalDbValue)) {
+                     } else { // Booleans and strings
+                        if (String(csvValueParsed) !== String(dbValueParsed)) {
                             valuesDiffer = true;
                         }
-                    } else {
-                        if (String(canonicalCsvValue).trim() !== String(canonicalDbValue).trim()) {
-                            valuesDiffer = true;
-                        }
-                    }
+                     }
 
                      if (key !== primaryKey && valuesDiffer) {
                          hasChanged = true;
