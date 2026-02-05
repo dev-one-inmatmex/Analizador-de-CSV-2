@@ -86,7 +86,8 @@ const numericFields = [
   'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
   'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
   'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
-  'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra'
+  'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra',
+  'piezas_por_contenedor',
 ];
 
 const booleanFields = [
@@ -374,30 +375,41 @@ const dateFields = [
                  for (const key in csvRow) {
                     if (!dbRow.hasOwnProperty(key)) continue;
 
-                    const parsedCsvValue = parseValue(key, csvRow[key]);
-                    const parsedDbValue = parseValue(key, dbRow[key]);
-                    
+                    const canonicalCsvValue = parseValue(key, csvRow[key]);
+                    const dbValue = dbRow[key];
+
                     let valuesDiffer = false;
 
-                    if (parsedCsvValue === null && parsedDbValue !== null || parsedCsvValue !== null && parsedDbValue === null) {
+                    // Standardize DB value before comparison
+                    const canonicalDbValue = (dbValue instanceof Date) ? dbValue.toISOString() : dbValue;
+
+                    if (canonicalCsvValue === null && (canonicalDbValue === null || canonicalDbValue === undefined)) {
+                        valuesDiffer = false;
+                    } else if (canonicalCsvValue === null || canonicalDbValue === null || canonicalDbValue === undefined) {
                         valuesDiffer = true;
-                    } else if (parsedCsvValue !== null && parsedDbValue !== null) {
-                        if (numericFields.includes(key)) {
-                            if (Math.abs(Number(parsedCsvValue) - Number(parsedDbValue)) > 1e-9) {
+                    } else if (dateFields.includes(key)) {
+                        try {
+                            const d1 = new Date(canonicalCsvValue).toISOString().slice(0, 10);
+                            const d2 = new Date(canonicalDbValue).toISOString().slice(0, 10);
+                            if (d1 !== d2) {
                                 valuesDiffer = true;
                             }
-                        } else if (dateFields.includes(key)) {
-                            try {
-                                if (new Date(parsedCsvValue).toISOString().slice(0, 10) !== new Date(parsedDbValue).toISOString().slice(0, 10)) {
-                                    valuesDiffer = true;
-                                }
-                            } catch {
-                                valuesDiffer = true; // Treat parsing errors as a difference
-                            }
-                        } else {
-                            if (String(parsedCsvValue) !== String(parsedDbValue)) {
+                        } catch {
+                            if (String(canonicalCsvValue) !== String(canonicalDbValue)) {
                                 valuesDiffer = true;
                             }
+                        }
+                    } else if (numericFields.includes(key)) {
+                        if (Math.abs(Number(canonicalCsvValue) - Number(canonicalDbValue)) > 1e-9) {
+                            valuesDiffer = true;
+                        }
+                    } else if (booleanFields.includes(key)) {
+                        if (Boolean(canonicalCsvValue) !== Boolean(canonicalDbValue)) {
+                            valuesDiffer = true;
+                        }
+                    } else {
+                        if (String(canonicalCsvValue).trim() !== String(canonicalDbValue).trim()) {
+                            valuesDiffer = true;
                         }
                     }
 
@@ -418,7 +430,6 @@ const dateFields = [
          }
         
          setAnalysisResult(result);
-         setCurrentStep('results');
          toast({
            title: 'Análisis Completo',
            description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} para actualizar, y ${result.noChange.length} sin cambios.`
