@@ -129,33 +129,7 @@ const dateFields = [
         const strValue = String(value).trim();
         if (!strValue) return null;
 
-        const spanishDateMatch = strValue.match(/(\d{1,2}) de (\w+) de (\d{4})/i);
-        if (spanishDateMatch) {
-            const monthMap: { [key: string]: number } = {
-                'enero': 0, 'febrero': 1, 'marzo': 2, 'abril': 3, 'mayo': 4, 'junio': 5,
-                'julio': 6, 'agosto': 7, 'septiembre': 8, 'octubre': 9, 'noviembre': 10, 'diciembre': 11,
-                'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
-                'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
-            };
-            try {
-                const day = parseInt(spanishDateMatch[1], 10);
-                const monthStr = spanishDateMatch[2].toLowerCase();
-                const year = parseInt(spanishDateMatch[3], 10);
-
-                const monthKey = Object.keys(monthMap).find(m => monthStr.startsWith(m));
-
-                if (monthKey) {
-                    const month = monthMap[monthKey];
-                    const date = new Date(Date.UTC(year, month, day));
-                    if (!isNaN(date.getTime()) && date.getUTCMonth() === month) {
-                        return date.toISOString();
-                    }
-                }
-            } catch (e) {
-                // Fall through
-            }
-        }
-
+        // Matches DD/MM/YYYY HH:MM:SS or DD-MM-YYYY HH:MM:SS
         const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
         const match = strValue.match(dateTimeRegex);
     
@@ -395,7 +369,7 @@ const dateFields = [
          setAnalysisResult(result);
          toast({
            title: 'Análisis Completo',
-           description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} para actualizar, y ${result.noChange.length} sin cambios.`
+           description: `Se encontraron ${result.toInsert.length} registros nuevos, ${result.toUpdate.length} para actualizar, y ${result.toChange.length} sin cambios.`
          });
 
      } catch (e: any) {
