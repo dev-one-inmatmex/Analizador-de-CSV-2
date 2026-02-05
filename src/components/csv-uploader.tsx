@@ -48,7 +48,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     const message = error.message || 'Error desconocido.';
     const details = error.details || '';
 
-    // Handle Foreign Key Violation
     if (error.code === '23503' || message.includes('violates foreign key constraint')) {
         const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) is not present in table "([^"]+)"\./);
         if (detailMatch) {
@@ -65,7 +64,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         return `Error de valor nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía. Revisa tu archivo CSV.`;
     }
 
-    if (message.includes('duplicate key value violates unique constraint')) {
+    if (error.code === '23505' || message.includes('duplicate key value violates unique constraint')) {
         const detailMatch = details.match(/Key \(([^)]+)\)=\(([^)]+)\) already exists\./);
         if (detailMatch) {
             const columnName = detailMatch[1];
@@ -129,31 +128,33 @@ const dateFields = [
         const strValue = String(value).trim();
         if (!strValue) return null;
 
-        // Attempt 1: Spanish format "DD de MMMM de YYYY"
         const spanishDateMatch = strValue.match(/(\d{1,2}) de (\w+) de (\d{4})/i);
         if (spanishDateMatch) {
             const monthMap: { [key: string]: number } = {
+                'enero': 0, 'febrero': 1, 'marzo': 2, 'abril': 3, 'mayo': 4, 'junio': 5,
+                'julio': 6, 'agosto': 7, 'septiembre': 8, 'octubre': 9, 'noviembre': 10, 'diciembre': 11,
                 'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
                 'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
             };
             try {
                 const day = parseInt(spanishDateMatch[1], 10);
-                const monthStr = spanishDateMatch[2].toLowerCase().substring(0, 3);
+                const monthStr = spanishDateMatch[2].toLowerCase();
                 const year = parseInt(spanishDateMatch[3], 10);
 
-                if (monthMap[monthStr] !== undefined) {
-                    const month = monthMap[monthStr];
+                const monthKey = Object.keys(monthMap).find(m => monthStr.startsWith(m));
+
+                if (monthKey) {
+                    const month = monthMap[monthKey];
                     const date = new Date(Date.UTC(year, month, day));
                     if (!isNaN(date.getTime()) && date.getUTCMonth() === month) {
                         return date.toISOString();
                     }
                 }
             } catch (e) {
-                // Fall through to next method
+                // Fall through
             }
         }
 
-        // Attempt 2: Custom regex for DD/MM/YYYY, common in Spanish regions
         const dateTimeRegex = /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]?(\d{1,2}):(\d{1,2}):?(\d{1,2})?)?/;
         const match = strValue.match(dateTimeRegex);
     
@@ -173,7 +174,6 @@ const dateFields = [
             }
         }
 
-        // Attempt 3: Fallback to native parser for ISO formats etc.
         const nativeDate = new Date(strValue);
         if (!isNaN(nativeDate.getTime())) {
             return nativeDate.toISOString();
@@ -330,7 +330,10 @@ const dateFields = [
                  }
              });
              return newRow;
-         }).filter(row => Object.values(row).some(val => val !== null && val !== undefined && String(val).trim() !== ''));
+         }).filter(row => {
+            const pkValue = row[primaryKey];
+            return pkValue !== null && pkValue !== undefined && String(pkValue).trim() !== '';
+         });
 
          const csvPkValues = mappedCsvData.map(row => row[primaryKey]).filter(Boolean);
          if (csvPkValues.length === 0) {
@@ -373,17 +376,29 @@ const dateFields = [
 
                     const parsedCsvValue = parseValue(key, csvRow[key]);
                     const parsedDbValue = parseValue(key, dbRow[key]);
-
-                    let valuesDiffer = false;
                     
-                    if (dateFields.includes(key)) {
-                        const d1_str = parsedCsvValue ? new Date(parsedCsvValue).toISOString().slice(0, 10) : null;
-                        const d2_str = parsedDbValue ? new Date(parsedDbValue).toISOString().slice(0, 10) : null;
-                        if (d1_str !== d2_str) {
-                            valuesDiffer = true;
+                    let valuesDiffer = false;
+
+                    if (parsedCsvValue === null && parsedDbValue !== null || parsedCsvValue !== null && parsedDbValue === null) {
+                        valuesDiffer = true;
+                    } else if (parsedCsvValue !== null && parsedDbValue !== null) {
+                        if (numericFields.includes(key)) {
+                            if (Math.abs(Number(parsedCsvValue) - Number(parsedDbValue)) > 1e-9) {
+                                valuesDiffer = true;
+                            }
+                        } else if (dateFields.includes(key)) {
+                            try {
+                                if (new Date(parsedCsvValue).toISOString().slice(0, 10) !== new Date(parsedDbValue).toISOString().slice(0, 10)) {
+                                    valuesDiffer = true;
+                                }
+                            } catch {
+                                valuesDiffer = true; // Treat parsing errors as a difference
+                            }
+                        } else {
+                            if (String(parsedCsvValue) !== String(parsedDbValue)) {
+                                valuesDiffer = true;
+                            }
                         }
-                    } else if (parsedCsvValue !== parsedDbValue) {
-                         valuesDiffer = true;
                     }
 
                      if (key !== primaryKey && valuesDiffer) {
@@ -435,22 +450,20 @@ const dateFields = [
        setProgress(0);
        setLoadingMessage('Sincronizando datos con la base de datos...');
        const finalSummary: SyncSummary = { inserted: 0, updated: 0, errors: [], log: '', insertedRecords: [], updatedRecords: [] };
-
+      
+       if (selectedTableName === 'ventas') {
+           dataToInsert = dataToInsert.filter(record => record.fecha_venta != null && String(record.fecha_venta).trim() !== '');
+           dataToUpdate = dataToUpdate.filter(record => record.fecha_venta != null && String(record.fecha_venta).trim() !== '');
+       }
+       if (selectedTableName === 'catalogo_madre') {
+           dataToInsert = dataToInsert.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
+           dataToUpdate = dataToUpdate.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
+       }
        if (selectedTableName === 'publicaciones') {
           dataToInsert = dataToInsert.filter(record => record.company != null && String(record.company).trim() !== '');
           dataToUpdate = dataToUpdate.filter(record => record.company != null && String(record.company).trim() !== '');
        }
 
-       if (selectedTableName === 'catalogo_madre') {
-           dataToInsert = dataToInsert.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
-           dataToUpdate = dataToUpdate.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
-       }
-
-       if (selectedTableName === 'ventas') {
-           dataToInsert = dataToInsert.filter(record => record.fecha_venta != null && String(record.fecha_venta).trim() !== '');
-           dataToUpdate = dataToUpdate.filter(record => record.fecha_venta != null && String(record.fecha_venta).trim() !== '');
-       }
-       
        let allData = [...dataToInsert, ...dataToUpdate];
 
        const CHUNK_SIZE = 100;
@@ -784,12 +797,5 @@ const dateFields = [
      </div>
    );
  }
-
-    
-
-
-
-    
-
 
     
