@@ -96,8 +96,7 @@ const numericFields = [
 ];
 
 const booleanFields = [
-  'es_paquete_varios', 'pertenece_kit', 'venta_publicidad', 'negocio',
-  'revisado_por_ml', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion',
+  'venta_publicidad', 'revisado_por_ml',
 ];
 
 const dateFields = [
@@ -634,7 +633,7 @@ const dateFields = [
                                        <SelectContent>
                                         <SelectItem value={IGNORE_COLUMN_VALUE}>-- Ignorar esta columna --</SelectItem>
                                          {tableColumns.map(col => (
-                                           <SelectItem key={col} value={col} disabled={usedDbColumns.has(col) && headerMap[index] !== col}>
+                                           <SelectItem key={col} value={col} disabled={usedDbCols.has(col) && headerMap[index] !== col}>
                                              {col} {col === primaryKey && <span className="text-xs text-primary font-bold ml-2">(PK)</span>}
                                            </SelectItem>
                                         ))}
