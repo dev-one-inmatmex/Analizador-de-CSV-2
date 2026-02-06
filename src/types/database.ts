@@ -37,7 +37,7 @@ export interface ventas {
     tipo_usuario: string;
     regimen_fiscal: string;
     comprador: string;
-    negocio: string;
+    negocio: string | null;
     ife: string;
     domicilio_entrega: string;
     municipio_alcaldia: string;

@@ -96,7 +96,8 @@ const numericFields = [
 ];
 
 const booleanFields = [
-  'venta_publicidad', 'revisado_por_ml',
+  'venta_publicidad',
+  'revisado_por_ml',
 ];
 
 const dateFields = [
@@ -299,7 +300,7 @@ const dateFields = [
    const getAutoMapping = (csvHeaders: string[], dbCols: string[]): Record<number, string> => {
      const normalize = (str: string) => str.toLowerCase().replace(/[\s_-]+/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
      const map: Record<number, string> = {};
-     const usedDbCols = new Set<string>();
+     const usedDbColumns = new Set<string>();
 
      csvHeaders.forEach((csvHeader, index) => {
        if (!csvHeader) return;
@@ -307,9 +308,9 @@ const dateFields = [
       
        let match = dbCols.find(dbCol => normalize(dbCol) === normalizedCsvHeader);
       
-       if (match && !usedDbCols.has(match)) {
+       if (match && !usedDbColumns.has(match)) {
          map[index] = match;
-         usedDbCols.add(match);
+         usedDbColumns.add(match);
        } else {
          map[index] = IGNORE_COLUMN_VALUE;
        }
