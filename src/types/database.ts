@@ -9,8 +9,8 @@ export interface ventas {
     fecha_venta: string;
     estado: string;
     descripcion_estado: string;
-    es_paquete_varios: boolean | null;
-    pertenece_kit: boolean | null;
+    es_paquete_varios: string | null;
+    pertenece_kit: string | null;
     unidades: number;
     ingreso_productos: number;
     cargo_venta_impuestos: number;
@@ -64,9 +64,9 @@ export interface ventas {
     destino: string | null;
     motivo_resultado: string | null;
     unidades_reclamo: number | null;
-    reclamo_abierto: boolean | null;
-    reclamo_cerrado: boolean | null;
-    con_mediacion: boolean | null;
+    reclamo_abierto: string | null;
+    reclamo_cerrado: string | null;
+    con_mediacion: string | null;
     created_at: string;
     id: number; // Keep id optional for cases where it might exist
   }
@@ -86,13 +86,13 @@ export interface publicaciones {
   }
 
 export interface publicaciones_por_sku{
-  sku: string | null;
-  publicaciones: number | null;
+  sku: string;
+  publicaciones: number;
 }
 
 export interface skuxpublicaciones{
-  sku: string | null;
-  item_id: string | null;
+  sku: string;
+  item_id: string;
   nombre_madre: string;
 
 }

@@ -47,6 +47,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
  function formatSupabaseError(error: any, record: CsvRowObject): string {
     const message = error.message || 'Error desconocido.';
     const details = error.details || '';
+    const constraintMatch = message.match(/constraint "([^"]+)"/);
+    const constraint = constraintMatch ? constraintMatch[1] : '';
 
     if (error.code === '23503' || message.includes('violates foreign key constraint')) {
         const detailMatch = details.match(/Key \((.+?)\)=\((.+?)\) is not present in table "(.+?)"\./);
@@ -71,13 +73,9 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const duplicateValue = detailMatch[2];
             return `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe y debe ser único.`;
         }
-        
-        const messageMatch = message.match(/constraint "([^"]+)"/);
-        if (messageMatch) {
-            const constraintName = messageMatch[1];
-            return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraintName}'. Revisa los datos de tu archivo.`;
+        if (constraint) {
+            return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraint}'. Revisa los datos de tu archivo.`;
         }
-
         return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
     }
 
@@ -243,11 +241,35 @@ const dateFields = [
            bestDelimiter = d;
          }
        });
-      
-       const splitRegex = new RegExp(`${bestDelimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`);
-       const csvHeaders = (lines[0] || '').split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, ''));
+       
+       const parseRow = (rowString: string): string[] => {
+          if (!rowString) return [];
+          const result: string[] = [];
+          let currentCell = '';
+          let inQuotes = false;
+          for (let i = 0; i < rowString.length; i++) {
+              const char = rowString[i];
+              if (char === '"') {
+                  if (inQuotes && i + 1 < rowString.length && rowString[i+1] === '"') {
+                      currentCell += '"';
+                      i++;
+                  } else {
+                      inQuotes = !inQuotes;
+                  }
+              } else if (char === bestDelimiter && !inQuotes) {
+                  result.push(currentCell);
+                  currentCell = '';
+              } else {
+                  currentCell += char;
+              }
+          }
+          result.push(currentCell);
+          return result;
+      };
+
+       const csvHeaders = parseRow(lines[0] || '').map(h => h.trim());
        const dataRows = lines.slice(1)
-         .map(row => row.split(splitRegex).map(cell => cell.trim().replace(/^"|"$/g, '')))
+         .map(row => parseRow(row))
          .filter(row => row.some(cell => cell && cell.trim() !== ''));
        
        setHeaders(csvHeaders);
@@ -787,6 +809,8 @@ const dateFields = [
      </div>
    );
  }
+
+    
 
     
 
