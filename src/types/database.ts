@@ -105,10 +105,11 @@ export interface catalogo_madre{
 export interface skus_unicos{
   sku: string | null;
   nombre_madre: string;
-  tiempo_produccion: number;
+  tiempo_de_preparacion: number;
   landed_cost: number | null;
+  de_recompra: number | null;
+  proveedor: string | null;
   piezas_por_sku: number | null;
-  sbm: string | null;
 }
 
 export interface categorias_madre{
