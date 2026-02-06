@@ -19,7 +19,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
      publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
-     publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_contenedor'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
      ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
@@ -76,7 +75,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         if (constraint) {
             const columnNameMatch = constraint.match(/_([^_]+)_key$/);
             const columnName = columnNameMatch ? columnNameMatch[1] : constraint.replace(`${record.table}_`, '').replace('_key', '');
-            return `Conflicto de duplicado en la columna '${columnName}': Se violó la restricción de unicidad '${constraint}'.`;
+            return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraint}'.`;
         }
         return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
     }
@@ -666,16 +665,28 @@ const dateFields = [
                </>
              );
          case 'analyzing':
+             return (
+                 <Card>
+                   <CardHeader>
+                    <CardTitle>Analizando Datos...</CardTitle>
+                    <CardDescription>{loadingMessage}</CardDescription>
+                   </CardHeader>
+                   <CardContent className="flex flex-col items-center gap-4 pt-4">
+                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                     <p className="text-sm text-muted-foreground">Por favor, espera.</p>
+                   </CardContent>
+                 </Card>
+             );
          case 'syncing':
              return (
                  <Card>
                    <CardHeader>
-                    <CardTitle>{currentStep === 'analyzing' ? 'Analizando Datos...' : 'Sincronizando Datos...'}</CardTitle>
+                    <CardTitle>Sincronizando Datos...</CardTitle>
                     <CardDescription>{loadingMessage}</CardDescription>
                    </CardHeader>
                    <CardContent className="flex flex-col items-center gap-4 pt-4">
-                     {currentStep === 'syncing' && <Progress value={progress} className="w-full" />}
-                     <p className="text-sm text-muted-foreground">{currentStep === 'syncing' ? `${Math.round(progress)}% completado` : 'Por favor, espera.'}</p>
+                     <Progress value={progress} className="w-full" />
+                     <p className="text-sm text-muted-foreground">{`${Math.round(progress)}% completado`}</p>
                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
                    </CardContent>
                  </Card>
