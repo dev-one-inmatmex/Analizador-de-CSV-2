@@ -20,7 +20,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
      publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
-     skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_contenedor'] },
+     skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_sku'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
      ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
@@ -381,6 +381,14 @@ const dateFields = [
          const existingDataMap = new Map(existingData.map((row: CsvRowObject) => [String(row[primaryKey]), row]));
         
          const result: AnalysisResult = { toInsert: [], toUpdate: [], noChange: [] };
+         
+         const canonicalize = (record: CsvRowObject) => {
+            const canonicalRecord: Record<string, any> = {};
+            for (const key in record) {
+                canonicalRecord[key] = parseValue(key, record[key]);
+            }
+            return canonicalRecord;
+        };
 
          for (const csvRow of mappedCsvData) {
              const pkValue = String(csvRow[primaryKey]);
@@ -388,35 +396,35 @@ const dateFields = [
 
              if (existingDataMap.has(pkValue)) {
                  const dbRow = existingDataMap.get(pkValue)!;
+                 const canonicalCsv = canonicalize(csvRow);
+                 const canonicalDb = canonicalize(dbRow);
+                 
                  const diff: Record<string, {old: any, new: any}> = {};
                  let hasChanged = false;
 
-                 for (const key in csvRow) {
-                     if (key !== primaryKey) {
-                        const csvValue = csvRow[key];
-                        const dbValue = dbRow[key];
+                 for (const key in canonicalCsv) {
+                    if (key !== primaryKey && key in canonicalDb) {
+                        const csvValue = canonicalCsv[key];
+                        const dbValue = canonicalDb[key];
                         
-                        const parsedCsv = parseValue(key, csvValue);
-                        const parsedDb = parseValue(key, dbValue);
-
                         let areEqual = false;
-                        if (parsedCsv === null && (parsedDb === null || parsedDb === '')) {
+                        if (csvValue === null && dbValue === null) {
                             areEqual = true;
-                        } else if (dateFields.includes(key)) {
-                            const d1 = parsedCsv ? new Date(parsedCsv).setUTCHours(0,0,0,0) : null;
-                            const d2 = parsedDb ? new Date(parsedDb).setUTCHours(0,0,0,0) : null;
+                        } else if (dateFields.includes(key) && csvValue && dbValue) {
+                            const d1 = new Date(csvValue).setUTCHours(0,0,0,0);
+                            const d2 = new Date(dbValue).setUTCHours(0,0,0,0);
                             areEqual = d1 === d2;
-                        } else if (typeof parsedCsv === 'number' && typeof parsedDb === 'number') {
-                            areEqual = Math.abs(parsedCsv - parsedDb) < 0.001;
+                        } else if (typeof csvValue === 'number' && typeof dbValue === 'number') {
+                            areEqual = Math.abs(csvValue - dbValue) < 0.001;
                         } else {
-                            areEqual = String(parsedCsv ?? '') === String(parsedDb ?? '');
+                            areEqual = String(csvValue ?? '') === String(dbValue ?? '');
                         }
 
                         if (!areEqual) {
                            hasChanged = true;
-                           diff[key] = { old: dbValue, new: csvValue };
+                           diff[key] = { old: dbRow[key], new: csvRow[key] };
                         }
-                     }
+                    }
                  }
 
                  if (hasChanged) {
@@ -754,9 +762,15 @@ const dateFields = [
                const allMappedHeaders = Array.from(usedDbColumns);
                return (
                    <Card>
-                     <CardHeader>
-                       <CardTitle>Paso 3: Resultados del Análisis</CardTitle>
-                       <CardDescription>Revisa los cambios detectados y elige qué acción sincronizar con la base de datos.</CardDescription>
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                         <CardTitle>Paso 3: Resultados del Análisis</CardTitle>
+                         <CardDescription>Revisa los cambios detectados y elige qué acción sincronizar con la base de datos.</CardDescription>
+                        </div>
+                        <Button variant="outline" onClick={() => resetAll(false)}>
+                           <Undo2 className="mr-2 h-4 w-4" />
+                           Empezar de Nuevo
+                        </Button>
                      </CardHeader>
                      <CardContent>
                        <Tabs defaultValue="toInsert">
@@ -809,11 +823,3 @@ const dateFields = [
      </div>
    );
  }
-
-    
-
-    
-
-    
-
-    
