@@ -557,7 +557,6 @@ const dateFields = [
        finalSummary.log = `Sincronización completada el ${new Date().toLocaleString()}. Nuevos: ${finalSummary.inserted}, Actualizados: ${finalSummary.updated}, Errores: ${finalSummary.errors.length}.`;
        setSyncSummary(finalSummary);
        setCurrentStep('results');
-       setIsLoading(false);
        toast({ title: 'Sincronización Completada', description: 'El proceso de carga de datos ha finalizado.' });
    }
 
@@ -633,7 +632,7 @@ const dateFields = [
                                        <SelectContent>
                                         <SelectItem value={IGNORE_COLUMN_VALUE}>-- Ignorar esta columna --</SelectItem>
                                          {tableColumns.map(col => (
-                                           <SelectItem key={col} value={col} disabled={usedDbCols.has(col) && headerMap[index] !== col}>
+                                           <SelectItem key={col} value={col} disabled={usedDbColumns.has(col) && headerMap[index] !== col}>
                                              {col} {col === primaryKey && <span className="text-xs text-primary font-bold ml-2">(PK)</span>}
                                            </SelectItem>
                                         ))}
