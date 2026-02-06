@@ -288,7 +288,7 @@ export default function InventoryAnalysisPage() {
         <TabsContent value="skuxpublicaciones">
             <Card>
                 <CardHeader>
-                    <CardTitle>Mapeo de SKU a Publicación</CardTitle>
+                    <CardTitle>SKUxPublicaciones</CardTitle>
                     <CardDescription>
                         Relación entre SKUs, sus publicaciones y su categoría madre.
                     </CardDescription>
