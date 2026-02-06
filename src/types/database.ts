@@ -109,7 +109,7 @@ export interface skus_unicos{
   landed_cost: number | null;
   de_recompra: number | null;
   proveedor: string | null;
-  piezas_por_sku: number | null;
+  piezas_por_contenedor: number | null;
 }
 
 export interface categorias_madre{
