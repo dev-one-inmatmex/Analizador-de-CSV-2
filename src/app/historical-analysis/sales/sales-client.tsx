@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, DollarSign, Filter, LogOut, Loader2, ShoppingCart, AlertTriangle, TrendingUp, Package, Users } from 'lucide-react';
+import { ArrowLeft, BarChart3, DollarSign, Filter, LogOut, Loader2, ShoppingCart, AlertTriangle, TrendingUp, Package, Users, PieChart as PieChartIcon } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
@@ -30,6 +30,8 @@ type ChartDataType = {
     topProducts?: ChartData[];
     salesByCompany?: ChartData[];
     salesTrend?: ChartData[];
+    salesByDay?: ChartData[];
+    ordersByCompanyToday?: ChartData[];
 }
 
 const PAGE_SIZE = 10;
@@ -111,19 +113,46 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
                             <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Producto Estrella</CardTitle><Package className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold truncate" title={kpis.topProductName}>{kpis.topProductName}</div><p className="text-xs text-muted-foreground">Ingresos: {money(kpis.topProductRevenue)}</p></CardContent></Card>
                         </div>
                         
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <Card>
                                 <CardHeader><CardTitle>Tendencia de Ventas Mensuales</CardTitle><CardDescription>Ingresos generados mes a mes en el último año.</CardDescription></CardHeader>
                                 <CardContent><ResponsiveContainer width="100%" height={300}><LineChart data={charts.salesTrend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value: number) => money(value)} /><Line type="monotone" dataKey="value" name="Ingresos" stroke="hsl(var(--primary))" /></LineChart></ResponsiveContainer></CardContent>
                             </Card>
+                             <Card>
+                                <CardHeader><CardTitle>Ventas por Día (Últimos 90 días)</CardTitle><CardDescription>Ingresos generados día a día.</CardDescription></CardHeader>
+                                <CardContent><ResponsiveContainer width="100%" height={300}><BarChart data={charts.salesByDay}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value: number) => money(value)} /><Bar dataKey="value" name="Ingresos" fill="hsl(var(--chart-2))" /></BarChart></ResponsiveContainer></CardContent>
+                            </Card>
                             <Card>
-                                <CardHeader><CardTitle>Ingresos por Compañía</CardTitle><CardDescription>Distribución de los ingresos entre las diferentes compañías.</CardDescription></CardHeader>
+                                <CardHeader><CardTitle>Ingresos por Compañía (Histórico)</CardTitle><CardDescription>Distribución de los ingresos entre las diferentes compañías.</CardDescription></CardHeader>
                                 <CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value: number) => money(value)} /><Pie data={charts.salesByCompany} dataKey="value" nameKey="name" innerRadius={60} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>{charts.salesByCompany?.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><Legend/></PieChart></ResponsiveContainer></CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader><CardTitle>Pedidos del Día por Compañía</CardTitle><CardDescription>Distribución de transacciones de hoy por compañía.</CardDescription></CardHeader>
+                                <CardContent>
+                                    {charts.ordersByCompanyToday && charts.ordersByCompanyToday.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height={300}>
+                                            <PieChart>
+                                                <Tooltip formatter={(value: number) => `${value} pedidos`} />
+                                                <Pie data={charts.ordersByCompanyToday} dataKey="value" nameKey="name" innerRadius={60} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                                    {charts.ordersByCompanyToday.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                                </Pie>
+                                                <Legend/>
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="flex h-[300px] items-center justify-center text-center text-muted-foreground">
+                                            <div className="space-y-2">
+                                                <PieChartIcon className="mx-auto h-10 w-10" />
+                                                <p>No hay datos de pedidos para el día de hoy.</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
                             </Card>
                         </div>
 
                         <Card>
-                            <CardHeader><CardTitle>Top 10 Productos por Ingresos (Pareto)</CardTitle><CardDescription>Los productos que generan la mayor parte de tus ingresos.</CardDescription></CardHeader>
+                            <CardHeader><CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle><CardDescription>Los 10 productos que generan la mayor parte de tus ingresos.</CardDescription></CardHeader>
                             <CardContent><ResponsiveContainer width="100%" height={400}><BarChart data={charts.topProducts} layout="vertical" margin={{ left: 100 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} /><YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} /><Tooltip formatter={(value: number) => money(value)} /><Bar dataKey="value" name="Ingresos" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}/></BarChart></ResponsiveContainer></CardContent>
                         </Card>
 
