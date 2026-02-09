@@ -133,67 +133,69 @@ export default function ProductsPage() {
         </div>
       </header>
 
-      <main className="flex-1 space-y-8 p-6">
-        {error && (<div className="rounded border border-red-300 bg-red-100 p-4 text-red-800">{error}</div>)}
-        {isLoading ? (<div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /></div>) : (
-          <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Publicaciones</CardTitle><ClipboardList className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalPublications}</div></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">SKUs con Publicación</CardTitle><Layers className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalSkuWithPublications}</div></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Categorías Madre</CardTitle><Tag className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalMotherCatalogs}</div></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Precio Promedio</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.averagePrice)}</div></CardContent></Card>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader><CardTitle>Publicaciones por Estado</CardTitle><CardDescription>Distribución de las publicaciones según su estado actual.</CardDescription></CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={statusChartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
-                        <Bar dataKey="count" name="# de Publicaciones" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader><CardTitle>Conteo de Publicaciones por SKU</CardTitle><CardDescription>SKUs con mayor cantidad de publicaciones. (Top 10)</CardDescription></CardHeader>
-                  <CardContent><Table><TableHeader><TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Título de Ejemplo</TableHead>
-                    <TableHead className="text-right"># Publicaciones</TableHead>
-                  </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="max-w-xs truncate">{item.publication_title}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
-                </Card>
-            </div>
+      <main className="flex-1 flex flex-col items-center p-6">
+        <div className="w-full max-w-7xl space-y-8">
+            {error && (<div className="rounded border border-red-300 bg-red-100 p-4 text-red-800">{error}</div>)}
+            {isLoading ? (<div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin" /></div>) : (
+            <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Publicaciones</CardTitle><ClipboardList className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalPublications}</div></CardContent></Card>
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">SKUs con Publicación</CardTitle><Layers className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalSkuWithPublications}</div></CardContent></Card>
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Categorías Madre</CardTitle><Tag className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalMotherCatalogs}</div></CardContent></Card>
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Precio Promedio</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.averagePrice)}</div></CardContent></Card>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                    <CardHeader><CardTitle>Publicaciones por Estado</CardTitle><CardDescription>Distribución de las publicaciones según su estado actual.</CardDescription></CardHeader>
+                    <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={statusChartData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis allowDecimals={false} />
+                            <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
+                            <Bar dataKey="count" name="# de Publicaciones" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                    </Card>
+                    <Card>
+                    <CardHeader><CardTitle>Conteo de Publicaciones por SKU</CardTitle><CardDescription>SKUs con mayor cantidad de publicaciones. (Top 10)</CardDescription></CardHeader>
+                    <CardContent><Table><TableHeader><TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Título de Ejemplo</TableHead>
+                        <TableHead className="text-right"># Publicaciones</TableHead>
+                    </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="max-w-xs truncate">{item.publication_title}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                    </Card>
+                </div>
 
-            <div className="space-y-8">
-              <Card><CardHeader><CardTitle>Publicaciones Recientes</CardTitle><CardDescription>Últimas publicaciones añadidas.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow>
-                <TableHead>SKU</TableHead>
-                <TableHead>ITEM_ID</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Compañía</TableHead>
-                <TableHead>Categoría Madre</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Precio</TableHead>
-                <TableHead>Fecha Creación</TableHead>
-              </TableRow></TableHeader><TableBody>{paginatedPubs.map(pub => (<TableRow key={pub.item_id}>
-                <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
-                <TableCell className="font-mono">{pub.item_id}</TableCell>
-                <TableCell className="max-w-sm truncate" title={pub.title ?? ''}>{pub.title}</TableCell>
-                <TableCell>{pub.company ?? 'N/A'}</TableCell>
-                <TableCell>{pub.nombre_madre ?? 'N/A'}</TableCell>
-                <TableCell><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell>
-                <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price ?? 0)}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{pub.created_at ? format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es }) : 'N/A'}</TableCell>
-              </TableRow>))}</TableBody></Table></CardContent>{!loading.publicaciones && totalPagesPubs > 1 && renderPagination(pages.pubs, totalPagesPubs, (p) => setPages(prev => ({...prev, pubs: p})))}</Card>
-              <Card><CardHeader><CardTitle>Mapeo SKU a Producto Madre</CardTitle><CardDescription>Relación entre SKUs, publicaciones y categoría madre.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>ID Publicación</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedMap.map((item, index) => (<TableRow key={`${item.sku}-${item.item_id}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell className="font-mono">{item.item_id}</TableCell><TableCell>{item.nombre_madre ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>{!loading.mapeoSkus && totalPagesMap > 1 && renderPagination(pages.map, totalPagesMap, (p) => setPages(prev => ({...prev, map: p})))}</Card>
-              <Card><CardHeader><CardTitle>Catálogo de Productos Madre</CardTitle><CardDescription>Listado maestro de categorías principales.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedCatalog.map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell>{item.nombre_madre}</TableCell></TableRow>))}</TableBody></Table></CardContent>{!loading.catalogoMadre && totalPagesCatalog > 1 && renderPagination(pages.catalog, totalPagesCatalog, (p) => setPages(prev => ({...prev, catalog: p})))}</Card>
-            </div>
-          </>
-        )}
+                <div className="space-y-8">
+                <Card><CardHeader><CardTitle>Publicaciones Recientes</CardTitle><CardDescription>Últimas publicaciones añadidas.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>ITEM_ID</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Compañía</TableHead>
+                    <TableHead>Categoría Madre</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Precio</TableHead>
+                    <TableHead>Fecha Creación</TableHead>
+                </TableRow></TableHeader><TableBody>{paginatedPubs.map(pub => (<TableRow key={pub.item_id}>
+                    <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
+                    <TableCell className="font-mono">{pub.item_id}</TableCell>
+                    <TableCell className="max-w-sm truncate" title={pub.title ?? ''}>{pub.title}</TableCell>
+                    <TableCell>{pub.company ?? 'N/A'}</TableCell>
+                    <TableCell>{pub.nombre_madre ?? 'N/A'}</TableCell>
+                    <TableCell><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell>
+                    <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price ?? 0)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{pub.created_at ? format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es }) : 'N/A'}</TableCell>
+                </TableRow>))}</TableBody></Table></CardContent>{!loading.publicaciones && totalPagesPubs > 1 && renderPagination(pages.pubs, totalPagesPubs, (p) => setPages(prev => ({...prev, pubs: p})))}</Card>
+                <Card><CardHeader><CardTitle>Mapeo SKU a Producto Madre</CardTitle><CardDescription>Relación entre SKUs, publicaciones y categoría madre.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>ID Publicación</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedMap.map((item, index) => (<TableRow key={`${item.sku}-${item.item_id}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell className="font-mono">{item.item_id}</TableCell><TableCell>{item.nombre_madre ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>{!loading.mapeoSkus && totalPagesMap > 1 && renderPagination(pages.map, totalPagesMap, (p) => setPages(prev => ({...prev, map: p})))}</Card>
+                <Card><CardHeader><CardTitle>Catálogo de Productos Madre</CardTitle><CardDescription>Listado maestro de categorías principales.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedCatalog.map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell>{item.nombre_madre}</TableCell></TableRow>))}</TableBody></Table></CardContent>{!loading.catalogoMadre && totalPagesCatalog > 1 && renderPagination(pages.catalog, totalPagesCatalog, (p) => setPages(prev => ({...prev, catalog: p})))}</Card>
+                </div>
+            </>
+            )}
+        </div>
       </main>
     </>
   );

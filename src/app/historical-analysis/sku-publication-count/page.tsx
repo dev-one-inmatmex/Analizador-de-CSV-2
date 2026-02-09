@@ -93,74 +93,76 @@ export default function SkuPublicationCountPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-8">
-        {error && (
-            <div className="p-4 mb-6 text-red-800 bg-red-100 border border-red-300 rounded-lg">
-            <p className="font-bold">Error al cargar datos:</p>
-            <p className="text-sm mt-1 font-mono">{error}</p>
-            </div>
-        )}
-        
-        <section>
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            Resumen de Publicaciones por SKU
-            </h2>
-
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead className="text-right"># de Publicaciones</TableHead>
-                </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                {paginatedData.length > 0 ? (
-                    paginatedData.map((item, index) => (
-                    <TableRow key={`${item.sku}-${index}`}>
-                        <TableCell className="font-mono text-primary">{item.sku}</TableCell>
-                        <TableCell className="font-medium text-right">{item.publicaciones}</TableCell>
-                    </TableRow>
-                    ))
-                ) : (
-                    <TableRow>
-                    <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
-                        No se encontraron registros.
-                    </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-            </Table>
-            {totalPages > 1 && (
-                <CardFooter>
-                  <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
-                    <div>
-                      Página {currentPage} de {totalPages}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        Anterior
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        Siguiente
-                      </Button>
-                    </div>
-                  </div>
-                </CardFooter>
+      <main className="flex-1 flex flex-col items-center p-4 md:p-8">
+        <div className="w-full max-w-7xl">
+            {error && (
+                <div className="p-4 mb-6 text-red-800 bg-red-100 border border-red-300 rounded-lg">
+                <p className="font-bold">Error al cargar datos:</p>
+                <p className="text-sm mt-1 font-mono">{error}</p>
+                </div>
             )}
-            </div>
-        </section>
+            
+            <section>
+                <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+                Resumen de Publicaciones por SKU
+                </h2>
+
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead className="text-right"># de Publicaciones</TableHead>
+                    </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                    {paginatedData.length > 0 ? (
+                        paginatedData.map((item, index) => (
+                        <TableRow key={`${item.sku}-${index}`}>
+                            <TableCell className="font-mono text-primary">{item.sku}</TableCell>
+                            <TableCell className="font-medium text-right">{item.publicaciones}</TableCell>
+                        </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                        <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                            No se encontraron registros.
+                        </TableCell>
+                        </TableRow>
+                    )}
+                    </TableBody>
+                </Table>
+                {totalPages > 1 && (
+                    <CardFooter>
+                    <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                        <div>
+                        Página {currentPage} de {totalPages}
+                        </div>
+                        <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            Anterior
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                        >
+                            Siguiente
+                        </Button>
+                        </div>
+                    </div>
+                    </CardFooter>
+                )}
+                </div>
+            </section>
+        </div>
       </main>
     </>
   );

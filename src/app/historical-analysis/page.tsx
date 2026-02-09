@@ -13,144 +13,146 @@ export default function HistoricalAnalysisPage() {
             <h1 className="text-xl font-bold tracking-tight">Módulos de Análisis Histórico</h1>
         </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-        <p className="text-muted-foreground">
-          Selecciona una de las siguientes opciones para analizar datos históricos y explorar nuevas funcionalidades.
-        </p>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <Link href="/historical-analysis/sales" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <BarChart3 className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Análisis de Ventas</CardTitle>
-                <CardDescription>
-                  Analiza patrones de ventas para identificar tus productos más importantes (Pareto), entender el consumo por empresa y descubrir tu producto estrella.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Análisis de Pareto para identificar productos clave.</ListItem>
-                  <ListItem>Consumo de productos por empresa.</ListItem>
-                  <ListItem>Identificación de producto estrella.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/historical-analysis/inventory" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <Package className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Análisis de Inventario</CardTitle>
-                <CardDescription>
-                  Gestiona el ciclo de vida de tu materia prima, costos y producción. Visualiza existencias, SKUs únicos y optimiza tu stock.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Análisis de movimientos de producto.</ListItem>
-                  <ListItem>Control de existencias y costos de SKU.</ListItem>
-                  <ListItem>Visualización de tiempos de producción.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/historical-analysis/operations" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <ShoppingCart className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Análisis de Adquisiciones</CardTitle>
-                <CardDescription>
-                  Analiza órdenes de compra, costos y el rendimiento de proveedores para optimizar tu cadena de suministro y mejorar la rentabilidad.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Seguimiento de costos y órdenes de compra.</ListItem>
-                  <ListItem>Evaluación del desempeño de proveedores.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/historical-analysis/products" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <ClipboardList className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Análisis de Publicaciones</CardTitle>
-                <CardDescription>
-                  Analiza el rendimiento, la jerarquía y el catálogo de tus publicaciones para optimizar tu estrategia de ventas.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Jerarquía de Catálogo Madre, SKU y publicación.</ListItem>
-                  <ListItem>Rendimiento por compañía y estado.</ListItem>
-                  <ListItem>Conteo de publicaciones por SKU.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/historical-analysis/trends-prediction" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <BrainCircuit className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Predicción de Tendencias</CardTitle>
-                <CardDescription>
-                  Utiliza IA para mirar al futuro. Anticipa la demanda, identifica patrones estacionales y prevé qué productos serán populares en los próximos meses.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Análisis predictivo de ventas.</ListItem>
-                  <ListItem>Identificación de patrones estacionales.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/historical-analysis/major-minor-sales" className="block hover:no-underline">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <GitCompareArrows className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Ventas por Mayor y Menor</CardTitle>
-                <CardDescription>
-                  Segmenta tus ventas por volumen para diferenciar entre grandes compradores y minoristas, optimizando precios y estrategias para cada uno.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Identificar productos de nicho.</ListItem>
-                  <ListItem>Optimizar estrategias de precios.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/historical-analysis/access-management" className="block hover:no-underline md:col-span-2">
-            <Card className="h-full transition-shadow hover:shadow-lg">
-              <CardHeader>
-                <Users className="mb-2 h-8 w-8 text-primary" />
-                <CardTitle>Gestión de Accesos</CardTitle>
-                <CardDescription>
-                  Define y administra roles de usuario para controlar el acceso a diferentes dashboards y funcionalidades de la aplicación.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <List>
-                  <ListItem>Definir roles (admin, operador, etc.).</ListItem>
-                  <ListItem>Controlar acceso a dashboards y funciones.</ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Nota sobre el Análisis por Empresa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              La funcionalidad de <span className="font-semibold text-foreground">Análisis por Empresa</span> ya se encuentra integrada en los dashboards de Ventas, Inventario y Operaciones. Puedes usar el filtro "Empresa" en cada una de esas páginas para segmentar los datos y obtener una vista detallada del rendimiento por cada entidad.
+      <main className="flex flex-1 flex-col items-center p-4 md:p-10">
+        <div className="w-full max-w-7xl space-y-4 md:space-y-8">
+            <p className="text-muted-foreground">
+            Selecciona una de las siguientes opciones para analizar datos históricos y explorar nuevas funcionalidades.
             </p>
-          </CardContent>
-        </Card>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <Link href="/historical-analysis/sales" className="block hover:no-underline">
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                    <BarChart3 className="mb-2 h-8 w-8 text-primary" />
+                    <CardTitle>Análisis de Ventas</CardTitle>
+                    <CardDescription>
+                    Analiza patrones de ventas para identificar tus productos más importantes (Pareto), entender el consumo por empresa y descubrir tu producto estrella.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <List>
+                    <ListItem>Análisis de Pareto para identificar productos clave.</ListItem>
+                    <ListItem>Consumo de productos por empresa.</ListItem>
+                    <ListItem>Identificación de producto estrella.</ListItem>
+                    </List>
+                </CardContent>
+                </Card>
+            </Link>
+            <Link href="/historical-analysis/inventory" className="block hover:no-underline">
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                    <Package className="mb-2 h-8 w-8 text-primary" />
+                    <CardTitle>Análisis de Inventario</CardTitle>
+                    <CardDescription>
+                    Gestiona el ciclo de vida de tu materia prima, costos y producción. Visualiza existencias, SKUs únicos y optimiza tu stock.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <List>
+                    <ListItem>Análisis de movimientos de producto.</ListItem>
+                    <ListItem>Control de existencias y costos de SKU.</ListItem>
+                    <ListItem>Visualización de tiempos de producción.</ListItem>
+                    </List>
+                </CardContent>
+                </Card>
+            </Link>
+            <Link href="/historical-analysis/operations" className="block hover:no-underline">
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                    <ShoppingCart className="mb-2 h-8 w-8 text-primary" />
+                    <CardTitle>Análisis de Adquisiciones</CardTitle>
+                    <CardDescription>
+                    Analiza órdenes de compra, costos y el rendimiento de proveedores para optimizar tu cadena de suministro y mejorar la rentabilidad.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <List>
+                    <ListItem>Seguimiento de costos y órdenes de compra.</ListItem>
+                    <ListItem>Evaluación del desempeño de proveedores.</ListItem>
+                    </List>
+                </CardContent>
+                </Card>
+            </Link>
+            <Link href="/historical-analysis/products" className="block hover:no-underline">
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                    <ClipboardList className="mb-2 h-8 w-8 text-primary" />
+                    <CardTitle>Análisis de Publicaciones</CardTitle>
+                    <CardDescription>
+                    Analiza el rendimiento, la jerarquía y el catálogo de tus publicaciones para optimizar tu estrategia de ventas.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <List>
+                    <ListItem>Jerarquía de Catálogo Madre, SKU y publicación.</ListItem>
+                    <ListItem>Rendimiento por compañía y estado.</ListItem>
+                    <ListItem>Conteo de publicaciones por SKU.</ListItem>
+                    </List>
+                </CardContent>
+                </Card>
+            </Link>
+            <Link href="/historical-analysis/trends-prediction" className="block hover:no-underline">
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                    <BrainCircuit className="mb-2 h-8 w-8 text-primary" />
+                    <CardTitle>Predicción de Tendencias</CardTitle>
+                    <CardDescription>
+                    Utiliza IA para mirar al futuro. Anticipa la demanda, identifica patrones estacionales y prevé qué productos serán populares en los próximos meses.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <List>
+                    <ListItem>Análisis predictivo de ventas.</ListItem>
+                    <ListItem>Identificación de patrones estacionales.</ListItem>
+                    </List>
+                </CardContent>
+                </Card>
+            </Link>
+            <Link href="/historical-analysis/major-minor-sales" className="block hover:no-underline">
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                    <GitCompareArrows className="mb-2 h-8 w-8 text-primary" />
+                    <CardTitle>Ventas por Mayor y Menor</CardTitle>
+                    <CardDescription>
+                    Segmenta tus ventas por volumen para diferenciar entre grandes compradores y minoristas, optimizando precios y estrategias para cada uno.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <List>
+                    <ListItem>Identificar productos de nicho.</ListItem>
+                    <ListItem>Optimizar estrategias de precios.</ListItem>
+                    </List>
+                </CardContent>
+                </Card>
+            </Link>
+            <Link href="/historical-analysis/access-management" className="block hover:no-underline md:col-span-2">
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                <CardHeader>
+                    <Users className="mb-2 h-8 w-8 text-primary" />
+                    <CardTitle>Gestión de Accesos</CardTitle>
+                    <CardDescription>
+                    Define y administra roles de usuario para controlar el acceso a diferentes dashboards y funcionalidades de la aplicación.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <List>
+                    <ListItem>Definir roles (admin, operador, etc.).</ListItem>
+                    <ListItem>Controlar acceso a dashboards y funciones.</ListItem>
+                    </List>
+                </CardContent>
+                </Card>
+            </Link>
+            </div>
+            <Card className="mt-6">
+            <CardHeader>
+                <CardTitle>Nota sobre el Análisis por Empresa</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">
+                La funcionalidad de <span className="font-semibold text-foreground">Análisis por Empresa</span> ya se encuentra integrada en los dashboards de Ventas, Inventario y Operaciones. Puedes usar el filtro "Empresa" en cada una de esas páginas para segmentar los datos y obtener una vista detallada del rendimiento por cada entidad.
+                </p>
+            </CardContent>
+            </Card>
+        </div>
       </main>
     </>
   );

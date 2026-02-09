@@ -94,45 +94,46 @@ export default function AcquisitionsAnalysisPage() {
           <h1 className="text-xl font-bold tracking-tight">Análisis de Adquisiciones</h1>
         </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
-        
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Dashboard de Muestra</AlertTitle>
-          <AlertDescription>
-            Esta página utiliza datos de demostración. Para conectar este dashboard a datos reales, es necesario crear y poblar tablas de `compras` y `proveedores` en la base de datos.
-          </AlertDescription>
-        </Alert>
+      <main className="flex flex-1 flex-col items-center p-4 md:p-10">
+        <div className="w-full max-w-7xl space-y-4 md:space-y-8">
+            <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Dashboard de Muestra</AlertTitle>
+            <AlertDescription>
+                Esta página utiliza datos de demostración. Para conectar este dashboard a datos reales, es necesario crear y poblar tablas de `compras` y `proveedores` en la base de datos.
+            </AlertDescription>
+            </Alert>
 
-        <Card>
-            <CardHeader className="flex flex-row items-center gap-4">
-                <Filter className="h-6 w-6 text-muted-foreground" />
-                <div><CardTitle>Filtros de Adquisiciones</CardTitle><CardDescription>Analiza por proveedor, estado de orden o periodo de tiempo.</CardDescription></div>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className='space-y-2'><Label htmlFor="date-range">Periodo</Label><DateRangePicker id="date-range" date={date} onSelect={setDate} /></div>
-                    <div className='space-y-2'><Label htmlFor="supplier-filter">Proveedor</Label><Select value={supplier} onValueChange={setSupplier}><SelectTrigger id="supplier-filter"><SelectValue placeholder="Seleccionar proveedor" /></SelectTrigger><SelectContent>{allSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
-                    <div className='space-y-2'><Label htmlFor="status-filter">Estado de Orden</Label><Select value={status} onValueChange={setStatus}><SelectTrigger id="status-filter"><SelectValue placeholder="Seleccionar estado" /></SelectTrigger><SelectContent>{allStatus.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+            <Card>
+                <CardHeader className="flex flex-row items-center gap-4">
+                    <Filter className="h-6 w-6 text-muted-foreground" />
+                    <div><CardTitle>Filtros de Adquisiciones</CardTitle><CardDescription>Analiza por proveedor, estado de orden o periodo de tiempo.</CardDescription></div>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className='space-y-2'><Label htmlFor="date-range">Periodo</Label><DateRangePicker id="date-range" date={date} onSelect={setDate} /></div>
+                        <div className='space-y-2'><Label htmlFor="supplier-filter">Proveedor</Label><Select value={supplier} onValueChange={setSupplier}><SelectTrigger id="supplier-filter"><SelectValue placeholder="Seleccionar proveedor" /></SelectTrigger><SelectContent>{allSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+                        <div className='space-y-2'><Label htmlFor="status-filter">Estado de Orden</Label><Select value={status} onValueChange={setStatus}><SelectTrigger id="status-filter"><SelectValue placeholder="Seleccionar estado" /></SelectTrigger><SelectContent>{allStatus.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-end gap-2"><Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button><Button onClick={handleApplyFilters}>Aplicar Filtros</Button></div>
+                </CardContent>
+            </Card>
+
+            <div>
+                <div className="mb-4"><h2 className="text-xl font-semibold">Resumen de Adquisiciones</h2><p className="text-muted-foreground">Indicadores clave de tus compras y proveedores.</p></div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Total</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.totalCost)}</div><p className="text-xs text-muted-foreground">Gasto total en el periodo.</p></CardContent></Card>
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Proveedores Activos</CardTitle><Truck className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpiData.supplierCount}</div><p className="text-xs text-muted-foreground">Proveedores con órdenes.</p></CardContent></Card>
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Promedio / Orden</CardTitle><ShoppingCart className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.avgOrderCost)}</div><p className="text-xs text-muted-foreground">Valor medio de cada orden.</p></CardContent></Card>
+                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tiempo Entrega Promedio</CardTitle><Timer className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpiData.avgLeadTime} días</div><p className="text-xs text-muted-foreground">Desde la orden a la recepción.</p></CardContent></Card>
                 </div>
-                <div className="mt-4 flex items-center justify-end gap-2"><Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button><Button onClick={handleApplyFilters}>Aplicar Filtros</Button></div>
-            </CardContent>
-        </Card>
-
-        <div>
-            <div className="mb-4"><h2 className="text-xl font-semibold">Resumen de Adquisiciones</h2><p className="text-muted-foreground">Indicadores clave de tus compras y proveedores.</p></div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Total</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.totalCost)}</div><p className="text-xs text-muted-foreground">Gasto total en el periodo.</p></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Proveedores Activos</CardTitle><Truck className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpiData.supplierCount}</div><p className="text-xs text-muted-foreground">Proveedores con órdenes.</p></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Costo Promedio / Orden</CardTitle><ShoppingCart className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpiData.avgOrderCost)}</div><p className="text-xs text-muted-foreground">Valor medio de cada orden.</p></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Tiempo Entrega Promedio</CardTitle><Timer className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpiData.avgLeadTime} días</div><p className="text-xs text-muted-foreground">Desde la orden a la recepción.</p></CardContent></Card>
             </div>
-        </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card className="lg:col-span-2"><CardHeader><CardTitle>Costo de Adquisiciones por Mes</CardTitle><CardDescription>Evolución del gasto mensual en compras.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><LineChart data={costByMonthData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Legend /><Line type="monotone" dataKey="cost" name="Costo" stroke="hsl(var(--primary))" strokeWidth={2} /></LineChart></ResponsiveContainer></CardContent></Card>
-            <Card><CardHeader><CardTitle>Gasto por Proveedor</CardTitle><CardDescription>Distribución del gasto entre los principales proveedores.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Pie data={spendingBySupplierData} dataKey="spending" nameKey="supplier" innerRadius={60} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{spendingBySupplierData.map((entry) => (<Cell key={entry.supplier} fill={entry.color} />))}</Pie><Legend /></PieChart></ResponsiveContainer></CardContent></Card>
-            <Card><CardHeader><CardTitle>Órdenes de Compra Recientes</CardTitle><CardDescription>Listado de las últimas adquisiciones registradas.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Orden #</TableHead><TableHead>Proveedor</TableHead><TableHead className="text-right">Monto</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader><TableBody>{recentOrdersData.map((order) => (<TableRow key={order.id}><TableCell className="font-mono text-xs">{order.id}</TableCell><TableCell className="font-medium">{order.supplier}</TableCell><TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(order.amount)}</TableCell><TableCell><Badge variant={order.status === 'Recibido' ? 'secondary' : order.status === 'En Tránsito' ? 'default' : 'outline'}>{order.status}</Badge></TableCell></TableRow>))}</TableBody></Table></CardContent></Card>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Costo de Adquisiciones por Mes</CardTitle><CardDescription>Evolución del gasto mensual en compras.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><LineChart data={costByMonthData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Legend /><Line type="monotone" dataKey="cost" name="Costo" stroke="hsl(var(--primary))" strokeWidth={2} /></LineChart></ResponsiveContainer></CardContent></Card>
+                <Card><CardHeader><CardTitle>Gasto por Proveedor</CardTitle><CardDescription>Distribución del gasto entre los principales proveedores.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Pie data={spendingBySupplierData} dataKey="spending" nameKey="supplier" innerRadius={60} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{spendingBySupplierData.map((entry) => (<Cell key={entry.supplier} fill={entry.color} />))}</Pie><Legend /></PieChart></ResponsiveContainer></CardContent></Card>
+                <Card><CardHeader><CardTitle>Órdenes de Compra Recientes</CardTitle><CardDescription>Listado de las últimas adquisiciones registradas.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Orden #</TableHead><TableHead>Proveedor</TableHead><TableHead className="text-right">Monto</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader><TableBody>{recentOrdersData.map((order) => (<TableRow key={order.id}><TableCell className="font-mono text-xs">{order.id}</TableCell><TableCell className="font-medium">{order.supplier}</TableCell><TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(order.amount)}</TableCell><TableCell><Badge variant={order.status === 'Recibido' ? 'secondary' : order.status === 'En Tránsito' ? 'default' : 'outline'}>{order.status}</Badge></TableCell></TableRow>))}</TableBody></Table></CardContent></Card>
+            </div>
         </div>
       </main>
     </>

@@ -134,131 +134,133 @@ export default function AccessManagementPage() {
             </Link>
         </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 lg:p-8">
-        <Tabs defaultValue="users">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="users">Usuarios</TabsTrigger>
-            <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>
-          </TabsList>
-          <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>Lista de Usuarios</CardTitle>
-                <CardDescription>Administra los usuarios de la plataforma, sus roles y su estado.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Rol</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Último Acceso</TableHead>
-                      <TableHead><span className="sr-only">Acciones</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-sm text-muted-foreground">{user.email}</div>
-                        </TableCell>
-                        <TableCell>{user.role}</TableCell>
-                        <TableCell>
-                          <Badge variant={user.status === 'Activo' ? 'secondary' : 'outline'}>{user.status}</Badge>
-                        </TableCell>
-                        <TableCell>{user.lastLogin}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEditUserClick(user)}>Editar Usuario</DropdownMenuItem>
-                              <DropdownMenuItem>Reenviar Invitación</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Desactivar Usuario</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-               <CardFooter>
-                  <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
-                    <div>
-                      Página {currentPage} de {totalPages}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        Anterior
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        Siguiente
-                      </Button>
-                    </div>
-                  </div>
-                </CardFooter>
-            </Card>
-          </TabsContent>
-          <TabsContent value="roles">
-            <Card>
+      <main className="flex flex-1 flex-col items-center p-4 md:p-6 lg:p-8">
+        <div className="w-full max-w-7xl">
+            <Tabs defaultValue="users">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="users">Usuarios</TabsTrigger>
+                <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>
+            </TabsList>
+            <TabsContent value="users">
+                <Card>
                 <CardHeader>
-                    <CardTitle>Configuración de Roles y Permisos</CardTitle>
-                    <CardDescription>
-                    Activa o desactiva el acceso a los módulos para cada rol. Los cambios no se guardarán permanentemente en esta demo.
-                    </CardDescription>
+                    <CardTitle>Lista de Usuarios</CardTitle>
+                    <CardDescription>Administra los usuarios de la plataforma, sus roles y su estado.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto">
-                        <Table className="min-w-full">
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[350px] min-w-[350px]">Módulo / Permiso</TableHead>
-                                    {roles.map(role => (
-                                        <TableHead key={role} className="w-40 text-center">{role}</TableHead>
-                                    ))}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {allPermissions.map(permission => (
-                                    <TableRow key={permission.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{permission.label}</div>
-                                            <div className="text-sm text-muted-foreground">{permission.description}</div>
-                                        </TableCell>
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Rol</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Último Acceso</TableHead>
+                        <TableHead><span className="sr-only">Acciones</span></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {paginatedUsers.map((user) => (
+                        <TableRow key={user.id}>
+                            <TableCell>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                            </TableCell>
+                            <TableCell>{user.role}</TableCell>
+                            <TableCell>
+                            <Badge variant={user.status === 'Activo' ? 'secondary' : 'outline'}>{user.status}</Badge>
+                            </TableCell>
+                            <TableCell>{user.lastLogin}</TableCell>
+                            <TableCell>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditUserClick(user)}>Editar Usuario</DropdownMenuItem>
+                                <DropdownMenuItem>Reenviar Invitación</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive">Desactivar Usuario</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </CardContent>
+                <CardFooter>
+                    <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                        <div>
+                        Página {currentPage} de {totalPages}
+                        </div>
+                        <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            Anterior
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                        >
+                            Siguiente
+                        </Button>
+                        </div>
+                    </div>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+            <TabsContent value="roles">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Configuración de Roles y Permisos</CardTitle>
+                        <CardDescription>
+                        Activa o desactiva el acceso a los módulos para cada rol. Los cambios no se guardarán permanentemente en esta demo.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="overflow-x-auto">
+                            <Table className="min-w-full">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[350px] min-w-[350px]">Módulo / Permiso</TableHead>
                                         {roles.map(role => (
-                                            <TableCell key={role} className="text-center">
-                                                <Switch
-                                                    checked={permissions[role as keyof typeof permissions].has(permission.id)}
-                                                    onCheckedChange={(checked) => handlePermissionChange(role, permission.id, checked)}
-                                                    aria-label={`Permiso de ${permission.label} para ${role}`}
-                                                    disabled={role === 'Administrador'}
-                                                />
-                                            </TableCell>
+                                            <TableHead key={role} className="w-40 text-center">{role}</TableHead>
                                         ))}
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex justify-end">
-                    <Button>Guardar Cambios</Button>
-                </CardFooter>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                                </TableHeader>
+                                <TableBody>
+                                    {allPermissions.map(permission => (
+                                        <TableRow key={permission.id}>
+                                            <TableCell>
+                                                <div className="font-medium">{permission.label}</div>
+                                                <div className="text-sm text-muted-foreground">{permission.description}</div>
+                                            </TableCell>
+                                            {roles.map(role => (
+                                                <TableCell key={role} className="text-center">
+                                                    <Switch
+                                                        checked={permissions[role as keyof typeof permissions].has(permission.id)}
+                                                        onCheckedChange={(checked) => handlePermissionChange(role, permission.id, checked)}
+                                                        aria-label={`Permiso de ${permission.label} para ${role}`}
+                                                        disabled={role === 'Administrador'}
+                                                    />
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-end">
+                        <Button>Guardar Cambios</Button>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+            </Tabs>
+        </div>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent>
@@ -299,7 +301,6 @@ export default function AccessManagementPage() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-
       </main>
     </>
   );
