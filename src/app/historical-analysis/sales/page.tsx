@@ -1,231 +1,117 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import type { ventas as VentasType } from '@/types/database';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import GlobalNav from '@/components/global-nav';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { format } from 'date-fns';
+import { supabase } from '@/lib/supabaseClient'
+import SalesDashboardClient from './sales-client';
+import { unstable_noStore as noStore } from 'next/cache';
+import { startOfMonth, subMonths, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// This defines the order and name of all columns to display
-const VENTA_COLUMNS = [
-    'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 
-    'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 
-    'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
-    'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 
-    'sku', 'numero_publicacion', 'company', 'title', 'variante', 
-    'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 
-    'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 
-    'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 
-    'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 
-    'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 
-    'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 
-    'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 
-    'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 
-    'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 
-    'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'
-] as const;
+export type Sale = {
+    id: number;
+    total: number;
+    fecha_venta: string;
+    numero_venta: string;
+    title: string;
+    unidades: number;
+    estado: string;
+    descripcion_estado: string | null;
+    comprador: string;
+    company: string;
+    sku: string;
+}
 
-const PAGE_SIZE = 10;
+export type ChartData = {
+  name: string;
+  value: number;
+}
 
-export default function SalesAnalysisPage() {
-  const [ventasData, setVentasData] = useState<VentasType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+async function getSalesData() {
+  noStore();
+  if (!supabase) return { sales: [], kpis: {}, charts: {} };
+  
+  const twelveMonthsAgo = subMonths(new Date(), 12);
 
-  useEffect(() => {
-    const fetchVentas = async () => {
-      setLoading(true);
-      setError(null);
-
-      if (!supabase) {
-        setError("El cliente de Supabase no está disponible. Revisa tus variables de entorno.");
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('ventas')
-        .select('*') // Fetch all columns
-        .order('fecha_venta', { ascending: false, nullsFirst: false });
-        // .limit(50); // We fetch all and paginate in client
-
-      if (error) {
-        setError(error.message);
-        setVentasData([]);
-      } else {
-        setVentasData((data ?? []) as VentasType[]);
-      }
-
-      setLoading(false);
-    };
-
-    fetchVentas();
-  }, []);
-
-  const totalPages = Math.ceil(ventasData.length / PAGE_SIZE);
-  const paginatedData = ventasData.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
-
-  const renderCellContent = (item: VentasType, column: typeof VENTA_COLUMNS[number]) => {
-    const value = item[column as keyof VentasType];
-
-    if (value === null || value === undefined) {
-      return <span className="text-muted-foreground">N/A</span>;
-    }
+  const { data: sales, error } = await supabase
+    .from('ventas')
+    .select('id, total, fecha_venta, numero_venta, title, unidades, estado, descripcion_estado, comprador, company, sku')
+    .gte('fecha_venta', twelveMonthsAgo.toISOString());
     
-    if (typeof value === 'boolean') {
-      return value ? 'Sí' : 'No';
-    }
-
-    if (['fecha_venta', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at'].includes(column)) {
-        try {
-            return format(new Date(value as string), 'dd MMM yyyy, HH:mm', { locale: es });
-        } catch {
-            return String(value);
-        }
-    }
-
-    if (['total', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'precio_unitario', 'dinero_a_favor'].includes(column)) {
-      return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number);
-    }
-    
-    if (column === 'estado' && typeof value === 'string') {
-        return <Badge variant={value === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{item.descripcion_estado || String(value)}</Badge>
-    }
-
-    if (column === 'title') {
-        return <span className="max-w-xs truncate" title={String(value)}>{String(value)}</span>
-    }
-
-    return String(value);
-  };
-
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground">Cargando historial de ventas...</p>
-        </div>
-      </div>
-    );
+  if (error) {
+    console.error('Error fetching sales data:', error);
+    return { sales: [], kpis: {}, charts: {} };
   }
 
-  return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          <Link href="/historical-analysis" passHref>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Volver</span>
-            </Button>
-          </Link>
-          <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/historical-analysis" passHref>
-            <Button>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Análisis de Históricos
-            </Button>
-          </Link>
-          <GlobalNav />
-          <Button variant="outline">
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Button>
-        </div>
-      </header>
+  // --- Process KPIs ---
+  const totalRevenue = sales.reduce((acc, sale) => acc + (sale.total || 0), 0);
+  const totalSales = sales.length;
+  const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0;
+  
+  const productRevenue: Record<string, number> = {};
+  sales.forEach(sale => {
+    const key = sale.title || 'Producto Desconocido';
+    productRevenue[key] = (productRevenue[key] || 0) + (sale.total || 0);
+  });
+  const topProduct = Object.entries(productRevenue).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
 
-      <main className="flex-1 p-4 md:p-8">
-        {error && (
-            <div className="p-4 mb-6 text-red-800 bg-red-100 border border-red-300 rounded-lg">
-            <p className="font-bold">Error al cargar datos:</p>
-            <p className="text-sm mt-1 font-mono">{error}</p>
-            </div>
-        )}
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Historial de Ventas Recientes</CardTitle>
-                <CardDescription>Mostrando el historial completo de ventas con todas sus columnas.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            {VENTA_COLUMNS.map(col => <TableHead key={col} className="whitespace-nowrap capitalize">{col.replace(/_/g, ' ')}</TableHead>)}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {paginatedData.length > 0 ? (
-                            paginatedData.map((v) => (
-                            <TableRow key={v.id || v.numero_venta}>
-                                {VENTA_COLUMNS.map(col => (
-                                    <TableCell key={`${v.id}-${col}`} className="whitespace-nowrap">
-                                        {renderCellContent(v, col)}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={VENTA_COLUMNS.length} className="text-center py-8 text-muted-foreground">
-                                    No se encontraron ventas.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-            {totalPages > 1 && (
-                <CardFooter>
-                  <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
-                    <div>
-                      Página {currentPage} de {totalPages}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        Anterior
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        Siguiente
-                      </Button>
-                    </div>
-                  </div>
-                </CardFooter>
-            )}
-        </Card>
-      </main>
-    </div>
-  );
+  // --- Process Chart Data ---
+  // Top 10 Products by Revenue (Pareto)
+  const topProductsChart: ChartData[] = Object.entries(productRevenue)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, value]) => ({ name, value }));
+    
+  // Sales by Company
+  const companyRevenue: Record<string, number> = {};
+  sales.forEach(sale => {
+    const key = sale.company || 'Compañía Desconocida';
+    companyRevenue[key] = (companyRevenue[key] || 0) + (sale.total || 0);
+  });
+  const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
+    .map(([name, value]) => ({ name, value }));
+    
+  // Sales Trend by Month
+  const salesByMonth: Record<string, number> = {};
+  sales.forEach(sale => {
+      try {
+        const month = format(new Date(sale.fecha_venta), 'MMM yy', { locale: es });
+        salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
+      } catch (e) {
+          // ignore invalid dates
+      }
+  });
+
+  const sortedMonths = Object.keys(salesByMonth).sort((a, b) => {
+    const [monthA, yearA] = a.split(' ');
+    const [monthB, yearB] = b.split(' ');
+    const dateA = new Date(`${monthA} 1, ${yearA}`);
+    const dateB = new Date(`${monthB} 1, ${yearB}`);
+    return dateA.getTime() - dateB.getTime();
+  });
+  
+  const salesTrendChart: ChartData[] = sortedMonths.map(month => ({
+    name: month.charAt(0).toUpperCase() + month.slice(1),
+    value: salesByMonth[month]
+  }));
+
+
+  return {
+    sales,
+    kpis: {
+      totalRevenue,
+      totalSales,
+      avgSale,
+      topProductName: topProduct[0],
+      topProductRevenue: topProduct[1],
+    },
+    charts: {
+      topProducts: topProductsChart,
+      salesByCompany: salesByCompanyChart,
+      salesTrend: salesTrendChart,
+    }
+  };
 }
+
+export default async function SalesAnalysisDashboardPage() {
+  const { sales, kpis, charts } = await getSalesData();
+  return <SalesDashboardClient sales={sales as Sale[]} kpis={kpis} charts={charts} />;
+}
+
+    
