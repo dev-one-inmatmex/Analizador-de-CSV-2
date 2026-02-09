@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
+     gastos_diarios: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
      publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_contenedor'] },
@@ -93,7 +94,7 @@ const numericFields = [
   'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
   'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
   'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra',
-  'piezas_por_contenedor',
+  'piezas_por_contenedor', 'monto'
 ];
 
 const booleanFields = [
@@ -103,7 +104,7 @@ const booleanFields = [
 
 const dateFields = [
   'fecha_venta', 'fecha_en_camino', 'fecha_entregado', 'fecha_revision', 'created_at', 'fecha_registro',
-  'fecha_en_camino_envio', 'fecha_entregado_envio'
+  'fecha_en_camino_envio', 'fecha_entregado_envio', 'fecha'
 ];
 
 
@@ -336,7 +337,7 @@ const dateFields = [
 
    const handleAnalyzeData = async () => {
      const pkMapped = Object.values(headerMap).includes(primaryKey);
-     if (!pkMapped) {
+     if (!pkMapped && selectedTableName !== 'gastos_diarios') { // For gastos_diarios, ID is auto-gen, so PK might not be in CSV
          toast({ title: 'Validación Fallida', description: `La columna de clave primaria '${primaryKey}' debe estar mapeada para continuar.`, variant: 'destructive' });
          return;
      }
@@ -360,33 +361,41 @@ const dateFields = [
              });
              return newRow;
          }).filter(row => {
-            const pkValue = row[primaryKey];
-            return pkValue !== null && pkValue !== undefined && String(pkValue).trim() !== '';
+            if (primaryKey && row[primaryKey] !== undefined) {
+                const pkValue = row[primaryKey];
+                return pkValue !== null && String(pkValue).trim() !== '';
+            }
+            return true; // For tables where PK might be auto-generated and not in the CSV
          });
 
          const csvPkValues = mappedCsvData.map(row => row[primaryKey]).filter(Boolean);
          if (csvPkValues.length === 0) {
-            throw new Error("No se encontraron valores válidos en la columna de clave primaria mapeada en tu CSV.");
+            // This is ok if we are only inserting (e.g. gastos_diarios)
+            if (selectedTableName !== 'gastos_diarios') {
+                console.warn("No valid primary key values found in CSV, treating all as new inserts.");
+            }
          }
          
         const CHUNK_SIZE = 500;
         let existingData: CsvRowObject[] = [];
 
-        for (let i = 0; i < csvPkValues.length; i += CHUNK_SIZE) {
-            const chunk = csvPkValues.slice(i, i + CHUNK_SIZE);
-            const { data: chunkData, error } = await supabase
-                .from(selectedTableName)
-                .select('*')
-                .in(primaryKey, chunk);
+        if (csvPkValues.length > 0) {
+            for (let i = 0; i < csvPkValues.length; i += CHUNK_SIZE) {
+                const chunk = csvPkValues.slice(i, i + CHUNK_SIZE);
+                const { data: chunkData, error } = await supabase
+                    .from(selectedTableName)
+                    .select('*')
+                    .in(primaryKey, chunk);
 
-            if (error) {
-                if (error.message.includes('Request URL too long')) {
-                    throw new Error('El archivo CSV es demasiado grande para analizarlo de una vez. Intenta con un archivo más pequeño.');
+                if (error) {
+                    if (error.message.includes('Request URL too long')) {
+                        throw new Error('El archivo CSV es demasiado grande para analizarlo de una vez. Intenta con un archivo más pequeño.');
+                    }
+                    throw error;
                 }
-                throw error;
-            }
-            if (chunkData) {
-                existingData = existingData.concat(chunkData);
+                if (chunkData) {
+                    existingData = existingData.concat(chunkData);
+                }
             }
         }
         
@@ -404,7 +413,10 @@ const dateFields = [
 
          for (const csvRow of mappedCsvData) {
              const pkValue = String(csvRow[primaryKey]);
-             if (!pkValue) continue;
+             if (!pkValue) {
+                result.toInsert.push(csvRow);
+                continue;
+             };
 
              if (existingDataMap.has(pkValue)) {
                  const dbRow = existingDataMap.get(pkValue)!;
@@ -510,7 +522,10 @@ const dateFields = [
               Object.keys(unparsedRecord).forEach(key => {
                 parsedRecord[key] = parseValue(key, unparsedRecord[key]);
               });
-              if(dataToInsert.some(i => String(i[primaryKey]) === String(parsedRecord[primaryKey]))){
+              
+              const isInsert = dataToInsert.some(ins => String(ins[primaryKey]) === String(parsedRecord[primaryKey]) || ins === unparsedRecord);
+
+              if(isInsert){
                 delete parsedRecord.id;
               }
               return parsedRecord;
@@ -545,7 +560,7 @@ const dateFields = [
 
 
             if (successfulRecords) {
-                const insertedChunk = successfulRecords.filter((r: any) => dataToInsert.some(i => String(i[primaryKey]) === String(r[primaryKey])));
+                const insertedChunk = successfulRecords.filter((r: any) => dataToInsert.some(i => (i[primaryKey] && String(i[primaryKey]) === String(r[primaryKey])) || (i === r) ) );
                 const updatedChunk = successfulRecords.filter((r: any) => dataToUpdate.some(u => String(u[primaryKey]) === String(r[primaryKey])));
                 
                 finalSummary.inserted += insertedChunk.length;
@@ -557,11 +572,12 @@ const dateFields = [
 
             if (errors) {
                 errors.forEach((e: any) => {
+                    const isInsertError = dataToInsert.some((r) => String(r[primaryKey]) === String(e.recordIdentifier));
                     finalSummary.errors.push({
                         block: i + 1,
                         recordIdentifier: e.recordIdentifier,
                         message: e.message,
-                        type: dataToInsert.some((r) => String(r[primaryKey]) === String(e.recordIdentifier)) ? 'insert' : 'update'
+                        type: isInsertError ? 'insert' : 'update'
                     });
                 });
             }

@@ -1,7 +1,11 @@
 'use client';
 
-import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash } from 'lucide-react';
+import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon } from 'lucide-react';
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Bar, BarChart } from 'recharts';
 import { DateRange } from 'react-day-picker';
 import { subDays, parseISO, format, isValid } from 'date-fns';
@@ -17,19 +21,49 @@ import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabaseClient';
 import type { OperationsData, GastoDiario } from './page';
 
 const PAGE_SIZE = 10;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
+const expenseFormSchema = z.object({
+  fecha: z.date({
+    required_error: "La fecha es obligatoria.",
+  }),
+  empresa: z.string().min(1, "El nombre de la empresa es obligatorio."),
+  tipo_gasto: z.string().min(1, "El tipo de gasto es obligatorio."),
+  monto: z.coerce.number({ invalid_type_error: 'El monto debe ser un número.'}).positive("El monto debe ser mayor a cero."),
+  capturista: z.string().min(1, "El nombre del capturista es obligatorio."),
+});
+
+type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
 export default function OperationsClient({ initialData }: { initialData: OperationsData }) {
   const { toast } = useToast();
+  const router = useRouter();
   
   const [company, setCompany] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
+
+  const form = useForm<ExpenseFormValues>({
+    resolver: zodResolver(expenseFormSchema),
+    defaultValues: {
+        empresa: '',
+        tipo_gasto: '',
+        monto: undefined,
+        capturista: 'Usuario Actual'
+    }
+  });
 
   React.useEffect(() => {
     setDate({ from: subDays(new Date(), 90), to: new Date() });
@@ -103,6 +137,33 @@ export default function OperationsClient({ initialData }: { initialData: Operati
     setCurrentPage(1);
   };
 
+  async function onSubmit(values: ExpenseFormValues) {
+    if (!supabase) {
+        toast({
+            title: "Error de Configuración",
+            description: "La conexión con la base de datos no está disponible.",
+            variant: "destructive",
+        });
+        return;
+    }
+
+    const { error } = await supabase.from('gastos_diarios').insert([
+        { 
+            ...values,
+            fecha: format(values.fecha, 'yyyy-MM-dd')
+        }
+    ]);
+    
+    if (error) {
+        toast({ title: 'Error al guardar el gasto', description: error.message, variant: 'destructive' });
+    } else {
+        toast({ title: 'Gasto Añadido', description: 'El nuevo gasto ha sido registrado exitosamente.' });
+        setIsAddDialogOpen(false);
+        form.reset();
+        router.refresh();
+    }
+  }
+
   const paginatedExpenses = filteredExpenses.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalPages = Math.ceil(filteredExpenses.length / PAGE_SIZE);
 
@@ -120,6 +181,12 @@ export default function OperationsClient({ initialData }: { initialData: Operati
         <div className="flex items-center gap-4">
           <SidebarTrigger />
           <h1 className="text-xl font-bold tracking-tight">Gastos diarios</h1>
+        </div>
+        <div className="flex items-center gap-4">
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Añadir Gasto
+            </Button>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center p-4 md:p-10">
@@ -194,6 +261,102 @@ export default function OperationsClient({ initialData }: { initialData: Operati
             </>
             )}
         </div>
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Añadir Nuevo Gasto</DialogTitle>
+                    <DialogDescription>
+                        Completa el formulario para registrar un nuevo gasto diario.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                        <FormField
+                            control={form.control}
+                            name="fecha"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Fecha del Gasto</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="empresa"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Empresa</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Selecciona una empresa" /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {allCompanies.filter(c => c !== 'Todos').map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="tipo_gasto"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Gasto</FormLabel>
+                                    <FormControl><Input placeholder="Ej: Publicidad" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="monto"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Monto</FormLabel>
+                                    <FormControl><Input type="number" placeholder="0.00" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="capturista"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Capturista</FormLabel>
+                                    <FormControl><Input placeholder="Nombre del capturista" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter className="pt-4">
+                            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar Gasto
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
       </main>
     </>
   );
