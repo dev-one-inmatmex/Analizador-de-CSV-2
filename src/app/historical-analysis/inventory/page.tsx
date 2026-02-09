@@ -155,14 +155,14 @@ export default function InventoryAnalysisPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6">
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold">Análisis de Inventario</h1>
+          <h1 className="text-xl font-bold tracking-tight">Análisis de Inventario</h1>
         </div>
       </header>
 
-      <main className="flex-1 flex-col items-center p-6">
+      <main className="flex flex-1 flex-col items-center p-4 md:p-10">
         <div className="w-full max-w-7xl mx-auto space-y-6">
             {isLoading ? (
                 <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
@@ -219,10 +219,10 @@ export default function InventoryAnalysisPage() {
                     </CardHeader>
                     <CardContent>
                         <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={topProveedores} layout="vertical" margin={{ left: 20 }}>
+                        <BarChart data={topProveedores} layout="vertical" margin={{ left: 100, right: 30 }}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis type="number" allowDecimals={false} />
-                            <YAxis type="category" dataKey="name" width={100} />
+                            <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} />
                             <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
                             <Legend />
                             <Bar dataKey="count" name="# de SKUs" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
