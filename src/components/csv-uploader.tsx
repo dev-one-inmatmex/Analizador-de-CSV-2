@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -18,10 +18,10 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
-     publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company'] },
+     publicaciones: { pk: 'item_id', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_contenedor'] },
-     skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
+     skuxpublicaciones: { pk: 'item_id', columns: ['sku', 'item_id', 'nombre_madre'] },
      ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
  };
 
@@ -199,6 +199,17 @@ const dateFields = [
   
    const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
    const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
+
+   const [insertPage, setInsertPage] = useState(1);
+   const [updatePage, setUpdatePage] = useState(1);
+   const [noChangePage, setNoChangePage] = useState(1);
+   const PAGE_SIZE = 60;
+   
+   useEffect(() => {
+    setInsertPage(1);
+    setUpdatePage(1);
+    setNoChangePage(1);
+   }, [analysisResult]);
 
    const isSupabaseConfigured = !!supabase;
 
@@ -500,6 +511,9 @@ const dateFields = [
               Object.keys(unparsedRecord).forEach(key => {
                 parsedRecord[key] = parseValue(key, unparsedRecord[key]);
               });
+              if(dataToInsert.some(i => String(i[primaryKey]) === String(parsedRecord[primaryKey]))){
+                delete parsedRecord.id;
+              }
               return parsedRecord;
             });
             
@@ -772,7 +786,25 @@ const dateFields = [
              }
 
              if (analysisResult) {
-               const allMappedHeaders = Array.from(usedDbColumns);
+                const allMappedHeaders = Array.from(usedDbColumns);
+                const totalInsertPages = Math.ceil(analysisResult.toInsert.length / PAGE_SIZE);
+                const paginatedInserts = analysisResult.toInsert.slice(
+                    (insertPage - 1) * PAGE_SIZE,
+                    insertPage * PAGE_SIZE
+                );
+        
+                const totalUpdatePages = Math.ceil(analysisResult.toUpdate.length / PAGE_SIZE);
+                const paginatedUpdates = analysisResult.toUpdate.slice(
+                    (updatePage - 1) * PAGE_SIZE,
+                    updatePage * PAGE_SIZE
+                );
+        
+                const totalNoChangePages = Math.ceil(analysisResult.noChange.length / PAGE_SIZE);
+                const paginatedNoChanges = analysisResult.noChange.slice(
+                    (noChangePage - 1) * PAGE_SIZE,
+                    noChangePage * PAGE_SIZE
+                );
+
                return (
                    <Card>
                       <CardHeader className="flex flex-row items-center justify-between">
@@ -794,18 +826,87 @@ const dateFields = [
                          </TabsList>
                          <TabsContent value="toInsert">
                             <div className="relative w-full overflow-auto h-96 border rounded-md">
-                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.toInsert.map((row, i) => <TableRow key={`insert-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
+                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{paginatedInserts.map((row, i) => <TableRow key={`insert-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
                             </div>
+                             {totalInsertPages > 1 && (
+                                <div className="flex items-center justify-end space-x-2 py-4">
+                                    <span className="text-sm text-muted-foreground">
+                                        Página {insertPage} de {totalInsertPages}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setInsertPage(p => Math.max(1, p - 1))}
+                                        disabled={insertPage === 1}
+                                    >
+                                        Anterior
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setInsertPage(p => Math.min(totalInsertPages, p + 1))}
+                                        disabled={insertPage === totalInsertPages}
+                                    >
+                                        Siguiente
+                                    </Button>
+                                </div>
+                            )}
                          </TabsContent>
                          <TabsContent value="toUpdate">
                             <div className="relative w-full overflow-auto h-96 border rounded-md">
-                                <Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{analysisResult.toUpdate.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table>
+                                <Table><TableHeader><TableRow><TableHead>Campo</TableHead><TableHead>Valor Anterior</TableHead><TableHead>Valor Nuevo</TableHead></TableRow></TableHeader><TableBody>{paginatedUpdates.map((item, i) => <React.Fragment key={i}>{Object.entries(item.diff).map(([key, values]) => <TableRow key={`${i}-${key}`}><TableCell className="font-medium">{key}</TableCell><TableCell className="text-destructive">{String(values.old ?? 'N/A')}</TableCell><TableCell className="text-green-600">{String(values.new ?? 'N/A')}</TableCell></TableRow>)}</React.Fragment>)}</TableBody></Table>
                             </div>
+                            {totalUpdatePages > 1 && (
+                                <div className="flex items-center justify-end space-x-2 py-4">
+                                    <span className="text-sm text-muted-foreground">
+                                        Página {updatePage} de {totalUpdatePages}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setUpdatePage(p => Math.max(1, p - 1))}
+                                        disabled={updatePage === 1}
+                                    >
+                                        Anterior
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setUpdatePage(p => Math.min(totalUpdatePages, p + 1))}
+                                        disabled={updatePage === totalUpdatePages}
+                                    >
+                                        Siguiente
+                                    </Button>
+                                </div>
+                            )}
                          </TabsContent>
                          <TabsContent value="noChange">
                             <div className="relative w-full overflow-auto h-96 border rounded-md">
-                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{analysisResult.noChange.map((row, i) => <TableRow key={`nochange-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
+                                <Table><TableHeader><TableRow>{allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{paginatedNoChanges.map((row, i) => <TableRow key={`nochange-${i}`}>{allMappedHeaders.map(h => <TableCell key={h}>{String(row[h] ?? '')}</TableCell>)}</TableRow>)}</TableBody></Table>
                            </div>
+                           {totalNoChangePages > 1 && (
+                                <div className="flex items-center justify-end space-x-2 py-4">
+                                   <span className="text-sm text-muted-foreground">
+                                       Página {noChangePage} de {totalNoChangePages}
+                                   </span>
+                                   <Button
+                                       variant="outline"
+                                       size="sm"
+                                       onClick={() => setNoChangePage(p => Math.max(1, p - 1))}
+                                       disabled={noChangePage === 1}
+                                   >
+                                       Anterior
+                                   </Button>
+                                   <Button
+                                       variant="outline"
+                                       size="sm"
+                                       onClick={() => setNoChangePage(p => Math.min(totalNoChangePages, p + 1))}
+                                       disabled={noChangePage === totalNoChangePages}
+                                   >
+                                       Siguiente
+                                   </Button>
+                               </div>
+                           )}
                          </TabsContent>
                        </Tabs>
                      </CardContent>
