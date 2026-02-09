@@ -18,9 +18,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home,
   BarChart3,
-  Package,
   ShoppingCart,
-  ClipboardList,
   BrainCircuit,
   GitCompareArrows,
   Users,
@@ -34,9 +32,7 @@ const mainLinks = [{ href: '/', label: 'Analizador CSV', icon: Home }];
 const analysisLinks = [
   { href: '/historical-analysis', label: 'Resumen', icon: FolderArchive },
   { href: '/historical-analysis/sales', label: 'Análisis de Ventas', icon: BarChart3 },
-  { href: '/historical-analysis/inventory', label: 'Análisis de Inventario', icon: Package },
   { href: '/historical-analysis/operations', label: 'Análisis de Adquisiciones', icon: ShoppingCart },
-  { href: '/historical-analysis/products', label: 'Análisis de Publicaciones', icon: ClipboardList },
   { href: '/historical-analysis/trends-prediction', label: 'Predicción de Tendencias', icon: BrainCircuit },
   { href: '/historical-analysis/major-minor-sales', label: 'Ventas por Mayor y Menor', icon: GitCompareArrows },
   { href: '/historical-analysis/access-management', label: 'Gestión de Accesos', icon: Users },
@@ -97,7 +93,7 @@ export default function RootLayout({
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === link.href}
+                      isActive={pathname.startsWith(link.href)}
                       tooltip={{ children: link.label, side: 'right', align: 'center' }}
                     >
                       <Link href={link.href}>

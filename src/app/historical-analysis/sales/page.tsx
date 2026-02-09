@@ -3,7 +3,7 @@ import SalesDashboardClient from './sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { startOfMonth, subMonths, format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { ventas } from '@/types/database';
+import type { ventas, publicaciones, publicaciones_por_sku, skuxpublicaciones, catalogo_madre, categorias_madre, skus_unicos } from '@/types/database';
 
 export type Sale = ventas;
 
@@ -11,6 +11,12 @@ export type ChartData = {
   name: string;
   value: number;
 }
+
+export type EnrichedPublicationCount = publicaciones_por_sku & { publication_title?: string };
+export type EnrichedSkuMap = skuxpublicaciones & { company?: string; nombre_madre?: string };
+export type EnrichedMotherCatalog = catalogo_madre & { publication_title?: string; price?: number; nombre_madre?: string };
+export type PublicacionMin = Pick<publicaciones, 'sku' | 'title'>;
+export type EnrichedCategoriaMadre = categorias_madre & { title?: string };
 
 async function getSalesData() {
   noStore();
@@ -41,13 +47,11 @@ async function getSalesData() {
   const topProduct = Object.entries(productRevenue).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
 
   // --- Process Chart Data ---
-  // Gráfica 80/20 - Productos más vendidos
   const topProductsChart: ChartData[] = Object.entries(productRevenue)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([name, value]) => ({ name, value }));
     
-  // Ventas por empresa
   const companyRevenue: Record<string, number> = {};
   sales.forEach(sale => {
     const key = sale.company || 'Compañía Desconocida';
@@ -56,7 +60,6 @@ async function getSalesData() {
   const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
     .map(([name, value]) => ({ name, value }));
     
-  // Sales Trend by Month
   const salesByMonth: Record<string, { total: number, date: Date }> = {};
   sales.forEach(sale => {
       try {
@@ -80,7 +83,6 @@ async function getSalesData() {
       value: month.total
     }));
 
-  // Ventas por día
   const salesByDay: Record<string, { total: number, date: Date }> = {};
   const ninetyDaysAgo = subMonths(new Date(), 3);
   sales.filter(s => new Date(s.fecha_venta) >= ninetyDaysAgo).forEach(sale => {
@@ -104,7 +106,6 @@ async function getSalesData() {
       value: day.total
     }));
 
-  // Gráfica tipo “queso” de participación por empresa según pedidos del día
   const todayStart = startOfDay(new Date());
   const todayEnd = endOfDay(new Date());
 
@@ -120,7 +121,7 @@ async function getSalesData() {
   const ordersByCompanyToday: Record<string, number> = {};
   todaySales.forEach(sale => {
       const key = sale.company || 'Compañía Desconocida';
-      ordersByCompanyToday[key] = (ordersByCompanyToday[key] || 0) + 1; // Counting orders (transactions)
+      ordersByCompanyToday[key] = (ordersByCompanyToday[key] || 0) + 1;
   });
   const ordersByCompanyTodayChart: ChartData[] = Object.entries(ordersByCompanyToday)
     .map(([name, value]) => ({ name, value }));
@@ -145,7 +146,108 @@ async function getSalesData() {
   };
 }
 
+async function getInventoryData() {
+    noStore();
+    if (!supabase) return { categoriasMadre: [], skusUnicos: [], skuPublicaciones: [], error: 'Supabase no configurado' };
+
+    try {
+        const [
+            { data: categorias, error: catError },
+            { data: publicacionesData, error: pubError },
+            { data: skusData, error: skuError },
+            { data: skuPubData, error: skuPubError }
+        ] = await Promise.all([
+            supabase.from('categorias_madre').select('*').order('sku', { ascending: true }),
+            supabase.from('publicaciones').select('sku, title'),
+            supabase.from('skus_unicos').select('*').order('sku', { ascending: true }),
+            supabase.from('skuxpublicaciones').select('*').limit(100).order('sku', { ascending: true })
+        ]);
+
+        if (catError) throw catError;
+        if (pubError) throw pubError;
+        if (skuError) throw skuError;
+        if (skuPubError) throw skuPubError;
+
+        const pubMap = new Map<string, string>();
+        publicacionesData?.forEach((p: PublicacionMin) => {
+          if (p.sku) pubMap.set(p.sku, p.title ?? '');
+        });
+        const enrichedCategorias: EnrichedCategoriaMadre[] = categorias?.map((cat: categorias_madre) => ({ ...cat, title: pubMap.get(cat.sku) })) ?? [];
+
+        return { 
+            categoriasMadre: enrichedCategorias, 
+            skusUnicos: skusData || [], 
+            skuPublicaciones: skuPubData || [],
+            error: null 
+        };
+
+      } catch (err: any) {
+        console.error(err);
+        return { categoriasMadre: [], skusUnicos: [], skuPublicaciones: [], error: err.message };
+      }
+}
+
+async function getProductsData() {
+    noStore();
+    if (!supabase) return { publications: [], skuCounts: [], skuMap: [], motherCatalog: [], error: 'Supabase no configurado' };
+
+    try {
+        const [pubsRes, countsRes, mapsRes, catalogRes] = await Promise.all([
+            supabase.from('publicaciones').select('*'),
+            supabase.from('publicaciones_por_sku').select('*').order('publicaciones', { ascending: false }),
+            supabase.from('skuxpublicaciones').select('*').limit(100),
+            supabase.from('catalogo_madre').select('*').order('nombre_madre', { ascending: true }),
+        ]);
+
+        if (pubsRes.error) throw pubsRes.error;
+        if (countsRes.error) throw countsRes.error;
+        if (mapsRes.error) throw mapsRes.error;
+        if (catalogRes.error) throw catalogRes.error;
+
+        const allPublications = (pubsRes.data as publicaciones[]) ?? [];
+        const sortedPublications = allPublications.sort((a, b) => new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime());
+
+        const pubsMap = new Map<string, publicaciones>();
+        for (const pub of allPublications) {
+          if (pub.sku && !pubsMap.has(pub.sku)) pubsMap.set(pub.sku, pub);
+        }
+
+        const rawSkuCounts = (countsRes.data as publicaciones_por_sku[]) ?? [];
+        const enrichedSkuCounts = rawSkuCounts.map(item => ({ ...item, publication_title: pubsMap.get(item.sku ?? '')?.title ?? 'N/A' }));
+
+        const rawSkuMap = (mapsRes.data as skuxpublicaciones[]) ?? [];
+        const enrichedSkuMap = rawSkuMap.map(item => ({ ...item, company: pubsMap.get(item.sku ?? '')?.company ?? 'N/A', nombre_madre: pubsMap.get(item.sku ?? '')?.nombre_madre ?? 'N/A' }));
+
+        const rawCatalog = (catalogRes.data as catalogo_madre[]) ?? [];
+        const enrichedMotherCatalog = rawCatalog.map(item => {
+            const pub = pubsMap.get(item.sku ?? '');
+            return { ...item, nombre_madre: pub?.nombre_madre ?? item.nombre_madre, price: pub?.price, publication_title: pub?.title };
+        });
+
+        return {
+            publications: sortedPublications,
+            skuCounts: enrichedSkuCounts,
+            skuMap: enrichedSkuMap,
+            motherCatalog: enrichedMotherCatalog,
+            error: null
+        }
+      } catch (err: any) {
+        console.error('Error fetching products data', err);
+        return { publications: [], skuCounts: [], skuMap: [], motherCatalog: [], error: err.message };
+      }
+}
+
+
 export default async function SalesAnalysisDashboardPage() {
   const { sales, kpis, charts } = await getSalesData();
-  return <SalesDashboardClient sales={sales as Sale[]} kpis={kpis} charts={charts} />;
+  const inventoryData = await getInventoryData();
+  const productsData = await getProductsData();
+
+  return <SalesDashboardClient 
+    sales={sales as Sale[]} 
+    kpis={kpis} 
+    charts={charts}
+    inventoryData={inventoryData}
+    productsData={productsData}
+  />;
 }

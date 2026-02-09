@@ -1,8 +1,9 @@
+'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { BarChart3, Package, ShoppingCart, ClipboardList, BrainCircuit, GitCompareArrows, Users } from 'lucide-react';
+import { BarChart3, ShoppingCart, BrainCircuit, GitCompareArrows, Users, FolderArchive, Package, ClipboardList } from 'lucide-react';
 
 export default function HistoricalAnalysisPage() {
   return (
@@ -25,32 +26,14 @@ export default function HistoricalAnalysisPage() {
                     <BarChart3 className="mb-2 h-8 w-8 text-primary" />
                     <CardTitle>Análisis de Ventas</CardTitle>
                     <CardDescription>
-                    Analiza patrones de ventas para identificar tus productos más importantes (Pareto), entender el consumo por empresa y descubrir tu producto estrella.
+                      Analiza patrones de ventas, inventario y publicaciones. Identifica productos clave, optimiza stock y gestiona tu catálogo en un solo lugar.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <List>
-                    <ListItem>Análisis de Pareto para identificar productos clave.</ListItem>
-                    <ListItem>Consumo de productos por empresa.</ListItem>
-                    <ListItem>Identificación de producto estrella.</ListItem>
-                    </List>
-                </CardContent>
-                </Card>
-            </Link>
-            <Link href="/historical-analysis/inventory" className="block hover:no-underline">
-                <Card className="h-full transition-shadow hover:shadow-lg">
-                <CardHeader>
-                    <Package className="mb-2 h-8 w-8 text-primary" />
-                    <CardTitle>Análisis de Inventario</CardTitle>
-                    <CardDescription>
-                    Gestiona el ciclo de vida de tu materia prima, costos y producción. Visualiza existencias, SKUs únicos y optimiza tu stock.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <List>
-                    <ListItem>Análisis de movimientos de producto.</ListItem>
-                    <ListItem>Control de existencias y costos de SKU.</ListItem>
-                    <ListItem>Visualización de tiempos de producción.</ListItem>
+                    <ListItem>Dashboard de ventas con análisis Pareto.</ListItem>
+                    <ListItem>Análisis de inventario y costos.</ListItem>
+                    <ListItem>Gestión y rendimiento de publicaciones.</ListItem>
                     </List>
                 </CardContent>
                 </Card>
@@ -68,24 +51,6 @@ export default function HistoricalAnalysisPage() {
                     <List>
                     <ListItem>Seguimiento de costos y órdenes de compra.</ListItem>
                     <ListItem>Evaluación del desempeño de proveedores.</ListItem>
-                    </List>
-                </CardContent>
-                </Card>
-            </Link>
-            <Link href="/historical-analysis/products" className="block hover:no-underline">
-                <Card className="h-full transition-shadow hover:shadow-lg">
-                <CardHeader>
-                    <ClipboardList className="mb-2 h-8 w-8 text-primary" />
-                    <CardTitle>Análisis de Publicaciones</CardTitle>
-                    <CardDescription>
-                    Analiza el rendimiento, la jerarquía y el catálogo de tus publicaciones para optimizar tu estrategia de ventas.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <List>
-                    <ListItem>Jerarquía de Catálogo Madre, SKU y publicación.</ListItem>
-                    <ListItem>Rendimiento por compañía y estado.</ListItem>
-                    <ListItem>Conteo de publicaciones por SKU.</ListItem>
                     </List>
                 </CardContent>
                 </Card>
