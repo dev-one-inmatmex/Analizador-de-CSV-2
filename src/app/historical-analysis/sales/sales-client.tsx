@@ -132,54 +132,140 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
                             <CardContent>
                                 <Table>
                                   <TableHeader>
-                                      <TableRow>
+                                    <TableRow>
                                         <TableHead># Venta</TableHead>
                                         <TableHead>Fecha Venta</TableHead>
                                         <TableHead>Total</TableHead>
                                         <TableHead>Estado</TableHead>
+                                        <TableHead>Desc. Estado</TableHead>
                                         <TableHead>Título</TableHead>
                                         <TableHead>SKU</TableHead>
+                                        <TableHead>Item ID</TableHead>
                                         <TableHead>Compañía</TableHead>
                                         <TableHead>Comprador</TableHead>
                                         <TableHead>Unidades</TableHead>
+                                        <TableHead>Precio</TableHead>
                                         <TableHead>Ingreso Productos</TableHead>
                                         <TableHead>Impuestos</TableHead>
-                                        <TableHead>Costo Envío</TableHead>
                                         <TableHead>Ingreso Envío</TableHead>
-                                        <TableHead>Es Paquete</TableHead>
-                                        <TableHead>Pertenece Kit</TableHead>
+                                        <TableHead>Costo Envío</TableHead>
+                                        <TableHead>Costo Medidas Peso</TableHead>
+                                        <TableHead>Cargo Diferencia Peso</TableHead>
+                                        <TableHead>Anulaciones/Reembolsos</TableHead>
+                                        <TableHead>Venta Publicidad</TableHead>
+                                        <TableHead>Es Paquete Varios</TableHead>
+                                        <TableHead>Pertenece a Kit</TableHead>
                                         <TableHead>Variante</TableHead>
-                                        <TableHead>Precio</TableHead>
                                         <TableHead>Tipo Publicación</TableHead>
+                                        <TableHead>Factura Adjunta</TableHead>
+                                        <TableHead>Datos Empresa</TableHead>
+                                        <TableHead>Tipo Núm. Doc.</TableHead>
+                                        <TableHead>Dirección Fiscal</TableHead>
+                                        <TableHead>Tipo Contribuyente</TableHead>
                                         <TableHead>CFDI</TableHead>
-                                        <TableHead>Domicilio</TableHead>
+                                        <TableHead>Tipo Usuario</TableHead>
+                                        <TableHead>Régimen Fiscal</TableHead>
+                                        <TableHead>Negocio</TableHead>
+                                        <TableHead>IFE</TableHead>
+                                        <TableHead>Domicilio Entrega</TableHead>
+                                        <TableHead>Municipio/Alcaldía</TableHead>
+                                        <TableHead>Estado Comprador</TableHead>
+                                        <TableHead>Código Postal</TableHead>
+                                        <TableHead>País</TableHead>
+                                        <TableHead>Forma Entrega Envío</TableHead>
+                                        <TableHead>Fecha en Camino Envío</TableHead>
+                                        <TableHead>Fecha Entregado Envío</TableHead>
+                                        <TableHead>Transportista Envío</TableHead>
+                                        <TableHead># Seguimiento Envío</TableHead>
+                                        <TableHead>URL Seguimiento Envío</TableHead>
+                                        <TableHead>Unidades Envío</TableHead>
                                         <TableHead>Forma Entrega</TableHead>
-                                      </TableRow>
+                                        <TableHead>Fecha en Camino</TableHead>
+                                        <TableHead>Fecha Entregado</TableHead>
+                                        <TableHead>Transportista</TableHead>
+                                        <TableHead># Seguimiento</TableHead>
+                                        <TableHead>URL Seguimiento</TableHead>
+                                        <TableHead>Revisado por ML</TableHead>
+                                        <TableHead>Fecha Revisión</TableHead>
+                                        <TableHead>Dinero a Favor</TableHead>
+                                        <TableHead>Resultado</TableHead>
+                                        <TableHead>Destino</TableHead>
+                                        <TableHead>Motivo Resultado</TableHead>
+                                        <TableHead>Unidades Reclamo</TableHead>
+                                        <TableHead>Reclamo Abierto</TableHead>
+                                        <TableHead>Reclamo Cerrado</TableHead>
+                                        <TableHead>Con Mediación</TableHead>
+                                        <TableHead>ID</TableHead>
+                                        <TableHead>Created At</TableHead>
+                                    </TableRow>
                                   </TableHeader>
                                   <TableBody>
                                       {paginatedSales.map((v) => (
                                           <TableRow key={v.id}>
-                                              <TableCell className="font-mono text-xs">{formatText(v.numero_venta)}</TableCell>
+                                              <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.numero_venta)}</TableCell>
                                               <TableCell className="whitespace-nowrap">{formatDate(v.fecha_venta)}</TableCell>
                                               <TableCell className="text-right font-bold whitespace-nowrap">{money(v.total)}</TableCell>
-                                              <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize whitespace-nowrap">{formatText(v.descripcion_estado || v.estado)}</Badge></TableCell>
-                                              <TableCell className="max-w-[200px] truncate" title={formatText(v.title)}>{formatText(v.title)}</TableCell>
+                                              <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize whitespace-nowrap">{formatText(v.estado)}</Badge></TableCell>
+                                              <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.descripcion_estado)}</TableCell>
+                                              <TableCell className="max-w-[200px] truncate whitespace-nowrap" title={formatText(v.title)}>{formatText(v.title)}</TableCell>
                                               <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.sku)}</TableCell>
+                                              <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.item_id)}</TableCell>
                                               <TableCell className="whitespace-nowrap">{formatText(v.company)}</TableCell>
                                               <TableCell className="whitespace-nowrap">{formatText(v.comprador)}</TableCell>
                                               <TableCell className="text-center">{v.unidades}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.price)}</TableCell>
                                               <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_productos)}</TableCell>
                                               <TableCell className="text-right whitespace-nowrap">{money(v.cargo_venta_impuestos)}</TableCell>
-                                              <TableCell className="text-right whitespace-nowrap">{money(v.costo_envio)}</TableCell>
                                               <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_envio)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.costo_envio)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.costo_medidas_peso)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.cargo_diferencia_peso)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.anulaciones_reembolsos)}</TableCell>
+                                              <TableCell>{formatBoolean(v.venta_publicidad)}</TableCell>
                                               <TableCell>{formatText(v.es_paquete_varios)}</TableCell>
                                               <TableCell>{formatText(v.pertenece_kit)}</TableCell>
                                               <TableCell className="whitespace-nowrap">{formatText(v.variante)}</TableCell>
-                                              <TableCell className="text-right whitespace-nowrap">{money(v.price)}</TableCell>
                                               <TableCell className="whitespace-nowrap">{formatText(v.tipo_publicacion)}</TableCell>
+                                              <TableCell>{formatText(v.factura_adjunta)}</TableCell>
+                                              <TableCell>{formatText(v.datos_personales_empresa)}</TableCell>
+                                              <TableCell>{formatText(v.tipo_numero_documento)}</TableCell>
+                                              <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.direccion_fiscal)}</TableCell>
+                                              <TableCell>{formatText(v.tipo_contribuyente)}</TableCell>
                                               <TableCell>{formatText(v.cfdi)}</TableCell>
-                                              <TableCell className="max-w-[200px] truncate">{formatText(v.domicilio_entrega)}</TableCell>
-                                              <TableCell className="whitespace-nowrap">{formatText(v.forma_entrega)}</TableCell>
+                                              <TableCell>{formatText(v.tipo_usuario)}</TableCell>
+                                              <TableCell>{formatText(v.regimen_fiscal)}</TableCell>
+                                              <TableCell>{formatText(v.negocio)}</TableCell>
+                                              <TableCell>{formatText(v.ife)}</TableCell>
+                                              <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.domicilio_entrega)}</TableCell>
+                                              <TableCell>{formatText(v.municipio_alcaldia)}</TableCell>
+                                              <TableCell>{formatText(v.estado_comprador)}</TableCell>
+                                              <TableCell>{formatText(v.codigo_postal)}</TableCell>
+                                              <TableCell>{formatText(v.pais)}</TableCell>
+                                              <TableCell>{formatText(v.forma_entrega_envio)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatDate(v.fecha_en_camino_envio)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatDate(v.fecha_entregado_envio)}</TableCell>
+                                              <TableCell>{formatText(v.transportista_envio)}</TableCell>
+                                              <TableCell>{formatText(v.numero_seguimiento_envio)}</TableCell>
+                                              <TableCell className="max-w-[150px] truncate whitespace-nowrap">{formatText(v.url_seguimiento_envio)}</TableCell>
+                                              <TableCell className="text-center">{v.unidades_envio}</TableCell>
+                                              <TableCell>{formatText(v.forma_entrega)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatDate(v.fecha_en_camino)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatDate(v.fecha_entregado)}</TableCell>
+                                              <TableCell>{formatText(v.transportista)}</TableCell>
+                                              <TableCell>{formatText(v.numero_seguimiento)}</TableCell>
+                                              <TableCell className="max-w-[150px] truncate whitespace-nowrap">{formatText(v.url_seguimiento)}</TableCell>
+                                              <TableCell>{formatBoolean(v.revisado_por_ml)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatDate(v.fecha_revision)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.dinero_a_favor)}</TableCell>
+                                              <TableCell>{formatText(v.resultado)}</TableCell>
+                                              <TableCell>{formatText(v.destino)}</TableCell>
+                                              <TableCell>{formatText(v.motivo_resultado)}</TableCell>
+                                              <TableCell className="text-center">{v.unidades_reclamo}</TableCell>
+                                              <TableCell>{formatText(v.reclamo_abierto)}</TableCell>
+                                              <TableCell>{formatText(v.reclamo_cerrado)}</TableCell>
+                                              <TableCell>{formatText(v.con_mediacion)}</TableCell>
+                                              <TableCell>{v.id}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatDate(v.created_at)}</TableCell>
                                           </TableRow>
                                       ))}
                                   </TableBody>
