@@ -11,6 +11,7 @@ import {
   SidebarInset,
   SidebarFooter,
   SidebarSeparator,
+  SidebarHeader,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -25,11 +26,13 @@ import {
   Users,
   LogOut,
   FolderArchive,
+  Flame,
 } from 'lucide-react';
 
-const navLinks = [
-  { href: '/', label: 'Analizador CSV', icon: Home },
-  { href: '/historical-analysis', label: 'Módulos Históricos', icon: FolderArchive },
+const mainLinks = [{ href: '/', label: 'Analizador CSV', icon: Home }];
+
+const analysisLinks = [
+  { href: '/historical-analysis', label: 'Resumen', icon: FolderArchive },
   { href: '/historical-analysis/sales', label: 'Análisis de Ventas', icon: BarChart3 },
   { href: '/historical-analysis/inventory', label: 'Análisis de Inventario', icon: Package },
   { href: '/historical-analysis/operations', label: 'Análisis de Adquisiciones', icon: ShoppingCart },
@@ -58,19 +61,50 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <SidebarProvider>
           <Sidebar>
-            <SidebarContent>
+            <SidebarHeader>
+              <div className="flex items-center gap-2.5 px-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <Flame className="h-5 w-5" />
+                </div>
+                <span className="text-lg font-semibold tracking-tight">Análisis Pro</span>
+              </div>
+            </SidebarHeader>
+            <SidebarContent className="p-2">
               <SidebarMenu>
-                {navLinks.map((link) => (
+                {mainLinks.map((link) => (
                   <SidebarMenuItem key={link.href}>
-                    <Link href={link.href} passHref legacyBehavior>
-                      <SidebarMenuButton
-                        isActive={pathname === link.href}
-                        tooltip={{ children: link.label, side: 'right', align: 'center' }}
-                      >
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === link.href}
+                      tooltip={{ children: link.label, side: 'right', align: 'center' }}
+                    >
+                      <Link href={link.href}>
                         <link.icon />
                         <span>{link.label}</span>
-                      </SidebarMenuButton>
-                    </Link>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+              <SidebarSeparator className="my-2" />
+              <div className="px-2 py-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  Módulos de Análisis
+                </span>
+              </div>
+              <SidebarMenu>
+                {analysisLinks.map((link) => (
+                  <SidebarMenuItem key={link.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === link.href}
+                      tooltip={{ children: link.label, side: 'right', align: 'center' }}
+                    >
+                      <Link href={link.href}>
+                        <link.icon />
+                        <span>{link.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -87,9 +121,7 @@ export default function RootLayout({
               </SidebarMenu>
             </SidebarFooter>
           </Sidebar>
-          <SidebarInset>
-            {children}
-          </SidebarInset>
+          <SidebarInset>{children}</SidebarInset>
         </SidebarProvider>
         <Toaster />
       </body>
