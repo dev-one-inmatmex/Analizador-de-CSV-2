@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { publicaciones, publicaciones_por_sku, skuxpublicaciones, catalogo_madre } from '@/types/database';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -158,12 +160,34 @@ export default function ProductsPage() {
                 </Card>
                 <Card>
                   <CardHeader><CardTitle>Conteo de Publicaciones por SKU</CardTitle><CardDescription>SKUs con mayor cantidad de publicaciones. (Top 10)</CardDescription></CardHeader>
-                  <CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead className="text-right"># Publicaciones</TableHead></TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                  <CardContent><Table><TableHeader><TableRow>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Título de Ejemplo</TableHead>
+                    <TableHead className="text-right"># Publicaciones</TableHead>
+                  </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="max-w-xs truncate">{item.publication_title}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                 </Card>
             </div>
 
             <div className="space-y-8">
-              <Card><CardHeader><CardTitle>Publicaciones Recientes</CardTitle><CardDescription>Últimas publicaciones añadidas.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>ITEM_ID</TableHead><TableHead>TITLE</TableHead><TableHead>STATUS</TableHead><TableHead className="text-right">PRICE</TableHead></TableRow></TableHeader><TableBody>{paginatedPubs.map(pub => (<TableRow key={pub.item_id}><TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell><TableCell className="font-mono">{pub.item_id}</TableCell><TableCell className="max-w-sm truncate" title={pub.title ?? ''}>{pub.title}</TableCell><TableCell><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell><TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price ?? 0)}</TableCell></TableRow>))}</TableBody></Table></CardContent>{!loading.publicaciones && totalPagesPubs > 1 && renderPagination(pages.pubs, totalPagesPubs, (p) => setPages(prev => ({...prev, pubs: p})))}</Card>
+              <Card><CardHeader><CardTitle>Publicaciones Recientes</CardTitle><CardDescription>Últimas publicaciones añadidas.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow>
+                <TableHead>SKU</TableHead>
+                <TableHead>ITEM_ID</TableHead>
+                <TableHead>Título</TableHead>
+                <TableHead>Compañía</TableHead>
+                <TableHead>Categoría Madre</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Precio</TableHead>
+                <TableHead>Fecha Creación</TableHead>
+              </TableRow></TableHeader><TableBody>{paginatedPubs.map(pub => (<TableRow key={pub.item_id}>
+                <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
+                <TableCell className="font-mono">{pub.item_id}</TableCell>
+                <TableCell className="max-w-sm truncate" title={pub.title ?? ''}>{pub.title}</TableCell>
+                <TableCell>{pub.company ?? 'N/A'}</TableCell>
+                <TableCell>{pub.nombre_madre ?? 'N/A'}</TableCell>
+                <TableCell><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell>
+                <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price ?? 0)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{pub.created_at ? format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es }) : 'N/A'}</TableCell>
+              </TableRow>))}</TableBody></Table></CardContent>{!loading.publicaciones && totalPagesPubs > 1 && renderPagination(pages.pubs, totalPagesPubs, (p) => setPages(prev => ({...prev, pubs: p})))}</Card>
               <Card><CardHeader><CardTitle>Mapeo SKU a Producto Madre</CardTitle><CardDescription>Relación entre SKUs, publicaciones y categoría madre.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>ID Publicación</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedMap.map((item, index) => (<TableRow key={`${item.sku}-${item.item_id}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell className="font-mono">{item.item_id}</TableCell><TableCell>{item.nombre_madre ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>{!loading.mapeoSkus && totalPagesMap > 1 && renderPagination(pages.map, totalPagesMap, (p) => setPages(prev => ({...prev, map: p})))}</Card>
               <Card><CardHeader><CardTitle>Catálogo de Productos Madre</CardTitle><CardDescription>Listado maestro de categorías principales.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedCatalog.map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell>{item.nombre_madre}</TableCell></TableRow>))}</TableBody></Table></CardContent>{!loading.catalogoMadre && totalPagesCatalog > 1 && renderPagination(pages.catalog, totalPagesCatalog, (p) => setPages(prev => ({...prev, catalog: p})))}</Card>
             </div>

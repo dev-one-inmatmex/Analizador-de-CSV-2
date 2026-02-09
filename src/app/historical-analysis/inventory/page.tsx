@@ -241,14 +241,33 @@ export default function InventoryAnalysisPage() {
                   <TabsContent value="categorias">
                     <Card>
                       <CardHeader><CardTitle>Categorías Madre</CardTitle><CardDescription>Información logística por categoría.</CardDescription></CardHeader>
-                      <CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Título</TableHead><TableHead className="text-right">Landed Cost</TableHead></TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell>{cat.title || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                      <CardContent><Table><TableHeader><TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Título</TableHead>
+                        <TableHead>Proveedor</TableHead>
+                        <TableHead className="text-right">Landed Cost</TableHead>
+                        <TableHead className="text-center">T. Prep (días)</TableHead>
+                        <TableHead className="text-center">T. Recompra (días)</TableHead>
+                        <TableHead className="text-center">Pzs/SKU</TableHead>
+                        <TableHead className="text-center">Pzs/Cont.</TableHead>
+                        <TableHead>Bodega</TableHead>
+                        <TableHead>Bloque</TableHead>
+                      </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.title}>{cat.title || 'N/A'}</TableCell><TableCell>{cat.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.tiempo_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                       {!loadingCategorias && totalPagesCategorias > 1 && renderPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
                     </Card>
                   </TabsContent>
                   <TabsContent value="skus_unicos">
                     <Card>
                         <CardHeader><CardTitle>SKUs Únicos</CardTitle><CardDescription>Información detallada de cada SKU.</CardDescription></CardHeader>
-                        <CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Categoría</TableHead><TableHead className="text-right">Landed Cost</TableHead></TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                        <CardContent><Table><TableHeader><TableRow>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Categoría</TableHead>
+                          <TableHead>Proveedor</TableHead>
+                          <TableHead className="text-right">Landed Cost</TableHead>
+                          <TableHead className="text-center">T. Prep (días)</TableHead>
+                          <TableHead className="text-center">T. Recompra (días)</TableHead>
+                          <TableHead className="text-center">Pzs/Cont.</TableHead>
+                        </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.de_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                         {!loadingSkusUnicos && totalPagesSkus > 1 && renderPagination(pageSkus, totalPagesSkus, setPageSkus)}
                     </Card>
                   </TabsContent>

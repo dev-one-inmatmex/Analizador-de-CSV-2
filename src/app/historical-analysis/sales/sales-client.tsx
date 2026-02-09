@@ -108,9 +108,29 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
                         <Card>
                             <CardHeader><CardTitle>Historial de Ventas Recientes</CardTitle><CardDescription>Mostrando las últimas ventas registradas.</CardDescription></CardHeader>
                             <CardContent>
-                                <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Publicación</TableHead><TableHead>Comprador</TableHead><TableHead className="text-center">Unidades</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                                <Table><TableHeader><TableRow>
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead>Núm. Venta</TableHead>
+                                    <TableHead>Publicación</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead>Comprador</TableHead>
+                                    <TableHead>Compañía</TableHead>
+                                    <TableHead className="text-center">Unidades</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                </TableRow></TableHeader>
                                 <TableBody>{paginatedSales.map((v) => (
-                                    <TableRow key={v.id}><TableCell className="text-sm text-muted-foreground">{format(new Date(v.fecha_venta), 'dd MMM yyyy', { locale: es })}</TableCell><TableCell className="font-medium max-w-xs truncate" title={v.title || ''}>{v.title || 'N/A'}</TableCell><TableCell>{v.comprador || 'N/A'}</TableCell><TableCell className="text-center">{v.unidades}</TableCell><TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{v.descripcion_estado || v.estado || 'N/A'}</Badge></TableCell><TableCell className="text-right font-bold">{money(v.total)}</TableCell></TableRow>
+                                    <TableRow key={v.id}>
+                                      <TableCell className="text-sm text-muted-foreground">{format(new Date(v.fecha_venta), 'dd MMM yyyy', { locale: es })}</TableCell>
+                                      <TableCell className="font-mono text-xs">{v.numero_venta}</TableCell>
+                                      <TableCell className="font-medium max-w-xs truncate" title={v.title || ''}>{v.title || 'N/A'}</TableCell>
+                                      <TableCell className="font-mono text-xs">{v.sku || 'N/A'}</TableCell>
+                                      <TableCell>{v.comprador || 'N/A'}</TableCell>
+                                      <TableCell>{v.company || 'N/A'}</TableCell>
+                                      <TableCell className="text-center">{v.unidades}</TableCell>
+                                      <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{v.descripcion_estado || v.estado || 'N/A'}</Badge></TableCell>
+                                      <TableCell className="text-right font-bold">{money(v.total)}</TableCell>
+                                    </TableRow>
                                 ))}</TableBody></Table>
                             </CardContent>
                             {totalPages > 1 && (<CardFooter><div className="flex w-full items-center justify-between text-xs text-muted-foreground"><div>Página {currentPage} de {totalPages}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button></div></div></CardFooter>)}

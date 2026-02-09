@@ -262,6 +262,8 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
                       <TableHeader>
                           <TableRow>
                               <TableHead>Producto</TableHead>
+                              <TableHead>SKU</TableHead>
+                              <TableHead className="text-center">Predicción (unidades)</TableHead>
                               <TableHead>Confianza</TableHead>
                               <TableHead>Sugerencia</TableHead>
                           </TableRow>
@@ -269,7 +271,9 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
                       <TableBody>
                           {detailedPredictions.map((item) => (
                               <TableRow key={item.sku}>
-                                  <TableCell className="font-medium">{item.product}</TableCell>
+                                  <TableCell className="font-medium max-w-xs truncate" title={item.product}>{item.product}</TableCell>
+                                  <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                                  <TableCell className="text-center font-bold">{item.prediction}</TableCell>
                                   <TableCell>
                                       <Badge variant={item.confidence.startsWith('Alta') ? 'default' : item.confidence.startsWith('Media') ? 'secondary' : 'destructive'}>{item.confidence}</Badge>
                                   </TableCell>
