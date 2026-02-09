@@ -2,7 +2,6 @@
 
 import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon } from 'lucide-react';
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,8 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabaseClient';
 import type { OperationsData, GastoDiario } from './page';
+import { addExpenseAction } from './actions';
 
 const PAGE_SIZE = 10;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -47,7 +46,6 @@ type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
 export default function OperationsClient({ initialData }: { initialData: OperationsData }) {
   const { toast } = useToast();
-  const router = useRouter();
   
   const [company, setCompany] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
@@ -138,29 +136,14 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   };
 
   async function onSubmit(values: ExpenseFormValues) {
-    if (!supabase) {
-        toast({
-            title: "Error de Configuración",
-            description: "La conexión con la base de datos no está disponible.",
-            variant: "destructive",
-        });
-        return;
-    }
+    const result = await addExpenseAction(values);
 
-    const { error } = await supabase.from('gastos_diarios').insert([
-        { 
-            ...values,
-            fecha: format(values.fecha, 'yyyy-MM-dd')
-        }
-    ]);
-    
-    if (error) {
-        toast({ title: 'Error al guardar el gasto', description: error.message, variant: 'destructive' });
+    if (result.error) {
+        toast({ title: 'Error al guardar el gasto', description: result.error, variant: 'destructive' });
     } else {
         toast({ title: 'Gasto Añadido', description: 'El nuevo gasto ha sido registrado exitosamente.' });
         setIsAddDialogOpen(false);
         form.reset();
-        router.refresh();
     }
   }
 

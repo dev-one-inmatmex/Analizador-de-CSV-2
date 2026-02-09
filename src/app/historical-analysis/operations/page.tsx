@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseClient';
 import OperationsClient from './operations-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { format, startOfMonth, parseISO, isValid } from 'date-fns';
@@ -23,27 +23,25 @@ export type OperationsData = {
 
 async function getOperationsData(): Promise<OperationsData> {
     noStore();
-    if (!supabase) {
-        console.warn('Supabase is not configured.');
-        return { 
-            kpis: { totalCost: 0, companyCount: 0, avgExpense: 0, totalRecords: 0 }, 
-            charts: { costByMonth: [], spendingByCompany: [] },
-            expenses: []
-        };
+    const emptyData = { 
+        kpis: { totalCost: 0, companyCount: 0, avgExpense: 0, totalRecords: 0 }, 
+        charts: { costByMonth: [], spendingByCompany: [] },
+        expenses: []
+    };
+    
+    if (!supabaseAdmin) {
+        console.error('Supabase admin client is not available. Ensure SUPABASE_SERVICE_ROLE_KEY is set.');
+        return emptyData;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
         .from('gastos_diarios')
         .select('*')
         .order('fecha', { ascending: false });
 
     if (error) {
         console.error('Error fetching daily expenses:', error);
-        return { 
-            kpis: { totalCost: 0, companyCount: 0, avgExpense: 0, totalRecords: 0 }, 
-            charts: { costByMonth: [], spendingByCompany: [] },
-            expenses: [] 
-        };
+        return emptyData;
     }
 
     const expenses = data as GastoDiario[];
