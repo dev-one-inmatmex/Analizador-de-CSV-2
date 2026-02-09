@@ -9,7 +9,7 @@ import { es } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -36,12 +36,15 @@ type SaleDisplayRecord = Pick<VentasType,
   'comprador'
 >;
 
+const PAGE_SIZE = 10;
+
 export default function SalesAnalysisPage() {
     const { toast } = useToast();
     const [sales, setSales] = React.useState<SaleDisplayRecord[]>([]);
     const [kpis, setKpis] = React.useState<KpiType>({ totalRevenue: 0, totalSales: 0, avgSale: 0 });
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+    const [currentPage, setCurrentPage] = React.useState(1);
 
     const [date, setDate] = React.useState<DateRange | undefined>({
         from: subDays(new Date(), 29),
@@ -63,8 +66,7 @@ export default function SalesAnalysisPage() {
             const { data, error: fetchError } = await supabase
                 .from('ventas')
                 .select('total, fecha_venta, numero_venta, title, unidades, estado, descripcion_estado, comprador')
-                .order('fecha_venta', { ascending: false })
-                .limit(100);
+                .order('fecha_venta', { ascending: false });
 
             if (fetchError) {
                 console.error("Error fetching sales data:", fetchError);
@@ -92,10 +94,17 @@ export default function SalesAnalysisPage() {
             title: "Función no implementada",
             description: "La aplicación de filtros se añadirá en una futura actualización.",
         });
+        setCurrentPage(1);
     };
     
     const safeDate = (d?: string | null) => d ? format(new Date(d), 'dd MMM yyyy', { locale: es }) : '—';
     const money = (v?: number | null) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
+
+    const totalPages = Math.ceil(sales.length / PAGE_SIZE);
+    const paginatedSales = sales.slice(
+      (currentPage - 1) * PAGE_SIZE,
+      currentPage * PAGE_SIZE
+    );
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -162,7 +171,7 @@ export default function SalesAnalysisPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold">{money(kpis.totalRevenue)}</div>
-                          <p className="text-xs text-muted-foreground">Basado en las últimas 100 ventas.</p>
+                          <p className="text-xs text-muted-foreground">Basado en el total de ventas.</p>
                         </CardContent>
                     </Card>
                      <Card>
@@ -172,7 +181,7 @@ export default function SalesAnalysisPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold">{kpis.totalSales}</div>
-                          <p className="text-xs text-muted-foreground">Conteo de las últimas 100 transacciones.</p>
+                          <p className="text-xs text-muted-foreground">Conteo total de transacciones.</p>
                         </CardContent>
                     </Card>
                      <Card>
@@ -197,7 +206,7 @@ export default function SalesAnalysisPage() {
                             <div className="flex justify-center items-center h-40">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
-                         ) : sales.length > 0 ? (
+                         ) : paginatedSales.length > 0 ? (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -210,7 +219,7 @@ export default function SalesAnalysisPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sales.map((v, index) => (
+                                    {paginatedSales.map((v, index) => (
                                         <TableRow key={v.numero_venta || index}>
                                             <TableCell className="text-sm text-muted-foreground">{safeDate(v.fecha_venta)}</TableCell>
                                             <TableCell className="font-medium max-w-xs truncate" title={v.title || ''}>{v.title || 'N/A'}</TableCell>
@@ -228,6 +237,33 @@ export default function SalesAnalysisPage() {
                             </div>
                          )}
                     </CardContent>
+                    {!loading && totalPages > 1 && (
+                        <CardFooter>
+                          <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                            <div>
+                              Página {currentPage} de {totalPages}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                              >
+                                Anterior
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                              >
+                                Siguiente
+                              </Button>
+                            </div>
+                          </div>
+                        </CardFooter>
+                    )}
                 </Card>
             </main>
         </div>

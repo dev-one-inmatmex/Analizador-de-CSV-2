@@ -11,6 +11,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Tabs,
@@ -46,6 +47,8 @@ type EnrichedCategoriaMadre = categorias_madre & {
   title?: string;
 };
 
+const PAGE_SIZE = 10;
+
 /* =======================
    COMPONENT
 ======================= */
@@ -64,6 +67,10 @@ export default function InventoryAnalysisPage() {
 
   const [skuPublicaciones, setSkuPublicaciones] = React.useState<skuxpublicaciones[]>([]);
   const [loadingSkuPublicaciones, setLoadingSkuPublicaciones] = React.useState<boolean>(true);
+
+  const [pageCategorias, setPageCategorias] = React.useState(1);
+  const [pageSkus, setPageSkus] = React.useState(1);
+  const [pageSkuPub, setPageSkuPub] = React.useState(1);
 
 
   React.useEffect(() => {
@@ -125,6 +132,46 @@ export default function InventoryAnalysisPage() {
 
     fetchAllData();
   }, [toast]);
+
+  // Pagination logic for Categorias Madre
+  const totalPagesCategorias = Math.ceil(categoriasMadre.length / PAGE_SIZE);
+  const paginatedCategorias = categoriasMadre.slice((pageCategorias - 1) * PAGE_SIZE, pageCategorias * PAGE_SIZE);
+
+  // Pagination logic for SKUs Unicos
+  const totalPagesSkus = Math.ceil(skusUnicos.length / PAGE_SIZE);
+  const paginatedSkus = skusUnicos.slice((pageSkus - 1) * PAGE_SIZE, pageSkus * PAGE_SIZE);
+
+  // Pagination logic for SKUxPublicaciones
+  const totalPagesSkuPub = Math.ceil(skuPublicaciones.length / PAGE_SIZE);
+  const paginatedSkuPub = skuPublicaciones.slice((pageSkuPub - 1) * PAGE_SIZE, pageSkuPub * PAGE_SIZE);
+
+  const renderPagination = (currentPage: number, totalPages: number, setPage: (page: number) => void) => (
+    <CardFooter>
+      <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+        <div>
+          Página {currentPage} de {totalPages}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </div>
+    </CardFooter>
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/40">
@@ -200,7 +247,7 @@ export default function InventoryAnalysisPage() {
                     </TableHeader>
 
                     <TableBody>
-                      {categoriasMadre.map((cat) => (
+                      {paginatedCategorias.map((cat) => (
                         <TableRow key={cat.sku}>
                           <TableCell className="font-mono">
                             {cat.sku}
@@ -233,6 +280,7 @@ export default function InventoryAnalysisPage() {
                   </Table>
                 )}
               </CardContent>
+              {!loadingCategorias && totalPagesCategorias > 1 && renderPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
             </Card>
           </TabsContent>
           <TabsContent value="skus_unicos">
@@ -263,7 +311,7 @@ export default function InventoryAnalysisPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {skusUnicos.map((sku) => (
+                                {paginatedSkus.map((sku) => (
                                     <TableRow key={sku.sku}>
                                         <TableCell className="font-mono">{sku.sku}</TableCell>
                                         <TableCell>{sku.nombre_madre || 'N/A'}</TableCell>
@@ -283,6 +331,7 @@ export default function InventoryAnalysisPage() {
                         </Table>
                     )}
                 </CardContent>
+                {!loadingSkusUnicos && totalPagesSkus > 1 && renderPagination(pageSkus, totalPagesSkus, setPageSkus)}
             </Card>
         </TabsContent>
         <TabsContent value="skuxpublicaciones">
@@ -308,7 +357,7 @@ export default function InventoryAnalysisPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {skuPublicaciones.map((item, index) => (
+                                {paginatedSkuPub.map((item, index) => (
                                     <TableRow key={`${item.sku}-${item.item_id}-${index}`}>
                                         <TableCell className="font-mono">{item.sku}</TableCell>
                                         <TableCell className="font-mono text-muted-foreground">{item.item_id}</TableCell>
@@ -319,6 +368,7 @@ export default function InventoryAnalysisPage() {
                         </Table>
                     )}
                 </CardContent>
+                {!loadingSkuPublicaciones && totalPagesSkuPub > 1 && renderPagination(pageSkuPub, totalPagesSkuPub, setPageSkuPub)}
             </Card>
         </TabsContent>
         </Tabs>

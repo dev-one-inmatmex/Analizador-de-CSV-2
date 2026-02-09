@@ -15,11 +15,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import GlobalNav from '@/components/global-nav';
+import { CardFooter } from '@/components/ui/card';
+
+const PAGE_SIZE = 10;
 
 export default function MotherCatalogPage() {
   const [data, setData] = useState<catalogo_madre[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,6 +65,13 @@ export default function MotherCatalogPage() {
 
     fetchData();
   }, []);
+  
+  const totalPages = Math.ceil(data.length / PAGE_SIZE);
+  const paginatedData = data.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
 
   if (loading) {
     return (
@@ -126,8 +137,8 @@ export default function MotherCatalogPage() {
                 </TableHeader>
 
                 <TableBody>
-                {data.length > 0 ? (
-                    data.map((item, index) => (
+                {paginatedData.length > 0 ? (
+                    paginatedData.map((item, index) => (
                     <TableRow key={`${item.sku}-${index}`}>
                         <TableCell className="font-mono">{item.sku}</TableCell>
                         <TableCell className="font-medium text-primary">{item.nombre_madre}</TableCell>
@@ -143,6 +154,33 @@ export default function MotherCatalogPage() {
                 )}
                 </TableBody>
             </Table>
+            {totalPages > 1 && (
+                <CardFooter>
+                  <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                    <div>
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                </CardFooter>
+            )}
             </div>
         </section>
       </main>

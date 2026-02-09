@@ -8,7 +8,7 @@ import { DateRange } from 'react-day-picker';
 import { subDays } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import GlobalNav from '@/components/global-nav';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import type { Transaction } from './page';
 
 
 // --- MOCK DATA ---
@@ -44,6 +45,7 @@ const allTypes = ['Todos', 'Mayorista', 'Minorista'];
 // This will now be dynamic based on fetched data, but let's keep the mock for filter dropdown
 const allCustomers = ['Todos', 'Cliente A', 'Cliente B', 'Cliente C', 'Cliente D', 'Cliente E', 'Público General'];
 
+const PAGE_SIZE = 10;
 
 export default function MajorMinorSalesClientPage({ initialRecentTransactions }: { initialRecentTransactions: Transaction[] }) {
   const { toast } = useToast();
@@ -52,6 +54,7 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
   const [customer, setCustomer] = React.useState('Todos');
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
+  const [currentPage, setCurrentPage] = React.useState(1);
 
   React.useEffect(() => {
     setDate({
@@ -77,6 +80,7 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
     
     setDisplayedTransactions(shuffle(initialRecentTransactions));
     setDisplayedTopCustomers(shuffle(topWholesaleCustomersData));
+    setCurrentPage(1);
 
     setKpis(prev => ({
       ...prev,
@@ -93,11 +97,18 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
     setSaleType('Todos');
     setCustomer('Todos');
     setDate({ from: subDays(new Date(), 29), to: new Date() });
+    setCurrentPage(1);
 
     setKpis(kpiData);
     setDisplayedTransactions(initialRecentTransactions);
     setDisplayedTopCustomers(topWholesaleCustomersData);
   };
+  
+  const totalPages = Math.ceil(displayedTransactions.length / PAGE_SIZE);
+  const paginatedTransactions = displayedTransactions.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   if (!isClient) {
     return (
@@ -270,7 +281,7 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
                   <CardDescription>Listado de las últimas ventas registradas en ambos segmentos.</CardDescription>
               </CardHeader>
               <CardContent>
-                {displayedTransactions.length > 0 ? (
+                {paginatedTransactions.length > 0 ? (
                  <Table>
                       <TableHeader>
                           <TableRow>
@@ -282,7 +293,7 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {displayedTransactions.map((item) => (
+                          {paginatedTransactions.map((item) => (
                               <TableRow key={item.id}>
                                   <TableCell className="font-mono text-xs">{item.id}</TableCell>
                                   <TableCell className="font-medium">{item.customer}</TableCell>
@@ -305,6 +316,33 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
                     </Alert>
                 )}
               </CardContent>
+              {totalPages > 1 && (
+                <CardFooter>
+                  <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                    <div>
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                </CardFooter>
+              )}
             </Card>
         </div>
       </main>

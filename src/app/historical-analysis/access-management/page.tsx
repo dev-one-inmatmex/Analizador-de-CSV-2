@@ -31,9 +31,18 @@ const initialUsersData = [
   { id: 'usr_002', name: 'Carlos Reyes', email: 'carlos.reyes@example.com', role: 'Analista', status: 'Activo', lastLogin: 'Ayer, 3:15 PM' },
   { id: 'usr_003', name: 'Laura Fernández', email: 'laura.fernandez@example.com', role: 'Operador', status: 'Activo', lastLogin: 'Hace 3 días' },
   { id: 'usr_004', name: 'Pedro Morales', email: 'pedro.morales@example.com', role: 'Operador', status: 'Inactivo', lastLogin: 'Hace 2 semanas' },
+  { id: 'usr_005', name: 'Isabel Torres', email: 'isabel.torres@example.com', role: 'Analista', status: 'Activo', lastLogin: 'Hoy, 11:00 AM' },
+  { id: 'usr_006', name: 'Jorge Soto', email: 'jorge.soto@example.com', role: 'Operador', status: 'Invitado', lastLogin: 'Nunca' },
+  { id: 'usr_007', name: 'Luisa Mendoza', email: 'luisa.mendoza@example.com', role: 'Operador', status: 'Activo', lastLogin: 'Hace 5 horas' },
+  { id: 'usr_008', name: 'Miguel Ángel', email: 'miguel.angel@example.com', role: 'Administrador', status: 'Activo', lastLogin: 'Hace 2 días' },
+  { id: 'usr_009', name: 'Verónica Cruz', email: 'veronica.cruz@example.com', role: 'Analista', status: 'Inactivo', lastLogin: 'Hace 1 mes' },
+  { id: 'usr_010', name: 'Ricardo Pardo', email: 'ricardo.pardo@example.com', role: 'Operador', status: 'Activo', lastLogin: 'Ayer, 8:00 PM' },
+  { id: 'usr_011', name: 'Sofia Navarro', email: 'sofia.navarro@example.com', role: 'Operador', status: 'Activo', lastLogin: 'Hoy, 1:20 PM' },
 ];
 
 type User = typeof initialUsersData[0];
+
+const PAGE_SIZE = 10;
 
 export default function AccessManagementPage() {
     const allPermissions = [
@@ -55,6 +64,8 @@ export default function AccessManagementPage() {
     const [newName, setNewName] = React.useState('');
     const [newEmail, setNewEmail] = React.useState('');
     const [isClient, setIsClient] = React.useState(false);
+    const [currentPage, setCurrentPage] = React.useState(1);
+
 
     React.useEffect(() => {
         setIsClient(true);
@@ -97,6 +108,10 @@ export default function AccessManagementPage() {
             setSelectedUser(null);
         }
     };
+
+    const totalPages = Math.ceil(users.length / PAGE_SIZE);
+    const paginatedUsers = users.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
 
   if (!isClient) {
     return (
@@ -156,7 +171,7 @@ export default function AccessManagementPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
+                    {paginatedUsers.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="font-medium">{user.name}</div>
@@ -182,6 +197,31 @@ export default function AccessManagementPage() {
                   </TableBody>
                 </Table>
               </CardContent>
+               <CardFooter>
+                  <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                    <div>
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                </CardFooter>
             </Card>
           </TabsContent>
           <TabsContent value="roles">

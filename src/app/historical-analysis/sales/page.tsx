@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import GlobalNav from '@/components/global-nav';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -39,10 +39,13 @@ const VENTA_COLUMNS = [
     'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'
 ] as const;
 
+const PAGE_SIZE = 10;
+
 export default function SalesAnalysisPage() {
   const [ventasData, setVentasData] = useState<VentasType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchVentas = async () => {
@@ -58,8 +61,8 @@ export default function SalesAnalysisPage() {
       const { data, error } = await supabase
         .from('ventas')
         .select('*') // Fetch all columns
-        .order('fecha_venta', { ascending: false, nullsFirst: false })
-        .limit(50);
+        .order('fecha_venta', { ascending: false, nullsFirst: false });
+        // .limit(50); // We fetch all and paginate in client
 
       if (error) {
         setError(error.message);
@@ -73,6 +76,12 @@ export default function SalesAnalysisPage() {
 
     fetchVentas();
   }, []);
+
+  const totalPages = Math.ceil(ventasData.length / PAGE_SIZE);
+  const paginatedData = ventasData.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   const renderCellContent = (item: VentasType, column: typeof VENTA_COLUMNS[number]) => {
     const value = item[column as keyof VentasType];
@@ -158,7 +167,7 @@ export default function SalesAnalysisPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Historial de Ventas Recientes</CardTitle>
-                <CardDescription>Mostrando las últimas 50 ventas registradas con todas sus columnas.</CardDescription>
+                <CardDescription>Mostrando el historial completo de ventas con todas sus columnas.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
@@ -168,8 +177,8 @@ export default function SalesAnalysisPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {ventasData.length > 0 ? (
-                            ventasData.map((v) => (
+                        {paginatedData.length > 0 ? (
+                            paginatedData.map((v) => (
                             <TableRow key={v.id || v.numero_venta}>
                                 {VENTA_COLUMNS.map(col => (
                                     <TableCell key={`${v.id}-${col}`} className="whitespace-nowrap">
@@ -188,6 +197,33 @@ export default function SalesAnalysisPage() {
                     </TableBody>
                 </Table>
             </CardContent>
+            {totalPages > 1 && (
+                <CardFooter>
+                  <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                    <div>
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                </CardFooter>
+            )}
         </Card>
       </main>
     </div>
