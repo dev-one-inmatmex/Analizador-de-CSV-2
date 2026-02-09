@@ -1,27 +1,14 @@
 'use client';
 import CsvUploader from '@/components/csv-uploader';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { LogOut, BarChart3 } from 'lucide-react';
-import GlobalNav from '@/components/global-nav';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function Home() {
   return (
-    <div className="relative flex min-h-screen w-full flex-col">
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-        <h1 className="text-xl font-bold tracking-tight">Analizador de Datos CSV</h1>
+    <>
+      <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
-            <Link href="/historical-analysis" passHref>
-                <Button>
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Análisis de Históricos
-                </Button>
-            </Link>
-            <GlobalNav />
-            <Button variant="outline">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
-            </Button>
+          <SidebarTrigger />
+          <h1 className="text-xl font-bold tracking-tight">Analizador de Datos CSV</h1>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-start bg-background p-4 sm:p-6 lg:p-8">
@@ -33,6 +20,6 @@ export default function Home() {
             <CsvUploader />
         </div>
       </main>
-    </div>
+    </>
   );
 }

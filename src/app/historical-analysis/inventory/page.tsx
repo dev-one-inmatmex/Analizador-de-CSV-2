@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Loader2, Package, Layers, FileCode, DollarSign } from 'lucide-react';
+import { Loader2, Package, Layers, FileCode, DollarSign } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Button } from '@/components/ui/button';
@@ -29,7 +28,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import GlobalNav from '@/components/global-nav';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { supabase } from '@/lib/supabaseClient';
 import type { categorias_madre, publicaciones, skus_unicos, skuxpublicaciones } from '@/types/database';
 
@@ -155,13 +154,12 @@ export default function InventoryAnalysisPage() {
   const isLoading = loadingCategorias || loadingSkusUnicos || loadingSkuPublicaciones;
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/40">
+    <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6">
         <div className="flex items-center gap-4">
-          <Link href="/historical-analysis"><Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button></Link>
+          <SidebarTrigger />
           <h1 className="text-xl font-bold">Análisis de Inventario</h1>
         </div>
-        <GlobalNav />
       </header>
 
       <main className="flex-1 p-6 space-y-6">
@@ -283,8 +281,6 @@ export default function InventoryAnalysisPage() {
           </>
         )}
       </main>
-    </div>
+    </>
   );
 }
-
-    

@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { publicaciones_por_sku } from '@/types/database';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -14,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import GlobalNav from '@/components/global-nav';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { CardFooter } from '@/components/ui/card';
 
 const PAGE_SIZE = 10;
@@ -74,7 +73,7 @@ export default function SkuPublicationCountPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40">
+      <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-muted-foreground">
@@ -86,29 +85,11 @@ export default function SkuPublicationCountPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
+    <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
-          <Link href="/historical-analysis" passHref>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Volver</span>
-            </Button>
-          </Link>
+          <SidebarTrigger />
           <h1 className="text-xl font-bold tracking-tight">Conteo de Publicaciones por SKU</h1>
-        </div>
-        <div className="flex items-center gap-4">
-            <Link href="/historical-analysis" passHref>
-                <Button>
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Análisis de Históricos
-                </Button>
-            </Link>
-            <GlobalNav />
-            <Button variant="outline">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
-            </Button>
         </div>
       </header>
 
@@ -181,6 +162,6 @@ export default function SkuPublicationCountPage() {
             </div>
         </section>
       </main>
-    </div>
+    </>
   );
 }

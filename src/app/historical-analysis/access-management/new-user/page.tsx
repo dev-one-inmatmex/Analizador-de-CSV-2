@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, LogOut, Loader2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import GlobalNav from '@/components/global-nav';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function AddNewUserPage() {
   const [isClient, setIsClient] = React.useState(false);
@@ -20,33 +20,18 @@ export default function AddNewUserPage() {
 
   if (!isClient) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+      <div className="flex justify-center items-center h-full">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
+    <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
-          <Link href="/historical-analysis/access-management" passHref>
-            <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Volver</span></Button>
-          </Link>
+          <SidebarTrigger />
           <h1 className="text-xl font-bold tracking-tight">Añadir Nuevo Usuario</h1>
-        </div>
-        <div className="flex items-center gap-4">
-            <Link href="/historical-analysis" passHref>
-                <Button>
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Análisis de Históricos
-                </Button>
-            </Link>
-            <GlobalNav />
-            <Button variant="outline">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
-            </Button>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center gap-4 p-4 md:gap-8 md:p-10">
@@ -88,6 +73,6 @@ export default function AddNewUserPage() {
           </Card>
         </form>
       </main>
-    </div>
+    </>
   );
 }

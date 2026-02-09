@@ -1,29 +1,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { List, ListItem } from '@/components/ui/list';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, BarChart3, Package, ShoppingCart, ClipboardList, BrainCircuit, GitCompareArrows, Users, LogOut } from 'lucide-react';
-import GlobalNav from '@/components/global-nav';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { BarChart3, Package, ShoppingCart, ClipboardList, BrainCircuit, GitCompareArrows, Users } from 'lucide-react';
 
 export default function HistoricalAnalysisPage() {
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background">
+    <>
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
-            <Link href="/" passHref>
-              <Button variant="outline" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Volver</span>
-              </Button>
-            </Link>
-            <h1 className="text-xl font-bold tracking-tight">Análisis de Históricos</h1>
-        </div>
-        <div className="flex items-center gap-4">
-            <GlobalNav />
-            <Button variant="outline">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
-            </Button>
+            <SidebarTrigger />
+            <h1 className="text-xl font-bold tracking-tight">Módulos de Análisis Histórico</h1>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
@@ -165,6 +152,6 @@ export default function HistoricalAnalysisPage() {
           </CardContent>
         </Card>
       </main>
-    </div>
+    </>
   );
 }

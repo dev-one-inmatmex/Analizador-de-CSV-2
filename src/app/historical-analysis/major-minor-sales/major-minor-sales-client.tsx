@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, Users, DollarSign, LogOut, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, DollarSign, Loader2 } from 'lucide-react';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
@@ -15,8 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import GlobalNav from '@/components/global-nav';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { Transaction } from './page';
 
 const PAGE_SIZE = 10;
@@ -107,25 +106,18 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
 
   if (!isClient) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+      <div className="flex justify-center items-center h-full">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
+    <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
-          <Link href="/historical-analysis" passHref>
-            <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Volver</span></Button>
-          </Link>
+          <SidebarTrigger />
           <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas por Mayor y Menor</h1>
-        </div>
-        <div className="flex items-center gap-4">
-            <Link href="/historical-analysis" passHref><Button><BarChart3 className="mr-2 h-4 w-4" />Análisis de Históricos</Button></Link>
-            <GlobalNav />
-            <Button variant="outline"><LogOut className="mr-2 h-4 w-4" />Cerrar Sesión</Button>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-10">
@@ -162,8 +154,6 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
             </Card>
         </div>
       </main>
-    </div>
+    </>
   );
 }
-
-    

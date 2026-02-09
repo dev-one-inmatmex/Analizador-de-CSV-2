@@ -7,13 +7,12 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogOut, Loader2, BarChart3, ClipboardList, Layers, Tag, DollarSign } from 'lucide-react';
+import { Loader2, ClipboardList, Layers, Tag, DollarSign } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import GlobalNav from '@/components/global-nav';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 type EnrichedPublicationCount = publicaciones_por_sku & { publication_title?: string };
 type EnrichedSkuMap = skuxpublicaciones & { company?: string; nombre_madre?: string };
@@ -126,10 +125,12 @@ export default function ProductsPage() {
   const totalPagesCatalog = Math.ceil(motherCatalog.length / PAGE_SIZE);
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/40">
+    <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6">
-        <div className="flex items-center gap-4"><Link href="/historical-analysis"><Button size="icon" variant="outline"><ArrowLeft className="h-4 w-4" /></Button></Link><h1 className="text-xl font-bold">Análisis de Publicaciones y Catálogo</h1></div>
-        <div className="flex items-center gap-3"><Link href="/historical-analysis"><Button><BarChart3 className="mr-2 h-4 w-4" />Históricos</Button></Link><GlobalNav /><Button variant="outline"><LogOut className="mr-2 h-4 w-4" />Cerrar sesión</Button></div>
+        <div className="flex items-center gap-4">
+          <SidebarTrigger />
+          <h1 className="text-xl font-bold">Análisis de Publicaciones y Catálogo</h1>
+        </div>
       </header>
 
       <main className="flex-1 space-y-8 p-6">
@@ -194,8 +195,6 @@ export default function ProductsPage() {
           </>
         )}
       </main>
-    </div>
+    </>
   );
 }
-
-    
