@@ -196,7 +196,7 @@ export default function SalesDashboardClient({
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
                 <div className="flex items-center gap-4">
                   <SidebarTrigger />
-                  <h1 className="text-xl font-bold tracking-tight">Análisis de Ventas</h1>
+                  <h1 className="text-xl font-bold tracking-tight">Ventas (Mercado Libre)</h1>
                 </div>
             </header>
 

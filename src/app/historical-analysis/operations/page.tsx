@@ -1,8 +1,8 @@
 'use client';
 
-import { ShoppingCart, Truck, DollarSign, Timer, Filter, Loader2, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Truck, DollarSign, Timer, Filter, Loader2, AlertTriangle, CartesianGrid, XAxis, YAxis } from 'lucide-react';
 import * as React from 'react';
-import { Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, ResponsiveContainer, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, ResponsiveContainer } from 'recharts';
 import { DateRange } from 'react-day-picker';
 import { subDays } from 'date-fns';
 
@@ -91,7 +91,7 @@ export default function AcquisitionsAnalysisPage() {
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold tracking-tight">Análisis de Adquisiciones</h1>
+          <h1 className="text-xl font-bold tracking-tight">Gastos diarios</h1>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center p-4 md:p-10">

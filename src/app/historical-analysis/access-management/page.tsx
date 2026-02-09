@@ -126,7 +126,7 @@ export default function AccessManagementPage() {
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold tracking-tight">Gestión de Accesos y Roles</h1>
+          <h1 className="text-xl font-bold tracking-tight">Auditoría</h1>
         </div>
         <div className="flex items-center gap-4">
             <Link href="/historical-analysis/access-management/new-user" passHref>

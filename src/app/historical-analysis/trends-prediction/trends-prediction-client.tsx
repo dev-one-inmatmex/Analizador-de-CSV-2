@@ -74,7 +74,7 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult,
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
-              <h1 className="text-xl font-bold tracking-tight">Predicción de Tendencias</h1>
+              <h1 className="text-xl font-bold tracking-tight">Recompra</h1>
             </div>
         </header>
         <main className="flex flex-1 items-center justify-center p-4">
@@ -104,7 +104,7 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult,
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold tracking-tight">Predicción de Tendencias</h1>
+          <h1 className="text-xl font-bold tracking-tight">Recompra</h1>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center p-4 md:p-10">

@@ -16,27 +16,29 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Home,
   BarChart3,
-  ShoppingCart,
-  BrainCircuit,
+  Receipt,
   GitCompareArrows,
+  Repeat,
+  FileCheck,
+  AlertTriangle,
   Users,
+  Landmark,
   LogOut,
-  FolderArchive,
   Flame,
 } from 'lucide-react';
 
-const mainLinks = [{ href: '/', label: 'Analizador CSV', icon: Home }];
-
-const analysisLinks = [
-  { href: '/historical-analysis', label: 'Resumen', icon: FolderArchive },
-  { href: '/historical-analysis/sales', label: 'Análisis de Ventas', icon: BarChart3 },
-  { href: '/historical-analysis/operations', label: 'Análisis de Adquisiciones', icon: ShoppingCart },
-  { href: '/historical-analysis/trends-prediction', label: 'Predicción de Tendencias', icon: BrainCircuit },
-  { href: '/historical-analysis/major-minor-sales', label: 'Ventas por Mayor y Menor', icon: GitCompareArrows },
-  { href: '/historical-analysis/access-management', label: 'Gestión de Accesos', icon: Users },
+const menuLinks = [
+  { href: '/historical-analysis/sales', label: 'Ventas (Mercado Libre)', icon: BarChart3 },
+  { href: '/historical-analysis/operations', label: 'Gastos diarios', icon: Receipt },
+  { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },
+  { href: '/historical-analysis/trends-prediction', label: 'Recompra', icon: Repeat },
+  { href: '/', label: 'Mapeo y conciliación', icon: FileCheck },
+  { href: '/historical-analysis/alerts', label: 'Alertas', icon: AlertTriangle },
+  { href: '/historical-analysis/access-management', label: 'Auditoría', icon: Users },
+  { href: '/historical-analysis/financial-close', label: 'Cierre financiero', icon: Landmark },
 ];
+
 
 export default function RootLayout({
   children,
@@ -67,33 +69,11 @@ export default function RootLayout({
             </SidebarHeader>
             <SidebarContent className="p-2">
               <SidebarMenu>
-                {mainLinks.map((link) => (
+                {menuLinks.map((link) => (
                   <SidebarMenuItem key={link.href}>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === link.href}
-                      tooltip={{ children: link.label, side: 'right', align: 'center' }}
-                    >
-                      <Link href={link.href}>
-                        <link.icon />
-                        <span>{link.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-              <SidebarSeparator className="my-2" />
-              <div className="px-2 py-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
-                  Módulos de Análisis
-                </span>
-              </div>
-              <SidebarMenu>
-                {analysisLinks.map((link) => (
-                  <SidebarMenuItem key={link.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname.startsWith(link.href)}
+                      isActive={pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href))}
                       tooltip={{ children: link.label, side: 'right', align: 'center' }}
                     >
                       <Link href={link.href}>
