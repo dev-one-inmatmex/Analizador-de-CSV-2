@@ -3,20 +3,9 @@ import SalesDashboardClient from './sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { startOfMonth, subMonths, format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import type { ventas } from '@/types/database';
 
-export type Sale = {
-    id: number;
-    total: number;
-    fecha_venta: string;
-    numero_venta: string;
-    title: string;
-    unidades: number;
-    estado: string;
-    descripcion_estado: string | null;
-    comprador: string;
-    company: string;
-    sku: string;
-}
+export type Sale = ventas;
 
 export type ChartData = {
   name: string;
@@ -31,7 +20,7 @@ async function getSalesData() {
 
   const { data: sales, error } = await supabase
     .from('ventas')
-    .select('id, total, fecha_venta, numero_venta, title, unidades, estado, descripcion_estado, comprador, company, sku')
+    .select('*')
     .gte('fecha_venta', twelveMonthsAgo.toISOString());
     
   if (error) {
@@ -113,5 +102,3 @@ export default async function SalesAnalysisDashboardPage() {
   const { sales, kpis, charts } = await getSalesData();
   return <SalesDashboardClient sales={sales as Sale[]} kpis={kpis} charts={charts} />;
 }
-
-    

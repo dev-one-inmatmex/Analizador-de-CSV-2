@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, BarChart3, DollarSign, Filter, LogOut, Loader2, ShoppingCart, AlertTriangle, TrendingUp, Package, Users } from 'lucide-react';
-import { format, subDays } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -38,10 +38,18 @@ const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3
 export default function SalesDashboardClient({ sales, kpis, charts }: { sales: Sale[], kpis: KpiType, charts: ChartDataType }) {
     const { toast } = useToast();
     const [currentPage, setCurrentPage] = React.useState(1);
-    const [date, setDate] = React.useState<DateRange | undefined>({
-        from: subDays(new Date(), 29),
-        to: new Date(),
-    });
+    const [date, setDate] = React.useState<DateRange | undefined>(undefined);
+    
+    React.useEffect(() => {
+        if (sales.length > 0) {
+            const dates = sales.map(s => new Date(s.fecha_venta)).filter(d => !isNaN(d.getTime()));
+            if (dates.length > 0) {
+                const maxDate = new Date(Math.max.apply(null, dates as any));
+                const minDate = new Date(Math.min.apply(null, dates as any));
+                setDate({ from: minDate, to: maxDate });
+            }
+        }
+    }, [sales]);
     
     const handleApplyFilters = () => {
         toast({
@@ -51,7 +59,21 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
         setCurrentPage(1);
     };
     
-    const money = (v?: number | null) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v || 0);
+    const money = (v?: number | null) => v === null || v === undefined ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+    const formatDate = (d: string | null) => {
+        if (!d) return 'N/A';
+        const date = new Date(d);
+        return isValid(date) ? format(date, 'dd MMM yyyy, HH:mm', { locale: es }) : 'Fecha inválida';
+    }
+    const formatBoolean = (b: boolean | string | null | undefined) => {
+        if (b === null || b === undefined) return 'N/A';
+        if (typeof b === 'boolean') return b ? 'Sí' : 'No';
+        const s = String(b).toLowerCase();
+        if (s === 'true' || s === 'si' || s === 'sí' || s === '1') return 'Sí';
+        if (s === 'false' || s === 'no' || s === '0') return 'No';
+        return String(b); // Return original string if not a clear boolean
+    }
+    const formatText = (t: string | null | undefined) => t || 'N/A';
 
     const totalPages = Math.ceil(sales.length / PAGE_SIZE);
     const paginatedSales = sales.slice(
@@ -106,32 +128,62 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
                         </Card>
 
                         <Card>
-                            <CardHeader><CardTitle>Historial de Ventas Recientes</CardTitle><CardDescription>Mostrando las últimas ventas registradas.</CardDescription></CardHeader>
+                            <CardHeader><CardTitle>Historial de Ventas Detallado</CardTitle><CardDescription>Mostrando las últimas ventas registradas con toda la información disponible.</CardDescription></CardHeader>
                             <CardContent>
-                                <Table><TableHeader><TableRow>
-                                    <TableHead>Fecha</TableHead>
-                                    <TableHead>Núm. Venta</TableHead>
-                                    <TableHead>Publicación</TableHead>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead>Comprador</TableHead>
-                                    <TableHead>Compañía</TableHead>
-                                    <TableHead className="text-center">Unidades</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                </TableRow></TableHeader>
-                                <TableBody>{paginatedSales.map((v) => (
-                                    <TableRow key={v.id}>
-                                      <TableCell className="text-sm text-muted-foreground">{format(new Date(v.fecha_venta), 'dd MMM yyyy', { locale: es })}</TableCell>
-                                      <TableCell className="font-mono text-xs">{v.numero_venta}</TableCell>
-                                      <TableCell className="font-medium max-w-xs truncate" title={v.title || ''}>{v.title || 'N/A'}</TableCell>
-                                      <TableCell className="font-mono text-xs">{v.sku || 'N/A'}</TableCell>
-                                      <TableCell>{v.comprador || 'N/A'}</TableCell>
-                                      <TableCell>{v.company || 'N/A'}</TableCell>
-                                      <TableCell className="text-center">{v.unidades}</TableCell>
-                                      <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize">{v.descripcion_estado || v.estado || 'N/A'}</Badge></TableCell>
-                                      <TableCell className="text-right font-bold">{money(v.total)}</TableCell>
-                                    </TableRow>
-                                ))}</TableBody></Table>
+                                <Table>
+                                  <TableHeader>
+                                      <TableRow>
+                                        <TableHead># Venta</TableHead>
+                                        <TableHead>Fecha Venta</TableHead>
+                                        <TableHead>Total</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead>Título</TableHead>
+                                        <TableHead>SKU</TableHead>
+                                        <TableHead>Compañía</TableHead>
+                                        <TableHead>Comprador</TableHead>
+                                        <TableHead>Unidades</TableHead>
+                                        <TableHead>Ingreso Productos</TableHead>
+                                        <TableHead>Impuestos</TableHead>
+                                        <TableHead>Costo Envío</TableHead>
+                                        <TableHead>Ingreso Envío</TableHead>
+                                        <TableHead>Es Paquete</TableHead>
+                                        <TableHead>Pertenece Kit</TableHead>
+                                        <TableHead>Variante</TableHead>
+                                        <TableHead>Precio</TableHead>
+                                        <TableHead>Tipo Publicación</TableHead>
+                                        <TableHead>CFDI</TableHead>
+                                        <TableHead>Domicilio</TableHead>
+                                        <TableHead>Forma Entrega</TableHead>
+                                      </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                      {paginatedSales.map((v) => (
+                                          <TableRow key={v.id}>
+                                              <TableCell className="font-mono text-xs">{formatText(v.numero_venta)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatDate(v.fecha_venta)}</TableCell>
+                                              <TableCell className="text-right font-bold whitespace-nowrap">{money(v.total)}</TableCell>
+                                              <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize whitespace-nowrap">{formatText(v.descripcion_estado || v.estado)}</Badge></TableCell>
+                                              <TableCell className="max-w-[200px] truncate" title={formatText(v.title)}>{formatText(v.title)}</TableCell>
+                                              <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.sku)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatText(v.company)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatText(v.comprador)}</TableCell>
+                                              <TableCell className="text-center">{v.unidades}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_productos)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.cargo_venta_impuestos)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.costo_envio)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_envio)}</TableCell>
+                                              <TableCell>{formatText(v.es_paquete_varios)}</TableCell>
+                                              <TableCell>{formatText(v.pertenece_kit)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatText(v.variante)}</TableCell>
+                                              <TableCell className="text-right whitespace-nowrap">{money(v.price)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatText(v.tipo_publicacion)}</TableCell>
+                                              <TableCell>{formatText(v.cfdi)}</TableCell>
+                                              <TableCell className="max-w-[200px] truncate">{formatText(v.domicilio_entrega)}</TableCell>
+                                              <TableCell className="whitespace-nowrap">{formatText(v.forma_entrega)}</TableCell>
+                                          </TableRow>
+                                      ))}
+                                  </TableBody>
+                                </Table>
                             </CardContent>
                             {totalPages > 1 && (<CardFooter><div className="flex w-full items-center justify-between text-xs text-muted-foreground"><div>Página {currentPage} de {totalPages}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button></div></div></CardFooter>)}
                         </Card>
@@ -141,5 +193,3 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
         </div>
     );
 }
-
-    
