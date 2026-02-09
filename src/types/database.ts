@@ -123,3 +123,12 @@ export interface categorias_madre{
   bodega: string |null; 
   bloque: string | null;
 }
+
+export interface gastos_diarios{
+  id: number;
+  fecha: string | null;
+  empresa: string | null;
+  tipo_gasto: string | null;
+  monto: number | null;
+  capturista: string | null;
+}
