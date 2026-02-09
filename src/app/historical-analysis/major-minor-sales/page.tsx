@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient'
+import { supabaseAdmin } from '@/lib/supabaseClient'
 import MajorMinorSalesClientPage from './major-minor-sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,12 +14,12 @@ export type Transaction = {
 
 async function getRecentTransactions(): Promise<Transaction[]> {
   noStore();
-  if (!supabase) {
-    console.warn("Supabase is not configured.");
+  if (!supabaseAdmin) {
+    console.warn("Supabase admin client is not configured.");
     return [];
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('ventas')
     .select('id, numero_venta, comprador, total, fecha_venta')
     .order('fecha_venta', { ascending: false })

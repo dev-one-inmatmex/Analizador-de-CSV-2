@@ -2,7 +2,7 @@ import { predictSales } from '@/ai/flows/predict-sales-flow';
 import { SalesPredictionInput, SalesPredictionOutput } from '@/ai/schemas/sales-prediction-schemas';
 import TrendsPredictionClient from './trends-prediction-client';
 import { unstable_noStore as noStore } from 'next/cache';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseClient';
 import { format, subMonths, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -22,11 +22,11 @@ export type RecentSale = {
 
 async function getPredictionData() {
     noStore();
-    if (!supabase) return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
+    if (!supabaseAdmin) return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
 
     // 1. Fetch last 12 months of sales from 'ventas'
     const twelveMonthsAgo = subMonths(new Date(), 12);
-    const { data: salesData, error: salesError } = await supabase
+    const { data: salesData, error: salesError } = await supabaseAdmin
         .from('ventas')
         .select('sku, total, unidades, fecha_venta, title, company')
         .gte('fecha_venta', twelveMonthsAgo.toISOString());
@@ -38,7 +38,7 @@ async function getPredictionData() {
 
     // 2. Fetch categories from 'publicaciones'
     const skus = [...new Set(salesData.map(s => s.sku).filter(Boolean))];
-    const { data: pubsData, error: pubsError } = await supabase
+    const { data: pubsData, error: pubsError } = await supabaseAdmin
         .from('publicaciones')
         .select('sku, nombre_madre')
         .in('sku', skus);

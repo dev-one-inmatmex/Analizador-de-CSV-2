@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient'
+import { supabaseAdmin } from '@/lib/supabaseClient'
 import SalesDashboardClient from './sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
 import { startOfMonth, subMonths, format, isValid, startOfDay, endOfDay } from 'date-fns';
@@ -20,11 +20,11 @@ export type EnrichedCategoriaMadre = categorias_madre & { title?: string };
 
 async function getSalesData() {
   noStore();
-  if (!supabase) return { sales: [], kpis: {}, charts: {} };
+  if (!supabaseAdmin) return { sales: [], kpis: {}, charts: {} };
   
   const twelveMonthsAgo = subMonths(new Date(), 12);
 
-  const { data: sales, error } = await supabase
+  const { data: sales, error } = await supabaseAdmin
     .from('ventas')
     .select('*')
     .gte('fecha_venta', twelveMonthsAgo.toISOString());
@@ -148,7 +148,7 @@ async function getSalesData() {
 
 async function getInventoryData() {
     noStore();
-    if (!supabase) return { categoriasMadre: [], skusUnicos: [], skuPublicaciones: [], error: 'Supabase no configurado' };
+    if (!supabaseAdmin) return { categoriasMadre: [], skusUnicos: [], skuPublicaciones: [], error: 'Supabase admin client no configurado' };
 
     try {
         const [
@@ -157,10 +157,10 @@ async function getInventoryData() {
             { data: skusData, error: skuError },
             { data: skuPubData, error: skuPubError }
         ] = await Promise.all([
-            supabase.from('categorias_madre').select('*').order('sku', { ascending: true }),
-            supabase.from('publicaciones').select('sku, title'),
-            supabase.from('skus_unicos').select('*').order('sku', { ascending: true }),
-            supabase.from('skuxpublicaciones').select('*').limit(100).order('sku', { ascending: true })
+            supabaseAdmin.from('categorias_madre').select('*').order('sku', { ascending: true }),
+            supabaseAdmin.from('publicaciones').select('sku, title'),
+            supabaseAdmin.from('skus_unicos').select('*').order('sku', { ascending: true }),
+            supabaseAdmin.from('skuxpublicaciones').select('*').limit(100).order('sku', { ascending: true })
         ]);
 
         if (catError) throw catError;
@@ -189,14 +189,14 @@ async function getInventoryData() {
 
 async function getProductsData() {
     noStore();
-    if (!supabase) return { publications: [], skuCounts: [], skuMap: [], motherCatalog: [], error: 'Supabase no configurado' };
+    if (!supabaseAdmin) return { publications: [], skuCounts: [], skuMap: [], motherCatalog: [], error: 'Supabase admin client no configurado' };
 
     try {
         const [pubsRes, countsRes, mapsRes, catalogRes] = await Promise.all([
-            supabase.from('publicaciones').select('*'),
-            supabase.from('publicaciones_por_sku').select('*').order('publicaciones', { ascending: false }),
-            supabase.from('skuxpublicaciones').select('*').limit(100),
-            supabase.from('catalogo_madre').select('*').order('nombre_madre', { ascending: true }),
+            supabaseAdmin.from('publicaciones').select('*'),
+            supabaseAdmin.from('publicaciones_por_sku').select('*').order('publicaciones', { ascending: false }),
+            supabaseAdmin.from('skuxpublicaciones').select('*').limit(100),
+            supabaseAdmin.from('catalogo_madre').select('*').order('nombre_madre', { ascending: true }),
         ]);
 
         if (pubsRes.error) throw pubsRes.error;
