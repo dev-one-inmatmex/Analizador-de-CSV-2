@@ -195,8 +195,6 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
                                         <TableHead>Reclamo Abierto</TableHead>
                                         <TableHead>Reclamo Cerrado</TableHead>
                                         <TableHead>Con Mediación</TableHead>
-                                        <TableHead>ID</TableHead>
-                                        <TableHead>Created At</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -264,8 +262,6 @@ export default function SalesDashboardClient({ sales, kpis, charts }: { sales: S
                                               <TableCell>{formatText(v.reclamo_abierto)}</TableCell>
                                               <TableCell>{formatText(v.reclamo_cerrado)}</TableCell>
                                               <TableCell>{formatText(v.con_mediacion)}</TableCell>
-                                              <TableCell>{v.id}</TableCell>
-                                              <TableCell className="whitespace-nowrap">{formatDate(v.created_at)}</TableCell>
                                           </TableRow>
                                       ))}
                                   </TableBody>
