@@ -1,8 +1,8 @@
 'use client';
 
-import { ShoppingCart, Truck, DollarSign, Timer, Filter, Loader2, AlertTriangle, CartesianGrid, XAxis, YAxis } from 'lucide-react';
+import { ShoppingCart, Truck, DollarSign, Timer, Filter, Loader2, AlertTriangle } from 'lucide-react';
 import * as React from 'react';
-import { Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, ResponsiveContainer } from 'recharts';
+import { Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, ResponsiveContainer, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
 import { subDays } from 'date-fns';
 
