@@ -6,9 +6,23 @@ import { supabase } from '@/lib/supabaseClient';
 import { format, subMonths, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+export type ChartData = {
+    name: string;
+    value: number;
+};
+
+export type RecentSale = {
+    sku: string;
+    total: number;
+    unidades: number;
+    fecha_venta: string;
+    title: string;
+    company: string;
+};
+
 async function getPredictionData() {
     noStore();
-    if (!supabase) return { salesHistoryForChart: [], predictionResult: null };
+    if (!supabase) return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
 
     // 1. Fetch last 12 months of sales from 'ventas'
     const twelveMonthsAgo = subMonths(new Date(), 12);
@@ -19,7 +33,7 @@ async function getPredictionData() {
     
     if (salesError || !salesData || salesData.length === 0) {
         console.error('Error fetching sales or no sales data:', salesError);
-        return { salesHistoryForChart: [], predictionResult: null };
+        return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
     }
 
     // 2. Fetch categories from 'publicaciones'
@@ -55,11 +69,13 @@ async function getPredictionData() {
         console.error("AI prediction failed:", aiError);
     }
     
-    // 5. Prepare historical data for chart (aggregate by month)
+    // 5. Prepare historical data for main chart (aggregate by month)
     const monthlySales: Record<string, number> = {};
     salesData.forEach(sale => {
         try {
-            const monthKey = format(startOfMonth(new Date(sale.fecha_venta)), 'MMM yy', { locale: es });
+            const saleDate = new Date(sale.fecha_venta);
+            if (isNaN(saleDate.getTime())) return;
+            const monthKey = format(startOfMonth(saleDate), 'yyyy-MM');
             monthlySales[monthKey] = (monthlySales[monthKey] || 0) + (sale.total || 0);
         } catch (e) {
             // Ignore invalid date formats
@@ -67,29 +83,45 @@ async function getPredictionData() {
     });
 
     const salesHistoryForChart = Object.entries(monthlySales)
-        .map(([date, ventas]) => ({ date, ventas }))
-        .sort((a, b) => {
-             const [monthA, yearA] = a.date.split(' ');
-             const [monthB, yearB] = b.date.split(' ');
-             // A proper date conversion is needed for robust sorting
-             const dateA = new Date(`01 ${monthA} ${yearA}`);
-             const dateB = new Date(`01 ${monthB} ${yearB}`);
-             return dateA.getTime() - dateB.getTime();
-        });
+        .map(([dateKey, ventas]) => {
+            const [year, month] = dateKey.split('-');
+            const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+            return {
+                date: format(date, 'MMM yy', { locale: es }),
+                ventas,
+                sortKey: date.getTime(),
+            };
+        })
+        .sort((a,b) => a.sortKey - b.sortKey)
+        .map(({date, ventas}) => ({date, ventas}));
 
-    return { salesHistoryForChart, predictionResult };
+    // 6. Prepare data for company breakdown chart
+    const companyRevenue: Record<string, number> = {};
+    salesData.forEach(sale => {
+        const key = sale.company || 'Compañía Desconocida';
+        companyRevenue[key] = (companyRevenue[key] || 0) + (sale.total || 0);
+    });
+    const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
+        .map(([name, value]) => ({ name, value }));
+    
+    // 7. Get recent sales for table display
+    const recentSales: RecentSale[] = salesData
+      .sort((a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime())
+      .slice(0, 500);
+
+    return { salesHistoryForChart, predictionResult, salesByCompanyChart, recentSales };
 }
 
 
 export default async function TrendsPredictionPage() {
-    const { salesHistoryForChart, predictionResult } = await getPredictionData();
+    const { salesHistoryForChart, predictionResult, salesByCompanyChart, recentSales } = await getPredictionData();
 
     return (
         <TrendsPredictionClient
             salesHistory={salesHistoryForChart}
             predictionResult={predictionResult}
+            salesByCompany={salesByCompanyChart || []}
+            recentSales={recentSales || []}
         />
     );
 }
-
-    

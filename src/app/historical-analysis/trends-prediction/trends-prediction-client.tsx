@@ -1,27 +1,36 @@
 'use client';
 
-import { ArrowLeft, BrainCircuit, TrendingUp, Filter, LineChart as LineChartIcon, Bot, LogOut, Loader2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, TrendingUp, Filter, LineChart as LineChartIcon, Bot, LogOut, Loader2, BarChart3, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
-import { Area, AreaChart, Bar, BarChart as RechartsBarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Line } from 'recharts';
+import { Area, AreaChart, Bar, BarChart as RechartsBarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import GlobalNav from '@/components/global-nav';
 import type { SalesPredictionOutput } from '@/ai/schemas/sales-prediction-schemas';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import type { ChartData, RecentSale } from './page';
+
+const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+const SALES_PAGE_SIZE = 10;
 
 type TrendsPredictionClientProps = {
   salesHistory: { date: string, ventas: number }[];
   predictionResult: SalesPredictionOutput | null;
+  salesByCompany: ChartData[];
+  recentSales: RecentSale[];
 };
 
-export default function TrendsPredictionClient({ salesHistory, predictionResult }: TrendsPredictionClientProps) {
+export default function TrendsPredictionClient({ salesHistory, predictionResult, salesByCompany, recentSales }: TrendsPredictionClientProps) {
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [salesPage, setSalesPage] = React.useState(1);
 
   const handleGeneratePrediction = () => {
     setIsRefreshing(true);
@@ -29,27 +38,22 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
   };
   
   React.useEffect(() => {
-    // This effect will run when navigation is complete,
-    // which happens after router.refresh() finishes fetching new server props.
     setIsRefreshing(false);
-  }, [salesHistory, predictionResult]); // Depend on the props that change
+  }, [salesHistory, predictionResult, salesByCompany, recentSales]);
 
   const chartData = React.useMemo(() => {
-    if (!predictionResult) return salesHistory;
+    if (!predictionResult) return salesHistory.map(h => ({ ...h, prediccion: undefined }));
 
     const historyWithSalesKey = salesHistory.map(h => ({ date: h.date, ventas: h.ventas, prediccion: undefined as number | undefined }));
-
     const lastHistoryPoint = historyWithSalesKey[historyWithSalesKey.length - 1];
 
-    // Create a junction point so the prediction line connects to the history line
     const predictionWithJunction = [
-        { date: lastHistoryPoint.date, prediction: lastHistoryPoint.ventas },
+        ...(lastHistoryPoint ? [{ date: lastHistoryPoint.date, prediction: lastHistoryPoint.ventas }] : []),
         ...predictionResult.salesPrediction
     ];
     
     const predictionPoints = predictionWithJunction.map(p => ({ date: p.date, prediccion: p.prediction, ventas: undefined as number | undefined }));
 
-    // Merge history and prediction points
     const mergedData = [...historyWithSalesKey];
     predictionPoints.forEach(pPoint => {
         const existingIndex = mergedData.findIndex(hPoint => hPoint.date === pPoint.date);
@@ -59,9 +63,11 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
             mergedData.push(pPoint);
         }
     });
-
     return mergedData;
   }, [salesHistory, predictionResult]);
+
+  const paginatedSales = recentSales.slice((salesPage - 1) * SALES_PAGE_SIZE, salesPage * SALES_PAGE_SIZE);
+  const totalSalesPages = Math.ceil(recentSales.length / SALES_PAGE_SIZE);
 
   if (!predictionResult) {
     return (
@@ -89,7 +95,7 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
                 <BrainCircuit className="h-4 w-4" />
                 <AlertTitle>Error al Generar la Predicción</AlertTitle>
                 <AlertDescription>
-                    No se pudo obtener una predicción de la IA. Esto puede deberse a datos insuficientes o un problema temporal. Por favor, inténtalo de nuevo más tarde.
+                    No se pudo obtener una predicción de la IA. Esto puede deberse a datos de ventas insuficientes en el último año o un problema temporal. Por favor, asegúrate de tener datos y vuelve a intentarlo.
                 </AlertDescription>
             </Alert>
         </main>
@@ -188,8 +194,7 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
             </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="lg:col-span-2">
+        <Card>
             <CardHeader>
               <CardTitle>Proyección de Tendencia de Ventas</CardTitle>
               <CardDescription>Comparativa visual entre las ventas reales pasadas y la proyección de la IA para los próximos 6 meses.</CardDescription>
@@ -198,8 +203,12 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
                 <ResponsiveContainer width="100%" height={350}>
                     <AreaChart data={chartData}>
                         <defs>
+                            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                            </linearGradient>
                             <linearGradient id="colorPrediction" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.4}/>
+                                <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8}/>
                                 <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
                             </linearGradient>
                         </defs>
@@ -218,7 +227,7 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
                                             item.value ? (
                                             <div key={index} className="flex flex-col">
                                                 <span className="text-[0.70rem] uppercase text-muted-foreground">{item.name}</span>
-                                                <span className="font-bold" style={{ color: item.color || item.stroke }}>
+                                                <span className="font-bold" style={{ color: item.stroke }}>
                                                     {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.value as number)}
                                                 </span>
                                             </div>
@@ -229,12 +238,14 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
                             ) : null
                         }/>
                         <Legend />
-                        <Line type="monotone" dataKey="ventas" name="Ventas Históricas" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} connectNulls />
-                        <Area type="monotone" dataKey="prediccion" name="Predicción IA" stroke="hsl(var(--chart-2))" strokeWidth={2} fillOpacity={1} fill="url(#colorPrediction)" />
+                        <Area type="monotone" dataKey="ventas" name="Ventas Históricas" stroke="hsl(var(--primary))" fill="url(#colorSales)" />
+                        <Area type="monotone" dataKey="prediccion" name="Predicción IA" stroke="hsl(var(--chart-2))" fill="url(#colorPrediction)" />
                     </AreaChart>
                 </ResponsiveContainer>
             </CardContent>
-          </Card>
+        </Card>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
           <Card>
             <CardHeader>
               <CardTitle>Predicción por Categoría (Próx. Trimestre)</CardTitle>
@@ -253,6 +264,25 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
             </CardContent>
           </Card>
           <Card>
+            <CardHeader>
+                <CardTitle>Ingresos por Compañía (Histórico)</CardTitle>
+                <CardDescription>Distribución de ingresos en el último año.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                        <Tooltip formatter={(value: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value)} />
+                        <Pie data={salesByCompany} dataKey="value" nameKey="name" innerRadius={60} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                            {salesByCompany.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                        </Pie>
+                        <Legend />
+                    </PieChart>
+                </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
               <CardHeader>
                   <CardTitle>Sugerencias del Asistente de IA</CardTitle>
                   <CardDescription>Acciones recomendadas por la IA para optimizar el inventario basado en las predicciones.</CardDescription>
@@ -283,8 +313,51 @@ export default function TrendsPredictionClient({ salesHistory, predictionResult 
                       </TableBody>
                   </Table>
               </CardContent>
-          </Card>
-        </div>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Historial de Ventas Recientes</CardTitle>
+                <CardDescription>Datos históricos utilizados como base para la predicción. Mostrando hasta 500 registros.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Producto</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead>Compañía</TableHead>
+                            <TableHead className="text-center">Unidades</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {paginatedSales.map((sale, index) => (
+                            <TableRow key={index}>
+                                <TableCell className="text-sm text-muted-foreground">{format(new Date(sale.fecha_venta), "dd MMM yyyy", { locale: es })}</TableCell>
+                                <TableCell className="font-medium max-w-xs truncate" title={sale.title}>{sale.title}</TableCell>
+                                <TableCell className="font-mono text-xs">{sale.sku}</TableCell>
+                                <TableCell>{sale.company}</TableCell>
+                                <TableCell className="text-center">{sale.unidades}</TableCell>
+                                <TableCell className="text-right font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sale.total)}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+            {totalSalesPages > 1 && (
+                <CardFooter>
+                    <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                        <div>Página {salesPage} de {totalSalesPages}</div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setSalesPage(p => Math.max(1, p - 1))} disabled={salesPage === 1}>Anterior</Button>
+                            <Button variant="outline" size="sm" onClick={() => setSalesPage(p => Math.min(totalSalesPages, p + 1))} disabled={salesPage === totalSalesPages}>Siguiente</Button>
+                        </div>
+                    </div>
+                </CardFooter>
+            )}
+        </Card>
       </main>
     </div>
   );
