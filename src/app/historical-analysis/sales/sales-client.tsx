@@ -4,7 +4,7 @@ import * as React from 'react';
 import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -232,7 +232,23 @@ export default function SalesDashboardClient({
                                     </Card>
                                     <Card>
                                         <CardHeader><CardTitle>Ventas por Día (Últimos 90 días)</CardTitle><CardDescription>Ingresos generados día a día.</CardDescription></CardHeader>
-                                        <CardContent><ResponsiveContainer width="100%" height={300}><BarChart data={charts.salesByDay}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value: number) => money(value)} /><Bar dataKey="value" name="Ingresos" fill="hsl(var(--chart-2))" /></BarChart></ResponsiveContainer></CardContent>
+                                        <CardContent>
+                                            <ResponsiveContainer width="100%" height={300}>
+                                                <AreaChart data={charts.salesByDay}>
+                                                    <defs>
+                                                        <linearGradient id="colorSalesDay" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8}/>
+                                                            <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                                                    <YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} fontSize={12} tickLine={false} axisLine={false} />
+                                                    <Tooltip formatter={(value: number) => money(value)} />
+                                                    <Area type="monotone" dataKey="value" name="Ingresos" stroke="hsl(var(--chart-2))" fillOpacity={1} fill="url(#colorSalesDay)" />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        </CardContent>
                                     </Card>
                                     <Card>
                                         <CardHeader><CardTitle>Ingresos por Compañía (Histórico)</CardTitle><CardDescription>Distribución de los ingresos entre las diferentes compañías.</CardDescription></CardHeader>
@@ -261,12 +277,11 @@ export default function SalesDashboardClient({
                                             )}
                                         </CardContent>
                                     </Card>
+                                    <Card className="md:col-span-2">
+                                        <CardHeader><CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle><CardDescription>Los 10 productos que generan la mayor parte de tus ingresos.</CardDescription></CardHeader>
+                                        <CardContent><ResponsiveContainer width="100%" height={400}><BarChart data={charts.topProducts} layout="vertical" margin={{ left: 120 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} /><YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} /><Tooltip formatter={(value: number) => money(value)} /><Bar dataKey="value" name="Ingresos" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}/></BarChart></ResponsiveContainer></CardContent>
+                                    </Card>
                                 </div>
-
-                                <Card>
-                                    <CardHeader><CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle><CardDescription>Los 10 productos que generan la mayor parte de tus ingresos.</CardDescription></CardHeader>
-                                    <CardContent><ResponsiveContainer width="100%" height={400}><BarChart data={charts.topProducts} layout="vertical" margin={{ left: 100 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} /><YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} /><Tooltip formatter={(value: number) => money(value)} /><Bar dataKey="value" name="Ingresos" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}/></BarChart></ResponsiveContainer></CardContent>
-                                </Card>
 
                                 <Card>
                                     <CardHeader><CardTitle>Historial de Ventas Detallado</CardTitle><CardDescription>Mostrando las últimas ventas registradas con toda la información disponible.</CardDescription></CardHeader>
