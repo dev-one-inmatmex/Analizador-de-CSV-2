@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList } from 'lucide-react';
+import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
@@ -50,6 +50,12 @@ export default function SalesDashboardClient({
 }) {
     // === SALES-CLIENT STATE AND LOGIC ===
     const [currentPage, setCurrentPage] = React.useState(1);
+    const [isClient, setIsClient] = React.useState(false);
+
+    React.useEffect(() => {
+        setIsClient(true);
+    }, []);
+
     
     const money = (v?: number | null) => v === null || v === undefined ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
     const formatDate = (d: string | null) => {
@@ -185,6 +191,11 @@ export default function SalesDashboardClient({
             </header>
 
             <main className="flex flex-1 flex-col items-center p-4 md:p-10">
+                {!isClient ? (
+                    <div className="flex h-full flex-1 items-center justify-center">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    </div>
+                ) : (
                 <div className="w-full max-w-7xl space-y-4 md:space-y-8">
                 <Tabs defaultValue="dashboard">
                     <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
@@ -635,6 +646,7 @@ export default function SalesDashboardClient({
                     </TabsContent>
                 </Tabs>
                 </div>
+                )}
             </main>
         </>
     );

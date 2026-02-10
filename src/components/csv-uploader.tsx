@@ -204,6 +204,11 @@ const dateFields = [
    const [updatePage, setUpdatePage] = useState(1);
    const [noChangePage, setNoChangePage] = useState(1);
    const PAGE_SIZE = 60;
+   const [isClient, setIsClient] = useState(false);
+
+   useEffect(() => {
+    setIsClient(true);
+   }, []);
    
    useEffect(() => {
     setInsertPage(1);
@@ -539,8 +544,8 @@ const dateFields = [
               const query = supabase.from(selectedTableName);
 
               const { data: resultData, error } = await (isUpdate
-                  ? query.upsert(record, { onConflict: primaryKey }).select()
-                  : query.insert(record).select()
+                  ? query.upsert(record as any, { onConflict: primaryKey }).select()
+                  : query.insert(record as any).select()
               );
 
               if (error) {
@@ -943,6 +948,18 @@ const dateFields = [
         default:
              return null;
      }
+   }
+
+   if (!isClient) {
+    return (
+      <div className="w-full max-w-7xl mx-auto space-y-6">
+        <Card>
+          <CardContent className="flex h-[50vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      </div>
+    );
    }
 
 
