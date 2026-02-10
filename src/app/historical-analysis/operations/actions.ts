@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/supabaseClient';
 import { revalidatePath } from 'next/cache';
 import { format } from 'date-fns';
 
-const expenseFormSchema = z.object({
+export const expenseFormSchema = z.object({
   fecha: z.date(),
   empresa: z.string().min(1),
   tipo_gasto: z.string().min(1),
@@ -17,15 +17,11 @@ export async function addExpenseAction(values: z.infer<typeof expenseFormSchema>
   const validatedFields = expenseFormSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    return {
-      error: "Datos inválidos.",
-    };
+    return { error: "Datos inválidos." };
   }
   
   if (!supabaseAdmin) {
-    return {
-      error: "La conexión con la base de datos (admin) no está disponible. Revisa la configuración del servidor.",
-    };
+    return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
   const { fecha, empresa, tipo_gasto, monto, capturista } = validatedFields.data;
@@ -37,19 +33,71 @@ export async function addExpenseAction(values: z.infer<typeof expenseFormSchema>
         tipo_gasto,
         monto,
         capturista,
+        status: 'Pendiente' // Set default status
     }
   ]);
 
   if (error) {
     console.error('Supabase insert error:', error);
-    return {
-      error: `Error al guardar el gasto: ${error.message}`,
-    };
+    return { error: `Error al guardar el gasto: ${error.message}` };
   }
 
   revalidatePath('/historical-analysis/operations');
+  return { data: "Gasto añadido exitosamente." };
+}
 
-  return {
-    data: "Gasto añadido exitosamente.",
-  };
+export async function updateExpenseAction(id: number, values: z.infer<typeof expenseFormSchema>) {
+    const validatedFields = expenseFormSchema.safeParse(values);
+
+    if (!validatedFields.success) {
+        return { error: "Datos de actualización inválidos." };
+    }
+
+    if (!supabaseAdmin) {
+        return { error: "La conexión con la base de datos (admin) no está disponible." };
+    }
+
+    const { error } = await supabaseAdmin
+        .from('gastos_diarios')
+        .update({ 
+            ...validatedFields.data,
+            fecha: format(validatedFields.data.fecha, 'yyyy-MM-dd'),
+            status: 'Pendiente', // Reset status on edit for re-review
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Supabase update error:', error);
+        return { error: `Error al actualizar el gasto: ${error.message}` };
+    }
+
+    revalidatePath('/historical-analysis/operations');
+    return { data: "Gasto actualizado exitosamente." };
+}
+
+export async function reviewExpenseAction(id: number) {
+    if (!supabaseAdmin) {
+        return { error: "La conexión con la base de datos (admin) no está disponible." };
+    }
+    
+    // In a real app, you'd get the user from the session.
+    const revisor = 'Usuario Admin'; 
+
+    const { error } = await supabaseAdmin
+        .from('gastos_diarios')
+        .update({ 
+            status: 'Revisado',
+            revisado_por: revisor,
+            fecha_revision: new Date().toISOString()
+        })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Supabase review error:', error);
+        return { error: `Error al revisar el gasto: ${error.message}` };
+    }
+    
+    revalidatePath('/historical-analysis/operations');
+    return { data: "Gasto marcado como revisado." };
 }

@@ -131,4 +131,9 @@ export interface gastos_diarios{
   tipo_gasto: string | null;
   monto: number | null;
   capturista: string | null;
+  created_at: string;
+  updated_at: string | null;
+  status: string | null;
+  revisado_por: string | null;
+  fecha_revision: string | null;
 }

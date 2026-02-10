@@ -1,6 +1,6 @@
 'use client';
 
-import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
+import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, CheckCircle, Edit, ShieldCheck } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,21 +27,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { OperationsData, GastoDiario } from './page';
-import { addExpenseAction } from './actions';
-import { List, ListItem } from '@/components/ui/list';
+import { addExpenseAction, updateExpenseAction, reviewExpenseAction, expenseFormSchema } from './actions';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+
 
 const PAGE_SIZE = 10;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
-
-const expenseFormSchema = z.object({
-  fecha: z.date({
-    required_error: "La fecha es obligatoria.",
-  }),
-  empresa: z.string().min(1, "El nombre de la empresa es obligatorio."),
-  tipo_gasto: z.string().min(1, "El tipo de gasto es obligatorio."),
-  monto: z.coerce.number({ invalid_type_error: 'El monto debe ser un número.'}).positive("El monto debe ser mayor a cero."),
-  capturista: z.string().min(1, "El nombre del capturista es obligatorio."),
-});
 
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
@@ -52,7 +43,10 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
+
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [editingExpense, setEditingExpense] = React.useState<GastoDiario | null>(null);
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
@@ -67,6 +61,26 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   React.useEffect(() => {
     setIsClient(true);
   }, []);
+
+  React.useEffect(() => {
+    if (editingExpense) {
+      form.reset({
+        fecha: editingExpense.fecha ? parseISO(editingExpense.fecha) : new Date(),
+        empresa: editingExpense.empresa || '',
+        tipo_gasto: editingExpense.tipo_gasto || '',
+        monto: editingExpense.monto || undefined,
+        capturista: editingExpense.capturista || 'Usuario Actual',
+      });
+    } else {
+      form.reset({
+        fecha: new Date(),
+        empresa: '',
+        tipo_gasto: '',
+        monto: undefined,
+        capturista: 'Usuario Actual'
+      });
+    }
+  }, [editingExpense, form]);
 
   const { allCompanies, filteredExpenses, kpis, charts } = React.useMemo(() => {
     const allUniqueCompanies = ['Todos', ...Array.from(new Set(initialData.expenses.map(e => e.empresa).filter(Boolean) as string[]))].sort();
@@ -136,15 +150,30 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   };
 
   async function onSubmit(values: ExpenseFormValues) {
-    const result = await addExpenseAction(values);
+    let result;
+    if (editingExpense) {
+      result = await updateExpenseAction(editingExpense.id, values);
+    } else {
+      result = await addExpenseAction(values);
+    }
 
     if (result.error) {
-        toast({ title: 'Error al guardar el gasto', description: result.error, variant: 'destructive' });
+        toast({ title: 'Error al guardar', description: result.error, variant: 'destructive' });
     } else {
-        toast({ title: 'Gasto Añadido', description: 'El nuevo gasto ha sido registrado exitosamente.' });
+        toast({ title: 'Éxito', description: result.data });
         setIsAddDialogOpen(false);
-        form.reset();
+        setIsEditDialogOpen(false);
+        setEditingExpense(null);
     }
+  }
+
+  async function onReview(id: number) {
+      const result = await reviewExpenseAction(id);
+      if (result.error) {
+          toast({ title: 'Error al revisar', description: result.error, variant: 'destructive' });
+      } else {
+          toast({ title: 'Éxito', description: result.data });
+      }
   }
 
   const paginatedExpenses = filteredExpenses.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -158,6 +187,87 @@ export default function OperationsClient({ initialData }: { initialData: Operati
     );
   }
 
+  const FormContent = ({ isSubmitting }: { isSubmitting: boolean }) => (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+        <FormField
+            control={form.control}
+            name="fecha"
+            render={({ field }) => (
+                <FormItem className="flex flex-col">
+                    <FormLabel>Fecha del Gasto</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                    {field.value ? format(field.value, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+        <FormField
+            control={form.control}
+            name="empresa"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Empresa</FormLabel>
+                    <FormControl><Input placeholder="Ej: Mi Empresa" {...field} /></FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+        <FormField
+            control={form.control}
+            name="tipo_gasto"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Tipo de Gasto</FormLabel>
+                    <FormControl><Input placeholder="Ej: Publicidad" {...field} /></FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+        <FormField
+            control={form.control}
+            name="monto"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Monto</FormLabel>
+                    <FormControl>
+                        <Input type="number" placeholder="0.00" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+        <FormField
+            control={form.control}
+            name="capturista"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Capturista</FormLabel>
+                    <FormControl><Input placeholder="Nombre del capturista" {...field} /></FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+        <DialogFooter className="pt-4">
+            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+            <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar
+            </Button>
+        </DialogFooter>
+    </form>
+  );
+
   return (
     <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
@@ -166,7 +276,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
           <h1 className="text-xl font-bold tracking-tight">Gastos diarios</h1>
         </div>
         <div className="flex items-center gap-4">
-            <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Button onClick={() => { setEditingExpense(null); setIsAddDialogOpen(true); }}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Añadir Gasto
             </Button>
@@ -222,33 +332,6 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                     )}
                   </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <ShieldCheck className="h-5 w-5 text-primary" />
-                            Cómo se validan
-                        </CardTitle>
-                        <CardDescription>
-                            Así es como el sistema asegura la integridad de los datos de gastos diarios.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <List>
-                            <ListItem>
-                                Validación automática al capturar
-                            </ListItem>
-                            <ListItem>
-                                Revisión diaria o semanal por un usuario designado
-                            </ListItem>
-                            <ListItem>
-                                Correcciones solo por Admin
-                            </ListItem>
-                            <ListItem>
-                                Auditoría automática
-                            </ListItem>
-                        </List>
-                    </CardContent>
-                </Card>
                 <Card><CardHeader><CardTitle>Top 5 Gastos por Empresa (Filtrado)</CardTitle><CardDescription>Distribución del gasto entre las principales empresas en el periodo filtrado.</CardDescription></CardHeader>
                   <CardContent>
                     {charts.spendingByCompany.length === 0 ? (
@@ -258,12 +341,57 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                     )}
                   </CardContent>
                 </Card>
-                <Card><CardHeader><CardTitle>Gastos Diarios Recientes</CardTitle><CardDescription>Listado de los últimos gastos registrados.</CardDescription></CardHeader>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gastos Diarios Registrados</CardTitle><CardDescription>Listado de los gastos registrados con su estado de validación.</CardDescription></CardHeader>
                   <CardContent>
                     {paginatedExpenses.length === 0 ? (
                       <div className="flex h-[150px] items-center justify-center text-center text-muted-foreground">No se encontraron gastos para los filtros seleccionados.</div>
                     ) : (
-                      <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Empresa</TableHead><TableHead>Tipo de Gasto</TableHead><TableHead className="text-right">Monto</TableHead><TableHead>Capturista</TableHead></TableRow></TableHeader><TableBody>{paginatedExpenses.map((expense) => (<TableRow key={expense.id}><TableCell className="font-mono text-xs">{expense.fecha ? format(parseISO(expense.fecha), 'dd/MM/yyyy') : 'N/A'}</TableCell><TableCell className="font-medium">{expense.empresa}</TableCell><TableCell className="font-medium">{expense.tipo_gasto}</TableCell><TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(expense.monto || 0)}</TableCell><TableCell><Badge variant='outline'>{expense.capturista}</Badge></TableCell></TableRow>))}</TableBody></Table>
+                      <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Empresa</TableHead>
+                                <TableHead>Tipo de Gasto</TableHead>
+                                <TableHead className="text-right">Monto</TableHead>
+                                <TableHead>Capturista</TableHead>
+                                <TableHead>Estado</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedExpenses.map((expense) => (
+                                <TableRow key={expense.id}>
+                                    <TableCell className="font-mono text-xs">{expense.fecha ? format(parseISO(expense.fecha), 'dd/MM/yyyy') : 'N/A'}</TableCell>
+                                    <TableCell className="font-medium">{expense.empresa}</TableCell>
+                                    <TableCell className="font-medium">{expense.tipo_gasto}</TableCell>
+                                    <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(expense.monto || 0)}</TableCell>
+                                    <TableCell><Badge variant='outline'>{expense.capturista}</Badge></TableCell>
+                                    <TableCell>
+                                        <Badge variant={expense.status === 'Revisado' ? 'secondary' : 'default'}>
+                                            {expense.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Abrir menú</span><MoreHorizontal className="h-4 w-4" /></Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => onReview(expense.id)} disabled={expense.status === 'Revisado'}>
+                                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                                    <span>Revisar</span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => { setEditingExpense(expense); setIsEditDialogOpen(true); }}>
+                                                    <Edit className="mr-2 h-4 w-4" />
+                                                    <span>Editar</span>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
                     )}
                   </CardContent>
                   {totalPages > 1 && (
@@ -285,95 +413,19 @@ export default function OperationsClient({ initialData }: { initialData: Operati
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Añadir Nuevo Gasto</DialogTitle>
-                    <DialogDescription>
-                        Completa el formulario para registrar un nuevo gasto diario.
-                    </DialogDescription>
+                    <DialogDescription>Completa el formulario para registrar un nuevo gasto diario.</DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                        <FormField
-                            control={form.control}
-                            name="fecha"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Fecha del Gasto</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                                    {field.value ? format(field.value, "PPP", { locale: es }) : <span>Selecciona una fecha</span>}
-                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="empresa"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Empresa</FormLabel>
-                                    <FormControl><Input placeholder="Ej: Mi Empresa" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="tipo_gasto"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Tipo de Gasto</FormLabel>
-                                    <FormControl><Input placeholder="Ej: Publicidad" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="monto"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Monto</FormLabel>
-                                    <FormControl>
-                                      <Input 
-                                        type="number" 
-                                        placeholder="0.00" 
-                                        {...field} 
-                                        value={field.value ?? ''}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="capturista"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Capturista</FormLabel>
-                                    <FormControl><Input placeholder="Nombre del capturista" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <DialogFooter className="pt-4">
-                            <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-                            <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Guardar Gasto
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                <Form {...form}><FormContent isSubmitting={form.formState.isSubmitting} /></Form>
+            </DialogContent>
+        </Dialog>
+        
+        <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if(!open) setEditingExpense(null); setIsEditDialogOpen(open); }}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Gasto</DialogTitle>
+                    <DialogDescription>Modifica los detalles del gasto. Esto requerirá una nueva revisión.</DialogDescription>
+                </DialogHeader>
+                <Form {...form}><FormContent isSubmitting={form.formState.isSubmitting} /></Form>
             </DialogContent>
         </Dialog>
       </main>
