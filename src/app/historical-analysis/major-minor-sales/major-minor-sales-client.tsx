@@ -4,7 +4,8 @@ import { GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, DollarSi
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { subDays } from 'date-fns';
+import { subDays, formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +20,24 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { Transaction } from './page';
 
 const PAGE_SIZE = 10;
+
+function ClientRelativeTime({ dateString }: { dateString: string }) {
+  const [relativeTime, setRelativeTime] = React.useState('');
+
+  React.useEffect(() => {
+    if (dateString) {
+      try {
+        setRelativeTime(formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: es }));
+      } catch (e) {
+        console.error("Error formatting date", e);
+        setRelativeTime('Fecha inválida');
+      }
+    }
+  }, [dateString]);
+  
+  return <>{relativeTime || '...'}</>;
+}
+
 
 export default function MajorMinorSalesClientPage({ initialRecentTransactions }: { initialRecentTransactions: Transaction[] }) {
   const { toast } = useToast();
@@ -150,7 +169,7 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 <Card className="lg:col-span-2"><CardHeader><CardTitle>Distribución de Ingresos</CardTitle><CardDescription>Porcentaje de ingresos generado por cada segmento.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Pie data={revenueByTypeData} dataKey="value" nameKey="type" innerRadius={60} outerRadius={80} paddingAngle={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{revenueByTypeData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}</Pie><Legend /></PieChart></ResponsiveContainer></CardContent></Card>
                 <Card className="lg:col-span-3"><CardHeader><CardTitle>Top 5 Clientes Mayoristas</CardTitle><CardDescription>Clientes que generaron los mayores ingresos en el periodo.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><BarChart data={topWholesaleCustomersData} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} /><YAxis type="category" dataKey="customer" width={80}/><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Bar dataKey="revenue" name="Ingresos" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
-                <Card className="lg:col-span-5"><CardHeader><CardTitle>Transacciones Recientes</CardTitle><CardDescription>Listado de las últimas ventas registradas en los segmentos.</CardDescription></CardHeader><CardContent>{paginatedTransactions.length > 0 ? (<Table><TableHeader><TableRow><TableHead>ID Transacción</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo de Venta</TableHead><TableHead className="text-right">Monto</TableHead><TableHead className="text-right">Hora</TableHead></TableRow></TableHeader><TableBody>{paginatedTransactions.map((item) => (<TableRow key={item.id}><TableCell className="font-mono text-xs">{item.id}</TableCell><TableCell className="font-medium">{item.customer}</TableCell><TableCell><Badge variant={item.type === 'Mayorista' ? 'default' : 'secondary'}>{item.type}</Badge></TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.amount)}</TableCell><TableCell className="text-right text-sm text-muted-foreground">{item.time}</TableCell></TableRow>))}</TableBody></Table>) : (<Alert><GitCompareArrows className="h-4 w-4" /><AlertTitle>No hay transacciones</AlertTitle><AlertDescription>No se encontraron registros para el periodo o filtros seleccionados.</AlertDescription></Alert>)}</CardContent>
+                <Card className="lg:col-span-5"><CardHeader><CardTitle>Transacciones Recientes</CardTitle><CardDescription>Listado de las últimas ventas registradas en los segmentos.</CardDescription></CardHeader><CardContent>{paginatedTransactions.length > 0 ? (<Table><TableHeader><TableRow><TableHead>ID Transacción</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo de Venta</TableHead><TableHead className="text-right">Monto</TableHead><TableHead className="text-right">Hora</TableHead></TableRow></TableHeader><TableBody>{paginatedTransactions.map((item) => (<TableRow key={item.id}><TableCell className="font-mono text-xs">{item.id}</TableCell><TableCell className="font-medium">{item.customer}</TableCell><TableCell><Badge variant={item.type === 'Mayorista' ? 'default' : 'secondary'}>{item.type}</Badge></TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.amount)}</TableCell><TableCell className="text-right text-sm text-muted-foreground"><ClientRelativeTime dateString={item.date} /></TableCell></TableRow>))}</TableBody></Table>) : (<Alert><GitCompareArrows className="h-4 w-4" /><AlertTitle>No hay transacciones</AlertTitle><AlertDescription>No se encontraron registros para el periodo o filtros seleccionados.</AlertDescription></Alert>)}</CardContent>
                 {totalPages > 1 && (<CardFooter><div className="flex w-full items-center justify-between text-xs text-muted-foreground"><div>Página {currentPage} de {totalPages}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button></div></div></CardFooter>)}
                 </Card>
             </div>

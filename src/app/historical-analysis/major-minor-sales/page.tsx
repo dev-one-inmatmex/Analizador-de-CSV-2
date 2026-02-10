@@ -1,15 +1,13 @@
 import { supabaseAdmin } from '@/lib/supabaseClient'
 import MajorMinorSalesClientPage from './major-minor-sales-client';
 import { unstable_noStore as noStore } from 'next/cache';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 export type Transaction = {
   id: string;
   customer: string;
   type: 'Mayorista' | 'Minorista';
   amount: number;
-  time: string;
+  date: string;
 };
 
 async function getRecentTransactions(): Promise<Transaction[]> {
@@ -37,7 +35,7 @@ async function getRecentTransactions(): Promise<Transaction[]> {
     // Simple logic to determine type based on mock data pattern
     type: sale.comprador !== 'Público General' ? 'Mayorista' : 'Minorista',
     amount: sale.total || 0,
-    time: formatDistanceToNow(new Date(sale.fecha_venta), { addSuffix: true, locale: es }),
+    date: sale.fecha_venta,
   }));
 
   return transactions;
