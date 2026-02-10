@@ -64,7 +64,6 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   });
 
   React.useEffect(() => {
-    setDate({ from: subDays(new Date(), 90), to: new Date() });
     setIsClient(true);
   }, []);
 
@@ -131,7 +130,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
       description: 'Mostrando todos los datos.',
     });
     setCompany('Todos');
-    setDate({ from: subDays(new Date(), 90), to: new Date() });
+    setDate(undefined);
     setCurrentPage(1);
   };
 

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 
 const menuLinks = [
+  
   { href: '/historical-analysis/sales', label: 'Ventas (Mercado Libre)', icon: BarChart3 },
   { href: '/historical-analysis/operations', label: 'Gastos diarios', icon: Receipt },
   { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },
