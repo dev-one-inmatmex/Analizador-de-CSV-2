@@ -19,7 +19,6 @@ export type OperationsData = {
         spendingByCompany: { company: string; spending: number }[];
     };
     expenses: GastoDiario[];
-    publicationCompanies: string[];
 };
 
 async function getOperationsData(): Promise<OperationsData> {
@@ -27,8 +26,7 @@ async function getOperationsData(): Promise<OperationsData> {
     const emptyData: OperationsData = { 
         kpis: { totalCost: 0, companyCount: 0, avgExpense: 0, totalRecords: 0 }, 
         charts: { costByMonth: [], spendingByCompany: [] },
-        expenses: [],
-        publicationCompanies: []
+        expenses: []
     };
     
     if (!supabaseAdmin) {
@@ -36,38 +34,17 @@ async function getOperationsData(): Promise<OperationsData> {
         return emptyData;
     }
 
-    const [expensesResult, publicationsResult] = await Promise.all([
-        supabaseAdmin
-            .from('gastos_diarios')
-            .select('*')
-            .order('fecha', { ascending: false }),
-        supabaseAdmin
-            .from('publicaciones')
-            .select('company')
-    ]);
+    const { data, error } = await supabaseAdmin
+        .from('gastos_diarios')
+        .select('*')
+        .order('fecha', { ascending: false });
 
-    const { data: expensesData, error: expensesError } = expensesResult;
-    const { data: publications, error: pubError } = publicationsResult;
-
-    if (expensesError) {
-        console.error('Error fetching daily expenses:', expensesError);
-    }
-    if (pubError) {
-        console.error('Error fetching companies from publications:', pubError);
-    }
-    
-    const publicationCompanies = publications 
-        ? [...new Set(publications.map(p => p.company).filter(Boolean) as string[])].sort()
-        : [];
-
-    if (expensesError || !expensesData) {
-        return {
-            ...emptyData,
-            publicationCompanies,
-        };
+    if (error) {
+        console.error('Error fetching daily expenses:', error);
+        return emptyData;
     }
 
-    const expenses = expensesData as GastoDiario[];
+    const expenses = data as GastoDiario[];
 
     // --- KPIs ---
     const totalCost = expenses.reduce((acc, item) => acc + (item.monto || 0), 0);
@@ -116,7 +93,6 @@ async function getOperationsData(): Promise<OperationsData> {
         kpis: { totalCost, companyCount, avgExpense, totalRecords },
         charts: { costByMonth, spendingByCompany },
         expenses,
-        publicationCompanies,
     };
 }
 

@@ -68,8 +68,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   }, []);
 
   const { allCompanies, filteredExpenses, kpis, charts } = React.useMemo(() => {
-    const companiesFromExpenses = initialData.expenses.map(e => e.empresa).filter(Boolean) as string[];
-    const allUniqueCompanies = ['Todos', ...Array.from(new Set([...companiesFromExpenses, ...initialData.publicationCompanies]))].sort();
+    const allUniqueCompanies = ['Todos', ...Array.from(new Set(initialData.expenses.map(e => e.empresa).filter(Boolean) as string[]))].sort();
     
     const filtered = initialData.expenses.filter(expense => {
         const companyMatch = company === 'Todos' || expense.empresa === company;
@@ -115,7 +114,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
         charts: { spendingByCompany }
     };
 
-  }, [initialData.expenses, initialData.publicationCompanies, company, date]);
+  }, [initialData.expenses, company, date]);
   
   const handleApplyFilters = () => {
     toast({
@@ -289,14 +288,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Empresa</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecciona una empresa" /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {initialData.publicationCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl><Input placeholder="Ej: Mi Empresa" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
