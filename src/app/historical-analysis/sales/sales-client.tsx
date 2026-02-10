@@ -196,7 +196,7 @@ export default function SalesDashboardClient({
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
                 <div className="flex items-center gap-4">
                   <SidebarTrigger />
-                  <h1 className="text-xl font-bold tracking-tight">Ventas (Mercado Libre)</h1>
+                  <h1 className="text-xl font-bold tracking-tight">Ventas</h1>
                 </div>
             </header>
 
@@ -256,7 +256,7 @@ export default function SalesDashboardClient({
                                             <ResponsiveContainer width="100%" height={300}>
                                                 <PieChart>
                                                     <Tooltip formatter={(value: number) => money(value)} />
-                                                    <Pie data={charts.salesByCompany} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110}>
+                                                    <Pie data={charts.salesByCompany} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label>
                                                         {charts.salesByCompany?.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                                     </Pie>
                                                     <Legend />
@@ -271,7 +271,7 @@ export default function SalesDashboardClient({
                                                 <ResponsiveContainer width="100%" height={300}>
                                                     <PieChart>
                                                         <Tooltip formatter={(value: number) => `${value} pedidos`} />
-                                                        <Pie data={charts.ordersByCompanyToday} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110}>
+                                                        <Pie data={charts.ordersByCompanyToday} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label>
                                                             {charts.ordersByCompanyToday.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                                         </Pie>
                                                         <Legend/>
@@ -296,10 +296,10 @@ export default function SalesDashboardClient({
                                             <ResponsiveContainer width="100%" height={400}>
                                                 <ComposedChart
                                                     data={charts.topProducts}
-                                                    margin={{ top: 5, right: 20, bottom: 60, left: 20 }}
+                                                    margin={{ top: 5, right: 30, bottom: 120, left: 30 }}
                                                 >
                                                     <CartesianGrid strokeDasharray="3 3" />
-                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 12 }} />
+                                                    <XAxis dataKey="name" angle={-60} textAnchor="end" height={130} interval={0} tick={{ fontSize: 12 }} />
                                                     <YAxis yAxisId="left" orientation="left" tickFormatter={(value) => `$${(value as number / 1000)}k`} />
                                                     <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${Math.round(value as number)}%`} />
                                                     <Tooltip formatter={(value: number, name: string) => {
@@ -309,7 +309,7 @@ export default function SalesDashboardClient({
                                                     }} />
                                                     <Legend verticalAlign="top" />
                                                     <Bar dataKey="value" name="Ingresos" yAxisId="left" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                                    <Line type="monotone" dataKey="cumulative" name="Acumulado" yAxisId="right" stroke="hsl(var(--chart-2))" strokeWidth={2} />
+                                                    <Line type="monotone" dataKey="cumulative" name="Acumulado" yAxisId="right" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                                                 </ComposedChart>
                                             </ResponsiveContainer>
                                         </CardContent>
