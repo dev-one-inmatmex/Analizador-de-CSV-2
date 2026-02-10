@@ -180,8 +180,8 @@ const saveToDatabaseFlow = ai.defineFlow(
     for (const record of records) {
       const query = supabaseAdmin.from(targetTable);
       const { error } = conflictKey
-        ? await query.upsert([record], { onConflict: conflictKey })
-        : await query.insert([record]);
+        ? await query.upsert([record] as any, { onConflict: conflictKey })
+        : await query.insert([record] as any);
 
       if (error) {
         errors.push({
