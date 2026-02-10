@@ -27,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { OperationsData, GastoDiario } from './page';
-import { addExpenseAction, updateExpenseAction, reviewExpenseAction } from './actions';
+import { addExpenseAction, updateExpenseAction } from './actions';
 import { expenseFormSchema } from './schemas';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
@@ -163,15 +163,6 @@ export default function OperationsClient({ initialData }: { initialData: Operati
         setIsEditDialogOpen(false);
         setEditingExpense(null);
     }
-  }
-
-  async function onReview(id: number) {
-      const result = await reviewExpenseAction(id);
-      if (result.error) {
-          toast({ title: 'Error al revisar', description: result.error, variant: 'destructive' });
-      } else {
-          toast({ title: 'Éxito', description: result.data });
-      }
   }
 
   const paginatedExpenses = filteredExpenses.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -353,7 +344,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                   </CardContent>
                 </Card>
 
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gastos Diarios Registrados</CardTitle><CardDescription>Listado de los gastos registrados con su estado de validación.</CardDescription></CardHeader>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gastos Diarios Registrados</CardTitle><CardDescription>Listado de los gastos registrados.</CardDescription></CardHeader>
                   <CardContent>
                     {paginatedExpenses.length === 0 ? (
                       <div className="flex h-[150px] items-center justify-center text-center text-muted-foreground">No se encontraron gastos para los filtros seleccionados.</div>
@@ -366,7 +357,6 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                                 <TableHead>Tipo de Gasto</TableHead>
                                 <TableHead className="text-right">Monto</TableHead>
                                 <TableHead>Capturista</TableHead>
-                                <TableHead>Estado</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -378,21 +368,12 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                                     <TableCell className="font-medium">{expense.tipo_gasto}</TableCell>
                                     <TableCell className="text-right">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(expense.monto || 0)}</TableCell>
                                     <TableCell><Badge variant='outline'>{expense.capturista}</Badge></TableCell>
-                                    <TableCell>
-                                        <Badge variant={expense.status === 'Revisado' ? 'secondary' : 'default'}>
-                                            {expense.status}
-                                        </Badge>
-                                    </TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Abrir menú</span><MoreHorizontal className="h-4 w-4" /></Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => onReview(expense.id)} disabled={expense.status === 'Revisado'}>
-                                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                                    <span>Revisar</span>
-                                                </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => { setEditingExpense(expense); setIsEditDialogOpen(true); }}>
                                                     <Edit className="mr-2 h-4 w-4" />
                                                     <span>Editar</span>
@@ -435,7 +416,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Editar Gasto</DialogTitle>
-                    <DialogDescription>Modifica los detalles del gasto. Esto requerirá una nueva revisión.</DialogDescription>
+                    <DialogDescription>Modifica los detalles del gasto.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}><FormContent isSubmitting={form.formState.isSubmitting} /></Form>
             </DialogContent>
