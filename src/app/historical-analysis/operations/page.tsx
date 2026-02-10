@@ -19,6 +19,7 @@ export type OperationsData = {
         spendingByCompany: { company: string; spending: number }[];
     };
     expenses: GastoDiario[];
+    allCompanies: string[];
 };
 
 async function getOperationsData(): Promise<OperationsData> {
@@ -26,7 +27,8 @@ async function getOperationsData(): Promise<OperationsData> {
     const emptyData: OperationsData = { 
         kpis: { totalCost: 0, companyCount: 0, avgExpense: 0, totalRecords: 0 }, 
         charts: { costByMonth: [], spendingByCompany: [] },
-        expenses: []
+        expenses: [],
+        allCompanies: []
     };
     
     if (!supabaseAdmin) {
@@ -34,17 +36,22 @@ async function getOperationsData(): Promise<OperationsData> {
         return emptyData;
     }
 
-    const { data, error } = await supabaseAdmin
-        .from('gastos_diarios')
-        .select('*')
-        .order('fecha', { ascending: false });
+    const [{ data: expensesData, error: expensesError }, { data: companiesData, error: companiesError }] = await Promise.all([
+        supabaseAdmin.from('gastos_diarios').select('*').order('fecha', { ascending: false }),
+        supabaseAdmin.from('publicaciones').select('company').neq('company', '')
+    ]);
 
-    if (error) {
-        console.error('Error fetching daily expenses:', error);
+    if (expensesError) {
+        console.error('Error fetching daily expenses:', expensesError);
         return emptyData;
     }
 
-    const expenses = data as GastoDiario[];
+    const expenses = (expensesData as GastoDiario[]) || [];
+    
+    const publicationCompanies = companiesData ? [...new Set(companiesData.map((p: { company: string | null }) => p.company).filter((c): c is string => !!c))] : [];
+    
+    const allCompanies = ['Todos', ...new Set([...publicationCompanies])];
+
 
     // --- KPIs ---
     const totalCost = expenses.reduce((acc, item) => acc + (item.monto || 0), 0);
@@ -93,6 +100,7 @@ async function getOperationsData(): Promise<OperationsData> {
         kpis: { totalCost, companyCount, avgExpense, totalRecords },
         charts: { costByMonth, spendingByCompany },
         expenses,
+        allCompanies,
     };
 }
 
