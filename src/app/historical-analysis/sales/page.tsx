@@ -19,21 +19,46 @@ export type EnrichedMotherCatalog = catalogo_madre & { publication_title?: strin
 export type PublicacionMin = Pick<publicaciones, 'sku' | 'title'>;
 export type EnrichedCategoriaMadre = categorias_madre & { title?: string };
 
-async function getSalesData() {
+export type KpiType = {
+    totalRevenue?: number;
+    totalSales?: number;
+    avgSale?: number;
+    topProductName?: string;
+    topProductRevenue?: number;
+}
+
+export type ChartDataType = {
+    topProducts?: ChartData[];
+    salesByCompany?: ChartData[];
+    salesTrend?: ChartData[];
+    salesByDay?: ChartData[];
+    ordersByCompanyToday?: ChartData[];
+}
+
+type GetSalesDataReturn = {
+  sales: Sale[];
+  kpis: KpiType;
+  charts: ChartDataType;
+}
+
+
+async function getSalesData(): Promise<GetSalesDataReturn> {
   noStore();
   if (!supabaseAdmin) return { sales: [], kpis: {}, charts: {} };
   
   const twelveMonthsAgo = subMonths(new Date(), 12);
 
-  const { data: sales, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('ventas')
     .select('*')
     .gte('fecha_venta', twelveMonthsAgo.toISOString());
     
-  if (error || !sales) {
+  if (error || !data) {
     console.error('Error fetching sales data:', error);
     return { sales: [], kpis: {}, charts: {} };
   }
+
+  const sales: Sale[] = data;
 
   // --- Process KPIs ---
   const totalRevenue = sales.reduce((acc, sale) => acc + (sale.total || 0), 0);
@@ -255,7 +280,7 @@ export default async function SalesAnalysisDashboardPage() {
   const productsData = await getProductsData();
 
   return <SalesDashboardClient 
-    sales={sales as Sale[]} 
+    sales={sales} 
     kpis={kpis} 
     charts={charts}
     inventoryData={inventoryData}

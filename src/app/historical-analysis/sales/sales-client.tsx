@@ -14,24 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import type { Sale, ChartData, EnrichedCategoriaMadre, EnrichedMotherCatalog, EnrichedPublicationCount, EnrichedSkuMap } from './page';
+import type { Sale, ChartData, EnrichedCategoriaMadre, EnrichedMotherCatalog, EnrichedPublicationCount, EnrichedSkuMap, KpiType, ChartDataType } from './page';
 import type { skus_unicos, skuxpublicaciones } from '@/types/database';
-
-type KpiType = {
-    totalRevenue?: number;
-    totalSales?: number;
-    avgSale?: number;
-    topProductName?: string;
-    topProductRevenue?: number;
-}
-
-type ChartDataType = {
-    topProducts?: ChartData[];
-    salesByCompany?: ChartData[];
-    salesTrend?: ChartData[];
-    salesByDay?: ChartData[];
-    ordersByCompanyToday?: ChartData[];
-}
 
 type InventoryData = {
     categoriasMadre: EnrichedCategoriaMadre[];
