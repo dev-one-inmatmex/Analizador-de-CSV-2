@@ -1,6 +1,6 @@
 'use client';
 
-import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon } from 'lucide-react';
+import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,6 +28,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { OperationsData, GastoDiario } from './page';
 import { addExpenseAction } from './actions';
+import { List, ListItem } from '@/components/ui/list';
 
 const PAGE_SIZE = 10;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -208,7 +209,11 @@ export default function OperationsClient({ initialData }: { initialData: Operati
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gasto por Mes (Histórico)</CardTitle><CardDescription>Evolución del gasto mensual de todos los registros.</CardDescription></CardHeader>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Gasto por Mes (Histórico)</CardTitle>
+                    <CardDescription>Evolución del gasto mensual de todos los registros.</CardDescription>
+                  </CardHeader>
                   <CardContent>
                     {initialData.charts.costByMonth.length === 0 ? (
                       <div className="flex h-[300px] items-center justify-center text-center text-muted-foreground">No hay suficientes datos históricos para mostrar la tendencia mensual.</div>
@@ -216,6 +221,36 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                       <ResponsiveContainer width="100%" height={300}><LineChart data={initialData.charts.costByMonth}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Legend /><Line type="monotone" dataKey="cost" name="Costo" stroke="hsl(var(--primary))" strokeWidth={2} /></LineChart></ResponsiveContainer>
                     )}
                   </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <ShieldCheck className="h-5 w-5 text-primary" />
+                            Proceso de Validación y Auditoría
+                        </CardTitle>
+                        <CardDescription>
+                            Así es como el sistema asegura la integridad de los datos de gastos diarios.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <List>
+                            <ListItem>
+                                Validación automática de formatos y valores al capturar un nuevo gasto.
+                            </ListItem>
+                            <ListItem>
+                                Revisión periódica (diaria/semanal) de los registros por un supervisor.
+                            </ListItem>
+                            <ListItem>
+                                Las correcciones y eliminaciones están restringidas al rol de Administrador.
+                            </ListItem>
+                            <ListItem>
+                                Auditoría automática de cambios para mantener la trazabilidad.
+                            </ListItem>
+                             <ListItem>
+                                El sistema funciona como la bitácora digital, eliminando la necesidad de registros físicos.
+                            </ListItem>
+                        </List>
+                    </CardContent>
                 </Card>
                 <Card><CardHeader><CardTitle>Top 5 Gastos por Empresa (Filtrado)</CardTitle><CardDescription>Distribución del gasto entre las principales empresas en el periodo filtrado.</CardDescription></CardHeader>
                   <CardContent>
