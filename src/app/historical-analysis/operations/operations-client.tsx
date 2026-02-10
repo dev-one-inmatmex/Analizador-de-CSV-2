@@ -226,7 +226,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <ShieldCheck className="h-5 w-5 text-primary" />
-                            Proceso de Validación y Auditoría
+                            Cómo se validan
                         </CardTitle>
                         <CardDescription>
                             Así es como el sistema asegura la integridad de los datos de gastos diarios.
@@ -235,19 +235,16 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                     <CardContent>
                         <List>
                             <ListItem>
-                                Validación automática de formatos y valores al capturar un nuevo gasto.
+                                Validación automática al capturar
                             </ListItem>
                             <ListItem>
-                                Revisión periódica (diaria/semanal) de los registros por un supervisor.
+                                Revisión diaria o semanal por un usuario designado
                             </ListItem>
                             <ListItem>
-                                Las correcciones y eliminaciones están restringidas al rol de Administrador.
+                                Correcciones solo por Admin
                             </ListItem>
                             <ListItem>
-                                Auditoría automática de cambios para mantener la trazabilidad.
-                            </ListItem>
-                             <ListItem>
-                                El sistema funciona como la bitácora digital, eliminando la necesidad de registros físicos.
+                                Auditoría automática
                             </ListItem>
                         </List>
                     </CardContent>
