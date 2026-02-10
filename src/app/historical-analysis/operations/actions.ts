@@ -82,6 +82,7 @@ export async function reviewExpenseAction(id: number) {
         .update({ 
             status: 'Revisado',
             revisado_por: revisor,
+            fecha_revision: new Date().toISOString(),
         })
         .eq('id', id);
 

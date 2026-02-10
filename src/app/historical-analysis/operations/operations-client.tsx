@@ -1,13 +1,13 @@
 'use client';
 
-import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, CheckCircle, Edit, ShieldCheck, ListChecks } from 'lucide-react';
+import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, CheckCircle, Edit } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Bar, BarChart } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { subDays, parseISO, format, isValid } from 'date-fns';
+import { parseISO, format, isValid, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Badge } from '@/components/ui/badge';
@@ -29,12 +29,10 @@ import { cn } from '@/lib/utils';
 import type { OperationsData, GastoDiario } from './page';
 import { addExpenseAction, updateExpenseAction, reviewExpenseAction } from './actions';
 import { expenseFormSchema } from './schemas';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { List, ListItem } from '@/components/ui/list';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 
 const PAGE_SIZE = 10;
-const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
@@ -85,8 +83,6 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   }, [editingExpense, form]);
 
   const { allCompanies, filteredExpenses, kpis, charts } = React.useMemo(() => {
-    const allUniqueCompanies = ['Todos', ...Array.from(new Set(initialData.expenses.map(e => e.empresa).filter(Boolean) as string[]))].sort();
-    
     const filtered = initialData.expenses.filter(expense => {
         const companyMatch = company === 'Todos' || expense.empresa === company;
         
@@ -97,7 +93,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                 if (isValid(expenseDate)) {
                     dateMatch = expenseDate >= date.from;
                     if(date.to) {
-                       dateMatch = dateMatch && expenseDate <= date.to;
+                       dateMatch = dateMatch && expenseDate <= endOfDay(date.to);
                     }
                 }
             } catch(e) {
@@ -125,13 +121,13 @@ export default function OperationsClient({ initialData }: { initialData: Operati
         .slice(0, 5); // Top 5 for the chart
     
     return {
-        allCompanies: allUniqueCompanies,
+        allCompanies: initialData.allCompanies,
         filteredExpenses: filtered,
         kpis: { totalCost, companyCount, avgExpense, totalRecords },
         charts: { spendingByCompany }
     };
 
-  }, [initialData.expenses, company, date]);
+  }, [initialData.expenses, initialData.allCompanies, company, date]);
   
   const handleApplyFilters = () => {
     toast({
@@ -220,7 +216,20 @@ export default function OperationsClient({ initialData }: { initialData: Operati
             render={({ field }) => (
                 <FormItem>
                     <FormLabel>Empresa</FormLabel>
-                    <FormControl><Input placeholder="Ej: Mi Empresa" {...field} /></FormControl>
+                     <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                        <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una empresa" />
+                            </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {allCompanies.filter(c => c !== 'Todos').map(c => (
+                                <SelectItem key={c} value={c}>
+                                    {c}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <FormMessage />
                 </FormItem>
             )}
@@ -320,8 +329,8 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <Card>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Card className="lg:col-span-1">
                   <CardHeader>
                     <CardTitle>Gasto por Mes (Histórico)</CardTitle>
                     <CardDescription>Evolución del gasto mensual de todos los registros.</CardDescription>
@@ -334,7 +343,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                     )}
                   </CardContent>
                 </Card>
-                <Card><CardHeader><CardTitle>Top 5 Gastos por Empresa (Filtrado)</CardTitle><CardDescription>Distribución del gasto entre las principales empresas en el periodo filtrado.</CardDescription></CardHeader>
+                <Card className="lg:col-span-1"><CardHeader><CardTitle>Top 5 Gastos por Empresa (Filtrado)</CardTitle><CardDescription>Distribución del gasto entre las principales empresas en el periodo filtrado.</CardDescription></CardHeader>
                   <CardContent>
                     {charts.spendingByCompany.length === 0 ? (
                       <div className="flex h-[300px] items-center justify-center text-center text-muted-foreground">No hay gastos en el periodo seleccionado.</div>
@@ -343,20 +352,8 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                     )}
                   </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><ListChecks /> Cómo se validan</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <List>
-                            <ListItem>Validación automática al capturar</ListItem>
-                            <ListItem>Revisión diaria o semanal por un usuario designado</ListItem>
-                            <ListItem>Correcciones solo por Admin</ListItem>
-                            <ListItem>Auditoría automática</ListItem>
-                        </List>
-                    </CardContent>
-                </Card>
-                <Card className="lg:col-span-3"><CardHeader><CardTitle>Gastos Diarios Registrados</CardTitle><CardDescription>Listado de los gastos registrados con su estado de validación.</CardDescription></CardHeader>
+
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gastos Diarios Registrados</CardTitle><CardDescription>Listado de los gastos registrados con su estado de validación.</CardDescription></CardHeader>
                   <CardContent>
                     {paginatedExpenses.length === 0 ? (
                       <div className="flex h-[150px] items-center justify-center text-center text-muted-foreground">No se encontraron gastos para los filtros seleccionados.</div>
