@@ -10,6 +10,7 @@ export type Sale = ventas;
 export type ChartData = {
   name: string;
   value: number;
+  cumulative?: number;
 }
 
 export type EnrichedPublicationCount = publicaciones_por_sku & { publication_title?: string };
@@ -47,10 +48,20 @@ async function getSalesData() {
   const topProduct = Object.entries(productRevenue).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
 
   // --- Process Chart Data ---
-  const topProductsChart: ChartData[] = Object.entries(productRevenue)
-    .sort((a, b) => b[1] - a[1])
+  const sortedProducts = Object.entries(productRevenue)
+    .sort((a, b) => b[1] - a[1]);
+    
+  let cumulativeValue = 0;
+  const topProductsChart: ChartData[] = sortedProducts
     .slice(0, 10)
-    .map(([name, value]) => ({ name, value }));
+    .map(([name, value]) => {
+        cumulativeValue += value;
+        return { 
+            name, 
+            value,
+            cumulative: (cumulativeValue / totalRevenue) * 100 
+        };
+    });
     
   const companyRevenue: Record<string, number> = {};
   sales.forEach(sale => {

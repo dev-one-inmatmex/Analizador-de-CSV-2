@@ -4,7 +4,7 @@ import * as React from 'react';
 import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
+import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -288,8 +288,31 @@ export default function SalesDashboardClient({
                                         </CardContent>
                                     </Card>
                                     <Card className="md:col-span-2">
-                                        <CardHeader><CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle><CardDescription>Los 10 productos que generan la mayor parte de tus ingresos.</CardDescription></CardHeader>
-                                        <CardContent><ResponsiveContainer width="100%" height={400}><BarChart data={charts.topProducts} layout="vertical" margin={{ left: 120 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} /><YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} /><Tooltip formatter={(value: number) => money(value)} /><Bar dataKey="value" name="Ingresos" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}/></BarChart></ResponsiveContainer></CardContent>
+                                        <CardHeader>
+                                            <CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle>
+                                            <CardDescription>Los 10 productos con más ingresos y su contribución acumulada al total.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <ResponsiveContainer width="100%" height={400}>
+                                                <ComposedChart
+                                                    data={charts.topProducts}
+                                                    margin={{ top: 5, right: 20, bottom: 60, left: 20 }}
+                                                >
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} interval={0} tick={{ fontSize: 12 }} />
+                                                    <YAxis yAxisId="left" orientation="left" tickFormatter={(value) => `$${(value as number / 1000)}k`} />
+                                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${Math.round(value as number)}%`} />
+                                                    <Tooltip formatter={(value: number, name: string) => {
+                                                        if (name === 'Ingresos') return money(value);
+                                                        if (name === 'Acumulado') return `${(value as number).toFixed(1)}%`;
+                                                        return value;
+                                                    }} />
+                                                    <Legend verticalAlign="top" />
+                                                    <Bar dataKey="value" name="Ingresos" yAxisId="left" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                                    <Line type="monotone" dataKey="cumulative" name="Acumulado" yAxisId="right" stroke="hsl(var(--chart-2))" strokeWidth={2} />
+                                                </ComposedChart>
+                                            </ResponsiveContainer>
+                                        </CardContent>
                                     </Card>
                                 </div>
 
