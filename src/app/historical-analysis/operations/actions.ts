@@ -4,14 +4,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import { revalidatePath } from 'next/cache';
 import { format } from 'date-fns';
-
-export const expenseFormSchema = z.object({
-  fecha: z.date(),
-  empresa: z.string().min(1),
-  tipo_gasto: z.string().min(1),
-  monto: z.coerce.number().positive(),
-  capturista: z.string().min(1),
-});
+import { expenseFormSchema } from './schemas';
 
 export async function addExpenseAction(values: z.infer<typeof expenseFormSchema>) {
   const validatedFields = expenseFormSchema.safeParse(values);

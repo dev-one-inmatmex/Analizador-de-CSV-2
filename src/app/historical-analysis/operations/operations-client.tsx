@@ -1,6 +1,6 @@
 'use client';
 
-import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, CheckCircle, Edit, ShieldCheck } from 'lucide-react';
+import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, CheckCircle, Edit, ShieldCheck, ListChecks } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,8 +27,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { OperationsData, GastoDiario } from './page';
-import { addExpenseAction, updateExpenseAction, reviewExpenseAction, expenseFormSchema } from './actions';
+import { addExpenseAction, updateExpenseAction, reviewExpenseAction } from './actions';
+import { expenseFormSchema } from './schemas';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { List, ListItem } from '@/components/ui/list';
 
 
 const PAGE_SIZE = 10;
@@ -318,7 +320,7 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <Card>
                   <CardHeader>
                     <CardTitle>Gasto por Mes (Histórico)</CardTitle>
@@ -341,7 +343,20 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                     )}
                   </CardContent>
                 </Card>
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gastos Diarios Registrados</CardTitle><CardDescription>Listado de los gastos registrados con su estado de validación.</CardDescription></CardHeader>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><ListChecks /> Cómo se validan</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <List>
+                            <ListItem>Validación automática al capturar</ListItem>
+                            <ListItem>Revisión diaria o semanal por un usuario designado</ListItem>
+                            <ListItem>Correcciones solo por Admin</ListItem>
+                            <ListItem>Auditoría automática</ListItem>
+                        </List>
+                    </CardContent>
+                </Card>
+                <Card className="lg:col-span-3"><CardHeader><CardTitle>Gastos Diarios Registrados</CardTitle><CardDescription>Listado de los gastos registrados con su estado de validación.</CardDescription></CardHeader>
                   <CardContent>
                     {paginatedExpenses.length === 0 ? (
                       <div className="flex h-[150px] items-center justify-center text-center text-muted-foreground">No se encontraron gastos para los filtros seleccionados.</div>
