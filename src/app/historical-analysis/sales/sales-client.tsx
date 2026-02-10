@@ -252,7 +252,17 @@ export default function SalesDashboardClient({
                                     </Card>
                                     <Card>
                                         <CardHeader><CardTitle>Ingresos por Compañía (Histórico)</CardTitle><CardDescription>Distribución de los ingresos entre las diferentes compañías.</CardDescription></CardHeader>
-                                        <CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value: number) => money(value)} /><Pie data={charts.salesByCompany} dataKey="value" nameKey="name" innerRadius={60} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>{charts.salesByCompany?.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><Legend/></PieChart></ResponsiveContainer></CardContent>
+                                        <CardContent>
+                                            <ResponsiveContainer width="100%" height={300}>
+                                                <PieChart>
+                                                    <Tooltip formatter={(value: number) => money(value)} />
+                                                    <Pie data={charts.salesByCompany} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110}>
+                                                        {charts.salesByCompany?.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                                    </Pie>
+                                                    <Legend />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </CardContent>
                                     </Card>
                                     <Card>
                                         <CardHeader><CardTitle>Pedidos del Día por Compañía</CardTitle><CardDescription>Distribución de transacciones de hoy por compañía.</CardDescription></CardHeader>
@@ -261,7 +271,7 @@ export default function SalesDashboardClient({
                                                 <ResponsiveContainer width="100%" height={300}>
                                                     <PieChart>
                                                         <Tooltip formatter={(value: number) => `${value} pedidos`} />
-                                                        <Pie data={charts.ordersByCompanyToday} dataKey="value" nameKey="name" innerRadius={60} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                                                        <Pie data={charts.ordersByCompanyToday} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110}>
                                                             {charts.ordersByCompanyToday.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                                         </Pie>
                                                         <Legend/>
