@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
-     categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
+     categorias_madre: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
      gastos_diarios: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
      publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
@@ -485,6 +485,10 @@ const dateFields = [
 
    const handleSyncData = async (syncType: 'insert' | 'update' | 'all') => {
        if (!analysisResult) return;
+       if (!supabase) {
+         toast({ title: 'Error de Configuración', description: 'El cliente de Supabase no está disponible.', variant: 'destructive' });
+         return;
+       }
       
        let dataToInsert = syncType === 'insert' || syncType === 'all' ? analysisResult.toInsert : [];
        let dataToUpdate = syncType === 'update' || syncType === 'all' ? analysisResult.toUpdate.map(u => u.new) : [];

@@ -114,6 +114,8 @@ export interface skus_unicos{
 
 export interface categorias_madre{
   sku: string;
+  nombre_madre: string;
+  categoria_madre: string;
   landed_cost: number;
   tiempo_preparacion: number | null;
   tiempo_recompra: number | null;
