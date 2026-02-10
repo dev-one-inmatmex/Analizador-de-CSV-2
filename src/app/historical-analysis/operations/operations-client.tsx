@@ -317,7 +317,14 @@ export default function OperationsClient({ initialData }: { initialData: Operati
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Monto</FormLabel>
-                                    <FormControl><Input type="number" placeholder="0.00" {...field} /></FormControl>
+                                    <FormControl>
+                                      <Input 
+                                        type="number" 
+                                        placeholder="0.00" 
+                                        {...field} 
+                                        value={field.value ?? ''}
+                                      />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
