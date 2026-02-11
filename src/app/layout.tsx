@@ -36,7 +36,6 @@ const menuLinks = [
   { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },
   { href: '/historical-analysis/trends-prediction', label: 'Recompra', icon: Repeat },
   { href: '/historical-analysis/mapping-reconciliation', label: 'Mapeo y conciliación', icon: Puzzle },
-  { href: '/', label: 'Analizador de datos CSV', icon: FileCheck },
   { href: '/historical-analysis/alerts', label: 'Alertas', icon: AlertTriangle },
   { href: '/historical-analysis/access-management', label: 'Auditoría', icon: Users },
   { href: '/historical-analysis/financial-close', label: 'Cierre financiero', icon: Landmark },

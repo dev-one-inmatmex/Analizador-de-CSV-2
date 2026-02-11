@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -184,9 +185,13 @@ export default function SalesDashboardClient({
     return (
         <>
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   <SidebarTrigger />
                   <h1 className="text-xl font-bold tracking-tight">Ventas</h1>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Fuente oficial de ingresos</Badge>
+                    <Badge variant="outline">CSV histórico + diario</Badge>
+                  </div>
                 </div>
             </header>
 
