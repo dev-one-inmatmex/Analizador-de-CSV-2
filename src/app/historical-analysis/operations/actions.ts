@@ -54,7 +54,6 @@ export async function updateExpenseAction(id: number, values: z.infer<typeof exp
         .update({ 
             ...validatedFields.data,
             fecha: format(validatedFields.data.fecha, 'yyyy-MM-dd'),
-            updated_at: new Date().toISOString()
         })
         .eq('id', id);
 
