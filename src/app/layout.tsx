@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 const menuLinks = [
-  
+  { href: '/', label: 'Analizador de datos CSV', icon: FileCheck },
   { href: '/historical-analysis/sales', label: 'Ventas', icon: BarChart3 },
   { href: '/historical-analysis/operations', label: 'Gastos diarios', icon: Receipt },
   { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },

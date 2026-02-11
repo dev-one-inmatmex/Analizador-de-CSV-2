@@ -343,7 +343,7 @@ const dateFields = [
    const handleAnalyzeData = async () => {
      const pkMapped = Object.values(headerMap).includes(primaryKey);
      if (!pkMapped && selectedTableName !== 'gastos_diarios') { // For gastos_diarios, ID is auto-gen, so PK might not be in CSV
-         toast({ title: 'Validación Fallida', description: `La columna de clave primaria '${primaryKey}' debe estar mapeada para continuar.`, variant: 'destructive' });
+         toast({ title: 'Validación Fallida', description: `La clave primaria '${primaryKey}' debe estar mapeada para continuar.`, variant: 'destructive' });
          return;
      }
 
@@ -365,12 +365,6 @@ const dateFields = [
                  }
              });
              return newRow;
-         }).filter(row => {
-            if (primaryKey && row[primaryKey] !== undefined) {
-                const pkValue = row[primaryKey];
-                return pkValue !== null && String(pkValue).trim() !== '';
-            }
-            return true; // For tables where PK might be auto-generated and not in the CSV
          });
 
          const csvPkValues = mappedCsvData.map(row => row[primaryKey]).filter(Boolean);
@@ -418,8 +412,10 @@ const dateFields = [
 
          for (const csvRow of mappedCsvData) {
              const pkValue = String(csvRow[primaryKey]);
-             if (!pkValue) {
-                result.toInsert.push(csvRow);
+             if (!pkValue || pkValue === 'undefined') {
+                if (Object.values(csvRow).some(v => v !== null && v !== undefined && String(v).trim() !== '')) {
+                  result.toInsert.push(csvRow);
+                }
                 continue;
              };
 
