@@ -34,7 +34,7 @@ const menuLinks = [
   { href: '/historical-analysis/operations', label: 'Gastos diarios', icon: Receipt },
   { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },
   { href: '/historical-analysis/trends-prediction', label: 'Recompra', icon: Repeat },
-  { href: '/', label: 'Mapeo y conciliación', icon: FileCheck },
+  { href: '/', label: 'Analizador de datos CSV', icon: FileCheck },
   { href: '/historical-analysis/alerts', label: 'Alertas', icon: AlertTriangle },
   { href: '/historical-analysis/access-management', label: 'Auditoría', icon: Users },
   { href: '/historical-analysis/financial-close', label: 'Cierre financiero', icon: Landmark },

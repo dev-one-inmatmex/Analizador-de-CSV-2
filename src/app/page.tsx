@@ -8,7 +8,7 @@ export default function Home() {
       <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold tracking-tight">Mapeo y Conciliación</h1>
+          <h1 className="text-xl font-bold tracking-tight">Analizador de datos CSV</h1>
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-start bg-background p-4 sm:p-6 lg:p-8">

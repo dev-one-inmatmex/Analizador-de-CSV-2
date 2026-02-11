@@ -24,11 +24,13 @@ export type OperationsData = {
 
 async function getOperationsData(): Promise<OperationsData> {
     noStore();
+    const allCompanies = ['Todos', 'MTM', 'TAL', 'DK']; // Static list for expenses
+
     const emptyData: OperationsData = { 
         kpis: { totalCost: 0, companyCount: 0, avgExpense: 0, totalRecords: 0 }, 
         charts: { costByMonth: [], spendingByCompany: [] },
         expenses: [],
-        allCompanies: []
+        allCompanies: allCompanies
     };
     
     if (!supabaseAdmin) {
@@ -36,23 +38,18 @@ async function getOperationsData(): Promise<OperationsData> {
         return emptyData;
     }
 
-    const [{ data: expensesData, error: expensesError }, { data: companiesData, error: companiesError }] = await Promise.all([
-        supabaseAdmin.from('gastos_diarios').select('*').order('fecha', { ascending: false }),
-        supabaseAdmin.from('publicaciones').select('company').neq('company', '')
-    ]);
+    const { data: expensesData, error: expensesError } = await supabaseAdmin
+        .from('gastos_diarios')
+        .select('*')
+        .order('fecha', { ascending: false });
 
     if (expensesError) {
         console.error('Error fetching daily expenses:', expensesError);
-        return emptyData;
+        return { ...emptyData, allCompanies };
     }
 
     const expenses = (expensesData as GastoDiario[]) || [];
     
-    const publicationCompanies = companiesData ? [...new Set(companiesData.map((p: { company: string | null }) => p.company).filter((c): c is string => !!c))] : [];
-    
-    const allCompanies = ['Todos', ...new Set([...publicationCompanies])];
-
-
     // --- KPIs ---
     const totalCost = expenses.reduce((acc, item) => acc + (item.monto || 0), 0);
     const totalRecords = expenses.length;
