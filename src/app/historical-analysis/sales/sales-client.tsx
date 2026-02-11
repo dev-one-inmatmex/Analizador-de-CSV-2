@@ -33,6 +33,7 @@ type ProductsData = {
     publications: any[];
     skuCounts: EnrichedPublicationCount[];
     skuMap: EnrichedSkuMap[];
+    motherCatalog: EnrichedMotherCatalog[];
     error: string | null;
 }
 
@@ -70,22 +71,24 @@ export default function SalesDashboardClient({
             const companyMatch = company === 'Todos' || sale.company === company;
 
             let dateMatch = true;
-            if (date?.from && sale.fecha_venta) {
-                try {
-                    const saleDate = new Date(sale.fecha_venta);
-                    if (isValid(saleDate)) {
-                        dateMatch = saleDate >= startOfDay(date.from);
-                        if(date.to) {
-                           dateMatch = dateMatch && saleDate <= endOfDay(date.to);
+            if (date?.from) {
+                if (sale.fecha_venta) {
+                    try {
+                        const saleDate = new Date(sale.fecha_venta);
+                        if (isValid(saleDate)) {
+                            dateMatch = saleDate >= startOfDay(date.from);
+                            if(date.to) {
+                               dateMatch = dateMatch && saleDate <= endOfDay(date.to);
+                            }
+                        } else {
+                            dateMatch = false;
                         }
-                    } else {
+                    } catch(e) {
                         dateMatch = false;
                     }
-                } catch(e) {
+                } else {
                     dateMatch = false;
                 }
-            } else if (date?.from) {
-                dateMatch = false;
             }
 
             return companyMatch && dateMatch;
@@ -129,17 +132,19 @@ export default function SalesDashboardClient({
             
         const salesByMonth: Record<string, { total: number, date: Date }> = {};
         filteredSales.forEach(sale => {
-            try {
-                const saleDate = new Date(sale.fecha_venta);
-                if(!isValid(saleDate)) return;
-                const monthKey = format(saleDate, 'yyyy-MM');
-                
-                if (!salesByMonth[monthKey]) {
-                salesByMonth[monthKey] = { total: 0, date: startOfMonth(saleDate) };
+            if (sale.fecha_venta) {
+                try {
+                    const saleDate = new Date(sale.fecha_venta);
+                    if(!isValid(saleDate)) return;
+                    const monthKey = format(saleDate, 'yyyy-MM');
+                    
+                    if (!salesByMonth[monthKey]) {
+                    salesByMonth[monthKey] = { total: 0, date: startOfMonth(saleDate) };
+                    }
+                    salesByMonth[monthKey].total += sale.total || 0;
+                } catch (e) {
+                    // ignore invalid dates
                 }
-                salesByMonth[monthKey].total += sale.total || 0;
-            } catch (e) {
-                // ignore invalid dates
             }
         });
         
@@ -152,18 +157,21 @@ export default function SalesDashboardClient({
 
         const salesByDay: Record<string, { total: number, date: Date }> = {};
         const ninetyDaysAgo = subMonths(new Date(), 3);
-        filteredSales.filter(s => new Date(s.fecha_venta) >= ninetyDaysAgo).forEach(sale => {
-            try {
-            const saleDate = new Date(sale.fecha_venta);
-            if(!isValid(saleDate)) return;
-            const dayKey = format(saleDate, 'yyyy-MM-dd');
-            
-            if (!salesByDay[dayKey]) {
-                salesByDay[dayKey] = { total: 0, date: startOfDay(saleDate) };
-            }
-            salesByDay[dayKey].total += sale.total || 0;
-            } catch (e) {
-            // ignore invalid dates
+        filteredSales.forEach(sale => {
+            if (sale.fecha_venta) {
+                try {
+                    const saleDate = new Date(sale.fecha_venta);
+                    if (isValid(saleDate) && saleDate >= ninetyDaysAgo) {
+                        const dayKey = format(saleDate, 'yyyy-MM-dd');
+                        
+                        if (!salesByDay[dayKey]) {
+                            salesByDay[dayKey] = { total: 0, date: startOfDay(saleDate) };
+                        }
+                        salesByDay[dayKey].total += sale.total || 0;
+                    }
+                } catch (e) {
+                    // ignore invalid dates
+                }
             }
         });
         const salesByDayChart: ChartData[] = Object.values(salesByDay)
@@ -177,11 +185,12 @@ export default function SalesDashboardClient({
         const todayEnd = endOfDay(new Date());
 
         const todaySales = filteredSales.filter(sale => {
+            if (!sale.fecha_venta) return false;
             try {
-            const saleDate = new Date(sale.fecha_venta);
-            return isValid(saleDate) && saleDate >= todayStart && saleDate <= todayEnd;
+                const saleDate = new Date(sale.fecha_venta);
+                return isValid(saleDate) && saleDate >= todayStart && saleDate <= todayEnd;
             } catch(e) {
-            return false;
+                return false;
             }
         });
 
@@ -216,8 +225,12 @@ export default function SalesDashboardClient({
     const money = (v?: number | null) => v === null || v === undefined ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
     const formatDate = (d: string | null) => {
         if (!d) return 'N/A';
-        const date = new Date(d);
-        return isValid(date) ? format(date, 'dd MMM yyyy, HH:mm', { locale: es }) : 'Fecha inválida';
+        try {
+            const date = new Date(d);
+            return isValid(date) ? format(date, 'dd MMM yyyy, HH:mm', { locale: es }) : 'Fecha inválida';
+        } catch (e) {
+            return 'Fecha inválida';
+        }
     }
     const formatBoolean = (b: boolean | string | null | undefined) => {
         if (b === null || b === undefined) return 'N/A';
@@ -253,7 +266,7 @@ export default function SalesDashboardClient({
         const totalCategorias = categoriasMadre.length;
         const totalSkus = skusUnicos.length;
         const totalMapeos = skuPublicaciones.length;
-        const landedCosts = categoriasMadre.map(c => c.landed_cost).filter(Boolean);
+        const landedCosts = categoriasMadre.map(c => c.landed_cost).filter((c): c is number => c !== null && c !== undefined);
         const avgLandedCost = landedCosts.length > 0 ? landedCosts.reduce((a, b) => a + b, 0) / landedCosts.length : 0;
         
         const proveedorCounts: Record<string, number> = {};
@@ -741,12 +754,11 @@ export default function SalesDashboardClient({
                                             <TableHead>Título</TableHead>
                                             <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
-                                            <TableHead className="text-center">T. Recompra (días)</TableHead>
                                             <TableHead className="text-center">Pzs/SKU</TableHead>
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
                                             <TableHead>Bodega</TableHead>
                                             <TableHead>Bloque</TableHead>
-                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.tiempo_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                         {totalPagesCategorias > 1 && renderInventoryPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
                                         </Card>
                                     </TabsContent>
@@ -813,7 +825,7 @@ export default function SalesDashboardClient({
                                         <TableHead>SKU</TableHead>
                                         <TableHead>Título de Ejemplo</TableHead>
                                         <TableHead className="text-right"># Publicaciones</TableHead>
-                                    </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="max-w-xs truncate">{item.publication_title}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                    </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item: EnrichedPublicationCount, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="max-w-xs truncate">{item.publication_title}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                     </Card>
                                 </div>
 
@@ -837,8 +849,8 @@ export default function SalesDashboardClient({
                                     <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price ?? 0)}</TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{pub.created_at ? format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es }) : 'N/A'}</TableCell>
                                 </TableRow>))}</TableBody></Table></CardContent>{totalPagesPubs > 1 && renderProductsPagination(productPages.pubs, totalPagesPubs, (p) => setProductPages(prev => ({...prev, pubs: p})))}</Card>
-                                <Card><CardHeader><CardTitle>Mapeo SKU a Producto Madre</CardTitle><CardDescription>Relación entre SKUs, publicaciones y categoría madre.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>ID Publicación</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedMap.map((item, index) => (<TableRow key={`${item.sku}-${item.item_id}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell className="font-mono">{item.item_id}</TableCell><TableCell>{item.nombre_madre ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>{totalPagesMap > 1 && renderProductsPagination(productPages.map, totalPagesMap, (p) => setProductPages(prev => ({...prev, map: p})))}</Card>
-                                <Card><CardHeader><CardTitle>Catálogo de Productos Madre</CardTitle><CardDescription>Listado maestro de categorías principales.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedCatalog.map((item, index) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell>{item.nombre_madre}</TableCell></TableRow>))}</TableBody></Table></CardContent>{totalPagesCatalog > 1 && renderProductsPagination(productPages.catalog, totalPagesCatalog, (p) => setProductPages(prev => ({...prev, catalog: p})))}</Card>
+                                <Card><CardHeader><CardTitle>Mapeo SKU a Producto Madre</CardTitle><CardDescription>Relación entre SKUs, publicaciones y categoría madre.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>ID Publicación</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedMap.map((item: EnrichedSkuMap, index: number) => (<TableRow key={`${item.sku}-${item.item_id}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell className="font-mono">{item.item_id}</TableCell><TableCell>{item.nombre_madre ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>{totalPagesMap > 1 && renderProductsPagination(productPages.map, totalPagesMap, (p) => setProductPages(prev => ({...prev, map: p})))}</Card>
+                                <Card><CardHeader><CardTitle>Catálogo de Productos Madre</CardTitle><CardDescription>Listado maestro de categorías principales.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedCatalog.map((item: EnrichedMotherCatalog, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell><TableCell>{item.nombre_madre}</TableCell></TableRow>))}</TableBody></Table></CardContent>{totalPagesCatalog > 1 && renderProductsPagination(productPages.catalog, totalPagesCatalog, (p) => setProductPages(prev => ({...prev, catalog: p})))}</Card>
                                 </div>
                             </>
                             )}
