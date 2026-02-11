@@ -188,10 +188,6 @@ export default function SalesDashboardClient({
                 <div className="flex flex-wrap items-center gap-4">
                   <SidebarTrigger />
                   <h1 className="text-xl font-bold tracking-tight">Ventas</h1>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">Fuente oficial de ingresos</Badge>
-                    <Badge variant="outline">CSV histórico + diario</Badge>
-                  </div>
                 </div>
             </header>
 

@@ -134,3 +134,21 @@ export interface gastos_diarios{
   monto: number | null;
   capturista: string | null;
 }
+
+export interface filtrado_por_categorias{
+  sku: string;
+  categoria_madre: string | null;
+  landed_cost: number | null;
+  presentacion_master_1: string | null;
+  piezas_por_master: number | null;
+  codigo_en_siggo: string | null;
+  nombre_en_siggo: string | null;
+  rock_en_siggo: number | null;
+  piezas_totales: number | null;
+  estado_en_siggo: string | null;
+  presentacion_master_2: string | null;
+  presentacion_en_master_3: string | null;
+  presentacion_en_master_4: string | null;
+  bodega: string | null;
+  bloque: string | null;
+}
