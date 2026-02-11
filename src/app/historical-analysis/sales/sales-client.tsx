@@ -2,11 +2,12 @@
 'use client';
 
 import * as React from 'react';
-import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2 } from 'lucide-react';
-import { format, isValid } from 'date-fns';
+import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter } from 'lucide-react';
+import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
+import { DateRange } from 'react-day-picker';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -17,6 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { Sale, ChartData, EnrichedCategoriaMadre, EnrichedMotherCatalog, EnrichedPublicationCount, EnrichedSkuMap, KpiType, ChartDataType } from './page';
 import type { skus_unicos, skuxpublicaciones } from '@/types/database';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type InventoryData = {
     categoriasMadre: EnrichedCategoriaMadre[];
@@ -29,7 +33,6 @@ type ProductsData = {
     publications: any[];
     skuCounts: EnrichedPublicationCount[];
     skuMap: EnrichedSkuMap[];
-    motherCatalog: EnrichedMotherCatalog[];
     error: string | null;
 }
 
@@ -37,25 +40,177 @@ const PAGE_SIZE = 10;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function SalesDashboardClient({ 
-    sales, 
-    kpis, 
-    charts,
+    initialSales, 
+    allCompanies,
     inventoryData,
     productsData 
 }: { 
-    sales: Sale[], 
-    kpis: KpiType, 
-    charts: ChartDataType,
+    initialSales: Sale[], 
+    allCompanies: string[],
     inventoryData: InventoryData,
     productsData: ProductsData
 }) {
     // === SALES-CLIENT STATE AND LOGIC ===
     const [currentPage, setCurrentPage] = React.useState(1);
     const [isClient, setIsClient] = React.useState(false);
+    
+    // NEW: Filter state
+    const [company, setCompany] = React.useState('Todos');
+    const [date, setDate] = React.useState<DateRange | undefined>({
+      from: subDays(new Date(), 365),
+      to: new Date(),
+    });
 
     React.useEffect(() => {
         setIsClient(true);
     }, []);
+
+    const { sales, kpis, charts } = React.useMemo(() => {
+        const filteredSales = initialSales.filter(sale => {
+            const companyMatch = company === 'Todos' || sale.company === company;
+
+            let dateMatch = true;
+            if (date?.from && sale.fecha_venta) {
+                try {
+                    const saleDate = new Date(sale.fecha_venta);
+                    if (isValid(saleDate)) {
+                        dateMatch = saleDate >= startOfDay(date.from);
+                        if(date.to) {
+                           dateMatch = dateMatch && saleDate <= endOfDay(date.to);
+                        }
+                    } else {
+                        dateMatch = false;
+                    }
+                } catch(e) {
+                    dateMatch = false;
+                }
+            } else if (date?.from) {
+                dateMatch = false;
+            }
+
+            return companyMatch && dateMatch;
+        });
+
+        // --- Process KPIs ---
+        const totalRevenue = filteredSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
+        const totalSales = filteredSales.length;
+        const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0;
+        
+        const productRevenue: Record<string, number> = {};
+        filteredSales.forEach(sale => {
+            const key = sale.title || 'Producto Desconocido';
+            productRevenue[key] = (productRevenue[key] || 0) + (sale.total || 0);
+        });
+        const topProduct = Object.entries(productRevenue).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
+
+        // --- Process Chart Data ---
+        const sortedProducts = Object.entries(productRevenue)
+            .sort((a, b) => b[1] - a[1]);
+            
+        let cumulativeValue = 0;
+        const topProductsChart: ChartData[] = sortedProducts
+            .slice(0, 10)
+            .map(([name, value]) => {
+                cumulativeValue += value;
+                return { 
+                    name, 
+                    value,
+                    cumulative: (cumulativeValue / totalRevenue) * 100 
+                };
+            });
+            
+        const companyRevenue: Record<string, number> = {};
+        filteredSales.forEach(sale => {
+            const key = sale.company || 'Compañía Desconocida';
+            companyRevenue[key] = (companyRevenue[key] || 0) + (sale.total || 0);
+        });
+        const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
+            .map(([name, value]) => ({ name, value }));
+            
+        const salesByMonth: Record<string, { total: number, date: Date }> = {};
+        filteredSales.forEach(sale => {
+            try {
+                const saleDate = new Date(sale.fecha_venta);
+                if(!isValid(saleDate)) return;
+                const monthKey = format(saleDate, 'yyyy-MM');
+                
+                if (!salesByMonth[monthKey]) {
+                salesByMonth[monthKey] = { total: 0, date: startOfMonth(saleDate) };
+                }
+                salesByMonth[monthKey].total += sale.total || 0;
+            } catch (e) {
+                // ignore invalid dates
+            }
+        });
+        
+        const salesTrendChart: ChartData[] = Object.values(salesByMonth)
+            .sort((a,b) => a.date.getTime() - b.date.getTime())
+            .map(month => ({
+            name: (format(month.date, 'MMM yy', { locale: es })).replace(/^\w/, c => c.toUpperCase()),
+            value: month.total
+            }));
+
+        const salesByDay: Record<string, { total: number, date: Date }> = {};
+        const ninetyDaysAgo = subMonths(new Date(), 3);
+        filteredSales.filter(s => new Date(s.fecha_venta) >= ninetyDaysAgo).forEach(sale => {
+            try {
+            const saleDate = new Date(sale.fecha_venta);
+            if(!isValid(saleDate)) return;
+            const dayKey = format(saleDate, 'yyyy-MM-dd');
+            
+            if (!salesByDay[dayKey]) {
+                salesByDay[dayKey] = { total: 0, date: startOfDay(saleDate) };
+            }
+            salesByDay[dayKey].total += sale.total || 0;
+            } catch (e) {
+            // ignore invalid dates
+            }
+        });
+        const salesByDayChart: ChartData[] = Object.values(salesByDay)
+            .sort((a,b) => a.date.getTime() - b.date.getTime())
+            .map(day => ({
+            name: format(day.date, 'dd MMM', { locale: es }),
+            value: day.total
+            }));
+
+        const todayStart = startOfDay(new Date());
+        const todayEnd = endOfDay(new Date());
+
+        const todaySales = filteredSales.filter(sale => {
+            try {
+            const saleDate = new Date(sale.fecha_venta);
+            return isValid(saleDate) && saleDate >= todayStart && saleDate <= todayEnd;
+            } catch(e) {
+            return false;
+            }
+        });
+
+        const ordersByCompanyToday: Record<string, number> = {};
+        todaySales.forEach(sale => {
+            const key = sale.company || 'Compañía Desconocida';
+            ordersByCompanyToday[key] = (ordersByCompanyToday[key] || 0) + 1;
+        });
+        const ordersByCompanyTodayChart: ChartData[] = Object.entries(ordersByCompanyToday)
+            .map(([name, value]) => ({ name, value }));
+
+        return {
+            sales: filteredSales,
+            kpis: {
+                totalRevenue,
+                totalSales,
+                avgSale,
+                topProductName: topProduct[0],
+                topProductRevenue: topProduct[1],
+            },
+            charts: {
+                topProducts: topProductsChart,
+                salesByCompany: salesByCompanyChart,
+                salesTrend: salesTrendChart,
+                salesByDay: salesByDayChart,
+                ordersByCompanyToday: ordersByCompanyTodayChart
+            }
+        };
+    }, [initialSales, company, date, isClient]);
 
     
     const money = (v?: number | null) => v === null || v === undefined ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
@@ -79,6 +234,12 @@ export default function SalesDashboardClient({
       (currentPage - 1) * PAGE_SIZE,
       currentPage * PAGE_SIZE
     );
+
+    const handleClearFilters = () => {
+        setCompany('Todos');
+        setDate({ from: subDays(new Date(), 365), to: new Date() });
+        setCurrentPage(1);
+    };
 
     // === INVENTORY-CLIENT STATE AND LOGIC ===
     const { toast } = useToast();
@@ -187,7 +348,13 @@ export default function SalesDashboardClient({
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
                 <div className="flex flex-wrap items-center gap-4">
                   <SidebarTrigger />
-                  <h1 className="text-xl font-bold tracking-tight">Ventas</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold tracking-tight">Ventas</h1>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline">Fuente oficial de ingresos</Badge>
+                        <Badge variant="outline">CSV histórico + diario</Badge>
+                    </div>
+                  </div>
                 </div>
             </header>
 
@@ -206,16 +373,47 @@ export default function SalesDashboardClient({
                     </TabsList>
                     
                     <TabsContent value="dashboard" className="mt-6">
-                        {!sales || sales.length === 0 ? (
-                            <Alert variant="destructive" className="w-full">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle>No se Encontraron Datos de Ventas</AlertTitle>
-                                <AlertDescription>No se pudieron obtener datos de la tabla 'ventas'. Revisa la conexión con Supabase y asegúrate de que la tabla contenga registros.</AlertDescription>
-                            </Alert>
-                        ) : (
-                            <div className="space-y-4 md:space-y-8">
+                        <div className="space-y-4 md:space-y-8">
+                            <Card>
+                                <CardHeader className="flex flex-row items-center gap-4">
+                                    <Filter className="h-6 w-6 text-muted-foreground" />
+                                    <div>
+                                        <CardTitle>Filtros de Ventas</CardTitle>
+                                        <CardDescription>Analiza por compañía o periodo de tiempo.</CardDescription>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div className='space-y-2'>
+                                            <Label htmlFor="date-range">Periodo</Label>
+                                            <DateRangePicker id="date-range" date={date} onSelect={setDate} />
+                                        </div>
+                                        <div className='space-y-2'>
+                                            <Label htmlFor="company-filter">Compañía</Label>
+                                            <Select value={company} onValueChange={setCompany}>
+                                                <SelectTrigger id="company-filter"><SelectValue placeholder="Seleccionar compañía" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-end gap-2">
+                                        <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {sales.length === 0 ? (
+                                <Alert variant="destructive" className="w-full">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTitle>No se Encontraron Datos</AlertTitle>
+                                    <AlertDescription>No se encontraron datos de ventas para los filtros seleccionados. Prueba con un rango de fechas más amplio o limpia los filtros.</AlertDescription>
+                                </Alert>
+                            ) : (
+                            <>
                                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.totalRevenue)}</div><p className="text-xs text-muted-foreground">Últimos 12 meses</p></CardContent></Card>
+                                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.totalRevenue)}</div><p className="text-xs text-muted-foreground">En el periodo filtrado</p></CardContent></Card>
                                     <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ventas Totales</CardTitle><ShoppingCart className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalSales?.toLocaleString('es-MX')}</div><p className="text-xs text-muted-foreground"># de transacciones</p></CardContent></Card>
                                     <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Venta Promedio</CardTitle><BarChart3 className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.avgSale)}</div><p className="text-xs text-muted-foreground">Valor medio por transacción</p></CardContent></Card>
                                     <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Producto Estrella</CardTitle><Package className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold truncate" title={kpis.topProductName}>{kpis.topProductName}</div><p className="text-xs text-muted-foreground">Ingresos: {money(kpis.topProductRevenue)}</p></CardContent></Card>
@@ -223,11 +421,11 @@ export default function SalesDashboardClient({
                                 
                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <Card>
-                                        <CardHeader><CardTitle>Tendencia de Ventas Mensuales</CardTitle><CardDescription>Ingresos generados mes a mes en el último año.</CardDescription></CardHeader>
+                                        <CardHeader><CardTitle>Tendencia de Ventas Mensuales</CardTitle><CardDescription>Ingresos generados mes a mes en el periodo filtrado.</CardDescription></CardHeader>
                                         <CardContent><ResponsiveContainer width="100%" height={300}><LineChart data={charts.salesTrend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value: number) => money(value)} /><Line type="monotone" dataKey="value" name="Ingresos" stroke="hsl(var(--primary))" /></LineChart></ResponsiveContainer></CardContent>
                                     </Card>
                                     <Card>
-                                        <CardHeader><CardTitle>Ventas por Día (Últimos 90 días)</CardTitle><CardDescription>Ingresos generados día a día.</CardDescription></CardHeader>
+                                        <CardHeader><CardTitle>Ventas por Día</CardTitle><CardDescription>Ingresos generados día a día en el periodo filtrado.</CardDescription></CardHeader>
                                         <CardContent>
                                             <ResponsiveContainer width="100%" height={300}>
                                                 <AreaChart data={charts.salesByDay}>
@@ -247,7 +445,7 @@ export default function SalesDashboardClient({
                                         </CardContent>
                                     </Card>
                                     <Card>
-                                        <CardHeader><CardTitle>Ingresos por Compañía (Histórico)</CardTitle><CardDescription>Distribución de los ingresos entre las diferentes compañías.</CardDescription></CardHeader>
+                                        <CardHeader><CardTitle>Ingresos por Compañía</CardTitle><CardDescription>Distribución de los ingresos en el periodo filtrado.</CardDescription></CardHeader>
                                         <CardContent>
                                             <ResponsiveContainer width="100%" height={300}>
                                                 <PieChart>
@@ -313,7 +511,7 @@ export default function SalesDashboardClient({
                                 </div>
 
                                 <Card>
-                                    <CardHeader><CardTitle>Historial de Ventas Detallado</CardTitle><CardDescription>Mostrando las últimas ventas registradas con toda la información disponible.</CardDescription></CardHeader>
+                                    <CardHeader><CardTitle>Historial de Ventas Detallado</CardTitle><CardDescription>Mostrando las ventas registradas en el periodo filtrado.</CardDescription></CardHeader>
                                     <CardContent>
                                         <Table>
                                         <TableHeader>
@@ -454,8 +652,9 @@ export default function SalesDashboardClient({
                                     </CardContent>
                                     {totalPages > 1 && (<CardFooter><div className="flex w-full items-center justify-between text-xs text-muted-foreground"><div>Página {currentPage} de {totalPages}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button></div></div></CardFooter>)}
                                 </Card>
-                            </div>
-                        )}
+                            </>
+                            )}
+                        </div>
                     </TabsContent>
                     
                     <TabsContent value="inventory" className="mt-6">
