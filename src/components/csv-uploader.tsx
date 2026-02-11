@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
-     gastos_diarios: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
+     gastos_diarios: { pk: 'id', columns: ['fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
      publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_contenedor'] },
@@ -411,6 +411,14 @@ const dateFields = [
         };
 
          for (const csvRow of mappedCsvData) {
+            if (selectedTableName === 'gastos_diarios') {
+                // For gastos_diarios, we assume all records are for insertion, bypassing PK logic.
+                if (Object.values(csvRow).some(v => v !== null && v !== undefined && String(v).trim() !== '')) {
+                    result.toInsert.push(csvRow);
+                }
+                continue;
+            }
+
              const pkValue = String(csvRow[primaryKey]);
              if (!pkValue || pkValue === 'undefined') {
                 if (Object.values(csvRow).some(v => v !== null && v !== undefined && String(v).trim() !== '')) {
