@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -236,6 +236,16 @@ const dateFields = [
      setAnalysisResult(null);
    };
 
+   const backToMapping = () => {
+    setAnalysisResult(null);
+    setSyncSummary(null);
+    setCurrentStep('mapping');
+    toast({
+      title: 'Volviendo al Mapeo',
+      description: 'Puedes ajustar el mapeo de columnas y volver a analizar.',
+    });
+  };
+
    const processFile = (fileToProcess: File) => {
      resetAll();
      setFile(fileToProcess);
@@ -368,11 +378,9 @@ const dateFields = [
          });
 
          const csvPkValues = mappedCsvData.map(row => row[primaryKey]).filter(Boolean);
-         if (csvPkValues.length === 0) {
+         if (csvPkValues.length === 0 && selectedTableName !== 'gastos_diarios') {
             // This is ok if we are only inserting (e.g. gastos_diarios)
-            if (selectedTableName !== 'gastos_diarios') {
-                console.warn("No valid primary key values found in CSV, treating all as new inserts.");
-            }
+            console.warn("No valid primary key values found in CSV, treating all as new inserts.");
          }
          
         const CHUNK_SIZE = 500;
@@ -737,10 +745,16 @@ const dateFields = [
                            <CardTitle>Sincronización Finalizada</CardTitle>
                            <CardDescription>La carga de datos ha terminado. Aquí tienes el resumen.</CardDescription>
                          </div>
-                         <Button variant="outline" onClick={() => resetAll(false)}>
-                           <Undo2 className="mr-2 h-4 w-4" />
-                           Empezar de Nuevo
-                         </Button>
+                         <div className="flex gap-2">
+                           <Button variant="outline" onClick={backToMapping}>
+                             <Map className="mr-2 h-4 w-4" />
+                             Volver al Mapeo
+                           </Button>
+                           <Button variant="outline" onClick={() => resetAll(false)}>
+                             <Undo2 className="mr-2 h-4 w-4" />
+                             Empezar de Nuevo
+                           </Button>
+                         </div>
                        </CardHeader>
                        <CardContent className="space-y-6">
                          <Alert variant={syncSummary.errors.length > 0 ? "destructive" : "default"}>
@@ -840,10 +854,16 @@ const dateFields = [
                          <CardTitle>Paso 3: Resultados del Análisis</CardTitle>
                          <CardDescription>Revisa los cambios detectados y elige qué acción sincronizar con la base de datos.</CardDescription>
                         </div>
-                        <Button variant="outline" onClick={() => resetAll(false)}>
-                           <Undo2 className="mr-2 h-4 w-4" />
-                           Empezar de Nuevo
-                        </Button>
+                        <div className="flex gap-2">
+                           <Button variant="outline" onClick={backToMapping}>
+                             <Map className="mr-2 h-4 w-4" />
+                             Volver al Mapeo
+                           </Button>
+                           <Button variant="outline" onClick={() => resetAll(false)}>
+                              <Undo2 className="mr-2 h-4 w-4" />
+                              Empezar de Nuevo
+                           </Button>
+                        </div>
                      </CardHeader>
                      <CardContent>
                        <Tabs defaultValue="toInsert">
