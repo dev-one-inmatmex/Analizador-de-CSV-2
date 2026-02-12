@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map as MapIcon, Sheet as SheetIcon } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { read, utils, type WorkBook } from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -209,7 +209,7 @@ const dateFields = [
    const [isClient, setIsClient] = useState(false);
 
     // New state for sheet selection
-    const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+    const [workbook, setWorkbook] = useState<WorkBook | null>(null);
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
     const [selectedPreviewSheet, setSelectedPreviewSheet] = useState('');
@@ -279,9 +279,9 @@ const dateFields = [
      toast({ title: 'Archivo Procesado', description: `${dataRows.length} filas de datos encontradas.` });
    };
 
-   const updatePreviewData = (sheetName: string, wb: XLSX.WorkBook) => {
+   const updatePreviewData = (sheetName: string, wb: WorkBook) => {
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = XLSX.utils.sheet_to_aoa(sheet);
+        const data: (string|number)[][] = utils.sheet_to_aoa(sheet);
         const headers = (data[0] || []).map(h => String(h ?? ''));
         
         const rows = data.slice(1).map(row => {
@@ -319,7 +319,7 @@ const dateFields = [
             const data = e.target?.result;
             if (!data) return;
             try {
-                const wb = XLSX.read(data, { type: 'array' });
+                const wb = read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
 
                 if (sNames.length > 1) {
@@ -330,7 +330,7 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const sheetData = XLSX.utils.sheet_to_aoa(sheet);
+                    const sheetData = utils.sheet_to_aoa(sheet);
                     setProcessedData(sheetData as (string|number)[][]);
                 }
             } catch (error) {
