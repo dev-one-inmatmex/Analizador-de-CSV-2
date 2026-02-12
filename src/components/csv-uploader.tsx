@@ -325,7 +325,7 @@ const dateFields = [
    const updatePreviewData = async (sheetName: string, wb: WorkBook) => {
         const XLSX = await import('xlsx');
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = XLSX.utils.sheet_to_aoa(sheet, { defval: "" });
+        const data: (string|number)[][] = (XLSX.utils as any).sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
@@ -346,7 +346,7 @@ const dateFields = [
         if (workbook) {
             const XLSX = await import('xlsx');
             const sheet = workbook.Sheets[selectedPreviewSheet];
-            const csvString = XLSX.utils.sheet_to_csv(sheet);
+            const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
@@ -376,7 +376,7 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = XLSX.utils.sheet_to_csv(sheet);
+                    const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
