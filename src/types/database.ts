@@ -118,6 +118,8 @@ export interface categorias_madre{
   categoria_madre: string;
   landed_cost: number;
   tiempo_preparacion: number | null;
+  tiempo_recompra: number | null;
+  prov
   piezas_por_sku: number | null;
   piezas_por_contenedor: number | null;
   bodega: string |null; 

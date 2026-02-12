@@ -272,10 +272,68 @@ const dateFields = [
      toast({ title: 'Archivo Procesado', description: `${dataRows.length} filas de datos encontradas.` });
    };
 
+   const parseAndSetData = (text: string) => {
+    if (!text) return;
+
+    const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+    if (lines.length === 0) {
+        setProcessedData([]);
+        return;
+    }
+    const headerLine = lines[0] || '';
+   
+    const delimiters = [',', ';', '\t'];
+    let bestDelimiter = ',';
+    let maxCount = 0;
+   
+    delimiters.forEach(d => {
+      const count = headerLine.split(d).length - 1;
+      if (count > maxCount) {
+        maxCount = count;
+        bestDelimiter = d;
+      }
+    });
+    
+    const parseRow = (rowString: string): string[] => {
+       if (!rowString) return [];
+       const result: string[] = [];
+       let currentCell = '';
+       let inQuotes = false;
+       for (let i = 0; i < rowString.length; i++) {
+           const char = rowString[i];
+           if (char === '"') {
+               if (inQuotes && i + 1 < rowString.length && rowString[i+1] === '"') {
+                   currentCell += '"';
+                   i++;
+               } else {
+                   inQuotes = !inQuotes;
+               }
+           } else if (char === bestDelimiter && !inQuotes) {
+               result.push(currentCell.trim());
+               currentCell = '';
+           } else {
+               currentCell += char;
+           }
+       }
+       result.push(currentCell.trim());
+       return result;
+   };
+    
+   const allData = lines.map(line => parseRow(line));
+   setProcessedData(allData);
+};
+
    const updatePreviewData = (sheetName: string, wb: WorkBook) => {
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        setPreviewSheetData({ headers: (data[0] || []).map(String), rows: data.slice(1) });
+        const data: (string|number)[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+        const headerLength = data.length > 0 ? data[0].length : 0;
+        const cleanData = data.map(row => {
+            const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
+            return newRow;
+        });
+
+        setPreviewSheetData({ headers: (cleanData[0] || []).map(String), rows: cleanData.slice(1) });
    };
 
    const handlePreviewSheetChange = (sheetName: string) => {
@@ -286,10 +344,13 @@ const dateFields = [
    };
     
    const handleConfirmSheet = () => {
-        const data = [previewSheetData.headers, ...previewSheetData.rows];
-        setProcessedData(data);
-        setIsSheetSelectorOpen(false);
-        toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" con ${previewSheetData.rows.length} filas.` });
+        if (workbook) {
+            const sheet = workbook.Sheets[selectedPreviewSheet];
+            const csvString = XLSX.utils.sheet_to_csv(sheet);
+            parseAndSetData(csvString);
+            setIsSheetSelectorOpen(false);
+            toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
+        }
    };
 
    const processFile = (fileToProcess: File) => {
@@ -314,8 +375,8 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                    setProcessedData(sheetData as (string|number)[][]);
+                    const csvString = XLSX.utils.sheet_to_csv(sheet);
+                    parseAndSetData(csvString);
                 }
             } catch (error) {
                 console.error("Error parsing XLSX file:", error);
@@ -327,49 +388,7 @@ const dateFields = [
         reader.onload = (e) => {
             const text = e.target?.result as string;
             if (!text) return;
-     
-            const lines = text.split(/\r\n|\n/);
-            const headerLine = lines[0] || '';
-           
-            const delimiters = [',', ';', '\t'];
-            let bestDelimiter = ',';
-            let maxCount = 0;
-           
-            delimiters.forEach(d => {
-              const count = headerLine.split(d).length - 1;
-              if (count > maxCount) {
-                maxCount = count;
-                bestDelimiter = d;
-              }
-            });
-            
-            const parseRow = (rowString: string): string[] => {
-               if (!rowString) return [];
-               const result: string[] = [];
-               let currentCell = '';
-               let inQuotes = false;
-               for (let i = 0; i < rowString.length; i++) {
-                   const char = rowString[i];
-                   if (char === '"') {
-                       if (inQuotes && i + 1 < rowString.length && rowString[i+1] === '"') {
-                           currentCell += '"';
-                           i++;
-                       } else {
-                           inQuotes = !inQuotes;
-                       }
-                   } else if (char === bestDelimiter && !inQuotes) {
-                       result.push(currentCell);
-                       currentCell = '';
-                   } else {
-                       currentCell += char;
-                   }
-               }
-               result.push(currentCell);
-               return result;
-           };
-            
-           const allData = lines.map(line => parseRow(line));
-           setProcessedData(allData);
+            parseAndSetData(text);
         };
         reader.readAsText(fileToProcess, 'windows-1252');
      }
