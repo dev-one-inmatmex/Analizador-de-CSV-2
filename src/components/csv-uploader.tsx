@@ -286,7 +286,7 @@ const dateFields = [
    };
     
    const handleConfirmSheet = () => {
-        setProcessedData(previewSheetData.rows.map(row => previewSheetData.headers.map((_h, i) => row[i] || '')));
+        setProcessedData([previewSheetData.headers, ...previewSheetData.rows]);
         setIsSheetSelectorOpen(false);
         toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" con ${previewSheetData.rows.length} filas.` });
    };
@@ -314,7 +314,7 @@ const dateFields = [
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
                     const sheetData = XLSX.utils.sheet_to_json<(string|number)[]>(sheet, { header: 1, defval: "" });
-                    setProcessedData([sheetData[0], ...sheetData.slice(1)]);
+                    setProcessedData(sheetData);
                 }
             } catch (error) {
                 console.error("Error parsing XLSX file:", error);
@@ -449,11 +449,21 @@ const dateFields = [
          });
 
          const csvPkValues = mappedCsvData.map(row => row[primaryKey]).filter(Boolean);
-         if (csvPkValues.length === 0 && selectedTableName !== 'gastos_diarios') {
-            // This is ok if we are only inserting (e.g. gastos_diarios)
-            console.warn("No valid primary key values found in CSV, treating all as new inserts.");
-         }
          
+         if (selectedTableName === 'gastos_diarios') {
+            const result: AnalysisResult = { toInsert: mappedCsvData, toUpdate: [], noChange: [] };
+            setAnalysisResult(result);
+            setCurrentStep('results');
+            toast({
+                title: 'Análisis Completo',
+                description: `Se encontraron ${result.toInsert.length} registros nuevos para 'gastos_diarios'.`
+            });
+            setIsLoading(false);
+            setLoadingMessage('');
+            return;
+         }
+
+
         const CHUNK_SIZE = 500;
         let existingData: CsvRowObject[] = [];
 
@@ -490,13 +500,6 @@ const dateFields = [
         };
 
          for (const csvRow of mappedCsvData) {
-            if (selectedTableName === 'gastos_diarios') {
-                if (Object.values(csvRow).some(v => v !== null && v !== undefined && String(v).trim() !== '')) {
-                    result.toInsert.push(csvRow);
-                }
-                continue;
-            }
-
              const pkValue = String(csvRow[primaryKey]);
              if (!pkValue || pkValue === 'undefined') {
                 if (Object.values(csvRow).some(v => v !== null && v !== undefined && String(v).trim() !== '')) {
@@ -614,9 +617,9 @@ const dateFields = [
                 parsedRecord[key] = parseValue(key, unparsedRecord[key]);
               });
               
-              const isInsert = dataToInsert.some(ins => String(ins[primaryKey]) === String(parsedRecord[primaryKey]) || ins === unparsedRecord);
+              const isInsert = dataToInsert.some(ins => (ins[primaryKey] && String(ins[primaryKey]) === String(parsedRecord[primaryKey])) || ins === unparsedRecord);
 
-              if(isInsert){
+              if(isInsert && selectedTableName === 'gastos_diarios'){
                 delete parsedRecord.id;
               }
               return parsedRecord;
