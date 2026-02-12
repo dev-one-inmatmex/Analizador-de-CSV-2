@@ -262,9 +262,16 @@ const dateFields = [
   };
 
    const setProcessedData = (data: (string|number)[][]) => {
-     const csvHeaders = (data[0] || []).map(h => String(h).trim());
+     const csvHeaders = (data[0] || []).map(h => String(h ?? '').trim());
+     
      const dataRows = data.slice(1)
-       .map(row => row.map(cell => String(cell ?? '')))
+       .map(row => {
+         const fullRow: string[] = [];
+         for (let i = 0; i < csvHeaders.length; i++) {
+             fullRow.push(String(row[i] ?? ''));
+         }
+         return fullRow;
+       })
        .filter(row => row.some(cell => cell && cell.trim() !== ''));
 
      setHeaders(csvHeaders);
@@ -274,8 +281,18 @@ const dateFields = [
 
    const updatePreviewData = (sheetName: string, wb: XLSX.WorkBook) => {
         const sheet = wb.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json<(string|number)[]>(sheet, { header: 1, defval: "" });
-        setPreviewSheetData({ headers: (data[0] || []).map(String), rows: data.slice(1) });
+        const data: (string|number)[][] = XLSX.utils.sheet_to_aoa(sheet);
+        const headers = (data[0] || []).map(h => String(h ?? ''));
+        
+        const rows = data.slice(1).map(row => {
+            const fullRow: (string|number)[] = [];
+            for (let i = 0; i < headers.length; i++) {
+                fullRow.push(row[i] ?? "");
+            }
+            return fullRow;
+        });
+
+        setPreviewSheetData({ headers, rows });
    };
 
    const handlePreviewSheetChange = (sheetName: string) => {
@@ -313,8 +330,8 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const sheetData = XLSX.utils.sheet_to_json<(string|number)[]>(sheet, { header: 1, defval: "" });
-                    setProcessedData(sheetData);
+                    const sheetData = XLSX.utils.sheet_to_aoa(sheet);
+                    setProcessedData(sheetData as (string|number)[][]);
                 }
             } catch (error) {
                 console.error("Error parsing XLSX file:", error);
@@ -723,7 +740,7 @@ const dateFields = [
                                    Seleccionar Hoja ({sheetNames.length})
                                </Button>
                             )}
-                           <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || (rawRows.length === 0 && sheetNames.length <= 1)}>
+                           <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || (rawRows.length === 0 && sheetNames.length > 0 && !workbook)}>
                              <SelectTrigger className="w-full">
                                <SelectValue placeholder={
                                    !isSupabaseConfigured ? "Configuración de Supabase incompleta" :
