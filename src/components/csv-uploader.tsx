@@ -3,8 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map as MapIcon, Sheet as SheetIcon } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import type { WorkBook } from 'xlsx';
+import { read, utils, type WorkBook } from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -325,7 +324,7 @@ const dateFields = [
 
    const updatePreviewData = (sheetName: string, wb: WorkBook) => {
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = XLSX.utils.sheet_to_aoa(sheet, { defval: "" });
+        const data: (string|number)[][] = utils.sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
@@ -345,7 +344,7 @@ const dateFields = [
    const handleConfirmSheet = () => {
         if (workbook) {
             const sheet = workbook.Sheets[selectedPreviewSheet];
-            const csvString = XLSX.utils.sheet_to_csv(sheet);
+            const csvString = utils.sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
@@ -363,7 +362,7 @@ const dateFields = [
             const data = e.target?.result;
             if (!data) return;
             try {
-                const wb = XLSX.read(data, { type: 'array' });
+                const wb = read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
 
                 if (sNames.length > 1) {
@@ -374,7 +373,7 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = XLSX.utils.sheet_to_csv(sheet);
+                    const csvString = utils.sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
