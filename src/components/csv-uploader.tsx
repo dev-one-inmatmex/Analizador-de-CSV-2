@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map as MapIcon, Sheet as SheetIcon } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import type { WorkBook } from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -210,7 +210,7 @@ const dateFields = [
    const [isClient, setIsClient] = useState(false);
 
     // New state for sheet selection
-    const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+    const [workbook, setWorkbook] = useState<WorkBook | null>(null);
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
     const [selectedPreviewSheet, setSelectedPreviewSheet] = useState('');
@@ -322,9 +322,10 @@ const dateFields = [
    setProcessedData(allData);
 };
 
-   const updatePreviewData = (sheetName: string, wb: XLSX.WorkBook) => {
+   const updatePreviewData = async (sheetName: string, wb: WorkBook) => {
+        const XLSX = await import('xlsx');
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = (XLSX.utils as any).sheet_to_aoa(sheet, { defval: "" });
+        const data: (string|number)[][] = XLSX.utils.sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
@@ -334,17 +335,18 @@ const dateFields = [
         setPreviewSheetData({ headers: (cleanData[0] || []).map(String), rows: cleanData.slice(1) });
    };
 
-   const handlePreviewSheetChange = (sheetName: string) => {
+   const handlePreviewSheetChange = async (sheetName: string) => {
         if (workbook) {
             setSelectedPreviewSheet(sheetName);
-            updatePreviewData(sheetName, workbook);
+            await updatePreviewData(sheetName, workbook);
         }
    };
     
-   const handleConfirmSheet = () => {
+   const handleConfirmSheet = async () => {
         if (workbook) {
+            const XLSX = await import('xlsx');
             const sheet = workbook.Sheets[selectedPreviewSheet];
-            const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
+            const csvString = XLSX.utils.sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
@@ -358,10 +360,11 @@ const dateFields = [
      const reader = new FileReader();
 
      if (fileToProcess.name.endsWith('.xlsx')) {
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const data = e.target?.result;
             if (!data) return;
             try {
+                const XLSX = await import('xlsx');
                 const wb = XLSX.read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
 
@@ -369,11 +372,11 @@ const dateFields = [
                     setWorkbook(wb);
                     setSheetNames(sNames);
                     setSelectedPreviewSheet(sNames[0]);
-                    updatePreviewData(sNames[0], wb);
+                    await updatePreviewData(sNames[0], wb);
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
+                    const csvString = XLSX.utils.sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
