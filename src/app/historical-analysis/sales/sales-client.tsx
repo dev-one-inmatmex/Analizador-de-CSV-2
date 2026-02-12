@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter } from 'lucide-react';
+import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon } from 'lucide-react';
 import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
@@ -270,9 +270,9 @@ export default function SalesDashboardClient({
         const avgLandedCost = landedCosts.length > 0 ? landedCosts.reduce((a, b) => a + b, 0) / landedCosts.length : 0;
         
         const proveedorCounts: Record<string, number> = {};
-        categoriasMadre.forEach(cat => {
-            if (cat.proveedor) {
-                proveedorCounts[cat.proveedor] = (proveedorCounts[cat.proveedor] || 0) + 1;
+        skusUnicos.forEach(sku => {
+            if (sku.proveedor) {
+                proveedorCounts[sku.proveedor] = (proveedorCounts[sku.proveedor] || 0) + 1;
             }
         });
 
@@ -771,9 +771,8 @@ export default function SalesDashboardClient({
                                             <TableHead>Proveedor</TableHead>
                                             <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
-                                            <TableHead className="text-center">T. Recompra (días)</TableHead>
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
-                                            </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.de_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                            </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                             {totalPagesSkus > 1 && renderInventoryPagination(pageSkus, totalPagesSkus, setPageSkus)}
                                         </Card>
                                     </TabsContent>
