@@ -209,12 +209,12 @@ const dateFields = [
    const PAGE_SIZE = 60;
    const [isClient, setIsClient] = useState(false);
 
-    // New state for sheet selection
     const [workbook, setWorkbook] = useState<WorkBook | null>(null);
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
     const [selectedPreviewSheet, setSelectedPreviewSheet] = useState('');
     const [previewSheetData, setPreviewSheetData] = useState<{ headers: string[], rows: (string|number)[][] }>({ headers: [], rows: [] });
+    const [isConverting, setIsConverting] = useState(false);
 
    useEffect(() => {
     setIsClient(true);
@@ -244,12 +244,12 @@ const dateFields = [
      setProgress(0);
      setSyncSummary(null);
      setAnalysisResult(null);
-     // Reset sheet selection state
      setWorkbook(null);
      setSheetNames([]);
      setIsSheetSelectorOpen(false);
      setSelectedPreviewSheet('');
      setPreviewSheetData({ headers: [], rows: [] });
+     setIsConverting(false);
    };
 
    const backToMapping = () => {
@@ -360,13 +360,19 @@ const dateFields = [
      const reader = new FileReader();
 
      if (fileToProcess.name.endsWith('.xlsx')) {
+        setIsConverting(true);
         reader.onload = async (e) => {
             const data = e.target?.result;
-            if (!data) return;
+            if (!data) {
+                setIsConverting(false);
+                return;
+            }
             try {
                 const XLSX = await import('xlsx');
                 const wb = XLSX.read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
+
+                setIsConverting(false);
 
                 if (sNames.length > 1) {
                     setWorkbook(wb);
@@ -380,6 +386,7 @@ const dateFields = [
                     parseAndSetData(csvString);
                 }
             } catch (error) {
+                setIsConverting(false);
                 console.error("Error parsing XLSX file:", error);
                 toast({ title: 'Error de Archivo', description: 'No se pudo procesar el archivo .xlsx.', variant: 'destructive' });
             }
@@ -730,35 +737,52 @@ const dateFields = [
                        </div>
                      ) : (
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                         <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
-                           <div className="flex items-center gap-3 min-w-0">
-                             <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
-                             <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
+                         <div className="space-y-4">
+                           <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
+                             <div className="flex items-center gap-3 min-w-0">
+                               <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
+                               <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
+                             </div>
+                             <Button variant="ghost" size="icon" onClick={() => resetAll(false)}><X className="w-4 h-4" /></Button>
                            </div>
-                           <Button variant="ghost" size="icon" onClick={() => resetAll(false)}><X className="w-4 h-4" /></Button>
+                           {sheetNames.length > 1 && rawRows.length === 0 && !isConverting && (
+                                <Button onClick={() => setIsSheetSelectorOpen(true)}>
+                                    <SheetIcon className="mr-2 h-4 w-4" />
+                                    Seleccionar Hoja ({sheetNames.length})
+                                </Button>
+                           )}
                          </div>
                          <div className="space-y-2">
-                            {sheetNames.length > 1 && rawRows.length === 0 && (
-                               <Button variant="outline" className="w-full" onClick={() => setIsSheetSelectorOpen(true)}>
-                                   <SheetIcon className="mr-2 h-4 w-4" />
-                                   Seleccionar Hoja ({sheetNames.length})
-                               </Button>
+                            {isConverting ? (
+                                <div className="space-y-2 pt-1.5">
+                                    <p className="text-sm font-medium">Convirtiendo a CSV...</p>
+                                    <Progress value={50} className="w-full" />
+                                    <Select disabled>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecciona una tabla de destino..." />
+                                        </SelectTrigger>
+                                    </Select>
+                                </div>
+                            ) : (
+                                <>
+                                    <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || rawRows.length === 0}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder={
+                                                !isSupabaseConfigured ? "Configuración de Supabase incompleta" :
+                                                rawRows.length === 0 && file?.name.endsWith('.xlsx') ? "Procesando o selecciona una hoja" :
+                                                rawRows.length === 0 ? "Carga un archivo de datos" :
+                                                "Selecciona una tabla de destino..."
+                                            } />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                        {Object.keys(TABLE_SCHEMAS).sort().map(tableName => (
+                                            <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
+                                        ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {!isSupabaseConfigured && <Alert variant="destructive"><AlertDescription>La conexión con la DB no está configurada.</AlertDescription></Alert>}
+                                </>
                             )}
-                           <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || (rawRows.length === 0 && sheetNames.length > 0 && !workbook)}>
-                             <SelectTrigger className="w-full">
-                               <SelectValue placeholder={
-                                   !isSupabaseConfigured ? "Configuración de Supabase incompleta" :
-                                   rawRows.length === 0 && sheetNames.length > 1 ? "Primero selecciona una hoja" :
-                                   "Selecciona una tabla de destino..."
-                               } />
-                             </SelectTrigger>
-                             <SelectContent>
-                               {Object.keys(TABLE_SCHEMAS).sort().map(tableName => (
-                                 <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
-                               ))}
-                             </SelectContent>
-                           </Select>
-                           {!isSupabaseConfigured && <Alert variant="destructive"><AlertDescription>La conexión con la DB no está configurada.</AlertDescription></Alert>}
                          </div>
                        </div>
                      )}
