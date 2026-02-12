@@ -323,9 +323,9 @@ const dateFields = [
 };
 
    const updatePreviewData = async (sheetName: string, wb: WorkBook) => {
-        const { utils } = await import('xlsx');
+        const XLSX = await import('xlsx');
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = utils.sheet_to_aoa(sheet, { defval: "" });
+        const data: (string|number)[][] = (XLSX.utils as any).sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
@@ -344,9 +344,9 @@ const dateFields = [
     
    const handleConfirmSheet = async () => {
         if (workbook) {
-            const { utils } = await import('xlsx');
+            const XLSX = await import('xlsx');
             const sheet = workbook.Sheets[selectedPreviewSheet];
-            const csvString = utils.sheet_to_csv(sheet);
+            const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
@@ -368,8 +368,8 @@ const dateFields = [
                 return;
             }
             try {
-                const { read, utils } = await import('xlsx');
-                const wb = read(data, { type: 'array' });
+                const XLSX = await import('xlsx');
+                const wb = XLSX.read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
 
                 setIsConverting(false);
@@ -382,7 +382,7 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = utils.sheet_to_csv(sheet);
+                    const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
