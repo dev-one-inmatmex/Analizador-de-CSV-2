@@ -323,9 +323,9 @@ const dateFields = [
 };
 
    const updatePreviewData = async (sheetName: string, wb: WorkBook) => {
-        const XLSX = await import('xlsx');
+        const { utils } = await import('xlsx');
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = (XLSX.utils as any).sheet_to_aoa(sheet, { defval: "" });
+        const data: (string|number)[][] = utils.sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
@@ -344,9 +344,9 @@ const dateFields = [
     
    const handleConfirmSheet = async () => {
         if (workbook) {
-            const XLSX = await import('xlsx');
+            const { utils } = await import('xlsx');
             const sheet = workbook.Sheets[selectedPreviewSheet];
-            const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
+            const csvString = utils.sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
@@ -368,8 +368,8 @@ const dateFields = [
                 return;
             }
             try {
-                const XLSX = await import('xlsx');
-                const wb = XLSX.read(data, { type: 'array' });
+                const { read, utils } = await import('xlsx');
+                const wb = read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
 
                 setIsConverting(false);
@@ -382,7 +382,7 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
+                    const csvString = utils.sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
@@ -745,7 +745,12 @@ const dateFields = [
                              </div>
                              <Button variant="ghost" size="icon" onClick={() => resetAll(false)}><X className="w-4 h-4" /></Button>
                            </div>
-                           {sheetNames.length > 1 && rawRows.length === 0 && !isConverting && (
+                           {isConverting ? (
+                                <div className="space-y-2 pt-1.5">
+                                    <p className="text-sm font-medium">Convirtiendo a CSV...</p>
+                                    <Progress value={50} className="w-full" />
+                                </div>
+                            ) : sheetNames.length > 1 && rawRows.length === 0 && (
                                 <Button onClick={() => setIsSheetSelectorOpen(true)}>
                                     <SheetIcon className="mr-2 h-4 w-4" />
                                     Seleccionar Hoja ({sheetNames.length})
@@ -753,36 +758,23 @@ const dateFields = [
                            )}
                          </div>
                          <div className="space-y-2">
-                            {isConverting ? (
-                                <div className="space-y-2 pt-1.5">
-                                    <p className="text-sm font-medium">Convirtiendo a CSV...</p>
-                                    <Progress value={50} className="w-full" />
-                                    <Select disabled>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecciona una tabla de destino..." />
-                                        </SelectTrigger>
-                                    </Select>
-                                </div>
-                            ) : (
-                                <>
-                                    <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || rawRows.length === 0}>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder={
-                                                !isSupabaseConfigured ? "Configuración de Supabase incompleta" :
-                                                rawRows.length === 0 && file?.name.endsWith('.xlsx') ? "Procesando o selecciona una hoja" :
-                                                rawRows.length === 0 ? "Carga un archivo de datos" :
-                                                "Selecciona una tabla de destino..."
-                                            } />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                        {Object.keys(TABLE_SCHEMAS).sort().map(tableName => (
-                                            <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
-                                        ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {!isSupabaseConfigured && <Alert variant="destructive"><AlertDescription>La conexión con la DB no está configurada.</AlertDescription></Alert>}
-                                </>
-                            )}
+                            <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || rawRows.length === 0 || isConverting}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={
+                                        !isSupabaseConfigured ? "Configuración de Supabase incompleta" :
+                                        isConverting ? "Procesando archivo..." :
+                                        rawRows.length === 0 && file?.name.endsWith('.xlsx') ? "Procesando o selecciona una hoja" :
+                                        rawRows.length === 0 ? "Carga un archivo de datos" :
+                                        "Selecciona una tabla de destino..."
+                                    } />
+                                </SelectTrigger>
+                                <SelectContent>
+                                {Object.keys(TABLE_SCHEMAS).sort().map(tableName => (
+                                    <SelectItem key={tableName} value={tableName}>{tableName}</SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                            {!isSupabaseConfigured && <Alert variant="destructive"><AlertDescription>La conexión con la DB no está configurada.</AlertDescription></Alert>}
                          </div>
                        </div>
                      )}
