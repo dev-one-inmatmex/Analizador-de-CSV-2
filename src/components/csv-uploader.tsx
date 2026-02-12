@@ -265,16 +265,7 @@ const dateFields = [
 
    const setProcessedData = (data: (string|number)[][]) => {
      const csvHeaders = (data[0] || []).map(h => String(h ?? '').trim());
-     
-     const dataRows = data.slice(1)
-       .map(row => {
-         const fullRow: string[] = [];
-         for (let i = 0; i < csvHeaders.length; i++) {
-             fullRow.push(String(row[i] ?? ''));
-         }
-         return fullRow;
-       })
-       .filter(row => row.some(cell => cell && cell.trim() !== ''));
+     const dataRows = data.slice(1).map(row => row.map(cell => String(cell ?? '')));
 
      setHeaders(csvHeaders);
      setRawRows(dataRows);
@@ -283,18 +274,8 @@ const dateFields = [
 
    const updatePreviewData = (sheetName: string, wb: WorkBook) => {
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = XLSX.utils.sheet_to_aoa(sheet);
-        const headers = (data[0] || []).map(h => String(h ?? ''));
-        
-        const rows = data.slice(1).map(row => {
-            const fullRow: (string|number)[] = [];
-            for (let i = 0; i < headers.length; i++) {
-                fullRow.push(row[i] ?? "");
-            }
-            return fullRow;
-        });
-
-        setPreviewSheetData({ headers, rows });
+        const data: (string|number)[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        setPreviewSheetData({ headers: (data[0] || []).map(String), rows: data.slice(1) });
    };
 
    const handlePreviewSheetChange = (sheetName: string) => {
@@ -305,7 +286,8 @@ const dateFields = [
    };
     
    const handleConfirmSheet = () => {
-        setProcessedData([previewSheetData.headers, ...previewSheetData.rows]);
+        const data = [previewSheetData.headers, ...previewSheetData.rows];
+        setProcessedData(data);
         setIsSheetSelectorOpen(false);
         toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" con ${previewSheetData.rows.length} filas.` });
    };
@@ -332,7 +314,7 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const sheetData = XLSX.utils.sheet_to_aoa(sheet);
+                    const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
                     setProcessedData(sheetData as (string|number)[][]);
                 }
             } catch (error) {
@@ -1125,8 +1107,8 @@ const dateFields = [
                             <TableBody>
                                 {previewSheetData.rows.slice(0, 100).map((row, i) => (
                                     <TableRow key={`row-${i}`}>
-                                        {previewSheetData.headers.map((_h, j) => (
-                                            <TableCell key={`cell-${i}-${j}`}>{String(row[j] ?? '')}</TableCell>
+                                        {row.map((cell, j) => (
+                                            <TableCell key={`cell-${i}-${j}`}>{String(cell ?? '')}</TableCell>
                                         ))}
                                     </TableRow>
                                 ))}
