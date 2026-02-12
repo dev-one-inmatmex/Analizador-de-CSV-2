@@ -92,8 +92,8 @@ export interface publicaciones_por_sku{
 
 export interface skuxpublicaciones{
   sku: string;
-  item_id: string;
-  nombre_madre: string;
+  item_id: string | null;
+  nombre_madre: string | null;
 
 }
 
@@ -116,10 +116,10 @@ export interface categorias_madre{
   sku: string;
   nombre_madre: string;
   categoria_madre: string;
-  landed_cost: number;
+  landed_cost: number | null;
   tiempo_preparacion: number | null;
   tiempo_recompra: number | null;
-  prov
+  proveedor: string | null;
   piezas_por_sku: number | null;
   piezas_por_contenedor: number | null;
   bodega: string |null; 

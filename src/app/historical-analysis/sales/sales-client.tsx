@@ -270,9 +270,9 @@ export default function SalesDashboardClient({
         const avgLandedCost = landedCosts.length > 0 ? landedCosts.reduce((a, b) => a + b, 0) / landedCosts.length : 0;
         
         const proveedorCounts: Record<string, number> = {};
-        skusUnicos.forEach(sku => {
-            if (sku.proveedor) {
-                proveedorCounts[sku.proveedor] = (proveedorCounts[sku.proveedor] || 0) + 1;
+        categoriasMadre.forEach(cat => {
+            if (cat.proveedor) {
+                proveedorCounts[cat.proveedor] = (proveedorCounts[cat.proveedor] || 0) + 1;
             }
         });
 
@@ -752,13 +752,15 @@ export default function SalesDashboardClient({
                                             <TableHead>SKU</TableHead>
                                             <TableHead>Categoría</TableHead>
                                             <TableHead>Título</TableHead>
+                                            <TableHead>Proveedor</TableHead>
                                             <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
+                                            <TableHead className="text-center">T. Recompra (días)</TableHead>
                                             <TableHead className="text-center">Pzs/SKU</TableHead>
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
                                             <TableHead>Bodega</TableHead>
                                             <TableHead>Bloque</TableHead>
-                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell>{cat.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.tiempo_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                         {totalPagesCategorias > 1 && renderInventoryPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
                                         </Card>
                                     </TabsContent>

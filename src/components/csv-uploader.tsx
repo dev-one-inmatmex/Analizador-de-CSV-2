@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
-     categorias_madre: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
+     categorias_madre: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
      gastos_diarios: { pk: 'id', columns: ['fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
      publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
@@ -98,7 +98,7 @@ const numericFields = [
   'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
   'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
   'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones',
-  'piezas_por_contenedor', 'monto'
+  'piezas_por_contenedor', 'monto', 'tiempo_recompra'
 ];
 
 const booleanFields = [
@@ -325,8 +325,7 @@ const dateFields = [
 
    const updatePreviewData = (sheetName: string, wb: WorkBook) => {
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-
+        const data: (string|number)[][] = XLSX.utils.sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
