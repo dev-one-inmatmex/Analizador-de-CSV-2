@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map as MapIcon } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map as MapIcon, Sheet as SheetIcon } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -12,6 +13,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
@@ -93,7 +95,7 @@ const numericFields = [
   'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 
   'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
   'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
-  'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones', 'tiempo_recompra',
+  'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones',
   'piezas_por_contenedor', 'monto'
 ];
 
@@ -206,6 +208,13 @@ const dateFields = [
    const PAGE_SIZE = 60;
    const [isClient, setIsClient] = useState(false);
 
+    // New state for sheet selection
+    const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+    const [sheetNames, setSheetNames] = useState<string[]>([]);
+    const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
+    const [selectedPreviewSheet, setSelectedPreviewSheet] = useState('');
+    const [previewSheetData, setPreviewSheetData] = useState<{ headers: string[], rows: (string|number)[][] }>({ headers: [], rows: [] });
+
    useEffect(() => {
     setIsClient(true);
    }, []);
@@ -222,10 +231,10 @@ const dateFields = [
      setCurrentStep('upload');
      if (!keepFile) {
        setFile(null);
-       setHeaders([]);
-       setRawRows([]);
        if (inputRef.current) inputRef.current.value = '';
      }
+     setHeaders([]);
+     setRawRows([]);
      setHeaderMap({});
      setSelectedTableName('');
      setTableColumns([]);
@@ -234,6 +243,12 @@ const dateFields = [
      setProgress(0);
      setSyncSummary(null);
      setAnalysisResult(null);
+     // Reset sheet selection state
+     setWorkbook(null);
+     setSheetNames([]);
+     setIsSheetSelectorOpen(false);
+     setSelectedPreviewSheet('');
+     setPreviewSheetData({ headers: [], rows: [] });
    };
 
    const backToMapping = () => {
@@ -246,70 +261,126 @@ const dateFields = [
     });
   };
 
+   const setProcessedData = (data: (string|number)[][]) => {
+     const csvHeaders = (data[0] || []).map(h => String(h).trim());
+     const dataRows = data.slice(1)
+       .map(row => row.map(cell => String(cell ?? '')))
+       .filter(row => row.some(cell => cell && cell.trim() !== ''));
+
+     setHeaders(csvHeaders);
+     setRawRows(dataRows);
+     toast({ title: 'Archivo Procesado', description: `${dataRows.length} filas de datos encontradas.` });
+   };
+
+   const updatePreviewData = (sheetName: string, wb: XLSX.WorkBook) => {
+        const sheet = wb.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json<(string|number)[]>(sheet, { header: 1, defval: "" });
+        setPreviewSheetData({ headers: (data[0] || []).map(String), rows: data.slice(1) });
+   };
+
+   const handlePreviewSheetChange = (sheetName: string) => {
+        if (workbook) {
+            setSelectedPreviewSheet(sheetName);
+            updatePreviewData(sheetName, workbook);
+        }
+   };
+    
+   const handleConfirmSheet = () => {
+        setProcessedData(previewSheetData.rows.map(row => previewSheetData.headers.map((_h, i) => row[i] || '')));
+        setIsSheetSelectorOpen(false);
+        toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" con ${previewSheetData.rows.length} filas.` });
+   };
+
    const processFile = (fileToProcess: File) => {
      resetAll();
      setFile(fileToProcess);
     
      const reader = new FileReader();
-     reader.onload = (e) => {
-       const text = e.target?.result as string;
-       if (!text) return;
 
-       const lines = text.split(/\r\n|\n/);
-       const headerLine = lines[0] || '';
-      
-       const delimiters = [',', ';', '\t'];
-       let bestDelimiter = ',';
-       let maxCount = 0;
-      
-       delimiters.forEach(d => {
-         const count = headerLine.split(d).length - 1;
-         if (count > maxCount) {
-           maxCount = count;
-           bestDelimiter = d;
-         }
-       });
-       
-       const parseRow = (rowString: string): string[] => {
-          if (!rowString) return [];
-          const result: string[] = [];
-          let currentCell = '';
-          let inQuotes = false;
-          for (let i = 0; i < rowString.length; i++) {
-              const char = rowString[i];
-              if (char === '"') {
-                  if (inQuotes && i + 1 < rowString.length && rowString[i+1] === '"') {
-                      currentCell += '"';
-                      i++;
-                  } else {
-                      inQuotes = !inQuotes;
-                  }
-              } else if (char === bestDelimiter && !inQuotes) {
-                  result.push(currentCell);
-                  currentCell = '';
-              } else {
-                  currentCell += char;
+     if (fileToProcess.name.endsWith('.xlsx')) {
+        reader.onload = (e) => {
+            const data = e.target?.result;
+            if (!data) return;
+            try {
+                const wb = XLSX.read(data, { type: 'array' });
+                const sNames = wb.SheetNames;
+
+                if (sNames.length > 1) {
+                    setWorkbook(wb);
+                    setSheetNames(sNames);
+                    setSelectedPreviewSheet(sNames[0]);
+                    updatePreviewData(sNames[0], wb);
+                    setIsSheetSelectorOpen(true);
+                } else {
+                    const sheet = wb.Sheets[sNames[0]];
+                    const sheetData = XLSX.utils.sheet_to_json<(string|number)[]>(sheet, { header: 1, defval: "" });
+                    setProcessedData([sheetData[0], ...sheetData.slice(1)]);
+                }
+            } catch (error) {
+                console.error("Error parsing XLSX file:", error);
+                toast({ title: 'Error de Archivo', description: 'No se pudo procesar el archivo .xlsx.', variant: 'destructive' });
+            }
+        };
+        reader.readAsArrayBuffer(fileToProcess);
+     } else {
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            if (!text) return;
+     
+            const lines = text.split(/\r\n|\n/);
+            const headerLine = lines[0] || '';
+           
+            const delimiters = [',', ';', '\t'];
+            let bestDelimiter = ',';
+            let maxCount = 0;
+           
+            delimiters.forEach(d => {
+              const count = headerLine.split(d).length - 1;
+              if (count > maxCount) {
+                maxCount = count;
+                bestDelimiter = d;
               }
-          }
-          result.push(currentCell);
-          return result;
-      };
-
-       const csvHeaders = parseRow(lines[0] || '').map(h => h.trim());
-       const dataRows = lines.slice(1)
-         .map(row => parseRow(row))
-         .filter(row => row.some(cell => cell && cell.trim() !== ''));
-       
-       setHeaders(csvHeaders);
-       setRawRows(dataRows);
-       toast({ title: 'Archivo Procesado', description: `${dataRows.length} filas de datos encontradas.` });
-     };
-     reader.readAsText(fileToProcess, 'windows-1252');
+            });
+            
+            const parseRow = (rowString: string): string[] => {
+               if (!rowString) return [];
+               const result: string[] = [];
+               let currentCell = '';
+               let inQuotes = false;
+               for (let i = 0; i < rowString.length; i++) {
+                   const char = rowString[i];
+                   if (char === '"') {
+                       if (inQuotes && i + 1 < rowString.length && rowString[i+1] === '"') {
+                           currentCell += '"';
+                           i++;
+                       } else {
+                           inQuotes = !inQuotes;
+                       }
+                   } else if (char === bestDelimiter && !inQuotes) {
+                       result.push(currentCell);
+                       currentCell = '';
+                   } else {
+                       currentCell += char;
+                   }
+               }
+               result.push(currentCell);
+               return result;
+           };
+            
+           const allData = lines.map(line => parseRow(line));
+           setProcessedData(allData);
+        };
+        reader.readAsText(fileToProcess, 'windows-1252');
+     }
    };
 
    const handleTableSelect = (tableName: string) => {
      if (!tableName) {
-       resetAll(true);
+       setSelectedTableName('');
+       setTableColumns([]);
+       setPrimaryKey('');
+       setHeaderMap({});
+       setCurrentStep('upload');
        return;
      }
      const schema = TABLE_SCHEMAS[tableName];
@@ -420,7 +491,6 @@ const dateFields = [
 
          for (const csvRow of mappedCsvData) {
             if (selectedTableName === 'gastos_diarios') {
-                // For gastos_diarios, we assume all records are for insertion, bypassing PK logic.
                 if (Object.values(csvRow).some(v => v !== null && v !== undefined && String(v).trim() !== '')) {
                     result.toInsert.push(csvRow);
                 }
@@ -624,28 +694,39 @@ const dateFields = [
                  <Card>
                    <CardHeader>
                      <CardTitle>Paso 1: Cargar Archivo y Seleccionar Tabla</CardTitle>
-                     <CardDescription>Sube tu archivo CSV y elige la tabla de Supabase donde quieres cargar los datos.</CardDescription>
+                     <CardDescription>Sube tu archivo CSV o XLSX y elige la tabla de Supabase donde quieres cargar los datos.</CardDescription>
                    </CardHeader>
-                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                   <CardContent className="space-y-4">
                      {!file ? (
                        <div className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-secondary/50 border-border hover:bg-secondary hover:border-primary transition-colors col-span-2" onClick={() => inputRef.current?.click()}>
                          <UploadCloud className="w-10 h-10 mb-4 text-muted-foreground" />
                          <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold text-primary">Haz clic para cargar</span> o arrastra y suelta</p>
-                         <input ref={inputRef} type="file" accept=".csv,.tsv" className="hidden" onChange={(e) => e.target.files && processFile(e.target.files[0])} />
+                         <p className="text-xs text-muted-foreground">Soportado: .csv, .tsv, .xlsx</p>
+                         <input ref={inputRef} type="file" accept=".csv,.tsv,.xlsx" className="hidden" onChange={(e) => e.target.files && processFile(e.target.files[0])} />
                        </div>
                      ) : (
-                       <>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                          <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
                            <div className="flex items-center gap-3 min-w-0">
                              <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
-                             <span className="text-sm font-medium text-foreground truncate">{file.name} ({rawRows.length} filas)</span>
+                             <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
                            </div>
                            <Button variant="ghost" size="icon" onClick={() => resetAll(false)}><X className="w-4 h-4" /></Button>
                          </div>
                          <div className="space-y-2">
-                           <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading}>
+                            {sheetNames.length > 1 && rawRows.length === 0 && (
+                               <Button variant="outline" className="w-full" onClick={() => setIsSheetSelectorOpen(true)}>
+                                   <SheetIcon className="mr-2 h-4 w-4" />
+                                   Seleccionar Hoja ({sheetNames.length})
+                               </Button>
+                            )}
+                           <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || (rawRows.length === 0 && sheetNames.length <= 1)}>
                              <SelectTrigger className="w-full">
-                               <SelectValue placeholder={isSupabaseConfigured ? "Selecciona una tabla de destino..." : "Configuración de Supabase incompleta"} />
+                               <SelectValue placeholder={
+                                   !isSupabaseConfigured ? "Configuración de Supabase incompleta" :
+                                   rawRows.length === 0 && sheetNames.length > 1 ? "Primero selecciona una hoja" :
+                                   "Selecciona una tabla de destino..."
+                               } />
                              </SelectTrigger>
                              <SelectContent>
                                {Object.keys(TABLE_SCHEMAS).sort().map(tableName => (
@@ -655,7 +736,7 @@ const dateFields = [
                            </Select>
                            {!isSupabaseConfigured && <Alert variant="destructive"><AlertDescription>La conexión con la DB no está configurada.</AlertDescription></Alert>}
                          </div>
-                       </>
+                       </div>
                      )}
                    </CardContent>
                  </Card>
@@ -671,7 +752,7 @@ const dateFields = [
                          <Table>
                            <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm">
                              <TableRow>
-                               <TableHead>Columna en Archivo CSV</TableHead>
+                               <TableHead>Columna en Archivo</TableHead>
                                <TableHead>Mapear a Columna de Destino</TableHead>
                              </TableRow>
                            </TableHeader>
@@ -994,6 +1075,51 @@ const dateFields = [
    return (
      <div className="w-full max-w-7xl mx-auto space-y-6">
        {renderStep()}
+
+        <Dialog open={isSheetSelectorOpen} onOpenChange={setIsSheetSelectorOpen}>
+            <DialogContent className="max-w-4xl h-[90vh]">
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Hoja de Cálculo</DialogTitle>
+                    <DialogDescription>
+                        Tu archivo tiene múltiples hojas. Elige la que quieres importar y previsualiza los datos.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4 flex-1 min-h-0">
+                    <Select value={selectedPreviewSheet} onValueChange={handlePreviewSheetChange}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecciona una hoja" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {sheetNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <div className="relative w-full overflow-auto flex-1 border rounded-md">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+                                <TableRow>
+                                    {previewSheetData.headers.map((h, i) => <TableHead key={`${h}-${i}`}>{h}</TableHead>)}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {previewSheetData.rows.slice(0, 100).map((row, i) => (
+                                    <TableRow key={`row-${i}`}>
+                                        {previewSheetData.headers.map((_h, j) => (
+                                            <TableCell key={`cell-${i}-${j}`}>{String(row[j] ?? '')}</TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                     <p className="text-xs text-muted-foreground">Mostrando las primeras 100 filas como previsualización.</p>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsSheetSelectorOpen(false)}>Cancelar</Button>
+                    <Button onClick={handleConfirmSheet}>Confirmar y Usar esta Hoja</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
      </div>
    );
  }
