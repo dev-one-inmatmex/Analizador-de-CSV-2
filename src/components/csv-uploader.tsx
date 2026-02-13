@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -18,10 +19,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
-     catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
-     categorias_madre: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
+     catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
+     categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'categoria_madre', 'landed_cost', 'tiempo_preparacion', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
      gastos_diarios: { pk: 'id', columns: ['fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
-     publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
+     publicaciones: { pk: 'sku', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_contenedor'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
@@ -97,7 +98,7 @@ const numericFields = [
   'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
   'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
   'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones',
-  'piezas_por_contenedor', 'monto', 'tiempo_recompra'
+  'piezas_por_contenedor', 'monto', 'de_recompra'
 ];
 
 const booleanFields = [
@@ -739,19 +740,20 @@ const dateFields = [
                      ) : (
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                          <div className="space-y-4">
-                           <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
-                             <div className="flex items-center gap-3 min-w-0">
-                               <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
-                               <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
-                             </div>
-                             <Button variant="ghost" size="icon" onClick={() => resetAll(false)}><X className="w-4 h-4" /></Button>
-                           </div>
-                           {isConverting ? (
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/50">
+                               <div className="flex items-center gap-3 min-w-0">
+                                 <FileIcon className="w-6 h-6 text-foreground flex-shrink-0" />
+                                 <span className="text-sm font-medium text-foreground truncate">{file.name}</span>
+                               </div>
+                               <Button variant="ghost" size="icon" onClick={() => resetAll(false)}><X className="w-4 h-4" /></Button>
+                            </div>
+                            {isConverting && (
                                 <div className="space-y-2 pt-1.5">
-                                    <p className="text-sm font-medium">Convirtiendo a CSV...</p>
+                                    <p className="text-sm font-medium text-primary">Convirtiendo a CSV...</p>
                                     <Progress value={50} className="w-full" />
                                 </div>
-                            ) : sheetNames.length > 1 && rawRows.length === 0 && (
+                            )}
+                            {sheetNames.length > 1 && rawRows.length === 0 && !isConverting && (
                                 <Button onClick={() => setIsSheetSelectorOpen(true)}>
                                     <SheetIcon className="mr-2 h-4 w-4" />
                                     Seleccionar Hoja ({sheetNames.length})
@@ -928,18 +930,52 @@ const dateFields = [
 
                          {syncSummary.errors.length > 0 && (
                            <div className="space-y-2">
-                             <h3 className="font-semibold">Detalle de Errores:</h3>
-                             <div className="relative w-full overflow-auto max-h-72 rounded-md border p-4 space-y-2">
-                               {syncSummary.errors.map((err, i) => (
-                                 <div key={i} className="bg-destructive/10 text-destructive rounded-lg p-3">
-                                   <p className="font-bold text-sm">
-                                     Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'}
-                                     {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
-                                   </p>
-                                   <p className="text-sm mt-1">{err.message}</p>
-                                 </div>
-                               ))}
-                             </div>
+                                <h3 className="font-semibold">Detalle de Errores ({syncSummary.errors.length})</h3>
+                                <Tabs defaultValue="visual" className="w-full">
+                                    <TabsList className="grid w-full grid-cols-2">
+                                        <TabsTrigger value="visual">Vista Visual</TabsTrigger>
+                                        <TabsTrigger value="tabla">Vista de Tabla</TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent value="visual">
+                                        <div className="relative mt-2 w-full overflow-auto max-h-72 rounded-md border p-4 space-y-2">
+                                        {syncSummary.errors.map((err, i) => (
+                                            <div key={i} className="bg-destructive/10 text-destructive rounded-lg p-3">
+                                            <p className="font-bold text-sm">
+                                                Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'}
+                                                {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
+                                            </p>
+                                            <p className="text-sm mt-1">{err.message}</p>
+                                            </div>
+                                        ))}
+                                        </div>
+                                    </TabsContent>
+                                    <TabsContent value="tabla">
+                                        <div className="relative mt-2 w-full overflow-auto max-h-72 rounded-md border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Tipo</TableHead>
+                                                        <TableHead>Registro</TableHead>
+                                                        <TableHead>Mensaje</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {syncSummary.errors.map((err, i) => (
+                                                        <TableRow key={i} className="hover:bg-destructive/5">
+                                                            <TableCell>
+                                                                <Badge variant={err.type === 'insert' ? 'destructive' : 'outline'}>
+                                                                    {err.type === 'insert' ? 'Inserción' : 'Actualización'}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="font-mono text-xs">{err.recordIdentifier || 'N/A'}</TableCell>
+                                                            <TableCell className="text-destructive text-xs">{err.message}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </TabsContent>
+                                </Tabs>
                            </div>
                          )}
                        </CardContent>
