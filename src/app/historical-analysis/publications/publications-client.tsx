@@ -129,9 +129,8 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                             <CardHeader><CardTitle>Conteo de Publicaciones por SKU</CardTitle><CardDescription>SKUs con mayor cantidad de publicaciones. (Top 10)</CardDescription></CardHeader>
                             <CardContent><Table><TableHeader><TableRow>
                                 <TableHead>SKU</TableHead>
-                                <TableHead>Título de Ejemplo</TableHead>
                                 <TableHead className="text-right"># Publicaciones</TableHead>
-                            </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item: EnrichedPublicationCount, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="max-w-xs truncate">{item.publication_title}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                            </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item: EnrichedPublicationCount, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                             </Card>
                         </div>
 

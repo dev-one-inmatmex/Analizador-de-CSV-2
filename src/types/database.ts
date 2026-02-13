@@ -131,9 +131,10 @@ export interface gastos_diarios{
   capturista: string | null;
 }
 
-export interface filtrado_por_categorias{
+export interface diccionario_skus{
   sku: string;
   categoria_madre: string | null;
+  nombre_madre: string | null;
   landed_cost: number | null;
   presentacion_master_1: string | null;
   piezas_por_master: number | null;

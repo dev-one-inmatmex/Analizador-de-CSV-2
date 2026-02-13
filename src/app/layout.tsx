@@ -28,6 +28,7 @@ import {
   Flame,
   Puzzle,
   ClipboardList,
+  BookType,
 } from 'lucide-react';
 
 const menuLinks = [
@@ -37,6 +38,7 @@ const menuLinks = [
   { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },
   { href: '/historical-analysis/trends-prediction', label: 'Recompra', icon: Repeat },
   { href: '/historical-analysis/publications', label: 'Análisis de Publicaciones', icon: ClipboardList },
+  { href: '/historical-analysis/sku-dictionary', label: 'Diccionario SKU', icon: BookType },
   { href: '/historical-analysis/mapping-reconciliation', label: 'Mapeo y conciliación', icon: Puzzle },
   { href: '/historical-analysis/alerts', label: 'Alertas', icon: AlertTriangle },
   { href: '/historical-analysis/access-management', label: 'Auditoría', icon: Users },
