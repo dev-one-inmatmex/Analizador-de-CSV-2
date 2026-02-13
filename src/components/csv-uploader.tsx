@@ -325,7 +325,7 @@ const dateFields = [
    const updatePreviewData = async (sheetName: string, wb: WorkBook) => {
         const { utils } = await import('xlsx');
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = utils.sheet_to_aoa(sheet, { defval: "" });
+        const data: (string|number)[][] = (utils as any).sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
@@ -346,7 +346,7 @@ const dateFields = [
         if (workbook) {
             const { utils } = await import('xlsx');
             const sheet = workbook.Sheets[selectedPreviewSheet];
-            const csvString = utils.sheet_to_csv(sheet);
+            const csvString = (utils as any).sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
@@ -383,7 +383,7 @@ const dateFields = [
                 } else {
                     const { utils } = await import('xlsx');
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = utils.sheet_to_csv(sheet);
+                    const csvString = (utils as any).sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
@@ -927,20 +927,18 @@ const dateFields = [
                          </div>
 
                          {syncSummary.errors.length > 0 && (
-                           <div>
-                             <h3 className="font-semibold mb-2">Detalle de Errores:</h3>
-                             <div className="relative w-full overflow-auto h-40 border rounded-md p-4">
-                               <div className="space-y-2 text-sm">
-                                 {syncSummary.errors.map((err, i) => (
-                                   <div key={i} className="p-2 bg-destructive/10 rounded-md">
-                                     <p className="font-semibold text-destructive">
-                                       Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'}
-                                       {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
-                                     </p>
-                                     <p className="font-mono text-xs">{err.message}</p>
-                                   </div>
-                                 ))}
-                               </div>
+                           <div className="space-y-2">
+                             <h3 className="font-semibold">Detalle de Errores:</h3>
+                             <div className="relative w-full overflow-auto max-h-72 rounded-md border p-4 space-y-2">
+                               {syncSummary.errors.map((err, i) => (
+                                 <div key={i} className="bg-destructive/10 text-destructive rounded-lg p-3">
+                                   <p className="font-bold text-sm">
+                                     Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'}
+                                     {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
+                                   </p>
+                                   <p className="text-sm mt-1">{err.message}</p>
+                                 </div>
+                               ))}
                              </div>
                            </div>
                          )}
