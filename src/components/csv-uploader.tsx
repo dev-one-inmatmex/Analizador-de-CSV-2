@@ -50,13 +50,14 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      message: string;
      type: 'insert' | 'update';
      csvRow?: number;
+     record?: CsvRowObject;
    }[];
    log: string;
    insertedRecords: CsvRowObject[];
    updatedRecords: CsvRowObject[];
  };
  
- function formatSupabaseError(error: any, record: CsvRowObject): string {
+ function formatSupabaseError(error: any, targetTable: string): string {
     const message = error.message || 'Error desconocido.';
     const details = error.details || '';
     const constraintMatch = message.match(/constraint "([^"]+)"/);
@@ -87,7 +88,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         }
         if (constraint) {
             const columnNameMatch = constraint.match(/_([^_]+)_key$/);
-            const columnName = columnNameMatch ? columnNameMatch[1] : constraint.replace(`${record.table}_`, '').replace('_key', '');
+            const columnName = columnNameMatch ? columnNameMatch[1] : constraint.replace(`${targetTable}_`, '').replace('_key', '');
             return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraint}'.`;
         }
         return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
@@ -640,7 +641,7 @@ const dateFields = [
             });
             
             const successfulRecords: CsvRowObject[] = [];
-            const errors: any[] = [];
+            const localErrors: { recordIdentifier: any; message: string; csvRow: any; record: any; }[] = [];
 
             for (const recordWithMeta of recordsToProcess) {
               const isUpdate = dataToUpdate.some(u => String(u[primaryKey]) === String(recordWithMeta[primaryKey]));
@@ -655,16 +656,18 @@ const dateFields = [
               );
 
               if (error) {
-                  errors.push({
+                  localErrors.push({
                       recordIdentifier: recordWithMeta[primaryKey],
-                      message: formatSupabaseError(error, recordWithMeta),
+                      message: formatSupabaseError(error, selectedTableName),
                       csvRow: recordWithMeta.__csv_row_index,
+                      record: recordWithMeta,
                   });
               } else if (!resultData || resultData.length === 0) {
-                  errors.push({
+                  localErrors.push({
                       recordIdentifier: recordWithMeta[primaryKey],
                       message: "Operación bloqueada por la base de datos (posiblemente por políticas de seguridad RLS). El registro no se guardó.",
                       csvRow: recordWithMeta.__csv_row_index,
+                      record: recordWithMeta,
                   });
               } else {
                   successfulRecords.push(resultData[0]);
@@ -683,8 +686,8 @@ const dateFields = [
                 finalSummary.updatedRecords.push(...(updatedChunk as CsvRowObject[]));
             }
 
-            if (errors) {
-                errors.forEach((e: any) => {
+            if (localErrors.length > 0) {
+                localErrors.forEach((e) => {
                     const isInsertError = dataToInsert.some((r) => String(r[primaryKey]) === String(e.recordIdentifier));
                     finalSummary.errors.push({
                         block: i + 1,
@@ -692,6 +695,7 @@ const dateFields = [
                         message: e.message,
                         type: isInsertError ? 'insert' : 'update',
                         csvRow: e.csvRow,
+                        record: e.record,
                     });
                 });
             }
@@ -957,7 +961,7 @@ const dateFields = [
                                         </div>
                                     </TabsContent>
                                     <TabsContent value="tabla">
-                                        <div className="relative mt-2 w-full overflow-auto max-h-72 rounded-md border">
+                                        <div className="relative mt-2 w-full overflow-auto h-96 rounded-md border">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -976,8 +980,30 @@ const dateFields = [
                                                                     {err.type === 'insert' ? 'Inserción' : 'Actualización'}
                                                                 </Badge>
                                                             </TableCell>
-                                                            <TableCell className="font-mono text-xs">{err.recordIdentifier || 'N/A'}</TableCell>
-                                                            <TableCell className="text-destructive text-xs">{err.message}</TableCell>
+                                                            <TableCell className="text-xs">
+                                                                {err.record ? (
+                                                                    <div className="flex flex-col">
+                                                                        <div className="font-semibold">{primaryKey}: <span className="font-mono font-normal text-muted-foreground">{err.recordIdentifier}</span></div>
+                                                                        {allMappedHeaders
+                                                                            .filter(h => h !== primaryKey)
+                                                                            .slice(0, 2)
+                                                                            .map(header => (
+                                                                                <div key={header} className="truncate" title={String(err.record![header] ?? '')}>
+                                                                                    <span className="font-semibold">{header}: </span>
+                                                                                    <span className="text-muted-foreground">{String(err.record![header] ?? 'N/A')}</span>
+                                                                                </div>
+                                                                            ))
+                                                                        }
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="font-mono">{err.recordIdentifier || 'N/A'}</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs">
+                                                                <div className="p-2 rounded-md bg-destructive/10 text-destructive border-l-4 border-destructive">
+                                                                    {err.message}
+                                                                </div>
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
