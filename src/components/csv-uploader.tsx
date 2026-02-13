@@ -305,11 +305,28 @@ const dateFields = [
    const parseAndSetData = (text: string) => {
     if (!text) return;
 
-    const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+    let lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
     if (lines.length === 0) {
         setProcessedData([]);
         return;
     }
+    
+    if (file && file.name.toLowerCase().includes('venta')) {
+        if (lines.length > 5) {
+            lines = lines.slice(5); // The 6th line is now the first line (headers)
+            toast({
+                title: 'Pre-procesamiento de Ventas Aplicado',
+                description: 'Se eliminaron las primeras 5 filas. La fila 6 se usa como encabezado.',
+            });
+        } else {
+            toast({
+                title: 'Advertencia de Pre-procesamiento',
+                description: 'El archivo de ventas tiene menos de 6 filas. No se pudo aplicar el recorte automático.',
+                variant: 'destructive',
+            });
+        }
+    }
+    
     const headerLine = lines[0] || '';
    
     const delimiters = [',', ';', '\t'];
@@ -973,13 +990,19 @@ const dateFields = [
                                     <TabsContent value="visual">
                                         <div className="relative mt-2 w-full overflow-auto max-h-72 rounded-md border p-4 space-y-2">
                                         {syncSummary.errors.map((err, i) => (
-                                            <div key={i} className="bg-destructive/10 text-destructive rounded-lg p-3">
-                                            <p className="font-bold text-sm">
-                                                Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'}
-                                                {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
-                                                {err.csvRow && ` (Fila CSV: ${err.csvRow})`}
-                                            </p>
-                                            <p className="text-sm mt-1">{err.errorInfo.message}</p>
+                                            <div key={i} className="bg-destructive/10 text-destructive rounded-lg p-3 border border-destructive/20">
+                                                <div className="flex items-start gap-3">
+                                                    <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                                                    <div className="flex-1">
+                                                        <p className="font-bold text-sm">
+                                                            Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'} (Fila CSV: {err.csvRow ?? 'N/A'})
+                                                        </p>
+                                                        <p className="text-sm mt-1">{err.errorInfo.message}</p>
+                                                        {err.record && <p className="font-mono text-xs mt-2 text-destructive/80 max-w-full overflow-x-auto">
+                                                          {Object.entries(err.record).filter(([k]) => k !== '__csv_row_index').map(([k,v]) => `${k}: ${v}`).join(' | ')}
+                                                        </p>}
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))}
                                         </div>
