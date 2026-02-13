@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon, Maximize } from 'lucide-react';
-import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths } from 'date-fns';
+import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
@@ -73,29 +73,35 @@ export default function SalesDashboardClient({
     const { sales, kpis, charts, paretoAnalysisData } = React.useMemo(() => {
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.company === company;
+            if (!companyMatch) {
+                return false;
+            }
 
-            let dateMatch = true;
+            // Filter by date
             if (date?.from) {
-                if (sale.fecha_venta) {
-                    try {
-                        const saleDate = new Date(sale.fecha_venta);
-                        if (isValid(saleDate)) {
-                            dateMatch = saleDate >= startOfDay(date.from);
-                            if(date.to) {
-                               dateMatch = dateMatch && saleDate <= endOfDay(date.to);
-                            }
-                        } else {
-                            dateMatch = false;
-                        }
-                    } catch(e) {
-                        dateMatch = false;
+                if (!sale.fecha_venta) {
+                    return false;
+                }
+
+                try {
+                    const saleDate = parseISO(sale.fecha_venta);
+                    if (!isValid(saleDate)) {
+                        return false;
                     }
-                } else {
-                    dateMatch = false;
+
+                    const fromDate = startOfDay(date.from);
+                    // If no 'to' date is selected, the range is considered to be the single 'from' day.
+                    const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
+
+                    if (saleDate < fromDate || saleDate > toDate) {
+                        return false;
+                    }
+                } catch (e) {
+                    return false;
                 }
             }
 
-            return companyMatch && dateMatch;
+            return true;
         });
 
         // --- Process KPIs ---
@@ -833,3 +839,5 @@ export default function SalesDashboardClient({
         </>
     );
 }
+
+    
