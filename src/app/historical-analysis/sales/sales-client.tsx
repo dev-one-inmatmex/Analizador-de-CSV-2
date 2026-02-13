@@ -583,7 +583,7 @@ export default function SalesDashboardClient({
                                         </TableHeader>
                                         <TableBody>
                                             {paginatedSales.map((v) => (
-                                                <TableRow key={v.id}>
+                                                <TableRow key={v.numero_venta}>
                                                     <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.numero_venta)}</TableCell>
                                                     <TableCell className="whitespace-nowrap">{formatDate(v.fecha_venta)}</TableCell>
                                                     <TableCell className="text-right font-bold whitespace-nowrap">{money(v.total)}</TableCell>

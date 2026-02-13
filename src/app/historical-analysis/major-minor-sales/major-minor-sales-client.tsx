@@ -1,10 +1,11 @@
+
 'use client';
 
 import { GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, DollarSign, Loader2 } from 'lucide-react';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { subDays, formatDistanceToNow } from 'date-fns';
+import { subDays, formatDistanceToNow, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
@@ -62,8 +63,26 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
     const filtered = initialRecentTransactions.filter(t => {
       const typeMatch = saleType === 'Todos' || t.type === saleType;
       const customerMatch = customer === 'Todos' || t.customer === customer;
-      // Date filtering logic would go here
-      return typeMatch && customerMatch;
+      if (!typeMatch || !customerMatch) return false;
+
+      if (date?.from) {
+        if (!t.date) return false;
+        try {
+            const transactionDate = parseISO(t.date);
+            if (!isValid(transactionDate)) return false;
+
+            const fromDate = startOfDay(date.from);
+            const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
+
+            if (transactionDate < fromDate || transactionDate > toDate) {
+                return false;
+            }
+        } catch (e) {
+            return false;
+        }
+      }
+
+      return true;
     });
 
     // Calculate KPIs from filtered data

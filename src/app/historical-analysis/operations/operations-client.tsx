@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ShoppingCart, DollarSign, Filter, Loader2, AlertTriangle, Building, Hash, PlusCircle, Calendar as CalendarIcon, MoreHorizontal, CheckCircle, Edit } from 'lucide-react';
@@ -7,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Cell, Legend, Line, LineChart, Pie, PieChart, Tooltip, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Bar, BarChart } from 'recharts';
 import { DateRange } from 'react-day-picker';
-import { parseISO, format, isValid, endOfDay } from 'date-fns';
+import { parseISO, format, isValid, endOfDay, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { Badge } from '@/components/ui/badge';
@@ -85,22 +86,25 @@ export default function OperationsClient({ initialData }: { initialData: Operati
   const { allCompanies, filteredExpenses, kpis, charts } = React.useMemo(() => {
     const filtered = initialData.expenses.filter(expense => {
         const companyMatch = company === 'Todos' || expense.empresa === company;
-        
-        let dateMatch = true;
+        if (!companyMatch) return false;
+
         if (date?.from && expense.fecha) {
             try {
                 const expenseDate = parseISO(expense.fecha);
-                if (isValid(expenseDate)) {
-                    dateMatch = expenseDate >= date.from;
-                    if(date.to) {
-                       dateMatch = dateMatch && expenseDate <= endOfDay(date.to);
-                    }
+                if (!isValid(expenseDate)) return false;
+
+                const fromDate = startOfDay(date.from);
+                const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
+
+                if (expenseDate < fromDate || expenseDate > toDate) {
+                    return false;
                 }
             } catch(e) {
-                dateMatch = false;
+                return false;
             }
         }
-        return companyMatch && dateMatch;
+
+        return true;
     });
 
     const totalCost = filtered.reduce((acc, item) => acc + (item.monto || 0), 0);

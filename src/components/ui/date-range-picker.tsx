@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -62,7 +63,7 @@ export function DateRangePicker({
             defaultMonth={date?.from}
             selected={date}
             onSelect={onSelect}
-            numberOfMonths={1}
+            numberOfMonths={2}
           />
         </PopoverContent>
       </Popover>

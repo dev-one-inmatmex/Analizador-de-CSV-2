@@ -67,9 +67,7 @@ export interface ventas {
     reclamo_abierto: string | null;
     reclamo_cerrado: string | null;
     con_mediacion: string | null;
-    created_at: string;
-    id: number; // Keep id optional for cases where it might exist
-  }
+    }
   
 
 export interface publicaciones {
