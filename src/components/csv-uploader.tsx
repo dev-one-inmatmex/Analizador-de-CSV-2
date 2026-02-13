@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map as MapIcon, Sheet as SheetIcon } from 'lucide-react';
+import { UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, Undo2, CheckCircle, AlertTriangle, Map as MapIcon, Sheet as SheetIcon, AlertCircle } from 'lucide-react';
 import type { WorkBook } from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { revalidateDashboards } from '@/app/actions/revalidate';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
@@ -47,7 +49,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
    errors: {
      block: number;
      recordIdentifier?: string;
-     message: string;
+     errorInfo: { message: string, column: string | null };
      type: 'insert' | 'update';
      csvRow?: number;
      record?: CsvRowObject;
@@ -57,11 +59,13 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
    updatedRecords: CsvRowObject[];
  };
  
- function formatSupabaseError(error: any, targetTable: string): string {
+ function formatSupabaseError(error: any, targetTable: string): { message: string, column: string | null } {
     const message = error.message || 'Error desconocido.';
     const details = error.details || '';
     const constraintMatch = message.match(/constraint "([^"]+)"/);
     const constraint = constraintMatch ? constraintMatch[1] : '';
+
+    let response: { message: string, column: string | null } = { message: message, column: null };
 
     if (error.code === '23503' || message.includes('violates foreign key constraint')) {
         const detailMatch = details.match(/Key \((.+?)\)=\((.+?)\) is not present in table "(.+?)"\./);
@@ -69,14 +73,19 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             const fkColumn = detailMatch[1].replace(/"/g, '');
             const fkValue = detailMatch[2];
             const parentTable = detailMatch[3].replace(/"/g, '');
-            return `Error de Referencia: El valor '${fkValue}' para la columna '${fkColumn}' no existe en la tabla de referencia '${parentTable}'. Asegúrate de que este SKU/ID exista primero en la tabla principal.`;
+            response.message = `Error de Referencia (Foreign Key). El valor '${fkValue}' para la columna '${fkColumn}' no existe en la tabla principal '${parentTable}'.`;
+            response.column = fkColumn;
+            return response;
         }
-        return `Error de Referencia (Foreign Key): Un valor que intentas usar no existe en la tabla principal a la que está conectado.`;
+        response.message = `Error de Referencia (Foreign Key): Un valor que intentas usar no existe en la tabla principal a la que está conectado.`;
+        return response;
     }
 
     if (message.includes('violates not-null constraint')) {
         const columnName = message.match(/column "([^"]+)"/)?.[1];
-        return `Error de valor nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía. Revisa tu archivo CSV.`;
+        response.message = `Error de valor nulo: La columna '${columnName || 'desconocida'}' no puede estar vacía.`;
+        response.column = columnName || null;
+        return response;
     }
 
     if (error.code === '23505' || message.includes('duplicate key value violates unique constraint')) {
@@ -84,21 +93,36 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         if (detailMatch) {
             const columnName = detailMatch[1].replace(/"/g, '');
             const duplicateValue = detailMatch[2];
-            return `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe y debe ser único.`;
+            response.message = `Conflicto de duplicado en la columna '${columnName}': El valor '${duplicateValue}' ya existe y debe ser único.`;
+            response.column = columnName;
+            return response;
         }
         if (constraint) {
             const columnNameMatch = constraint.match(/_([^_]+)_key$/);
             const columnName = columnNameMatch ? columnNameMatch[1] : constraint.replace(`${targetTable}_`, '').replace('_key', '');
-            return `Conflicto de duplicado: Se violó la restricción de unicidad '${constraint}'.`;
+            response.message = `Conflicto de duplicado: Se violó la restricción de unicidad '${constraint}'.`;
+            response.column = columnName;
+            return response;
         }
-        return `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
+        response.message = `Conflicto de duplicado: Un valor que debe ser único ya existe en la base de datos.`;
+        return response;
     }
 
     if (error.code === '42501' || message.includes('violates row-level security policy')) {
-        return `Error de Permisos (RLS): La base de datos rechazó la escritura. Revisa las políticas de seguridad de la tabla.`;
+        response.message = `Error de Permisos (RLS): La base de datos rechazó la escritura.`;
+        return response;
+    }
+
+    if (message.includes('invalid input syntax for type')) {
+        const typeMatch = message.match(/for type ([^:]+):/);
+        const valueMatch = message.match(/"([^"]+)"/);
+        const dataType = typeMatch ? typeMatch[1] : 'desconocido';
+        const invalidValue = valueMatch ? valueMatch[1] : 'desconocido';
+        response.message = `Tipo de dato incorrecto. Se esperaba un tipo '${dataType}' pero se recibió '${invalidValue}'.`;
+        return response;
     }
     
-    return message;
+    return response;
 }
 
 const numericFields = [
@@ -641,7 +665,7 @@ const dateFields = [
             });
             
             const successfulRecords: CsvRowObject[] = [];
-            const localErrors: { recordIdentifier: any; message: string; csvRow: any; record: any; }[] = [];
+            const localErrors: { recordIdentifier: any; errorInfo: { message: string, column: string | null }; csvRow: any; record: any; }[] = [];
 
             for (const recordWithMeta of recordsToProcess) {
               const isUpdate = dataToUpdate.some(u => String(u[primaryKey]) === String(recordWithMeta[primaryKey]));
@@ -658,14 +682,14 @@ const dateFields = [
               if (error) {
                   localErrors.push({
                       recordIdentifier: recordWithMeta[primaryKey],
-                      message: formatSupabaseError(error, selectedTableName),
+                      errorInfo: formatSupabaseError(error, selectedTableName),
                       csvRow: recordWithMeta.__csv_row_index,
                       record: recordWithMeta,
                   });
               } else if (!resultData || resultData.length === 0) {
                   localErrors.push({
                       recordIdentifier: recordWithMeta[primaryKey],
-                      message: "Operación bloqueada por la base de datos (posiblemente por políticas de seguridad RLS). El registro no se guardó.",
+                      errorInfo: { message: "Operación bloqueada por la base de datos (posiblemente por políticas de seguridad RLS). El registro no se guardó.", column: null },
                       csvRow: recordWithMeta.__csv_row_index,
                       record: recordWithMeta,
                   });
@@ -692,7 +716,7 @@ const dateFields = [
                     finalSummary.errors.push({
                         block: i + 1,
                         recordIdentifier: e.recordIdentifier,
-                        message: e.message,
+                        errorInfo: e.errorInfo,
                         type: isInsertError ? 'insert' : 'update',
                         csvRow: e.csvRow,
                         record: e.record,
@@ -955,7 +979,7 @@ const dateFields = [
                                                 {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
                                                 {err.csvRow && ` (Fila CSV: ${err.csvRow})`}
                                             </p>
-                                            <p className="text-sm mt-1">{err.message}</p>
+                                            <p className="text-sm mt-1">{err.errorInfo.message}</p>
                                             </div>
                                         ))}
                                         </div>
@@ -965,44 +989,44 @@ const dateFields = [
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead className="w-[80px]">Fila</TableHead>
-                                                        <TableHead>Tipo</TableHead>
-                                                        <TableHead>Registro</TableHead>
-                                                        <TableHead>Mensaje</TableHead>
+                                                        {allMappedHeaders.map(h => <TableHead key={h}>{h}</TableHead>)}
+                                                        <TableHead>Error Info</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {syncSummary.errors.map((err, i) => (
-                                                        <TableRow key={i} className="bg-destructive/5 hover:bg-destructive/10">
-                                                            <TableCell className="font-mono text-center">{err.csvRow || 'N/A'}</TableCell>
-                                                            <TableCell>
-                                                                <Badge variant={err.type === 'insert' ? 'destructive' : 'outline'}>
-                                                                    {err.type === 'insert' ? 'Inserción' : 'Actualización'}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs">
-                                                                {err.record ? (
-                                                                    <div className="flex flex-col">
-                                                                        <div className="font-semibold">{primaryKey}: <span className="font-mono font-normal text-muted-foreground">{err.recordIdentifier}</span></div>
-                                                                        {allMappedHeaders
-                                                                            .filter(h => h !== primaryKey)
-                                                                            .slice(0, 2)
-                                                                            .map(header => (
-                                                                                <div key={header} className="truncate" title={String(err.record![header] ?? '')}>
-                                                                                    <span className="font-semibold">{header}: </span>
-                                                                                    <span className="text-muted-foreground">{String(err.record![header] ?? 'N/A')}</span>
-                                                                                </div>
-                                                                            ))
-                                                                        }
+                                                        <TableRow key={i} className="bg-destructive/10 border-y-2 border-destructive/30">
+                                                            {allMappedHeaders.map(h => (
+                                                                <TableCell 
+                                                                    key={h} 
+                                                                    className={cn(
+                                                                        "text-xs p-2 align-top whitespace-nowrap",
+                                                                        err.errorInfo.column === h && "bg-destructive/25"
+                                                                    )}
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <span className="truncate" title={String(err.record?.[h] ?? '')}>
+                                                                        {String(err.record?.[h] ?? '')}
+                                                                        </span>
+                                                                        {err.errorInfo.column === h && (
+                                                                            <TooltipProvider>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger>
+                                                                                        <AlertCircle className="h-4 w-4 text-destructive" />
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent side="top">
+                                                                                        <p>Este valor causó el error.</p>
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                            </TooltipProvider>
+                                                                        )}
                                                                     </div>
-                                                                ) : (
-                                                                    <span className="font-mono">{err.recordIdentifier || 'N/A'}</span>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-xs">
-                                                                <div className="p-2 rounded-md bg-destructive/10 text-destructive border-l-4 border-destructive">
-                                                                    {err.message}
-                                                                </div>
+                                                                </TableCell>
+                                                            ))}
+                                                            <TableCell className="text-xs text-destructive-foreground align-top p-2 bg-destructive/20">
+                                                            <div className="font-medium max-w-xs">
+                                                                <strong>Fila {err.csvRow}:</strong> {err.errorInfo.message}
+                                                            </div>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
