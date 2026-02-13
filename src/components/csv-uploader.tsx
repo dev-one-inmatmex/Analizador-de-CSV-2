@@ -22,6 +22,7 @@ import { revalidateDashboards } from '@/app/actions/revalidate';
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'categoria_madre', 'landed_cost', 'tiempo_preparacion', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
+     diccionario_skus: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'presentacion_master_1', 'piezas_por_master', 'codigo_en_siggo', 'nombre_en_siggo', 'rock_en_siggo', 'piezas_totales', 'estado_en_siggo', 'presentacion_master_2', 'presentacion_en_master_3', 'presentacion_en_master_4', 'bodega', 'bloque'] },
      gastos_diarios: { pk: 'id', columns: ['fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
      publicaciones: { pk: 'sku', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
