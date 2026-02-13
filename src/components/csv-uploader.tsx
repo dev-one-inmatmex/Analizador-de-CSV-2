@@ -42,7 +42,13 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
  type SyncSummary = {
    inserted: number;
    updated: number;
-   errors: { block: number; recordIdentifier?: string; message: string; type: 'insert' | 'update' }[];
+   errors: {
+     block: number;
+     recordIdentifier?: string;
+     message: string;
+     type: 'insert' | 'update';
+     csvRow?: number;
+   }[];
    log: string;
    insertedRecords: CsvRowObject[];
    updatedRecords: CsvRowObject[];
@@ -468,8 +474,8 @@ const dateFields = [
      setLoadingMessage('Analizando datos... Comparando con la base de datos.');
 
      try {
-         const mappedCsvData = rawRows.map(row => {
-             const newRow: CsvRowObject = {};
+         const mappedCsvData = rawRows.map((row, index) => {
+             const newRow: CsvRowObject = { __csv_row_index: index + 2 };
              Object.entries(headerMap).forEach(([csvIndex, dbCol]) => {
                  if (dbCol !== IGNORE_COLUMN_VALUE) {
                      newRow[dbCol] = row[parseInt(csvIndex)];
@@ -658,9 +664,12 @@ const dateFields = [
             const successfulRecords: CsvRowObject[] = [];
             const errors: any[] = [];
 
-            for (const record of recordsToProcess) {
-              const isUpdate = dataToUpdate.some(u => String(u[primaryKey]) === String(record[primaryKey]));
+            for (const recordWithMeta of recordsToProcess) {
+              const isUpdate = dataToUpdate.some(u => String(u[primaryKey]) === String(recordWithMeta[primaryKey]));
               const query = supabase.from(selectedTableName);
+
+              const record = { ...recordWithMeta };
+              delete record.__csv_row_index;
 
               const { data: resultData, error } = await (isUpdate
                   ? query.upsert(record as any, { onConflict: primaryKey }).select()
@@ -669,13 +678,15 @@ const dateFields = [
 
               if (error) {
                   errors.push({
-                      recordIdentifier: record[primaryKey],
-                      message: formatSupabaseError(error, record),
+                      recordIdentifier: recordWithMeta[primaryKey],
+                      message: formatSupabaseError(error, recordWithMeta),
+                      csvRow: recordWithMeta.__csv_row_index,
                   });
               } else if (!resultData || resultData.length === 0) {
                   errors.push({
-                      recordIdentifier: record[primaryKey],
+                      recordIdentifier: recordWithMeta[primaryKey],
                       message: "Operación bloqueada por la base de datos (posiblemente por políticas de seguridad RLS). El registro no se guardó.",
+                      csvRow: recordWithMeta.__csv_row_index,
                   });
               } else {
                   successfulRecords.push(resultData[0]);
@@ -701,7 +712,8 @@ const dateFields = [
                         block: i + 1,
                         recordIdentifier: e.recordIdentifier,
                         message: e.message,
-                        type: isInsertError ? 'insert' : 'update'
+                        type: isInsertError ? 'insert' : 'update',
+                        csvRow: e.csvRow,
                     });
                 });
             }
@@ -954,6 +966,7 @@ const dateFields = [
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
+                                                        <TableHead className="w-[80px]">Fila</TableHead>
                                                         <TableHead>Tipo</TableHead>
                                                         <TableHead>Registro</TableHead>
                                                         <TableHead>Mensaje</TableHead>
@@ -961,7 +974,8 @@ const dateFields = [
                                                 </TableHeader>
                                                 <TableBody>
                                                     {syncSummary.errors.map((err, i) => (
-                                                        <TableRow key={i} className="hover:bg-destructive/5">
+                                                        <TableRow key={i} className="bg-destructive/5 hover:bg-destructive/10">
+                                                            <TableCell className="font-mono text-center">{err.csvRow || 'N/A'}</TableCell>
                                                             <TableCell>
                                                                 <Badge variant={err.type === 'insert' ? 'destructive' : 'outline'}>
                                                                     {err.type === 'insert' ? 'Inserción' : 'Actualización'}
