@@ -1,7 +1,6 @@
 import { predictSales } from '@/ai/flows/predict-sales-flow';
 import { SalesPredictionInput, SalesPredictionOutput } from '@/ai/schemas/sales-prediction-schemas';
 import TrendsPredictionClient from './trends-prediction-client';
-import { unstable_noStore as noStore } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import { format, subMonths, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -21,7 +20,6 @@ export type RecentSale = {
 };
 
 async function getPredictionData() {
-    noStore();
     if (!supabaseAdmin) return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
 
     // 1. Fetch last 12 months of sales from 'ventas'

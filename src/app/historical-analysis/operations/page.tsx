@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import OperationsClient from './operations-client';
-import { unstable_noStore as noStore } from 'next/cache';
 import { format, startOfMonth, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { gastos_diarios } from '@/types/database';
@@ -23,7 +22,6 @@ export type OperationsData = {
 };
 
 async function getOperationsData(): Promise<OperationsData> {
-    noStore();
     const allCompanies = ['Todos', 'MTM', 'TAL', 'DK']; // Static list for expenses
 
     const emptyData: OperationsData = { 

@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseClient'
 import SalesDashboardClient from './sales-client';
-import { unstable_noStore as noStore } from 'next/cache';
 import { subMonths } from 'date-fns';
 import type { ventas, publicaciones, publicaciones_por_sku, skuxpublicaciones, catalogo_madre, categorias_madre, skus_unicos } from '@/types/database';
 
@@ -37,7 +36,6 @@ type GetSalesDataReturn = {
 
 
 async function getSalesData(): Promise<GetSalesDataReturn> {
-  noStore();
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
   const twelveMonthsAgo = subMonths(new Date(), 12);
@@ -62,7 +60,6 @@ async function getSalesData(): Promise<GetSalesDataReturn> {
 }
 
 async function getInventoryData() {
-    noStore();
     if (!supabaseAdmin) return { categoriasMadre: [], skusUnicos: [], skuPublicaciones: [], error: 'Supabase admin client no configurado' };
 
     try {

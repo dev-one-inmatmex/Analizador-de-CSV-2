@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseClient'
 import PublicationsClient from './publications-client';
-import { unstable_noStore as noStore } from 'next/cache';
 import type { publicaciones, publicaciones_por_sku, skuxpublicaciones, catalogo_madre } from '@/types/database';
 
 export type EnrichedPublicationCount = publicaciones_por_sku & { publication_title?: string };
@@ -17,7 +16,6 @@ export type ProductsData = {
 }
 
 async function getProductsData(): Promise<ProductsData> {
-    noStore();
     if (!supabaseAdmin) return { publications: [], skuCounts: [], skuMap: [], motherCatalog: [], error: 'Supabase admin client no configurado' };
 
     try {

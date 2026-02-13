@@ -1,10 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import MotherCatalogClient from './client';
-import { unstable_noStore as noStore } from 'next/cache';
 import type { catalogo_madre } from '@/types/database';
 
 async function getData() {
-    noStore();
     if (!supabaseAdmin) {
         return { data: [], error: 'El cliente de Supabase (admin) no está disponible. Revisa la configuración del servidor.' };
     }

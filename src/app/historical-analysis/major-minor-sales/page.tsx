@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseClient'
 import MajorMinorSalesClientPage from './major-minor-sales-client';
-import { unstable_noStore as noStore } from 'next/cache';
 
 export type Transaction = {
   id: string;
@@ -11,7 +10,6 @@ export type Transaction = {
 };
 
 async function getRecentTransactions(): Promise<Transaction[]> {
-  noStore();
   if (!supabaseAdmin) {
     console.warn("Supabase admin client is not configured.");
     return [];
