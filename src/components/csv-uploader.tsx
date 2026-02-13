@@ -311,22 +311,6 @@ const dateFields = [
         return;
     }
     
-    if (file && file.name.toLowerCase().includes('venta')) {
-        if (lines.length > 5) {
-            lines = lines.slice(5); // The 6th line is now the first line (headers)
-            toast({
-                title: 'Pre-procesamiento de Ventas Aplicado',
-                description: 'Se eliminaron las primeras 5 filas. La fila 6 se usa como encabezado.',
-            });
-        } else {
-            toast({
-                title: 'Advertencia de Pre-procesamiento',
-                description: 'El archivo de ventas tiene menos de 6 filas. No se pudo aplicar el recorte automático.',
-                variant: 'destructive',
-            });
-        }
-    }
-    
     const headerLine = lines[0] || '';
    
     const delimiters = [',', ';', '\t'];
