@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { revalidateDashboards } from '@/app/actions/revalidate';
 
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
@@ -220,6 +221,7 @@ const dateFields = [
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
+    const [isRevalidating, setIsRevalidating] = useState(false);
 
    useEffect(() => {
     setIsClient(true);
@@ -329,7 +331,7 @@ const dateFields = [
         if (workbook) {
             const { utils } = await import('xlsx');
             const sheet = workbook.Sheets[sheetName];
-            const csvString = (utils as any).sheet_to_csv(sheet);
+            const csvString = utils.sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             setWorkbook(null);
@@ -365,7 +367,7 @@ const dateFields = [
                     setIsSheetSelectorOpen(true);
                 } else {
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = (utils as any).sheet_to_csv(sheet);
+                    const csvString = utils.sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
@@ -703,6 +705,24 @@ const dateFields = [
        toast({ title: 'Sincronización Completada', description: 'El proceso de carga de datos ha finalizado.' });
    }
 
+    const handleRevalidate = async () => {
+        setIsRevalidating(true);
+        const result = await revalidateDashboards();
+        if (result.success) {
+        toast({
+            title: 'Actualización Exitosa',
+            description: 'Los dashboards ahora tienen los datos más recientes. Puedes navegar a ellos para ver los cambios.',
+        });
+        } else {
+        toast({
+            title: 'Error de Actualización',
+            description: result.message,
+            variant: 'destructive',
+        });
+        }
+        setIsRevalidating(false);
+    };
+
    const usedDbColumns = React.useMemo(() => new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE)), [headerMap]);
 
    const renderStep = () => {
@@ -742,12 +762,12 @@ const dateFields = [
                             )}
                          </div>
                          <div className="space-y-2">
-                            <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || rawRows.length === 0 || isConverting}>
+                            <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || (rawRows.length === 0 && !isSheetSelectorOpen) || isConverting}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder={
                                         !isSupabaseConfigured ? "Configuración de Supabase incompleta" :
                                         isConverting ? "Procesando archivo..." :
-                                        rawRows.length === 0 && file?.name.endsWith('.xlsx') ? "Procesando o selecciona una hoja" :
+                                        isSheetSelectorOpen ? "Selecciona una hoja del archivo" :
                                         rawRows.length === 0 ? "Carga un archivo de datos" :
                                         "Selecciona una tabla de destino..."
                                     } />
@@ -851,6 +871,10 @@ const dateFields = [
                            <CardDescription>La carga de datos ha terminado. Aquí tienes el resumen.</CardDescription>
                          </div>
                          <div className="flex gap-2">
+                           <Button onClick={handleRevalidate} disabled={isRevalidating} variant="secondary">
+                                {isRevalidating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                                Actualizar Dashboards
+                           </Button>
                            <Button variant="outline" onClick={backToMapping}>
                              <MapIcon className="mr-2 h-4 w-4" />
                              Volver al Mapeo
@@ -1140,7 +1164,7 @@ const dateFields = [
                 <DialogHeader>
                     <DialogTitle>Seleccionar Hoja a Importar</DialogTitle>
                     <DialogDescription>
-                        Tu archivo Excel contiene varias hojas. Cada una se procesará como un archivo CSV individual. Por favor, selecciona la hoja con la que deseas continuar.
+                        Tu archivo Excel contiene varias hojas. Elige la que deseas procesar.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-2">
@@ -1153,14 +1177,17 @@ const dateFields = [
                                 className="justify-start w-full"
                                 onClick={() => handleConfirmSheet(name)}
                             >
-                                <FileIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <SheetIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                                 {name}
                             </Button>
                         ))}
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="ghost" onClick={() => setIsSheetSelectorOpen(false)}>Cancelar</Button>
+                    <Button variant="ghost" onClick={() => {
+                        setIsSheetSelectorOpen(false);
+                        resetAll(true);
+                    }}>Cancelar</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
