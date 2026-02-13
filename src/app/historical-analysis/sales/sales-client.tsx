@@ -262,28 +262,15 @@ export default function SalesDashboardClient({
     const [pageSkus, setPageSkus] = React.useState(1);
     const [pageSkuPub, setPageSkuPub] = React.useState(1);
 
-    const { inventoryKpis, topProveedores } = React.useMemo(() => {
+    const { inventoryKpis } = React.useMemo(() => {
         const totalCategorias = categoriasMadre.length;
         const totalSkus = skusUnicos.length;
         const totalMapeos = skuPublicaciones.length;
         const landedCosts = categoriasMadre.map(c => c.landed_cost).filter((c): c is number => c !== null && c !== undefined);
         const avgLandedCost = landedCosts.length > 0 ? landedCosts.reduce((a, b) => a + b, 0) / landedCosts.length : 0;
         
-        const proveedorCounts: Record<string, number> = {};
-        categoriasMadre.forEach(cat => {
-            if (cat.proveedor) {
-                proveedorCounts[cat.proveedor] = (proveedorCounts[cat.proveedor] || 0) + 1;
-            }
-        });
-
-        const topProveedoresData = Object.entries(proveedorCounts)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5);
-
         return {
             inventoryKpis: { totalCategorias, totalSkus, totalMapeos, avgLandedCost },
-            topProveedores: topProveedoresData
         };
     }, [categoriasMadre, skusUnicos, skuPublicaciones]);
 
@@ -719,27 +706,8 @@ export default function SalesDashboardClient({
                                 </Card>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <Card>
-                                    <CardHeader>
-                                        <CardTitle>Top 5 Proveedores por # de SKUs</CardTitle>
-                                        <CardDescription>Proveedores con la mayor cantidad de SKUs asociados en &quot;Categorías Madre&quot;.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart data={topProveedores} layout="vertical" margin={{ left: 100, right: 30 }}>
-                                            <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis type="number" allowDecimals={false} />
-                                            <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} />
-                                            <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
-                                            <Legend />
-                                            <Bar dataKey="count" name="# de SKUs" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                                        </BarChart>
-                                        </ResponsiveContainer>
-                                    </CardContent>
-                                    </Card>
-                                    
-                                    <Tabs defaultValue="categorias" className="lg:col-span-1 w-full">
+                                <div className="grid grid-cols-1 gap-6">
+                                    <Tabs defaultValue="categorias" className="w-full">
                                     <TabsList className="grid w-full grid-cols-3">
                                         <TabsTrigger value="categorias">Categorías Madre</TabsTrigger>
                                         <TabsTrigger value="skus_unicos">SKUs Únicos</TabsTrigger>
@@ -752,15 +720,13 @@ export default function SalesDashboardClient({
                                             <TableHead>SKU</TableHead>
                                             <TableHead>Categoría</TableHead>
                                             <TableHead>Título</TableHead>
-                                            <TableHead>Proveedor</TableHead>
                                             <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
-                                            <TableHead className="text-center">T. Recompra (días)</TableHead>
                                             <TableHead className="text-center">Pzs/SKU</TableHead>
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
                                             <TableHead>Bodega</TableHead>
                                             <TableHead>Bloque</TableHead>
-                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell>{cat.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.tiempo_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                         {totalPagesCategorias > 1 && renderInventoryPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
                                         </Card>
                                     </TabsContent>

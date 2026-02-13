@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre'] },
-     categorias_madre: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'tiempo_recompra', 'proveedor', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
+     categorias_madre: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'tiempo_preparacion', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
      gastos_diarios: { pk: 'id', columns: ['fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
      publicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
      publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
@@ -323,9 +323,9 @@ const dateFields = [
 };
 
    const updatePreviewData = async (sheetName: string, wb: WorkBook) => {
-        const XLSX = await import('xlsx');
+        const { utils } = await import('xlsx');
         const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = (XLSX.utils as any).sheet_to_aoa(sheet, { defval: "" });
+        const data: (string|number)[][] = utils.sheet_to_aoa(sheet, { defval: "" });
         const headerLength = data.length > 0 ? data[0].length : 0;
         const cleanData = data.map(row => {
             const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
@@ -344,9 +344,9 @@ const dateFields = [
     
    const handleConfirmSheet = async () => {
         if (workbook) {
-            const XLSX = await import('xlsx');
+            const { utils } = await import('xlsx');
             const sheet = workbook.Sheets[selectedPreviewSheet];
-            const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
+            const csvString = utils.sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
             toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
@@ -368,8 +368,8 @@ const dateFields = [
                 return;
             }
             try {
-                const XLSX = await import('xlsx');
-                const wb = XLSX.read(data, { type: 'array' });
+                const { read } = await import('xlsx');
+                const wb = read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
 
                 setIsConverting(false);
@@ -381,8 +381,9 @@ const dateFields = [
                     await updatePreviewData(sNames[0], wb);
                     setIsSheetSelectorOpen(true);
                 } else {
+                    const { utils } = await import('xlsx');
                     const sheet = wb.Sheets[sNames[0]];
-                    const csvString = (XLSX.utils as any).sheet_to_csv(sheet);
+                    const csvString = utils.sheet_to_csv(sheet);
                     parseAndSetData(csvString);
                 }
             } catch (error) {
