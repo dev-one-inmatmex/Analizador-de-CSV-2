@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon, Maximize } from 'lucide-react';
+import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon, Maximize, Repeat } from 'lucide-react';
 import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
@@ -720,14 +720,15 @@ export default function SalesDashboardClient({
                                         <CardContent><Table><TableHeader><TableRow>
                                             <TableHead>SKU</TableHead>
                                             <TableHead>Categoría</TableHead>
-                                            <TableHead>Título</TableHead>
+                                            <TableHead>Nombre Madre</TableHead>
+                                            <TableHead>Título Publicación</TableHead>
                                             <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
                                             <TableHead className="text-center">Pzs/SKU</TableHead>
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
                                             <TableHead>Bodega</TableHead>
                                             <TableHead>Bloque</TableHead>
-                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.title ?? undefined}>{cat.title ?? 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                         {totalPagesCategorias > 1 && renderInventoryPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
                                         </Card>
                                     </TabsContent>
@@ -740,8 +741,9 @@ export default function SalesDashboardClient({
                                             <TableHead>Proveedor</TableHead>
                                             <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
+                                            <TableHead className="text-center">T. Recompra (días)</TableHead>
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
-                                            </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                            </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.de_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                             {totalPagesSkus > 1 && renderInventoryPagination(pageSkus, totalPagesSkus, setPageSkus)}
                                         </Card>
                                     </TabsContent>
