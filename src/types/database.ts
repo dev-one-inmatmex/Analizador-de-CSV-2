@@ -80,6 +80,7 @@ export interface publicaciones {
     nombre_madre: string | null; 
     price: number | null;
     company: string | null;
+    created_at: string | null;
   }
 
 export interface publicaciones_por_sku{

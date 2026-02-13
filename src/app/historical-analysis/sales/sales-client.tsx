@@ -519,16 +519,11 @@ export default function SalesDashboardClient({
                                             <TableRow>
                                                 <TableHead># Venta</TableHead>
                                                 <TableHead>Fecha Venta</TableHead>
-                                                <TableHead>Total</TableHead>
                                                 <TableHead>Estado</TableHead>
                                                 <TableHead>Desc. Estado</TableHead>
-                                                <TableHead>Título</TableHead>
-                                                <TableHead>SKU</TableHead>
-                                                <TableHead>Item ID</TableHead>
-                                                <TableHead>Compañía</TableHead>
-                                                <TableHead>Comprador</TableHead>
+                                                <TableHead>Es Paquete Varios</TableHead>
+                                                <TableHead>Pertenece a Kit</TableHead>
                                                 <TableHead>Unidades</TableHead>
-                                                <TableHead>Precio</TableHead>
                                                 <TableHead>Ingreso Productos</TableHead>
                                                 <TableHead>Impuestos</TableHead>
                                                 <TableHead>Ingreso Envío</TableHead>
@@ -536,10 +531,14 @@ export default function SalesDashboardClient({
                                                 <TableHead>Costo Medidas Peso</TableHead>
                                                 <TableHead>Cargo Diferencia Peso</TableHead>
                                                 <TableHead>Anulaciones/Reembolsos</TableHead>
+                                                <TableHead>Total</TableHead>
                                                 <TableHead>Venta Publicidad</TableHead>
-                                                <TableHead>Es Paquete Varios</TableHead>
-                                                <TableHead>Pertenece a Kit</TableHead>
+                                                <TableHead>SKU</TableHead>
+                                                <TableHead>Item ID</TableHead>
+                                                <TableHead>Compañía</TableHead>
+                                                <TableHead>Título</TableHead>
                                                 <TableHead>Variante</TableHead>
+                                                <TableHead>Precio</TableHead>
                                                 <TableHead>Tipo Publicación</TableHead>
                                                 <TableHead>Factura Adjunta</TableHead>
                                                 <TableHead>Datos Empresa</TableHead>
@@ -549,6 +548,7 @@ export default function SalesDashboardClient({
                                                 <TableHead>CFDI</TableHead>
                                                 <TableHead>Tipo Usuario</TableHead>
                                                 <TableHead>Régimen Fiscal</TableHead>
+                                                <TableHead>Comprador</TableHead>
                                                 <TableHead>Negocio</TableHead>
                                                 <TableHead>IFE</TableHead>
                                                 <TableHead>Domicilio Entrega</TableHead>
@@ -586,16 +586,11 @@ export default function SalesDashboardClient({
                                                 <TableRow key={v.numero_venta}>
                                                     <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.numero_venta)}</TableCell>
                                                     <TableCell className="whitespace-nowrap">{formatDate(v.fecha_venta)}</TableCell>
-                                                    <TableCell className="text-right font-bold whitespace-nowrap">{money(v.total)}</TableCell>
                                                     <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize whitespace-nowrap">{formatText(v.estado)}</Badge></TableCell>
                                                     <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.descripcion_estado)}</TableCell>
-                                                    <TableCell className="max-w-[200px] truncate whitespace-nowrap" title={formatText(v.title)}>{formatText(v.title)}</TableCell>
-                                                    <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.sku)}</TableCell>
-                                                    <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.item_id)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatText(v.company)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatText(v.comprador)}</TableCell>
+                                                    <TableCell>{formatText(v.es_paquete_varios)}</TableCell>
+                                                    <TableCell>{formatText(v.pertenece_kit)}</TableCell>
                                                     <TableCell className="text-center">{v.unidades}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.price)}</TableCell>
                                                     <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_productos)}</TableCell>
                                                     <TableCell className="text-right whitespace-nowrap">{money(v.cargo_venta_impuestos)}</TableCell>
                                                     <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_envio)}</TableCell>
@@ -603,10 +598,14 @@ export default function SalesDashboardClient({
                                                     <TableCell className="text-right whitespace-nowrap">{money(v.costo_medidas_peso)}</TableCell>
                                                     <TableCell className="text-right whitespace-nowrap">{money(v.cargo_diferencia_peso)}</TableCell>
                                                     <TableCell className="text-right whitespace-nowrap">{money(v.anulaciones_reembolsos)}</TableCell>
+                                                    <TableCell className="text-right font-bold whitespace-nowrap">{money(v.total)}</TableCell>
                                                     <TableCell>{formatBoolean(v.venta_publicidad)}</TableCell>
-                                                    <TableCell>{formatText(v.es_paquete_varios)}</TableCell>
-                                                    <TableCell>{formatText(v.pertenece_kit)}</TableCell>
+                                                    <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.sku)}</TableCell>
+                                                    <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.item_id)}</TableCell>
+                                                    <TableCell className="whitespace-nowrap">{formatText(v.company)}</TableCell>
+                                                    <TableCell className="max-w-[200px] truncate whitespace-nowrap" title={formatText(v.title)}>{formatText(v.title)}</TableCell>
                                                     <TableCell className="whitespace-nowrap">{formatText(v.variante)}</TableCell>
+                                                    <TableCell className="text-right whitespace-nowrap">{money(v.price)}</TableCell>
                                                     <TableCell className="whitespace-nowrap">{formatText(v.tipo_publicacion)}</TableCell>
                                                     <TableCell>{formatText(v.factura_adjunta)}</TableCell>
                                                     <TableCell>{formatText(v.datos_personales_empresa)}</TableCell>
@@ -616,6 +615,7 @@ export default function SalesDashboardClient({
                                                     <TableCell>{formatText(v.cfdi)}</TableCell>
                                                     <TableCell>{formatText(v.tipo_usuario)}</TableCell>
                                                     <TableCell>{formatText(v.regimen_fiscal)}</TableCell>
+                                                    <TableCell className="whitespace-nowrap">{formatText(v.comprador)}</TableCell>
                                                     <TableCell>{formatText(v.negocio)}</TableCell>
                                                     <TableCell>{formatText(v.ife)}</TableCell>
                                                     <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.domicilio_entrega)}</TableCell>
@@ -719,8 +719,8 @@ export default function SalesDashboardClient({
                                         <CardHeader><CardTitle>Categorías Madre</CardTitle><CardDescription>Información logística por categoría.</CardDescription></CardHeader>
                                         <CardContent><Table><TableHeader><TableRow>
                                             <TableHead>SKU</TableHead>
-                                            <TableHead>Categoría</TableHead>
                                             <TableHead>Nombre Madre</TableHead>
+                                            <TableHead>Categoría</TableHead>
                                             <TableHead>Título Publicación</TableHead>
                                             <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
@@ -728,7 +728,7 @@ export default function SalesDashboardClient({
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
                                             <TableHead>Bodega</TableHead>
                                             <TableHead>Bloque</TableHead>
-                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.title ?? undefined}>{cat.title ?? 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.title ?? undefined}>{cat.title ?? 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                         {totalPagesCategorias > 1 && renderInventoryPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
                                         </Card>
                                     </TabsContent>
@@ -738,12 +738,12 @@ export default function SalesDashboardClient({
                                             <CardContent><Table><TableHeader><TableRow>
                                             <TableHead>SKU</TableHead>
                                             <TableHead>Categoría</TableHead>
-                                            <TableHead>Proveedor</TableHead>
-                                            <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Prep (días)</TableHead>
+                                            <TableHead className="text-right">Landed Cost</TableHead>
                                             <TableHead className="text-center">T. Recompra (días)</TableHead>
+                                            <TableHead>Proveedor</TableHead>
                                             <TableHead className="text-center">Pzs/Cont.</TableHead>
-                                            </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.de_recompra ?? 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                                            </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.de_recompra ?? 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                                             {totalPagesSkus > 1 && renderInventoryPagination(pageSkus, totalPagesSkus, setPageSkus)}
                                         </Card>
                                     </TabsContent>

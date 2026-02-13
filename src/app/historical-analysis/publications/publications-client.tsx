@@ -142,30 +142,30 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>SKU</TableHead>
                                             <TableHead>ITEM_ID</TableHead>
+                                            <TableHead>SKU</TableHead>
                                             <TableHead>Product Number</TableHead>
                                             <TableHead>Variation ID</TableHead>
                                             <TableHead>Título</TableHead>
-                                            <TableHead>Compañía</TableHead>
-                                            <TableHead>Categoría Madre</TableHead>
                                             <TableHead>Estado</TableHead>
+                                            <TableHead>Categoría Madre</TableHead>
                                             <TableHead className="text-right">Precio</TableHead>
+                                            <TableHead>Compañía</TableHead>
                                             <TableHead>Fecha Creación</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {paginatedPubs.map(pub => (
                                             <TableRow key={pub.item_id}>
-                                                <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
                                                 <TableCell className="font-mono">{pub.item_id}</TableCell>
+                                                <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
                                                 <TableCell className="font-mono text-xs">{pub.product_number ?? 'N/A'}</TableCell>
                                                 <TableCell className="font-mono text-xs">{pub.variation_id ?? 'N/A'}</TableCell>
                                                 <TableCell className="max-w-sm truncate" title={pub.title ?? ''}>{pub.title}</TableCell>
-                                                <TableCell>{pub.company ?? 'N/A'}</TableCell>
-                                                <TableCell>{pub.nombre_madre ?? 'N/A'}</TableCell>
                                                 <TableCell><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell>
+                                                <TableCell>{pub.nombre_madre ?? 'N/A'}</TableCell>
                                                 <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price ?? 0)}</TableCell>
+                                                <TableCell>{pub.company ?? 'N/A'}</TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">{pub.created_at ? format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es }) : 'N/A'}</TableCell>
                                             </TableRow>
                                         ))}
