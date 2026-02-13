@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon } from 'lucide-react';
+import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon, Maximize } from 'lucide-react';
 import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
@@ -21,6 +21,7 @@ import type { skus_unicos, skuxpublicaciones } from '@/types/database';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type InventoryData = {
     categoriasMadre: EnrichedCategoriaMadre[];
@@ -28,6 +29,15 @@ type InventoryData = {
     skuPublicaciones: skuxpublicaciones[];
     error: string | null;
 }
+
+type ParetoProduct = {
+    name: string;
+    revenue: number;
+    units: number;
+    percentageOfTotal: number;
+    cumulativePercentage: number;
+};
+
 
 const PAGE_SIZE = 10;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -51,12 +61,16 @@ export default function SalesDashboardClient({
       from: subDays(new Date(), 365),
       to: new Date(),
     });
+    
+    const [isParetoModalOpen, setIsParetoModalOpen] = React.useState(false);
+    const [paretoPage, setParetoPage] = React.useState(1);
+
 
     React.useEffect(() => {
         setIsClient(true);
     }, []);
 
-    const { sales, kpis, charts } = React.useMemo(() => {
+    const { sales, kpis, charts, paretoAnalysisData } = React.useMemo(() => {
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.company === company;
 
@@ -90,24 +104,33 @@ export default function SalesDashboardClient({
         const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0;
         
         const productRevenue: Record<string, number> = {};
+        const productUnits: Record<string, number> = {};
         filteredSales.forEach(sale => {
             const key = sale.title || 'Producto Desconocido';
             productRevenue[key] = (productRevenue[key] || 0) + (sale.total || 0);
+            productUnits[key] = (productUnits[key] || 0) + (sale.unidades || 0);
         });
-        const topProduct = Object.entries(productRevenue).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
+
+        const sortedProductsByName = Object.entries(productRevenue)
+            .map(([name, revenue]) => ({
+                name,
+                revenue,
+                units: productUnits[name] || 0,
+            }))
+            .sort((a, b) => b.revenue - a.revenue);
+
+        const topProduct = sortedProductsByName[0] || { name: 'N/A', revenue: 0 };
+
 
         // --- Process Chart Data ---
-        const sortedProducts = Object.entries(productRevenue)
-            .sort((a, b) => b[1] - a[1]);
-            
         let cumulativeValue = 0;
-        const topProductsChart: ChartData[] = sortedProducts
+        const topProductsChart: ChartData[] = sortedProductsByName
             .slice(0, 10)
-            .map(([name, value]) => {
-                cumulativeValue += value;
+            .map(product => {
+                cumulativeValue += product.revenue;
                 return { 
-                    name, 
-                    value,
+                    name: product.name, 
+                    value: product.revenue,
                     cumulative: (cumulativeValue / totalRevenue) * 100 
                 };
             });
@@ -192,14 +215,29 @@ export default function SalesDashboardClient({
         const ordersByCompanyTodayChart: ChartData[] = Object.entries(ordersByCompanyToday)
             .map(([name, value]) => ({ name, value }));
 
+        // --- Full Pareto Analysis Data ---
+        let fullCumulativeRevenue = 0;
+        const fullParetoData: ParetoProduct[] = sortedProductsByName.map(product => {
+            fullCumulativeRevenue += product.revenue;
+            const percentageOfTotal = (product.revenue / totalRevenue) * 100;
+            const cumulativePercentage = (fullCumulativeRevenue / totalRevenue) * 100;
+            return {
+                name: product.name,
+                revenue: product.revenue,
+                units: product.units,
+                percentageOfTotal,
+                cumulativePercentage,
+            };
+        });
+
         return {
             sales: filteredSales,
             kpis: {
                 totalRevenue,
                 totalSales,
                 avgSale,
-                topProductName: topProduct[0],
-                topProductRevenue: topProduct[1],
+                topProductName: topProduct.name,
+                topProductRevenue: topProduct.revenue,
             },
             charts: {
                 topProducts: topProductsChart,
@@ -207,7 +245,8 @@ export default function SalesDashboardClient({
                 salesTrend: salesTrendChart,
                 salesByDay: salesByDayChart,
                 ordersByCompanyToday: ordersByCompanyTodayChart
-            }
+            },
+            paretoAnalysisData: fullParetoData,
         };
     }, [initialSales, company, date, isClient]);
 
@@ -283,6 +322,13 @@ export default function SalesDashboardClient({
             </div>
         </div>
         </CardFooter>
+    );
+
+    // --- PARETO MODAL PAGINATION ---
+    const totalParetoPages = Math.ceil(paretoAnalysisData.length / PAGE_SIZE);
+    const paginatedParetoData = paretoAnalysisData.slice(
+      (paretoPage - 1) * PAGE_SIZE,
+      paretoPage * PAGE_SIZE
     );
 
     return (
@@ -424,8 +470,16 @@ export default function SalesDashboardClient({
                                     </Card>
                                     <Card className="md:col-span-2">
                                         <CardHeader>
-                                            <CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle>
-                                            <CardDescription>Los 10 productos con más ingresos y su contribución acumulada al total.</CardDescription>
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle>
+                                                    <CardDescription>Los 10 productos con más ingresos y su contribución acumulada al total.</CardDescription>
+                                                </div>
+                                                <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)}>
+                                                    <Maximize className="mr-2 h-4 w-4" />
+                                                    Ver Detalle
+                                                </Button>
+                                            </div>
                                         </CardHeader>
                                         <CardContent>
                                             <ResponsiveContainer width="100%" height={400}>
@@ -702,6 +756,80 @@ export default function SalesDashboardClient({
                 </div>
                 )}
             </main>
+
+            <Dialog open={isParetoModalOpen} onOpenChange={setIsParetoModalOpen}>
+                <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Análisis Detallado de Pareto (80/20)</DialogTitle>
+                        <DialogDescription>
+                            Listado completo de productos ordenados por ingresos. Los filtros de compañía y fecha del dashboard principal se aplican aquí.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 min-h-0 overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-background">
+                                <TableRow>
+                                    <TableHead className="w-[40%]">Producto</TableHead>
+                                    <TableHead className="text-right">Ingresos</TableHead>
+                                    <TableHead className="text-right">Piezas</TableHead>
+                                    <TableHead className="text-right">% del Total</TableHead>
+                                    <TableHead className="text-right">% Acumulado</TableHead>
+                                    <TableHead className="text-center">Clasificación</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedParetoData.length > 0 ? paginatedParetoData.map((product) => (
+                                    <TableRow key={product.name}>
+                                        <TableCell className="font-medium max-w-sm truncate" title={product.name}>
+                                            {product.name}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">{money(product.revenue)}</TableCell>
+                                        <TableCell className="text-right font-mono">{product.units.toLocaleString('es-MX')}</TableCell>
+                                        <TableCell className="text-right font-mono">{product.percentageOfTotal.toFixed(2)}%</TableCell>
+                                        <TableCell className="text-right font-mono">{product.cumulativePercentage.toFixed(2)}%</TableCell>
+                                        <TableCell className="text-center">
+                                            {product.cumulativePercentage <= 80 && (
+                                                <Badge>Top 80%</Badge>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="h-24 text-center">
+                                            No hay datos de productos para mostrar.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    {totalParetoPages > 1 && (
+                         <DialogFooter className="pt-4 sm:justify-between">
+                            <div className="text-xs text-muted-foreground">
+                                Página {paretoPage} de {totalParetoPages}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setParetoPage(p => Math.max(1, p - 1))}
+                                    disabled={paretoPage === 1}
+                                >
+                                    Anterior
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setParetoPage(p => Math.min(totalParetoPages, p + 1))}
+                                    disabled={paretoPage === totalParetoPages}
+                                >
+                                    Siguiente
+                                </Button>
+                            </div>
+                        </DialogFooter>
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
