@@ -219,8 +219,6 @@ const dateFields = [
     const [workbook, setWorkbook] = useState<WorkBook | null>(null);
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
-    const [selectedPreviewSheet, setSelectedPreviewSheet] = useState('');
-    const [previewSheetData, setPreviewSheetData] = useState<{ headers: string[], rows: (string|number)[][] }>({ headers: [], rows: [] });
     const [isConverting, setIsConverting] = useState(false);
 
    useEffect(() => {
@@ -254,8 +252,6 @@ const dateFields = [
      setWorkbook(null);
      setSheetNames([]);
      setIsSheetSelectorOpen(false);
-     setSelectedPreviewSheet('');
-     setPreviewSheetData({ headers: [], rows: [] });
      setIsConverting(false);
    };
 
@@ -328,35 +324,17 @@ const dateFields = [
    const allData = lines.map(line => parseRow(line));
    setProcessedData(allData);
 };
-
-   const updatePreviewData = async (sheetName: string, wb: WorkBook) => {
-        const { utils } = await import('xlsx');
-        const sheet = wb.Sheets[sheetName];
-        const data: (string|number)[][] = (utils as any).sheet_to_aoa(sheet, { defval: "" });
-        const headerLength = data.length > 0 ? data[0].length : 0;
-        const cleanData = data.map(row => {
-            const newRow = Array.from({ length: headerLength }, (_, i) => row[i] ?? "");
-            return newRow;
-        });
-
-        setPreviewSheetData({ headers: (cleanData[0] || []).map(String), rows: cleanData.slice(1) });
-   };
-
-   const handlePreviewSheetChange = async (sheetName: string) => {
-        if (workbook) {
-            setSelectedPreviewSheet(sheetName);
-            await updatePreviewData(sheetName, workbook);
-        }
-   };
     
-   const handleConfirmSheet = async () => {
+   const handleConfirmSheet = async (sheetName: string) => {
         if (workbook) {
             const { utils } = await import('xlsx');
-            const sheet = workbook.Sheets[selectedPreviewSheet];
+            const sheet = workbook.Sheets[sheetName];
             const csvString = (utils as any).sheet_to_csv(sheet);
             parseAndSetData(csvString);
             setIsSheetSelectorOpen(false);
-            toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${selectedPreviewSheet}" y se convirtió a CSV.` });
+            setWorkbook(null);
+            setSheetNames([]);
+            toast({ title: 'Hoja Seleccionada', description: `Se cargó la hoja "${sheetName}" para el análisis.` });
         }
    };
 
@@ -375,20 +353,17 @@ const dateFields = [
                 return;
             }
             try {
-                const { read } = await import('xlsx');
+                const { read, utils } = await import('xlsx');
                 const wb = read(data, { type: 'array' });
                 const sNames = wb.SheetNames;
-
+                
                 setIsConverting(false);
 
                 if (sNames.length > 1) {
                     setWorkbook(wb);
                     setSheetNames(sNames);
-                    setSelectedPreviewSheet(sNames[0]);
-                    await updatePreviewData(sNames[0], wb);
                     setIsSheetSelectorOpen(true);
                 } else {
-                    const { utils } = await import('xlsx');
                     const sheet = wb.Sheets[sNames[0]];
                     const csvString = (utils as any).sheet_to_csv(sheet);
                     parseAndSetData(csvString);
@@ -765,12 +740,6 @@ const dateFields = [
                                     <Progress value={50} className="w-full" />
                                 </div>
                             )}
-                            {sheetNames.length > 1 && rawRows.length === 0 && !isConverting && (
-                                <Button onClick={() => setIsSheetSelectorOpen(true)}>
-                                    <SheetIcon className="mr-2 h-4 w-4" />
-                                    Seleccionar Hoja ({sheetNames.length})
-                                </Button>
-                           )}
                          </div>
                          <div className="space-y-2">
                             <Select onValueChange={handleTableSelect} value={selectedTableName} disabled={!isSupabaseConfigured || isLoading || rawRows.length === 0 || isConverting}>
@@ -955,6 +924,7 @@ const dateFields = [
                                             <p className="font-bold text-sm">
                                                 Error en {err.type === 'insert' ? 'Inserción' : 'Actualización'}
                                                 {err.recordIdentifier && ` (Registro: ${err.recordIdentifier})`}
+                                                {err.csvRow && ` (Fila CSV: ${err.csvRow})`}
                                             </p>
                                             <p className="text-sm mt-1">{err.message}</p>
                                             </div>
@@ -1166,45 +1136,31 @@ const dateFields = [
        {renderStep()}
 
         <Dialog open={isSheetSelectorOpen} onOpenChange={setIsSheetSelectorOpen}>
-            <DialogContent className="max-w-4xl h-[90vh]">
+            <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Seleccionar Hoja de Cálculo</DialogTitle>
+                    <DialogTitle>Seleccionar Hoja a Importar</DialogTitle>
                     <DialogDescription>
-                        Tu archivo tiene múltiples hojas. Elige la que quieres importar y previsualiza los datos.
+                        Tu archivo Excel contiene varias hojas. Cada una se procesará como un archivo CSV individual. Por favor, selecciona la hoja con la que deseas continuar.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4 flex-1 min-h-0">
-                    <Select value={selectedPreviewSheet} onValueChange={handlePreviewSheetChange}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una hoja" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {sheetNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <div className="relative w-full overflow-auto flex-1 border rounded-md">
-                        <Table>
-                            <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
-                                <TableRow>
-                                    {previewSheetData.headers.map((h, i) => <TableHead key={`${h}-${i}`}>{h}</TableHead>)}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {previewSheetData.rows.slice(0, 100).map((row, i) => (
-                                    <TableRow key={`row-${i}`}>
-                                        {row.map((cell, j) => (
-                                            <TableCell key={`cell-${i}-${j}`}>{String(cell ?? '')}</TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                <div className="py-4 space-y-2">
+                    <p className="text-sm font-medium text-foreground">Hojas detectadas:</p>
+                    <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-2">
+                        {sheetNames.map(name => (
+                            <Button
+                                key={name}
+                                variant="outline"
+                                className="justify-start w-full"
+                                onClick={() => handleConfirmSheet(name)}
+                            >
+                                <FileIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                {name}
+                            </Button>
+                        ))}
                     </div>
-                     <p className="text-xs text-muted-foreground">Mostrando las primeras 100 filas como previsualización.</p>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsSheetSelectorOpen(false)}>Cancelar</Button>
-                    <Button onClick={handleConfirmSheet}>Confirmar y Usar esta Hoja</Button>
+                    <Button variant="ghost" onClick={() => setIsSheetSelectorOpen(false)}>Cancelar</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
