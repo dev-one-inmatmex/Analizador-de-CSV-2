@@ -137,7 +137,7 @@ export default function SalesDashboardClient({
                 return { 
                     name: product.name, 
                     value: product.revenue,
-                    cumulative: (cumulativeValue / totalRevenue) * 100 
+                    cumulative: totalRevenue > 0 ? (cumulativeValue / totalRevenue) * 100 : 0
                 };
             });
             
@@ -225,8 +225,8 @@ export default function SalesDashboardClient({
         let fullCumulativeRevenue = 0;
         const fullParetoData: ParetoProduct[] = sortedProductsByName.map(product => {
             fullCumulativeRevenue += product.revenue;
-            const percentageOfTotal = (product.revenue / totalRevenue) * 100;
-            const cumulativePercentage = (fullCumulativeRevenue / totalRevenue) * 100;
+            const percentageOfTotal = totalRevenue > 0 ? (product.revenue / totalRevenue) * 100 : 0;
+            const cumulativePercentage = totalRevenue > 0 ? (fullCumulativeRevenue / totalRevenue) * 100 : 0;
             return {
                 name: product.name,
                 revenue: product.revenue,
@@ -841,5 +841,7 @@ export default function SalesDashboardClient({
         </>
     );
 }
+
+    
 
     
