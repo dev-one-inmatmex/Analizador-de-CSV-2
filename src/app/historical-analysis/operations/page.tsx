@@ -32,6 +32,7 @@ import {
   NotebookText,
   HelpCircle,
 } from 'lucide-react';
+import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -79,6 +80,9 @@ import { cn } from '@/lib/utils';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabaseClient';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
@@ -143,7 +147,6 @@ export default function OperationsPage() {
         const mappedValues = {
             ...values,
             empresa: 'Mi Empresa',
-            capturista: 'WebApp User',
             subcategoria: null,
         };
 
@@ -229,9 +232,9 @@ export default function OperationsPage() {
                     onDelete={handleDeleteTransaction}
                 />;
       case 'informes':
-        return <PlaceholderView title="Informes y Reportes" icon={BarChart} />;
+        return <ReportsView transactions={transactions} currentMonth={currentMonth} />;
       case 'presupuestos':
-        return <PlaceholderView title="Presupuestos" icon={Landmark} />;
+        return <BudgetsView categories={categories} onAddCategory={(cat) => setCategories(prev => [...prev, cat])}/>;
       case 'configuracion':
         return <PlaceholderView title="Configuración" icon={Cog} />;
       default:
@@ -283,7 +286,9 @@ export default function OperationsPage() {
                         <span className="sr-only">Añadir Transacción</span>
                     </Button>
                  </DialogTrigger>
-                 <DialogContent className="max-w-md p-0 flex flex-col h-auto max-h-[90vh]">{FormComponent}</DialogContent>
+                 <DialogContent className="flex h-auto max-h-[90vh] flex-col p-0 sm:max-w-md">
+                   <div className="flex-1 overflow-y-auto">{FormComponent}</div>
+                 </DialogContent>
              </Dialog>
         </div>
         <div className="md:hidden">
@@ -359,6 +364,256 @@ function InicioView({ currentMonth, handleMonthChange, monthlyBalance, daysOfMon
         </div>
     );
 }
+
+function ReportsView({ transactions, currentMonth }: { transactions: finanzas[], currentMonth: Date }) {
+    const reportData = React.useMemo(() => {
+        if (!transactions) return {
+            totalIncome: 0,
+            totalExpense: 0,
+            netBalance: 0,
+            expensesByCategory: [],
+            expensesByPaymentMethod: [],
+            dailyTrend: [],
+        };
+        
+        const totalIncome = transactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
+        const totalExpense = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
+        const netBalance = totalIncome - totalExpense;
+
+        const expensesByCategory = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
+            const category = t.categoria || 'Sin Categoría';
+            const existing = acc.find(item => item.name === category);
+            if (existing) {
+                existing.value += t.monto;
+            } else {
+                acc.push({ name: category, value: t.monto });
+            }
+            return acc;
+        }, [] as { name: string, value: number }[]);
+        
+        const expensesByPaymentMethod = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
+            const method = t.metodo_pago || 'Otro';
+            const existing = acc.find(item => item.name === method);
+            if (existing) {
+                existing.value += t.monto;
+            } else {
+                acc.push({ name: method, value: t.monto });
+            }
+            return acc;
+        }, [] as { name: string, value: number }[]);
+        
+        const daysInMonth = getDaysInMonth(currentMonth);
+        const dailyTrend = Array.from({ length: daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const date = startOfDay(new Date(new Date(currentMonth).setDate(day)));
+            const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), date)).reduce((sum, t) => sum + t.monto, 0);
+            const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), date)).reduce((sum, t) => sum + t.monto, 0);
+            return { name: `${day}`, Ingresos: income, Gastos: expense };
+        });
+
+
+        return {
+            totalIncome,
+            totalExpense,
+            netBalance,
+            expensesByCategory,
+            expensesByPaymentMethod,
+            dailyTrend,
+        };
+    }, [transactions, currentMonth]);
+    
+    const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+
+    if (transactions.length === 0) {
+        return (
+             <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
+                <BarChart className="h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-xl font-semibold">No hay datos para mostrar</h3>
+                <p className="mt-2 text-sm text-muted-foreground">Registra transacciones para este mes para ver los informes.</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle></CardHeader>
+                    <CardContent><div className="text-2xl font-bold text-green-600">{money(reportData.totalIncome)}</div></CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Gastos Totales</CardTitle></CardHeader>
+                    <CardContent><div className="text-2xl font-bold text-red-600">{money(reportData.totalExpense)}</div></CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Balance Neto</CardTitle></CardHeader>
+                    <CardContent><div className={`text-2xl font-bold ${reportData.netBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(reportData.netBalance)}</div></CardContent>
+                </Card>
+            </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Tendencia Diaria (Ingresos vs Gastos)</CardTitle>
+                    <CardDescription>Resumen diario de movimientos para el mes seleccionado.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <RechartsBarChart data={reportData.dailyTrend}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'Día del mes', position: 'insideBottom', offset: -5 }}/>
+                            <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value)/1000}k`}/>
+                            <Tooltip formatter={(value: number) => money(value)} />
+                            <Legend />
+                            <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                            <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                        </RechartsBarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+
+            <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Gastos por Categoría</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                         <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                                <Tooltip formatter={(value: number) => money(value)} />
+                                <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                                    {reportData.expensesByCategory.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Gastos por Método de Pago</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                         <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                                <Tooltip formatter={(value: number) => money(value)} />
+                                <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                                    {reportData.expensesByPaymentMethod.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
+
+function BudgetsView({ categories }: { categories: string[] }) {
+    // Note: This is mock data and state management.
+    // In a real implementation, this would come from a database.
+    const [budgets, setBudgets] = React.useState([
+        { id: 1, category: 'Comida', amount: 5000, spent: 3200, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()) },
+        { id: 2, category: 'Transporte', amount: 1500, spent: 1650, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()) },
+        { id: 3, category: 'Insumos', amount: 8000, spent: 4500, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()) },
+    ]);
+    const [isFormOpen, setIsFormOpen] = React.useState(false);
+    
+    // I'm using a simple Form here, not react-hook-form to keep it simple for this mock-up
+    const handleAddBudget = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const newBudget = {
+            id: budgets.length + 1,
+            category: formData.get('category') as string,
+            amount: parseFloat(formData.get('amount') as string),
+            spent: 0,
+            startDate: new Date(), // Simplified
+            endDate: new Date(),   // Simplified
+        };
+        setBudgets(prev => [...prev, newBudget]);
+        setIsFormOpen(false);
+    };
+
+    return (
+        <>
+            <div className="space-y-6">
+                <div className="flex flex-col items-start gap-4 md:flex-row md:justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold">Presupuestos</h2>
+                        <p className="text-muted-foreground">Controla tus gastos creando presupuestos por categoría.</p>
+                    </div>
+                    <Button onClick={() => setIsFormOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" /> Crear Presupuesto
+                    </Button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {budgets.map(budget => {
+                        const progress = (budget.spent / budget.amount) * 100;
+                        return (
+                        <Card key={budget.id}>
+                            <CardHeader>
+                                <CardTitle className="flex justify-between items-center">
+                                    {budget.category}
+                                    <Badge variant={progress > 100 ? 'destructive' : 'secondary'}>
+                                        {progress > 100 ? 'Excedido' : 'En Rango'}
+                                    </Badge>
+                                </CardTitle>
+                                <CardDescription>{format(budget.startDate, 'dd MMM')} - {format(budget.endDate, 'dd MMM, yyyy', { locale: es })}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <Progress value={progress} />
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-medium">{money(budget.spent)} gastado</span>
+                                    <span className="text-muted-foreground">de {money(budget.amount)}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )})}
+                </div>
+                {budgets.length === 0 && <p className="text-center text-muted-foreground pt-4">No has creado ningún presupuesto.</p>}
+            </div>
+
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Crear Nuevo Presupuesto</DialogTitle>
+                        <DialogDescription>Define un límite de gasto para una categoría en un periodo específico.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleAddBudget} className="py-4 space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="budget-amount">Monto Máximo</Label>
+                            <Input id="budget-amount" name="amount" type="number" placeholder="Ej: 5000" required/>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="budget-category">Categoría</Label>
+                             <Select name="category" required>
+                                <SelectTrigger id="budget-category"><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger>
+                                <SelectContent>
+                                    {categories.map((cat:string) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Periodo</Label>
+                            <DateRangePicker date={undefined} onSelect={() => {}} />
+                            <p className="text-xs text-muted-foreground">Funcionalidad de selección de fecha se añadirá próximamente.</p>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
+                            <Button type="submit">Guardar Presupuesto</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
 
 function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
   const isExpense = transaction.tipo_transaccion === 'gasto';
@@ -490,7 +745,6 @@ function BottomNav({ currentView, setView }: { currentView: View, setView: (v: V
 function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories, setCategories }: any) {
   const [isAddingCategory, setIsAddingCategory] = React.useState(false);
   const [newCategory, setNewCategory] = React.useState('');
-  const isMobile = useIsMobile();
   const { toast } = useToast();
 
   const form = useForm<TransactionFormValues>({
@@ -516,7 +770,14 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
         notas: transaction.notas || '',
       });
     } else {
-      form.reset();
+      form.reset({
+        tipo_transaccion: 'gasto',
+        monto: 0,
+        categoria: '',
+        fecha: new Date(),
+        metodo_pago: undefined,
+        notas: '',
+      });
     }
   }, [transaction, form, isOpen]);
   
@@ -533,8 +794,8 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   
   const Content = (
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0">
-          <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 space-y-6 sm:p-6">
             <FormField
               control={form.control}
               name="tipo_transaccion"
@@ -615,7 +876,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
                 <FormItem><FormLabel>Notas (Opcional)</FormLabel><FormControl><Textarea placeholder="Añade una descripción..." {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
           </div>
-          <div className="border-t p-4">
+          <div className="border-t p-4 bg-background">
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                   {form.formState.isSubmitting ? 'Guardando...' : transaction ? 'Guardar Cambios' : 'Guardar Transacción'}
               </Button>
