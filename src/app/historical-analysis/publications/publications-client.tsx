@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { EnrichedMotherCatalog, EnrichedPublicationCount, EnrichedSkuMap } from './page';
-import type { skuxpublicaciones, publicaciones } from '@/types/database';
+import type { publi_xsku, publi_tienda } from '@/types/database';
 
 type ProductsData = {
     publications: any[];
@@ -130,7 +130,7 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                             <CardContent><Table><TableHeader><TableRow>
                                 <TableHead>SKU</TableHead>
                                 <TableHead className="text-right"># Publicaciones</TableHead>
-                            </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item: EnrichedPublicationCount, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="text-right font-medium">{item.publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                            </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item: EnrichedPublicationCount, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="text-right font-medium">{item.num_publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                             </Card>
                         </div>
 
@@ -141,31 +141,27 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>ITEM_ID</TableHead>
+                                            <TableHead># de publicación</TableHead>
                                             <TableHead>SKU</TableHead>
-                                            <TableHead>Product Number</TableHead>
-                                            <TableHead>Variation ID</TableHead>
+                                            <TableHead># de producto</TableHead>
                                             <TableHead>Título</TableHead>
                                             <TableHead>Estado</TableHead>
-                                            <TableHead>Categoría Madre</TableHead>
+                                            <TableHead>Categoría</TableHead>
                                             <TableHead className="text-right">Precio</TableHead>
                                             <TableHead>Compañía</TableHead>
-                                            <TableHead>Fecha Creación</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {paginatedPubs.map(pub => (
-                                            <TableRow key={pub.item_id}>
-                                                <TableCell className="font-mono">{pub.item_id}</TableCell>
+                                            <TableRow key={pub.num_publi}>
+                                                <TableCell className="font-mono">{pub.num_publi}</TableCell>
                                                 <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
-                                                <TableCell className="font-mono text-xs">{pub.product_number ?? 'N/A'}</TableCell>
-                                                <TableCell className="font-mono text-xs">{pub.variation_id ?? 'N/A'}</TableCell>
-                                                <TableCell className="max-w-sm truncate" title={pub.title ?? ''}>{pub.title}</TableCell>
+                                                <TableCell className="font-mono text-xs">{pub.num_producto ?? 'N/A'}</TableCell>
+                                                <TableCell className="max-w-sm truncate" title={pub.titulo ?? ''}>{pub.title}</TableCell>
                                                 <TableCell><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell>
-                                                <TableCell>{pub.nombre_madre ?? 'N/A'}</TableCell>
-                                                <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.price ?? 0)}</TableCell>
-                                                <TableCell>{pub.company ?? 'N/A'}</TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">{pub.created_at ? format(new Date(pub.created_at), 'dd MMM yyyy', { locale: es }) : 'N/A'}</TableCell>
+                                                <TableCell>{pub.cat_mdr ?? 'N/A'}</TableCell>
+                                                <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.costo ?? 0)}</TableCell>
+                                                <TableCell>{pub.tienda ?? 'N/A'}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

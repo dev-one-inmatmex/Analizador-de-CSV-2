@@ -4,7 +4,7 @@ export interface Usuario {
     email: string;
 }
 
-export interface ventas {
+/* export interface ventas {
     numero_venta: string;
     fecha_venta: string | null;
     estado: string | null;
@@ -67,10 +67,10 @@ export interface ventas {
     reclamo_abierto: string | null;
     reclamo_cerrado: string | null;
     con_mediacion: string | null;
-    }
+    } */
   
 
-export interface publicaciones {
+/* export interface publicaciones {
     item_id: string | null;         // ID de la publicación (ML)
     sku: string;// PK (uuid o text) → OK
     product_number: string | null;
@@ -148,4 +148,78 @@ export interface diccionario_skus{
   presentacion_en_master_4: string | null;
   bodega: string | null;
   bloque: string | null;
+} */
+
+export interface sales_excel {
+  id: number;
+  nde_venta: number | null; //numero de venta
+  sale_date: string | null; //fecha de venta
+  sku: string | null; 
+  nde_pub: string | null; //número de publicación
+  tienda: string | null; 
+  tit_pub: string | null; //título de la publicación
+  variante: string | null;
+  comprador: string | null;
+  municipio: string | null;
+  estado: string | null;
+}
+
+export interface ml_sales {
+  id: number;
+  num_venta: string | null;
+  fecha_venta: string | null;
+  unidades: number | null;
+  ing_xunidad: number | null;
+  cargo_venta: number | null;
+  ing_xenvio: number | null;
+  costo_envio: number | null;
+  cargo_difpeso: number | null;
+  anu_reembolsos: number | null;
+  total: number | null;
+  venta_xpublicidad: boolean | null;
+  sku: string | null;
+  num_publi: string | null;
+  tienda: string | null;
+  tip_publi: string | null;
+  total_final: number | null;
+  profit: number | null;
+  status: string | null;
+}
+
+export interface sku_m {
+  sku_mdr: string;
+  cat_mdr: string | null;
+  esti_time: number | null;
+  piezas_por_sku: number | null;
+  sku: string | null;
+}
+
+export interface sku_alterno {
+  sku: string; // Not null (Primary Key)
+  sku_mdr: string | null; // Foreign Key a sku_m
+}
+
+export interface sku_costos {
+  id: number;
+  sku_mdr: string; // Not null (Foreign Key)
+  landed_cost: number; // Numeric(12,2)
+  fecha_desde: string; // Timestamp with time zone
+  proveedor: string | null;
+  piezas_xcontenedor: number | null;
+}
+
+export interface publi_tienda {
+  num_publi: string | null;
+  sku: string; // Not null (Foreign Key)
+  num_producto: string | null;
+  titulo: string | null;
+  status: string | null;
+  cat_mdr: string | null;
+  costo: number | null;
+  tienda: string | null;
+}
+
+export interface    publi_xsku {
+  sku: string; // Not null (Foreign Key)
+  num_publicaciones: number | null;
 }

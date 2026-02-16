@@ -17,13 +17,13 @@ export async function addExpenseAction(values: z.infer<typeof expenseFormSchema>
     return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
-  const { fecha, empresa, tipo_gasto, monto, capturista } = validatedFields.data;
+  const { fecha, empresa, tipo_pago, monto, capturista } = validatedFields.data;
 
   const { error } = await supabaseAdmin.from('gastos_diarios').insert([
     { 
         fecha: format(fecha, 'yyyy-MM-dd'),
         empresa,
-        tipo_gasto,
+        tipo_gasto: tipo_pago,
         monto,
         capturista,
     }
@@ -49,10 +49,13 @@ export async function updateExpenseAction(id: number, values: z.infer<typeof exp
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
 
+    const { tipo_pago, ...restOfData } = validatedFields.data;
+
     const { error } = await supabaseAdmin
         .from('gastos_diarios')
         .update({ 
-            ...validatedFields.data,
+            ...restOfData,
+            tipo_gasto: tipo_pago,
             fecha: format(validatedFields.data.fecha, 'yyyy-MM-dd'),
         })
         .eq('id', id);

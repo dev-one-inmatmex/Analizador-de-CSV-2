@@ -6,7 +6,9 @@ export const expenseFormSchema = z.object({
     invalid_type_error: "Debe seleccionar una fecha válida.",
   }),
   empresa: z.string().min(1, { message: "Debe seleccionar una empresa." }),
-  tipo_gasto: z.string().min(1, { message: "El tipo de gasto es obligatorio." }),
+  tipo_pago: z.enum(['efectivo', 'tarjeta', 'transferencia'], {
+    required_error: "Debe seleccionar un tipo de pago.",
+  }),
   monto: z.coerce
     .number({
       invalid_type_error: "El monto debe ser un número.",
