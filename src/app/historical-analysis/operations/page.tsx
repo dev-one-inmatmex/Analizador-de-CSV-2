@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -539,7 +540,13 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData };
     }, [transactions, currentDate, dateFilter, transactionTypeFilter]);
     
-    const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+    const PIE_COLORS = [
+      "hsl(160, 29%, 32%)", // primary dark green
+      "hsl(160, 25%, 50%)", // medium green
+      "hsl(160, 35%, 75%)", // light green
+      "hsl(160, 20%, 40%)", // desaturated green
+      "hsl(160, 40%, 20%)", // very dark green
+    ];
 
     const hasData = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter).length > 0;
 
@@ -634,8 +641,8 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                            <ResponsiveContainer width="100%" height={250}>
                               <PieChart>
                                   <Tooltip formatter={(value: number) => money(value)} />
-                                  <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                      {reportData.expensesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                  <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
+                                      {reportData.expensesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                                   </Pie>
                                   <Legend />
                               </PieChart>
@@ -648,8 +655,8 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                            <ResponsiveContainer width="100%" height={250}>
                               <PieChart>
                                   <Tooltip formatter={(value: number) => money(value)} />
-                                  <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                      {reportData.expensesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                  <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
+                                      {reportData.expensesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                                   </Pie>
                                   <Legend />
                               </PieChart>
@@ -1268,3 +1275,4 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
+
