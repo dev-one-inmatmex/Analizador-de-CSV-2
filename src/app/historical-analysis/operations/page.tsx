@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -87,6 +88,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
 type DateFilter = 'day' | 'week' | 'month' | 'year';
+type TransactionTypeFilter = 'all' | 'gasto' | 'ingreso';
 
 const initialCategories = ['Comida', 'Transporte', 'Insumos', 'Servicios', 'Marketing', 'Renta', 'Sueldos', 'Otro'];
 type Budget = { id: number; category: string; amount: number; spent: number; startDate: Date; endDate: Date; };
@@ -104,6 +106,7 @@ export default function OperationsPage() {
 
   const [dateFilter, setDateFilter] = React.useState<DateFilter>('month');
   const [currentDate, setCurrentDate] = React.useState(new Date());
+  const [transactionTypeFilter, setTransactionTypeFilter] = React.useState<TransactionTypeFilter>('all');
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -224,6 +227,8 @@ export default function OperationsPage() {
                     setCurrentDate={setCurrentDate}
                     onEdit={handleOpenForm}
                     onDelete={handleDeleteTransaction}
+                    transactionTypeFilter={transactionTypeFilter}
+                    setTransactionTypeFilter={setTransactionTypeFilter}
                 />;
       case 'informes':
         return <ReportsView 
@@ -232,6 +237,8 @@ export default function OperationsPage() {
                   setDateFilter={setDateFilter}
                   currentDate={currentDate}
                   setCurrentDate={setCurrentDate}
+                  transactionTypeFilter={transactionTypeFilter}
+                  setTransactionTypeFilter={setTransactionTypeFilter}
                 />;
       case 'presupuestos':
         return <BudgetsView categories={categories} transactions={transactions} />;
@@ -352,7 +359,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
   );
 }
 
-function InicioView({ transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onEdit, onDelete }: any) {
+function InicioView({ transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onEdit, onDelete, transactionTypeFilter, setTransactionTypeFilter }: any) {
     const isMobile = useIsMobile();
     const [selectedDay, setSelectedDay] = React.useState(new Date());
 
@@ -361,22 +368,24 @@ function InicioView({ transactions, isLoading, dateFilter, setDateFilter, curren
     }, [currentDate]);
     
     const { periodBalance, dailyTransactions, daysOfPeriod } = React.useMemo(() => {
-        const income = transactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
-        const expense = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
+        const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
+        const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
         
         let days: Date[] = [];
         if (dateFilter === 'month') {
           days = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
         }
 
-        const daily = dateFilter === 'month' ? transactions.filter(t => isSameDay(new Date(t.fecha), selectedDay)) : transactions;
+        const dailyForPeriod = dateFilter === 'month' ? transactions.filter((t: finanzas) => isSameDay(new Date(t.fecha), selectedDay)) : transactions;
+
+        const filteredDaily = dailyForPeriod.filter((t: finanzas) => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
 
         return { 
             periodBalance: { income, expense, total: income - expense },
-            dailyTransactions: daily,
+            dailyTransactions: filteredDaily,
             daysOfPeriod: days
         };
-    }, [transactions, selectedDay, dateFilter, currentDate]);
+    }, [transactions, selectedDay, dateFilter, currentDate, transactionTypeFilter]);
 
     return (
         <div className="space-y-6">
@@ -431,9 +440,20 @@ function InicioView({ transactions, isLoading, dateFilter, setDateFilter, curren
                 </div>
             )}
             
+            <div className="flex items-center justify-start gap-4">
+              <Label>Filtrar por tipo:</Label>
+              <Tabs value={transactionTypeFilter} onValueChange={(v) => setTransactionTypeFilter(v as any)} className="w-auto">
+                  <TabsList>
+                      <TabsTrigger value="all">Todas</TabsTrigger>
+                      <TabsTrigger value="ingreso">Ingresos</TabsTrigger>
+                      <TabsTrigger value="gasto">Gastos</TabsTrigger>
+                  </TabsList>
+              </Tabs>
+            </div>
+
             {isLoading ? <p className="text-center text-muted-foreground">Cargando transacciones...</p> : (
             <div className="space-y-4">
-                {dailyTransactions.length === 0 ? <p className="text-center text-muted-foreground pt-4">No hay transacciones para este {dateFilter === 'month' ? 'día' : 'periodo'}.</p>
+                {dailyTransactions.length === 0 ? <p className="text-center text-muted-foreground pt-4">No hay transacciones para esta selección.</p>
                 : isMobile ? dailyTransactions.map((t: finanzas) => <TransactionCard key={t.id} transaction={t} onEdit={onEdit} onDelete={onDelete} />)
                 : <TransactionTable transactions={dailyTransactions} onEdit={onEdit} onDelete={onDelete} />}
             </div>
@@ -442,25 +462,27 @@ function InicioView({ transactions, isLoading, dateFilter, setDateFilter, curren
     );
 }
 
-function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void }) {
+function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void }) {
     const reportData = React.useMemo(() => {
         if (!transactions) return {
             totalIncome: 0, totalExpense: 0, netBalance: 0, expensesByCategory: [],
             expensesByPaymentMethod: [], trendData: [],
         };
         
-        const totalIncome = transactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
-        const totalExpense = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
+        const filteredTransactions = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
+
+        const totalIncome = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
+        const totalExpense = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
         const netBalance = totalIncome - totalExpense;
 
-        const expensesByCategory = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
+        const expensesByCategory = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
             const category = t.categoria || 'Sin Categoría';
             const existing = acc.find(item => item.name === category);
             if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const expensesByPaymentMethod = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
+        const expensesByPaymentMethod = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
             const method = t.metodo_pago || 'Otro';
             const existing = acc.find(item => item.name === method);
             if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
@@ -471,8 +493,8 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         if (dateFilter === 'year') {
             const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
             trendData = months.map(month => {
-                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
-                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const income = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const expense = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
                 return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
             });
         } else if (dateFilter !== 'day') { // For week and month
@@ -480,100 +502,111 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                 ? eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) })
                 : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
             trendData = days.map(day => {
-                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
-                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
+                const income = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
+                const expense = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
                 return { name: format(day, 'dd/MM'), Ingresos: income, Gastos: expense };
             });
         }
 
         return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData };
-    }, [transactions, currentDate, dateFilter]);
+    }, [transactions, currentDate, dateFilter, transactionTypeFilter]);
     
     const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
-    if (transactions.length === 0) {
-        return (
-            <div className="space-y-6">
-                <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
-                <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center mt-8">
-                    <BarChart className="h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-4 text-xl font-semibold">No hay datos para mostrar</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">No hay transacciones en este periodo. Prueba con otro.</p>
-                </div>
-            </div>
-        )
-    }
+    const hasData = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter).length > 0;
 
     return (
         <div className="space-y-6">
             <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle></CardHeader>
-                    <CardContent><div className="text-2xl font-bold text-green-600">{money(reportData.totalIncome)}</div></CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Gastos Totales</CardTitle></CardHeader>
-                    <CardContent><div className="text-2xl font-bold text-red-600">{money(reportData.totalExpense)}</div></CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Balance Neto</CardTitle></CardHeader>
-                    <CardContent><div className={`text-2xl font-bold ${reportData.netBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(reportData.netBalance)}</div></CardContent>
-                </Card>
+            <div className="flex justify-center">
+              <Tabs value={transactionTypeFilter} onValueChange={(v) => setTransactionTypeFilter(v as TransactionTypeFilter)}>
+                <TabsList>
+                  <TabsTrigger value="all">Ver Todo</TabsTrigger>
+                  <TabsTrigger value="ingreso">Solo Ingresos</TabsTrigger>
+                  <TabsTrigger value="gasto">Solo Gastos</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
-            {dateFilter !== 'day' &&
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Tendencia del Periodo (Ingresos vs Gastos)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <RechartsBarChart data={reportData.trendData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value)/1000}k`}/>
-                                <Tooltip formatter={(value: number) => money(value)} />
-                                <Legend />
-                                <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                                <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
-                            </RechartsBarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            }
+            {!hasData ? (
+                <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center mt-8">
+                    <BarChart className="h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-xl font-semibold">No hay datos para mostrar</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">No hay transacciones para esta selección. Prueba con otro periodo o filtro.</p>
+                </div>
+            ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                      <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle></CardHeader>
+                      <CardContent><div className="text-2xl font-bold text-green-600">{money(reportData.totalIncome)}</div></CardContent>
+                  </Card>
+                  <Card>
+                      <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Gastos Totales</CardTitle></CardHeader>
+                      <CardContent><div className="text-2xl font-bold text-red-600">{money(reportData.totalExpense)}</div></CardContent>
+                  </Card>
+                  <Card>
+                      <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Balance Neto</CardTitle></CardHeader>
+                      <CardContent><div className={`text-2xl font-bold ${reportData.netBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(reportData.netBalance)}</div></CardContent>
+                  </Card>
+              </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                    <CardHeader><CardTitle>Gastos por Categoría</CardTitle></CardHeader>
-                    <CardContent>
-                         <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                                <Tooltip formatter={(value: number) => money(value)} />
-                                <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                    {reportData.expensesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                </Pie>
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader><CardTitle>Gastos por Método de Pago</CardTitle></CardHeader>
-                    <CardContent>
-                         <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                                <Tooltip formatter={(value: number) => money(value)} />
-                                <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                    {reportData.expensesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                </Pie>
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
+              {dateFilter !== 'day' &&
+                  <Card>
+                      <CardHeader>
+                          <CardTitle>Tendencia del Periodo (Ingresos vs Gastos)</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                              <RechartsBarChart data={reportData.trendData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                  <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value)/1000}k`}/>
+                                  <Tooltip formatter={(value: number) => money(value)} />
+                                  <Legend />
+                                  {transactionTypeFilter !== 'gasto' && <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />}
+                                  {transactionTypeFilter !== 'ingreso' && <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />}
+                              </RechartsBarChart>
+                          </ResponsiveContainer>
+                      </CardContent>
+                  </Card>
+              }
+
+              {transactionTypeFilter !== 'ingreso' && (
+              <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                      <CardHeader><CardTitle>Gastos por Categoría</CardTitle></CardHeader>
+                      <CardContent>
+                           <ResponsiveContainer width="100%" height={250}>
+                              <PieChart>
+                                  <Tooltip formatter={(value: number) => money(value)} />
+                                  <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                                      {reportData.expensesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                  </Pie>
+                                  <Legend />
+                              </PieChart>
+                          </ResponsiveContainer>
+                      </CardContent>
+                  </Card>
+                   <Card>
+                      <CardHeader><CardTitle>Gastos por Método de Pago</CardTitle></CardHeader>
+                      <CardContent>
+                           <ResponsiveContainer width="100%" height={250}>
+                              <PieChart>
+                                  <Tooltip formatter={(value: number) => money(value)} />
+                                  <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                                      {reportData.expensesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                  </Pie>
+                                  <Legend />
+                              </PieChart>
+                          </ResponsiveContainer>
+                      </CardContent>
+                  </Card>
+              </div>
+              )}
+            </>
+            )}
         </div>
     );
 }
@@ -1024,4 +1057,5 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   );
 }
     
+
 
