@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -7,7 +6,8 @@ import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, su
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import * as XLSX from 'xlsx';
+
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import type { finanzas } from '@/types/database';
@@ -29,13 +29,11 @@ import {
   Trash2,
   Edit,
   MoreVertical,
-  CreditCard,
-  NotebookText,
-  HelpCircle,
+  Download,
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -52,7 +50,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet';
 import {
   Form,
@@ -79,11 +76,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { supabase } from '@/lib/supabaseClient';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { supabase } from '@/lib/supabaseClient';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
@@ -191,7 +186,7 @@ export default function OperationsPage() {
         setIsFormOpen(false);
         setEditingTransaction(null);
         
-        // Refetch data
+        // Refetch data by resetting the date, which triggers the useEffect
         setCurrentDate(new Date(values.fecha));
 
     } catch (e: any) {
@@ -214,6 +209,9 @@ export default function OperationsPage() {
       }
   };
 
+  const handleCurrentViewChange = (view: string) => {
+    setCurrentView(view as View);
+  };
 
   const renderContent = () => {
     switch (currentView) {
@@ -268,7 +266,7 @@ export default function OperationsPage() {
                 <h1 className="text-xl font-bold tracking-tight">Gastos Diarios</h1>
             </div>
             {!isMobile && (
-                <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as View)} className="w-auto">
+                <Tabs value={currentView} onValueChange={handleCurrentViewChange} className="w-auto">
                     <TabsList>
                         <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" />Inicio</TabsTrigger>
                         <TabsTrigger value="informes"><BarChart className="mr-2 h-4 w-4" />Informes</TabsTrigger>
@@ -283,7 +281,7 @@ export default function OperationsPage() {
             <div className="mx-auto w-full max-w-6xl">{renderContent()}</div>
         </main>
         
-        {isMobile && <BottomNav currentView={currentView} setView={setCurrentView} />}
+        {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} />}
         
         <div className="fixed bottom-20 right-4 z-40 md:bottom-8 md:right-8">
              <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
@@ -300,7 +298,9 @@ export default function OperationsPage() {
         </div>
         <div className="md:hidden">
             <Sheet open={isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
-                 <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl">{FormComponent}</SheetContent>
+                 <SheetContent side="bottom" className="flex h-[90vh] flex-col rounded-t-2xl p-0">
+                    {FormComponent}
+                 </SheetContent>
             </Sheet>
         </div>
     </div>
@@ -408,16 +408,16 @@ function InicioView({ transactions, isLoading, dateFilter, setDateFilter, curren
                     <CardTitle>Balance del Periodo</CardTitle>
                     <CardDescription>Resumen de tus ingresos y gastos para el periodo seleccionado.</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                     <div className="flex items-center gap-4 rounded-lg border p-4">
+                <CardContent className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-3">
+                     <div className="flex items-center gap-4 bg-background p-4">
                         <div className="rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/50 dark:text-green-400"><ArrowUp/></div>
                         <div><p className="text-sm text-muted-foreground">Ingresos</p><p className="text-xl font-bold">{money(periodBalance.income)}</p></div>
                     </div>
-                     <div className="flex items-center gap-4 rounded-lg border p-4">
+                     <div className="flex items-center gap-4 bg-background p-4">
                         <div className="rounded-full bg-red-100 p-3 text-red-600 dark:bg-red-900/50 dark:text-red-400"><ArrowDown/></div>
                         <div><p className="text-sm text-muted-foreground">Gastos</p><p className="text-xl font-bold">{money(periodBalance.expense)}</p></div>
                     </div>
-                     <div className="flex items-center gap-4 rounded-lg border bg-primary/5 p-4">
+                     <div className="flex items-center gap-4 bg-background p-4">
                         <div className="rounded-full bg-primary/10 p-3 text-primary"><Landmark/></div>
                         <div><p className="text-sm text-muted-foreground">Balance Total</p><p className="text-xl font-bold">{money(periodBalance.total)}</p></div>
                     </div>
@@ -451,7 +451,7 @@ function InicioView({ transactions, isLoading, dateFilter, setDateFilter, curren
               </Tabs>
             </div>
 
-            {isLoading ? <p className="text-center text-muted-foreground">Cargando transacciones...</p> : (
+            {isLoading ? <p className="text-center text-muted-foreground pt-4">Cargando transacciones...</p> : (
             <div className="space-y-4">
                 {dailyTransactions.length === 0 ? <p className="text-center text-muted-foreground pt-4">No hay transacciones para esta selección.</p>
                 : isMobile ? dailyTransactions.map((t: finanzas) => <TransactionCard key={t.id} transaction={t} onEdit={onEdit} onDelete={onDelete} />)
@@ -463,6 +463,7 @@ function InicioView({ transactions, isLoading, dateFilter, setDateFilter, curren
 }
 
 function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void }) {
+    const { toast } = useToast();
     const reportData = React.useMemo(() => {
         if (!transactions) return {
             totalIncome: 0, totalExpense: 0, netBalance: 0, expensesByCategory: [],
@@ -515,8 +516,33 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
 
     const hasData = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter).length > 0;
 
+    const handleDownloadCsv = () => {
+        if (!transactions || transactions.length === 0) {
+            toast({ title: 'No hay datos', description: 'No hay transacciones para exportar.', variant: 'destructive' });
+            return;
+        }
+        const filteredTransactions = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
+        
+        if (filteredTransactions.length === 0) {
+            toast({ title: 'No hay datos', description: 'No hay transacciones para exportar con el filtro actual.', variant: 'destructive' });
+            return;
+        }
+
+        const worksheet = XLSX.utils.json_to_sheet(filteredTransactions);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Transacciones");
+        XLSX.writeFile(workbook, `reporte_gastos_${new Date().toISOString().split('T')[0]}.csv`);
+        
+        toast({ title: 'Descarga Iniciada', description: 'Tu reporte CSV se está descargando.' });
+    };
+
     return (
         <div className="space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+              <h2 className="text-2xl font-bold">Informes</h2>
+              <Button onClick={handleDownloadCsv}><Download className="mr-2 h-4 w-4" /> Descargar CSV</Button>
+            </div>
+            
             <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
 
             <div className="flex justify-center">
@@ -735,8 +761,7 @@ function BudgetsView({ categories, transactions }: { categories: string[], trans
                         </div>
                         <div className="space-y-2">
                             <Label>Periodo</Label>
-                            <DateRangePicker date={undefined} onSelect={() => {}} />
-                            <p className="text-xs text-muted-foreground">La funcionalidad de fecha se añadirá próximamente.</p>
+                            <p className="text-xs text-muted-foreground p-2 bg-muted rounded-md">La selección de fechas para presupuestos se habilitará pronto.</p>
                         </div>
                         <DialogFooter>
                             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
@@ -763,7 +788,17 @@ function BudgetsView({ categories, transactions }: { categories: string[], trans
 }
 
 function ConfiguracionView() {
-  return <PlaceholderView title="Configuración" icon={Cog} />;
+  return (
+    <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
+        <Alert className="max-w-md">
+            <Cog className="h-4 w-4" />
+            <AlertTitle>Módulo en Construcción</AlertTitle>
+            <AlertDescription>
+                La sección de configuración está en desarrollo. Próximamente podrás personalizar tus categorías, métodos de pago y más.
+            </AlertDescription>
+        </Alert>
+    </div>
+  );
 }
 
 function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
@@ -850,17 +885,6 @@ function TransactionActions({ transaction, onEdit, onDelete }: { transaction: fi
     );
 }
 
-
-function PlaceholderView({ title, icon: Icon }: { title: string; icon: React.ElementType }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
-      <Icon className="h-12 w-12 text-muted-foreground" />
-      <h3 className="mt-4 text-xl font-semibold">{title}</h3>
-      <p className="mt-2 text-sm text-muted-foreground">Este módulo está en construcción. ¡Vuelve pronto!</p>
-    </div>
-  );
-}
-
 function BottomNav({ currentView, setView }: { currentView: View, setView: (v: View) => void }) {
   const navItems = [
     { id: 'inicio', label: 'Inicio', icon: Home },
@@ -902,7 +926,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
       tipo_transaccion: 'gasto',
-      monto: 0,
+      monto: undefined,
       categoria: '',
       fecha: new Date(),
       metodo_pago: undefined,
@@ -948,6 +972,19 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   const Content = (
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col overflow-hidden">
+          <SheetHeader className="p-4 border-b sm:hidden">
+              <SheetTitle>{transaction ? 'Editar' : 'Añadir'} Transacción</SheetTitle>
+              <SheetDescription>
+                  {transaction ? 'Modifica los detalles de la transacción.' : 'Registra un nuevo gasto o ingreso.'}
+              </SheetDescription>
+          </SheetHeader>
+          <DialogHeader className="p-6 pb-0 hidden sm:flex">
+               <DialogTitle>{transaction ? 'Editar' : 'Añadir'} Transacción</DialogTitle>
+              <DialogDescription>
+                  {transaction ? 'Modifica los detalles de la transacción.' : 'Registra un nuevo gasto o ingreso.'}
+              </DialogDescription>
+          </DialogHeader>
+
           <div className="flex-1 overflow-y-auto p-4 space-y-6 sm:p-6">
             <FormField
               control={form.control}
@@ -981,7 +1018,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
               )}
             />
             <FormField control={form.control} name="monto" render={({ field }) => (
-                <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="$0.00" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="$0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )}/>
              <FormField control={form.control} name="categoria" render={({ field }) => (
                 <FormItem><FormLabel>Categoría</FormLabel>
@@ -1038,24 +1075,5 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
       </Form>
   );
 
-  return (
-    <>
-        <SheetHeader className="p-4 border-b sm:hidden">
-            <SheetTitle>{transaction ? 'Editar' : 'Añadir'} Transacción</SheetTitle>
-            <SheetDescription>
-                {transaction ? 'Modifica los detalles de la transacción.' : 'Registra un nuevo gasto o ingreso.'}
-            </SheetDescription>
-        </SheetHeader>
-        <DialogHeader className="p-6 pb-0 hidden sm:flex">
-             <DialogTitle>{transaction ? 'Editar' : 'Añadir'} Transacción</DialogTitle>
-            <DialogDescription>
-                {transaction ? 'Modifica los detalles de la transacción.' : 'Registra un nuevo gasto o ingreso.'}
-            </DialogDescription>
-        </DialogHeader>
-        {Content}
-    </>
-  );
+  return Content;
 }
-    
-
-
