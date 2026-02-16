@@ -528,7 +528,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     <div className="space-y-6">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h2 className="text-2xl font-bold">Insights</h2>
+              <h2 className="text-2xl font-bold">Gastos diarios</h2>
               <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
             <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
@@ -702,6 +702,20 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
             return acc;
         }, [] as { name: string, value: number }[]);
         
+        const incomesByCategory = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((acc, t) => {
+            const category = t.categoria || 'Sin Categoría';
+            const existing = acc.find(item => item.name === category);
+            if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
+            return acc;
+        }, [] as { name: string, value: number }[]);
+        
+        const incomesByPaymentMethod = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((acc, t) => {
+            const method = t.metodo_pago || 'Otro';
+            const existing = acc.find(item => item.name === method);
+            if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
+            return acc;
+        }, [] as { name: string, value: number }[]);
+
         let trendData: { name: string, Ingresos: number, Gastos: number }[] = [];
         if (dateFilter === 'year') {
             const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
@@ -721,7 +735,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
             });
         }
 
-        return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData };
+        return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData, incomesByCategory, incomesByPaymentMethod };
     }, [filteredTransactions, transactions, currentDate, dateFilter]);
     
     const PIE_COLORS = [
@@ -814,38 +828,75 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                   </Card>
               }
 
-              {transactionTypeFilter !== 'ingreso' && (
               <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
-                      <CardHeader><CardTitle>Gastos por Categoría</CardTitle></CardHeader>
-                      <CardContent>
-                           <ResponsiveContainer width="100%" height={250}>
-                              <PieChart>
-                                  <Tooltip formatter={(value: number) => money(value)} />
-                                  <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
-                                      {reportData.expensesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
-                                  </Pie>
-                                  <Legend />
-                              </PieChart>
-                          </ResponsiveContainer>
-                      </CardContent>
-                  </Card>
-                   <Card>
-                      <CardHeader><CardTitle>Gastos por Método de Pago</CardTitle></CardHeader>
-                      <CardContent>
-                           <ResponsiveContainer width="100%" height={250}>
-                              <PieChart>
-                                  <Tooltip formatter={(value: number) => money(value)} />
-                                  <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
-                                      {reportData.expensesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
-                                  </Pie>
-                                  <Legend />
-                              </PieChart>
-                          </ResponsiveContainer>
-                      </CardContent>
-                  </Card>
+                  {/* Income Charts */}
+                  {transactionTypeFilter !== 'gasto' && reportData.incomesByCategory.length > 0 && (
+                      <Card>
+                          <CardHeader><CardTitle>Ingresos por Categoría</CardTitle></CardHeader>
+                          <CardContent>
+                                  <ResponsiveContainer width="100%" height={250}>
+                                  <PieChart>
+                                      <Tooltip formatter={(value: number) => money(value)} />
+                                      <Pie data={reportData.incomesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
+                                          {reportData.incomesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                                      </Pie>
+                                      <Legend />
+                                  </PieChart>
+                              </ResponsiveContainer>
+                          </CardContent>
+                      </Card>
+                  )}
+                  {transactionTypeFilter !== 'gasto' && reportData.incomesByPaymentMethod.length > 0 && (
+                      <Card>
+                          <CardHeader><CardTitle>Ingresos por Método de Pago</CardTitle></CardHeader>
+                          <CardContent>
+                                  <ResponsiveContainer width="100%" height={250}>
+                                  <PieChart>
+                                      <Tooltip formatter={(value: number) => money(value)} />
+                                      <Pie data={reportData.incomesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
+                                          {reportData.incomesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                                      </Pie>
+                                      <Legend />
+                                  </PieChart>
+                              </ResponsiveContainer>
+                          </CardContent>
+                      </Card>
+                  )}
+
+                  {/* Expense Charts */}
+                  {transactionTypeFilter !== 'ingreso' && reportData.expensesByCategory.length > 0 && (
+                      <Card>
+                          <CardHeader><CardTitle>Gastos por Categoría</CardTitle></CardHeader>
+                          <CardContent>
+                              <ResponsiveContainer width="100%" height={250}>
+                                  <PieChart>
+                                      <Tooltip formatter={(value: number) => money(value)} />
+                                      <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
+                                          {reportData.expensesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                                      </Pie>
+                                      <Legend />
+                                  </PieChart>
+                              </ResponsiveContainer>
+                          </CardContent>
+                      </Card>
+                  )}
+                  {transactionTypeFilter !== 'ingreso' && reportData.expensesByPaymentMethod.length > 0 && (
+                      <Card>
+                          <CardHeader><CardTitle>Gastos por Método de Pago</CardTitle></CardHeader>
+                          <CardContent>
+                              <ResponsiveContainer width="100%" height={250}>
+                                  <PieChart>
+                                      <Tooltip formatter={(value: number) => money(value)} />
+                                      <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
+                                          {reportData.expensesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                                      </Pie>
+                                      <Legend />
+                                  </PieChart>
+                              </ResponsiveContainer>
+                          </CardContent>
+                      </Card>
+                  )}
               </div>
-              )}
                 
               <Card>
                   <CardHeader>
@@ -1579,5 +1630,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
