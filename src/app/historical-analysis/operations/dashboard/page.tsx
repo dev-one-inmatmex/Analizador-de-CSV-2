@@ -1,50 +1,25 @@
-import { supabaseAdmin } from '@/lib/supabaseClient';
-import type { gastos_diarios } from '@/types/database';
-import OperationsDashboardClient from './dashboard-client';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Wrench } from 'lucide-react';
 
-async function getExpenses(): Promise<{ expenses: gastos_diarios[], error: string | null }> {
-    if (!supabaseAdmin) {
-        return { expenses: [], error: "Cliente de Supabase no configurado." };
-    }
-    
-    const { data, error } = await supabaseAdmin
-        .from('gastos_diarios')
-        .select('*')
-        .order('fecha', { ascending: false });
-
-    if (error) {
-        console.error("Error fetching expenses:", error);
-        return { expenses: [], error: `Error de base de datos: ${error.message}` };
-    }
-    return { expenses: (data as gastos_diarios[]) || [], error: null };
-}
-
-async function getUniqueFieldValues(field: 'empresa' | 'capturista'): Promise<string[]> {
-    if (!supabaseAdmin) return [];
-    
-    const { data, error } = await supabaseAdmin
-        .from('gastos_diarios')
-        .select(field);
-
-    if (error) {
-        console.error(`Error fetching unique ${field} values:`, error);
-        return [];
-    }
-
-    return [...new Set(data.map(item => item[field]).filter(Boolean))];
-}
-
-export default async function OperationsDashboardPage() {
-    const { expenses, error } = await getExpenses();
-    const companies = await getUniqueFieldValues('empresa');
-    const capturistas = await getUniqueFieldValues('capturista');
-    
+export default function OperationsDashboardPage() {
     return (
-        <OperationsDashboardClient 
-            initialExpenses={expenses} 
-            allCompanies={companies}
-            allCapturistas={capturistas}
-            dbError={error}
-        />
+        <>
+            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+                <div className="flex items-center gap-4">
+                    <SidebarTrigger />
+                    <h1 className="text-xl font-bold tracking-tight">Dashboard de Gastos</h1>
+                </div>
+            </header>
+            <main className="flex flex-1 items-center justify-center p-4">
+                <Alert className="max-w-md">
+                    <Wrench className="h-4 w-4" />
+                    <AlertTitle>En Construcción</AlertTitle>
+                    <AlertDescription>
+                        El dashboard de gastos está siendo desarrollado.
+                    </AlertDescription>
+                </Alert>
+            </main>
+        </>
     )
 }

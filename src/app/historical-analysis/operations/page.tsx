@@ -46,7 +46,7 @@ export default function OperationsPage() {
   }, [startDay, isClient]);
 
   const handleContinue = () => {
-    router.push(`/historical-analysis/operations/dashboard?startDay=${startDay}`);
+    router.push(`/historical-analysis/operations/dashboard`);
   }
 
   if (!isClient) {
