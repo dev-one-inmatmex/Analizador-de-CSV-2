@@ -846,36 +846,36 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
     const TRANSACTION_PAGE_SIZE = 10;
     
     const filteredTransactions = React.useMemo(() => {
-        return transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
+        return transactions.filter((t: finanzas) => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
     }, [transactions, transactionTypeFilter]);
 
     const reportData = React.useMemo(() => {
-        const totalIncome = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
-        const totalExpense = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
+        const totalIncome = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum, t: finanzas) => sum + t.monto, 0);
+        const totalExpense = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum, t: finanzas) => sum + t.monto, 0);
         const netBalance = totalIncome - totalExpense;
 
-        const expensesByCategory = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
+        const expensesByCategory = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
             const category = t.categoria || 'Sin Categoría';
             const existing = acc.find(item => item.name === category);
             if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const expensesByPaymentMethod = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
+        const expensesByPaymentMethod = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
             const method = t.metodo_pago || 'Otro';
             const existing = acc.find(item => item.name === method);
             if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const incomesByCategory = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((acc, t) => {
+        const incomesByCategory = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
             const category = t.categoria || 'Sin Categoría';
             const existing = acc.find(item => item.name === category);
             if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const incomesByPaymentMethod = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((acc, t) => {
+        const incomesByPaymentMethod = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
             const method = t.metodo_pago || 'Otro';
             const existing = acc.find(item => item.name === method);
             if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
@@ -886,7 +886,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         if (dateFilter === 'year') {
             const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
             trendData = months.map(month => {
-                const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t: finanzas) => sum + t.monto, 0);
                 const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t: finanzas) => sum + t.monto, 0);
                 return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
             });
@@ -1703,6 +1703,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
