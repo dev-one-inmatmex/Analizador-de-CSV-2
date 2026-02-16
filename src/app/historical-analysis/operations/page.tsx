@@ -346,10 +346,8 @@ export default function OperationsPage() {
         {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} onAdd={() => handleOpenForm(null)} />}
         
         <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent className="flex max-h-[90vh] flex-col p-0 sm:max-w-lg">
-              <div className="flex-1 overflow-hidden">
+            <DialogContent className="flex h-[90vh] flex-col p-0 sm:max-w-lg">
                 {FormComponent}
-              </div>
             </DialogContent>
         </Dialog>
         <Sheet open={isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
@@ -424,9 +422,22 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     const saving = income - expense;
     return { totalIncome: income, totalExpense: expense, potentialSaving: saving };
   }, [transactions]);
-
+  
   const totalBudget = React.useMemo(() => budgets.reduce((sum: number, b: any) => sum + b.amount, 0), [budgets]);
-  const overallSpendingPercentage = totalBudget > 0 ? (totalExpense / totalBudget) * 100 : (totalExpense > 0 ? 100 : 0);
+  const firstBudget = budgets.length > 0 ? budgets[0] : null;
+  const incomeShare = totalIncome > 0 && firstBudget ? (firstBudget.spent / totalIncome) * 100 : 0;
+  
+  const mainChartData = [
+    { name: 'Gasto', value: totalExpense, fill: 'hsl(var(--chart-3))' },
+    { name: 'Ahorro', value: Math.max(0, potentialSaving), fill: 'hsl(var(--chart-2))' },
+  ];
+  
+  const summaryData = [
+    { name: 'Ingreso Total', value: totalIncome, percentage: 100, color: 'bg-[hsl(var(--chart-1))]' },
+    { name: 'Presupuesto', value: totalBudget, percentage: totalIncome > 0 ? (totalBudget/totalIncome)*100 : 0, color: 'bg-[hsl(var(--chart-5))]' },
+    { name: 'Gastos', value: totalExpense, percentage: totalIncome > 0 ? (totalExpense/totalIncome)*100 : 0, color: 'bg-[hsl(var(--chart-3))]' },
+    { name: 'Ahorro Potencial', value: potentialSaving, percentage: totalIncome > 0 ? (potentialSaving/totalIncome)*100 : 0, color: 'bg-[hsl(var(--chart-2))]' },
+  ];
 
   const expenseSummaryData = React.useMemo(() => {
     const dataPoints: { [key: string]: number } = {};
@@ -517,8 +528,8 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     <div className="space-y-6">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h2 className="text-2xl font-bold">Hola, Usuario!</h2>
-              <p className="text-muted-foreground">Aquí tienes un resumen de tu actividad financiera.</p>
+              <h2 className="text-2xl font-bold">Insights</h2>
+              <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
             <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
               <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
@@ -529,80 +540,84 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         </div>
 
         <Card>
-            <CardHeader>
-                <CardTitle>Resumen del Periodo</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Ingresos Totales</span>
-                        <span className="font-bold text-green-600">{money(totalIncome)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Gastos Totales</span>
-                        <span className="font-bold text-red-600">{money(totalExpense)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Balance</span>
-                        <span className={`font-bold ${potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(potentialSaving)}</span>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
+                <div className="relative flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                        <Pie data={mainChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={80} outerRadius={100} paddingAngle={5} startAngle={90} endAngle={-270}>
+                        {mainChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} className="stroke-background" />)}
+                        </Pie>
+                    </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute flex flex-col items-center justify-center">
+                        <span className="text-sm text-muted-foreground">Balance</span>
+                        <span className={`text-3xl font-bold ${potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(potentialSaving)}</span>
                     </div>
                 </div>
-                <Separator />
-                <div className="space-y-2">
-                     <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Presupuesto Total</span>
-                        <span className="font-bold">{money(totalBudget)}</span>
+
+                <div className="flex flex-col justify-center space-y-4">
+                {summaryData.map(item => (
+                    <div key={item.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className={cn('h-3 w-3 rounded-full', item.color)} />
+                            <span className="text-muted-foreground">{item.name}</span>
+                        </div>
+                        <div className="text-right">
+                            <p className="font-bold">{money(item.value)}</p>
+                            <p className="text-xs text-muted-foreground">{item.percentage.toFixed(0)}%</p>
+                        </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Gastado</span>
-                        <span className="font-bold">{money(totalExpense)}</span>
-                    </div>
-                    <Progress value={overallSpendingPercentage} />
-                    <p className="text-sm text-right text-muted-foreground">{overallSpendingPercentage.toFixed(0)}% del presupuesto gastado</p>
+                ))}
                 </div>
             </CardContent>
         </Card>
 
-        <div>
-            <h2 className="text-2xl font-bold mb-4">Categorías de Presupuesto</h2>
-            {budgets.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {budgets.map((budget: any) => {
-                        const progress = budget.amount > 0 ? (budget.spent / budget.amount) * 100 : (budget.spent > 0 ? 100 : 0);
-                        const overspent = budget.spent > budget.amount;
-                        return (
-                            <Card key={budget.id}>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-base flex items-center gap-2">
-                                      <div className="h-2 w-2 rounded-full bg-primary" />
-                                      {budget.category}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-baseline">
-                                            <span className="text-2xl font-bold">{money(budget.spent)}</span>
-                                            <span className="text-muted-foreground">/ {money(budget.amount)}</span>
-                                        </div>
-                                        {overspent && (
-                                            <p className="text-sm text-destructive">{money(budget.spent - budget.amount)} por encima</p>
-                                        )}
-                                        <Progress value={progress} className={progress > 100 ? '[&>div]:bg-destructive' : ''} />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )
-                    })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+                <CardHeader><CardTitle>Ahorro Potencial Acumulado</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-bold">{money(potentialSaving)}</p>
+                    <p className="text-xs text-muted-foreground">Desde {format(startOfMonth(currentDate), "MMMM yyyy", { locale: es })}</p>
+                </CardContent>
+            </Card>
+            
+            {firstBudget ? (
+            <Card>
+                <CardHeader><CardTitle>Estado del Presupuesto</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                <div>
+                    <p className="font-bold">{firstBudget.category}</p>
+                    <Progress value={(firstBudget.spent / firstBudget.amount) * 100} className="mt-2" />
+                    <div className="flex justify-between text-xs mt-1">
+                    <span className="text-muted-foreground">Gastado: {money(firstBudget.spent)}</span>
+                    <span className={firstBudget.amount - firstBudget.spent < 0 ? "text-destructive" : "text-muted-foreground"}>
+                        Restante: {money(firstBudget.amount - firstBudget.spent)}
+                    </span>
+                    </div>
                 </div>
+                <div className="flex flex-col items-center justify-center">
+                    <p className="text-xs text-muted-foreground mb-1">Cuota de Ingresos</p>
+                    <ResponsiveContainer width={80} height={80}>
+                        <PieChart>
+                            <Pie data={[{ name: 'share', value: incomeShare }, { name: 'other', value: 100 - incomeShare }]} dataKey="value" stroke="none" innerRadius={25} outerRadius={35}>
+                            <Cell fill="hsl(var(--primary))" />
+                            <Cell fill="hsl(var(--muted))" />
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                    <p className="text-sm font-bold mt-1">{incomeShare.toFixed(1)}%</p>
+                </div>
+                </CardContent>
+            </Card>
             ) : (
-                <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Sin Presupuestos</AlertTitle>
-                    <AlertDescription>No has creado ningún presupuesto. Ve a la pestaña de "Presupuestos" para empezar.</AlertDescription>
-                </Alert>
+            <Card className="flex items-center justify-center">
+                <CardContent className="text-center text-muted-foreground p-6">
+                <p>No hay presupuestos activos para mostrar.</p>
+                </CardContent>
+            </Card>
             )}
         </div>
-
+        
         <Card>
             <CardHeader>
                 <CardTitle>Resumen de Gastos</CardTitle>
@@ -1446,7 +1461,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   
   const Content = (
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col overflow-hidden">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex h-full flex-1 flex-col overflow-hidden">
           <SheetHeader className="p-4 border-b sm:hidden">
               <SheetTitle>{transaction ? 'Editar' : 'Añadir'} Transacción</SheetTitle>
               <SheetDescription>
@@ -1564,4 +1579,5 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
