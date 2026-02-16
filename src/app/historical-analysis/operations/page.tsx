@@ -265,16 +265,22 @@ export default function OperationsPage() {
                 <SidebarTrigger />
                 <h1 className="text-xl font-bold tracking-tight">Gastos Diarios</h1>
             </div>
-            {!isMobile && (
-                <Tabs value={currentView} onValueChange={handleCurrentViewChange} className="w-auto">
-                    <TabsList>
-                        <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" />Inicio</TabsTrigger>
-                        <TabsTrigger value="informes"><BarChart className="mr-2 h-4 w-4" />Informes</TabsTrigger>
-                        <TabsTrigger value="presupuestos"><Landmark className="mr-2 h-4 w-4" />Presupuestos</TabsTrigger>
-                        <TabsTrigger value="configuracion"><Cog className="mr-2 h-4 w-4" />Configuración</TabsTrigger>
-                    </TabsList>
-                </Tabs>
-            )}
+            <div className="flex items-center gap-4">
+                {!isMobile && (
+                    <Tabs value={currentView} onValueChange={handleCurrentViewChange} className="w-auto">
+                        <TabsList>
+                            <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" />Inicio</TabsTrigger>
+                            <TabsTrigger value="informes"><BarChart className="mr-2 h-4 w-4" />Informes</TabsTrigger>
+                            <TabsTrigger value="presupuestos"><Landmark className="mr-2 h-4 w-4" />Presupuestos</TabsTrigger>
+                            <TabsTrigger value="configuracion"><Cog className="mr-2 h-4 w-4" />Configuración</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                )}
+                 <Button onClick={() => handleOpenForm(null)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Añadir Transacción
+                </Button>
+            </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
@@ -283,26 +289,16 @@ export default function OperationsPage() {
         
         {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} />}
         
-        <div className="fixed bottom-20 right-4 z-40 md:bottom-8 md:right-8">
-             <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
-                 <DialogTrigger asChild>
-                    <Button size="icon" className="h-14 w-14 rounded-full shadow-lg" onClick={() => handleOpenForm(null)}>
-                        <Plus className="h-6 w-6" />
-                        <span className="sr-only">Añadir Transacción</span>
-                    </Button>
-                 </DialogTrigger>
-                 <DialogContent className="flex h-auto max-h-[90vh] flex-col p-0 sm:max-w-md">
-                   <div className="flex-1 overflow-y-auto">{FormComponent}</div>
-                 </DialogContent>
-             </Dialog>
-        </div>
-        <div className="md:hidden">
-            <Sheet open={isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
-                 <SheetContent side="bottom" className="flex h-[90vh] flex-col rounded-t-2xl p-0">
-                    {FormComponent}
-                 </SheetContent>
-            </Sheet>
-        </div>
+        <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
+            <DialogContent className="flex h-auto max-h-[90vh] flex-col p-0 sm:max-w-md">
+              <div className="flex-1 overflow-y-auto">{FormComponent}</div>
+            </DialogContent>
+        </Dialog>
+        <Sheet open={isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
+            <SheetContent side="bottom" className="flex h-[90vh] flex-col rounded-t-2xl p-0">
+              {FormComponent}
+            </SheetContent>
+        </Sheet>
     </div>
   );
 }
