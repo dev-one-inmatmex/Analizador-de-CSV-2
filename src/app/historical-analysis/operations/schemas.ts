@@ -20,7 +20,6 @@ export const expenseFormSchema = z.object({
   notas: z.string().max(280, { message: "Las notas no pueden exceder los 280 caracteres." }).optional().nullable(),
   // Defaulted fields for DB compatibility
   empresa: z.string().optional().default('Mi Empresa'),
-  capturista: z.string().optional().default('WebApp User'),
   subcategoria: z.string().optional().nullable(),
 });
 
