@@ -351,8 +351,8 @@ export default function OperationsPage() {
     const hydratedBudgets = React.useMemo(() => {
         return budgets.map(budget => {
             const spent = transactions
-                .filter(t => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
-                .reduce((sum, t) => sum + t.monto, 0);
+                .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
+                .reduce((sum, t: finanzas) => sum + t.monto, 0);
             return { ...budget, spent };
         });
     }, [budgets, transactions]);
@@ -595,42 +595,49 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     }
   }
 
-  const expenseSummaryData = React.useMemo(() => {
-    const dataPoints: { [key: string]: number } = {};
+  const periodSummaryData = React.useMemo(() => {
+    const dataPoints: { [key: string]: { Gastos: number; Ingresos: number } } = {};
     let interval: Date[];
     let formatString: string;
 
     switch (dateFilter) {
-        case 'week':
-            interval = eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) });
-            formatString = 'eee';
-            break;
-        case 'year':
-            interval = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
-            formatString = 'MMM';
-            break;
-        case 'month':
-        default:
-            interval = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
-            formatString = 'd';
+      case 'week':
+        interval = eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) });
+        formatString = 'eee';
+        break;
+      case 'year':
+        interval = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
+        formatString = 'MMM';
+        break;
+      case 'month':
+      default:
+        interval = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+        formatString = 'd';
+        break;
     }
-    
+
     interval.forEach(day => {
-        const dayKey = format(day, formatString, { locale: es });
-        dataPoints[dayKey] = 0;
+      const dayKey = format(day, formatString, { locale: es });
+      dataPoints[dayKey] = { Gastos: 0, Ingresos: 0 };
     });
 
-    transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').forEach((t: finanzas) => {
-        try {
-            const date = parseISO(t.fecha);
-            const dayKey = format(date, formatString, { locale: es });
-            if (dayKey in dataPoints) {
-                dataPoints[dayKey] += t.monto;
-            }
-        } catch(e) { console.error("invalid date", t.fecha); }
+    transactions.forEach((t: finanzas) => {
+      try {
+        const date = parseISO(t.fecha);
+        const dayKey = format(date, formatString, { locale: es });
+        if (dayKey in dataPoints) {
+          if (t.tipo_transaccion === 'gasto') {
+            dataPoints[dayKey].Gastos += t.monto;
+          } else {
+            dataPoints[dayKey].Ingresos += t.monto;
+          }
+        }
+      } catch (e) {
+        console.error("invalid date", t.fecha);
+      }
     });
-    
-    return Object.entries(dataPoints).map(([name, Gastos]) => ({ name, Gastos }));
+
+    return Object.entries(dataPoints).map(([name, values]) => ({ name, ...values }));
   }, [transactions, currentDate, dateFilter]);
   
   const dailyTransactions = React.useMemo(() => {
@@ -640,13 +647,17 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         } catch {
             return false;
         }
-    }).sort((a,b) => b.monto - a.monto);
+    }).sort((a: finanzas,b: finanzas) => b.monto - a.monto);
   }, [transactions, currentDate]);
 
   const handleBarClick = (data: any) => {
     if (!data || !data.activeLabel) return;
     
     const label = data.activeLabel;
+    const clickedBarKey = data.activePayload?.[0]?.dataKey; // 'Gastos' or 'Ingresos'
+    if (!clickedBarKey) return;
+    const typeToShow = clickedBarKey === 'Gastos' ? 'gasto' : 'ingreso';
+
     let formatString: string;
     
     switch (dateFilter) {
@@ -656,7 +667,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     }
 
     const relevantTransactions = transactions.filter((t:finanzas) => {
-        if (t.tipo_transaccion !== 'gasto') return false;
+        if (t.tipo_transaccion !== typeToShow) return false;
         try {
             const date = parseISO(t.fecha);
             return format(date, formatString, { locale: es }) === label;
@@ -666,15 +677,15 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     });
 
     if (relevantTransactions.length > 0) {
-         let title = `Gastos del ${label}`;
-         if (dateFilter === 'month') title = `Gastos del día ${label} de ${format(currentDate, 'MMMM', {locale: es})}`;
-         else if (dateFilter === 'year') title = `Gastos de ${label} ${format(currentDate, 'yyyy')}`;
+         let title = `${clickedBarKey} del ${label}`;
+         if (dateFilter === 'month') title = `${clickedBarKey} del día ${label} de ${format(currentDate, 'MMMM', {locale: es})}`;
+         else if (dateFilter === 'year') title = `${clickedBarKey} de ${label} ${format(currentDate, 'yyyy')}`;
          else if (dateFilter === 'week') {
             const dayOfWeek = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'].indexOf(label);
             const start = startOfWeek(currentDate, { locale: es });
             if (dayOfWeek !== -1) {
                 const clickedDate = add(start, { days: dayOfWeek });
-                title = `Gastos del ${format(clickedDate, "EEEE, dd 'de' MMMM", { locale: es })}`;
+                title = `${clickedBarKey} del ${format(clickedDate, "EEEE, dd 'de' MMMM", { locale: es })}`;
             }
          }
          
@@ -773,17 +784,19 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         
         <Card>
             <CardHeader>
-                <CardTitle>Resumen de Gastos del Periodo</CardTitle>
-                <CardDescription>Visualización de los gastos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
+                <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
+                <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
-                    <RechartsBarChart data={expenseSummaryData} onClick={handleBarClick}>
+                    <RechartsBarChart data={periodSummaryData} onClick={handleBarClick}>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
                         <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                         <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
                         <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} cursor="pointer" />
+                        <Legend />
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} cursor="pointer" />
+                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" />
                     </RechartsBarChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -794,7 +807,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 <DialogHeader>
                     <DialogTitle>{detailModalContent?.title}</DialogTitle>
                     <DialogDescription>
-                        Lista de gastos que componen el total del día/mes seleccionado.
+                        Lista de movimientos que componen el total del día/mes seleccionado.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[60vh] overflow-y-auto">
@@ -811,7 +824,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                                 <TableRow key={t.id}>
                                     <TableCell className="font-medium">{t.categoria}</TableCell>
                                     <TableCell>{t.notas || '-'}</TableCell>
-                                    <TableCell className="text-right font-bold text-destructive">{money(t.monto)}</TableCell>
+                                    <TableCell className={cn("text-right font-bold", t.tipo_transaccion === 'gasto' ? 'text-destructive' : 'text-green-600')}>{money(t.monto)}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -873,8 +886,8 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         if (dateFilter === 'year') {
             const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
             trendData = months.map(month => {
-                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
-                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t: finanzas) => sum + t.monto, 0);
                 return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
             });
         } else if (dateFilter !== 'day') { // For week and month
@@ -882,8 +895,8 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                 ? eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) })
                 : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
             trendData = days.map(day => {
-                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
-                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
+                const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum, t: finanzas) => sum + t.monto, 0);
+                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t: finanzas) => sum + t.monto, 0);
                 return { name: format(day, dateFilter === 'week' ? 'eee d' : 'd'), Ingresos: income, Gastos: expense };
             });
         }
@@ -1094,8 +1107,8 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
     const hydratedBudgets = React.useMemo(() => {
         return budgets.map(budget => {
             const spent = transactions
-                .filter(t => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
-                .reduce((sum, t) => sum + t.monto, 0);
+                .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
+                .reduce((sum, t: finanzas) => sum + t.monto, 0);
             return { ...budget, spent };
         });
     }, [budgets, transactions]);
@@ -1690,6 +1703,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
