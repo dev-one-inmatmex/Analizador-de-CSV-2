@@ -35,6 +35,7 @@ import {
   List,
   Pencil,
   TrendingUp,
+  Loader2,
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -84,6 +85,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/lib/supabaseClient';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 
 type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
