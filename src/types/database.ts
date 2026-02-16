@@ -4,7 +4,7 @@ export interface Usuario {
     email: string;
 }
 
-/* export interface ventas {
+export interface ventas {
     numero_venta: string;
     fecha_venta: string | null;
     estado: string | null;
@@ -67,10 +67,10 @@ export interface Usuario {
     reclamo_abierto: string | null;
     reclamo_cerrado: string | null;
     con_mediacion: string | null;
-    } */
+}
   
 
-/* export interface publicaciones {
+export interface publicaciones {
     item_id: string | null;         // ID de la publicación (ML)
     sku: string;// PK (uuid o text) → OK
     product_number: string | null;
@@ -81,7 +81,7 @@ export interface Usuario {
     price: number | null;
     company: string | null;
     created_at: string | null;
-  }
+}
 
 export interface publicaciones_por_sku{
   sku: string;
@@ -98,6 +98,7 @@ export interface skuxpublicaciones{
 export interface catalogo_madre{
   sku: string;
   nombre_madre: string;
+  company?: string | null;
 }
 
 export interface skus_unicos{
@@ -148,7 +149,7 @@ export interface diccionario_skus{
   presentacion_en_master_4: string | null;
   bodega: string | null;
   bloque: string | null;
-} */
+}
 
 export interface sales_excel {
   id: number;
