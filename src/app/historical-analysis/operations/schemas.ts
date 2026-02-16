@@ -1,25 +1,27 @@
 import { z } from 'zod';
 
-export const paymentMethods = ['Efectivo', 'Tarjeta', 'Transferencia', 'Otro'] as const;
-export const expenseCategories = ['Comida', 'Transporte', 'Insumos', 'Servicios', 'Marketing', 'Renta', 'Sueldos', 'Otro'] as const;
+export const transactionTypes = ['gasto', 'ingreso'] as const;
+export const paymentMethods = ['Efectivo', 'Tarjeta', 'Cash', 'Otro'] as const;
 
 export const expenseFormSchema = z.object({
-  fecha: z.date({
-    required_error: "La fecha es obligatoria.",
-    invalid_type_error: "Debe seleccionar una fecha válida.",
-  }),
-  empresa: z.string().min(1, { message: "Debe seleccionar una empresa." }),
-  tipo_gasto: z.enum(expenseCategories, {
-    required_error: "Debe seleccionar una categoría de gasto.",
+  tipo_transaccion: z.enum(transactionTypes, {
+    required_error: "Debe seleccionar un tipo de transacción.",
   }),
   monto: z.coerce
-    .number({
-      invalid_type_error: "El monto debe ser un número.",
-    })
+    .number({ invalid_type_error: "El monto debe ser un número." })
     .positive({ message: "El monto debe ser mayor que 0." }),
-  capturista: z.string().min(1, { message: "El nombre del capturista es obligatorio." }),
-  // El tipo de pago se puede agregar en el futuro si se añade la columna en la DB
-  // tipo_pago: z.enum(paymentMethods, {
-  //   required_error: "Debe seleccionar un tipo de pago.",
-  // }),
+  categoria: z.string().min(1, { message: "Debe seleccionar una categoría." }),
+  fecha: z.date({
+    required_error: "La fecha es obligatoria.",
+  }),
+  metodo_pago: z.enum(paymentMethods, {
+    required_error: "Debe seleccionar un método de pago.",
+  }),
+  notas: z.string().max(280, { message: "Las notas no pueden exceder los 280 caracteres." }).optional(),
+  // Defaulted fields for DB compatibility
+  empresa: z.string().optional().default('Mi Empresa'),
+  capturista: z.string().optional().default('WebApp User'),
+  subcategoria: z.string().optional().nullable(),
 });
+
+export type TransactionFormValues = z.infer<typeof expenseFormSchema>;

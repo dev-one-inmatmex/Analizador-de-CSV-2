@@ -3,9 +3,9 @@
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import { revalidatePath } from 'next/cache';
-import { expenseFormSchema } from './schemas';
+import { expenseFormSchema, TransactionFormValues } from './schemas';
 
-export async function addExpenseAction(values: z.infer<typeof expenseFormSchema>) {
+export async function addExpenseAction(values: TransactionFormValues) {
   const validatedFields = expenseFormSchema.safeParse(values);
 
   if (!validatedFields.success) {
@@ -16,7 +16,13 @@ export async function addExpenseAction(values: z.infer<typeof expenseFormSchema>
     return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
-  const { error } = await supabaseAdmin.from('gastos_diarios').insert([validatedFields.data]);
+  // Map form values to the database schema
+  const dbData = {
+      ...validatedFields.data,
+      categoria: validatedFields.data.categoria, // 'categoria' from form maps to 'categoria' in DB
+  };
+
+  const { error } = await supabaseAdmin.from('gastos_diarios').insert([dbData]);
 
   if (error) {
     console.error('Supabase insert error:', error);
@@ -27,7 +33,7 @@ export async function addExpenseAction(values: z.infer<typeof expenseFormSchema>
   return { data: "Gasto añadido exitosamente." };
 }
 
-export async function updateExpenseAction(id: number, values: z.infer<typeof expenseFormSchema>) {
+export async function updateExpenseAction(id: number, values: TransactionFormValues) {
     const validatedFields = expenseFormSchema.safeParse(values);
 
     if (!validatedFields.success) {
@@ -37,10 +43,15 @@ export async function updateExpenseAction(id: number, values: z.infer<typeof exp
     if (!supabaseAdmin) {
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
+    
+    const dbData = {
+      ...validatedFields.data,
+      categoria: validatedFields.data.categoria,
+    };
 
     const { error } = await supabaseAdmin
         .from('gastos_diarios')
-        .update(validatedFields.data)
+        .update(dbData)
         .eq('id', id);
 
     if (error) {

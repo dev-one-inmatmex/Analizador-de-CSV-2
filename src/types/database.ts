@@ -125,11 +125,15 @@ export interface categorias_madre{
 
 export interface gastos_diarios{
   id: number;
-  fecha: string | null;
+  fecha: string;
   empresa: string | null;
-  tipo_gasto: string | null;
-  monto: number | null;
+  categoria: string;
+  subcategoria: string | null;
+  monto: number;
   capturista: string | null;
+  tipo_transaccion: 'gasto' | 'ingreso';
+  metodo_pago: 'Efectivo' | 'Tarjeta' | 'Cash' | 'Otro';
+  notas: string | null;
 }
 
 export interface diccionario_skus{
