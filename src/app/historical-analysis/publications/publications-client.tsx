@@ -16,7 +16,7 @@ import type { EnrichedMotherCatalog, EnrichedPublicationCount, EnrichedSkuMap } 
 import type { publi_xsku, publi_tienda } from '@/types/database';
 
 type ProductsData = {
-    publications: any[];
+    publications: publi_tienda[];
     skuCounts: EnrichedPublicationCount[];
     skuMap: EnrichedSkuMap[];
     motherCatalog: EnrichedMotherCatalog[];
@@ -35,7 +35,7 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
     const [productPages, setProductPages] = React.useState({ pubs: 1, counts: 1, map: 1, catalog: 1 });
 
     const { productsKpis, statusChartData } = React.useMemo(() => {
-        const prices = publications.map(p => p.price).filter((p): p is number => p !== null && p !== undefined);
+        const prices = publications.map(p => p.costo).filter((p): p is number => p !== null && p !== undefined);
         const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
         
         const statusCounts: Record<string, number> = {};
@@ -157,7 +157,7 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                                                 <TableCell className="font-mono">{pub.num_publi}</TableCell>
                                                 <TableCell className="font-mono">{pub.sku ?? 'N/A'}</TableCell>
                                                 <TableCell className="font-mono text-xs">{pub.num_producto ?? 'N/A'}</TableCell>
-                                                <TableCell className="max-w-sm truncate" title={pub.titulo ?? ''}>{pub.title}</TableCell>
+                                                <TableCell className="max-w-sm truncate" title={pub.titulo ?? ''}>{pub.titulo}</TableCell>
                                                 <TableCell><Badge variant={pub.status === 'active' ? 'secondary' : 'outline'}>{pub.status}</Badge></TableCell>
                                                 <TableCell>{pub.cat_mdr ?? 'N/A'}</TableCell>
                                                 <TableCell className="text-right font-semibold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pub.costo ?? 0)}</TableCell>

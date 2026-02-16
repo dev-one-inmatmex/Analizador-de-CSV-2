@@ -4,7 +4,7 @@ export interface Usuario {
     email: string;
 }
 
-/* export interface ventas {
+export interface ventas {
     numero_venta: string;
     fecha_venta: string | null;
     estado: string | null;
@@ -69,25 +69,6 @@ export interface Usuario {
     con_mediacion: string | null;
 }
   
-
-export interface publicaciones {
-    item_id: string | null;         // ID de la publicación (ML)
-    sku: string;// PK (uuid o text) → OK
-    product_number: string | null;
-    variation_id: string | null;
-    title: string | null;
-    status: string | null;
-    nombre_madre: string | null; 
-    price: number | null;
-    company: string | null;
-    created_at: string | null;
-}
-
-export interface publicaciones_por_sku{
-  sku: string;
-  publicaciones: number | null;
-}
-
 export interface skuxpublicaciones{
   sku: string;
   item_id: string | null;
@@ -121,7 +102,7 @@ export interface categorias_madre{
   piezas_por_contenedor: number | null;
   bodega: string |null; 
   bloque: string | null;
-} */
+}
 
 export interface finanzas{
   id: number;
@@ -136,7 +117,7 @@ export interface finanzas{
   notas: string | null;
 }
 
-/* export interface diccionario_skus{
+export interface diccionario_skus{
   sku: string;
   categoria_madre: string | null;
   nombre_madre: string | null;
@@ -153,7 +134,7 @@ export interface finanzas{
   presentacion_en_master_4: string | null;
   bodega: string | null;
   bloque: string | null;
-} */
+}
 
 export interface sales_excel {
   id: number;
@@ -222,9 +203,10 @@ export interface publi_tienda {
   cat_mdr: string | null;
   costo: number | null;
   tienda: string | null;
+  created_at?: string | null;
 }
 
-export interface    publi_xsku {
+export interface publi_xsku {
   sku: string; // Not null (Foreign Key)
   num_publicaciones: number | null;
 }

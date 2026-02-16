@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { revalidateDashboards } from '@/app/actions/revalidate';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 
@@ -25,9 +25,9 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
      catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
      categorias_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'categoria_madre', 'landed_cost', 'tiempo_preparacion', 'piezas_por_sku', 'piezas_por_contenedor', 'bodega', 'bloque'] },
      diccionario_skus: { pk: 'sku', columns: ['sku', 'categoria_madre', 'nombre_madre', 'landed_cost', 'presentacion_master_1', 'piezas_por_master', 'codigo_en_siggo', 'nombre_en_siggo', 'rock_en_siggo', 'piezas_totales', 'estado_en_siggo', 'presentacion_master_2', 'presentacion_en_master_3', 'presentacion_en_master_4', 'bodega', 'bloque'] },
-     gastos_diarios: { pk: 'id', columns: ['fecha', 'empresa', 'tipo_gasto', 'monto', 'capturista'] },
-     publicaciones: { pk: 'sku', columns: ['item_id', 'sku', 'product_number', 'variation_id', 'title', 'status', 'nombre_madre', 'price', 'company', 'created_at'] },
-     publicaciones_por_sku: { pk: 'sku', columns: ['sku', 'publicaciones'] },
+     finanzas: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'categoria', 'subcategoria', 'monto', 'capturista', 'tipo_transaccion', 'metodo_pago', 'notas'] },
+     publi_tienda: { pk: 'sku', columns: ['num_publi', 'sku', 'num_producto', 'titulo', 'status', 'cat_mdr', 'costo', 'tienda'] },
+     publi_xsku: { pk: 'sku', columns: ['sku', 'num_publicaciones'] },
      skus_unicos: { pk: 'sku', columns: ['sku', 'nombre_madre', 'tiempo_de_preparacion', 'landed_cost', 'de_recompra', 'proveedor', 'piezas_por_contenedor'] },
      skuxpublicaciones: { pk: 'sku', columns: ['sku', 'item_id', 'nombre_madre'] },
      ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
@@ -131,7 +131,7 @@ const numericFields = [
   'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'precio_unitario', 
   'unidades_envio', 'dinero_a_favor', 'unidades_reclamo', 'price',
   'landed_cost', 'piezas_por_sku', 'tiempo_produccion', 'publicaciones',
-  'piezas_por_contenedor', 'monto', 'de_recompra'
+  'piezas_por_contenedor', 'monto', 'de_recompra', 'num_publicaciones'
 ];
 
 const booleanFields = [
@@ -152,7 +152,7 @@ const dateFields = [
   
     const stringValue = String(value).trim();
 
-    if (key === 'numero_venta' || key === 'sku' || key === 'item_id' || key === 'product_number' || key === 'variation_id' || key === 'publicacion_id') {
+    if (['numero_venta', 'sku', 'item_id', 'product_number', 'variation_id', 'publicacion_id', 'num_publi', 'num_producto'].includes(key)) {
       return stringValue;
     }
     
@@ -463,7 +463,7 @@ const dateFields = [
 
    const handleAnalyzeData = async () => {
      const pkMapped = Object.values(headerMap).includes(primaryKey);
-     if (!pkMapped && selectedTableName !== 'gastos_diarios') { // For gastos_diarios, ID is auto-gen, so PK might not be in CSV
+     if (!pkMapped && selectedTableName !== 'finanzas') { // For finanzas, ID is auto-gen, so PK might not be in CSV
          toast({ title: 'Validación Fallida', description: `La clave primaria '${primaryKey}' debe estar mapeada para continuar.`, variant: 'destructive' });
          return;
      }
@@ -490,13 +490,13 @@ const dateFields = [
 
          const csvPkValues = mappedCsvData.map(row => row[primaryKey]).filter(Boolean);
          
-         if (selectedTableName === 'gastos_diarios') {
+         if (selectedTableName === 'finanzas') {
             const result: AnalysisResult = { toInsert: mappedCsvData, toUpdate: [], noChange: [] };
             setAnalysisResult(result);
             setCurrentStep('results');
             toast({
                 title: 'Análisis Completo',
-                description: `Se encontraron ${result.toInsert.length} registros nuevos para 'gastos_diarios'.`
+                description: `Se encontraron ${result.toInsert.length} registros nuevos para 'finanzas'.`
             });
             setIsLoading(false);
             setLoadingMessage('');
@@ -637,9 +637,9 @@ const dateFields = [
            dataToInsert = dataToInsert.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
            dataToUpdate = dataToUpdate.filter(record => record.nombre_madre != null && String(record.nombre_madre).trim() !== '');
        }
-       if (selectedTableName === 'publicaciones') {
-          dataToInsert = dataToInsert.filter(record => record.company != null && String(record.company).trim() !== '');
-          dataToUpdate = dataToUpdate.filter(record => record.company != null && String(record.company).trim() !== '');
+       if (selectedTableName === 'publi_tienda') {
+          dataToInsert = dataToInsert.filter(record => record.tienda != null && String(record.tienda).trim() !== '');
+          dataToUpdate = dataToUpdate.filter(record => record.tienda != null && String(record.tienda).trim() !== '');
        }
 
        let allData = [...dataToInsert, ...dataToUpdate];
@@ -659,7 +659,7 @@ const dateFields = [
               
               const isInsert = dataToInsert.some(ins => (ins[primaryKey] && String(ins[primaryKey]) === String(parsedRecord[primaryKey])) || ins === unparsedRecord);
 
-              if(isInsert && selectedTableName === 'gastos_diarios'){
+              if(isInsert && selectedTableName === 'finanzas'){
                 delete parsedRecord.id;
               }
               return parsedRecord;
