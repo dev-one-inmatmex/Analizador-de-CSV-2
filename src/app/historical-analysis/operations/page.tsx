@@ -413,6 +413,9 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
 
 
 function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction }: any) {
+  const [detailModalOpen, setDetailModalOpen] = React.useState(false);
+  const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
+
   const { totalIncome, totalExpense, potentialSaving, expenseAsPercentage, savingAsPercentage } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
@@ -470,6 +473,49 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     return Object.entries(dataPoints).map(([name, Gastos]) => ({ name, Gastos }));
   }, [transactions, currentDate, dateFilter]);
   
+  const handleBarClick = (data: any) => {
+    if (!data || !data.activeLabel) return;
+    
+    const label = data.activeLabel;
+    let formatString: string;
+    
+    switch (dateFilter) {
+        case 'week': formatString = 'eee'; break;
+        case 'year': formatString = 'MMM'; break;
+        case 'month': default: formatString = 'd'; break;
+    }
+
+    const relevantTransactions = transactions.filter((t:finanzas) => {
+        if (t.tipo_transaccion !== 'gasto') return false;
+        try {
+            const date = parseISO(t.fecha);
+            return format(date, formatString, { locale: es }) === label;
+        } catch {
+            return false;
+        }
+    });
+
+    if (relevantTransactions.length > 0) {
+         let title = `Gastos del ${label}`;
+         if (dateFilter === 'month') title = `Gastos del día ${label} de ${format(currentDate, 'MMMM', {locale: es})}`;
+         else if (dateFilter === 'year') title = `Gastos de ${label} ${format(currentDate, 'yyyy')}`;
+         else if (dateFilter === 'week') {
+            const dayOfWeek = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'].indexOf(label);
+            const start = startOfWeek(currentDate, { locale: es });
+            if (dayOfWeek !== -1) {
+                const clickedDate = add(start, { days: dayOfWeek });
+                title = `Gastos del ${format(clickedDate, "EEEE, dd 'de' MMMM", { locale: es })}`;
+            }
+         }
+         
+         setDetailModalContent({
+             title: title,
+             transactions: relevantTransactions
+         });
+         setDetailModalOpen(true);
+    }
+  };
+
   if(isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
   }
@@ -566,20 +612,55 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         <Card>
             <CardHeader>
                 <CardTitle>Resumen de Gastos</CardTitle>
-                <CardDescription>Visualización de los gastos a lo largo del periodo seleccionado.</CardDescription>
+                <CardDescription>Visualización de los gastos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
-                    <RechartsBarChart data={expenseSummaryData}>
+                    <RechartsBarChart data={expenseSummaryData} onClick={handleBarClick}>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
                         <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                         <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
                         <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} cursor="pointer" />
                     </RechartsBarChart>
                 </ResponsiveContainer>
             </CardContent>
         </Card>
+
+        <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>{detailModalContent?.title}</DialogTitle>
+                    <DialogDescription>
+                        Lista de gastos que componen el total del día/mes seleccionado.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Categoría</TableHead>
+                                <TableHead>Notas</TableHead>
+                                <TableHead className="text-right">Monto</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {detailModalContent?.transactions.map(t => (
+                                <TableRow key={t.id}>
+                                    <TableCell className="font-medium">{t.categoria}</TableCell>
+                                    <TableCell>{t.notas || '-'}</TableCell>
+                                    <TableCell className="text-right font-bold text-destructive">{money(t.monto)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => setDetailModalOpen(false)}>Cerrar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
     </div>
   )
 }
@@ -1165,21 +1246,29 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
 function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
   const isExpense = transaction.tipo_transaccion === 'gasto';
   return (
-    <Card className="flex items-center p-4 gap-4">
-      <div className={`rounded-full p-3 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-        {isExpense ? <ArrowDown /> : <ArrowUp />}
-      </div>
-      <div className="flex-1">
-        <p className="font-bold">{transaction.categoria}{transaction.subcategoria && <span className="text-muted-foreground font-normal text-sm"> / {transaction.subcategoria}</span>}</p>
-        <p className="text-sm text-muted-foreground">{transaction.notas || 'Sin descripción'}</p>
-      </div>
-      <div className="text-right">
-        <p className={`font-bold text-lg ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
-          {isExpense ? '-' : '+'} {money(transaction.monto)}
-        </p>
-        <p className="text-xs text-muted-foreground">{transaction.metodo_pago}</p>
-      </div>
-      <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
+    <Card className="p-3">
+        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-center w-12 flex-shrink-0">
+            <div className={`rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+            {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
+            </div>
+            <span className={`text-[10px] mt-1 font-bold tracking-wider ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
+            {isExpense ? 'GASTO' : 'INGRESO'}
+            </span>
+        </div>
+        <div className="flex-1 space-y-0.5">
+            <p className="font-bold leading-tight">{transaction.categoria}</p>
+            <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="text-right">
+                <p className={`font-bold text-base ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
+                {isExpense ? '-' : '+'} {money(transaction.monto)}
+                </p>
+            </div>
+            <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+        </div>
     </Card>
   );
 }
