@@ -99,6 +99,165 @@ type Category = { name: string; subcategories: string[] };
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
+
+// --- Reusable Transaction Components ---
+
+function TransactionActions({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+    return (
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onEdit(transaction)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>¿Estás seguro?</DialogTitle>
+                        <DialogDescription>Esta acción no se puede deshacer. Se eliminará permanentemente la transacción de {money(transaction.monto)}.</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button variant="destructive" onClick={() => { onDelete(transaction.id); setIsDeleteDialogOpen(false); }}>Sí, eliminar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
+function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
+  const isExpense = transaction.tipo_transaccion === 'gasto';
+  return (
+    <Card className="p-3">
+        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-center w-12 flex-shrink-0">
+            <div className={`rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+            {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
+            </div>
+            <span className={`text-[10px] mt-1 font-bold tracking-wider ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
+            {isExpense ? 'GASTO' : 'INGRESO'}
+            </span>
+        </div>
+        <div className="flex-1 space-y-0.5">
+            <p className="font-bold leading-tight">{transaction.categoria}</p>
+            <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="text-right">
+                <p className={`font-bold text-base ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
+                {isExpense ? '-' : '+'} {money(transaction.monto)}
+                </p>
+            </div>
+            <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+        </div>
+    </Card>
+  );
+}
+
+function TransactionTable({ transactions, onEdit, onDelete }: { transactions: finanzas[], onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
+  return (
+    <Card>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Fecha</TableHead>
+            <TableHead>Categoría</TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>Método de Pago</TableHead>
+            <TableHead>Notas</TableHead>
+            <TableHead className="text-right">Monto</TableHead>
+            <TableHead className="w-[50px]"><span className="sr-only">Acciones</span></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {transactions.map(t => (
+            <TableRow key={t.id}>
+              <TableCell>{format(new Date(t.fecha), 'dd MMM, yyyy', {locale: es})}</TableCell>
+              <TableCell className="font-medium">{t.categoria}{t.subcategoria && <span className="text-muted-foreground font-normal text-sm"> / {t.subcategoria}</span>}</TableCell>
+              <TableCell>
+                  <span className={cn("px-2 py-1 rounded-full text-xs font-semibold capitalize", t.tipo_transaccion === 'gasto' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>
+                      {t.tipo_transaccion}
+                  </span>
+              </TableCell>
+              <TableCell>{t.metodo_pago}</TableCell>
+              <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={t.notas || ''}>{t.notas || '-'}</TableCell>
+              <TableCell className={cn("text-right font-bold", t.tipo_transaccion === 'gasto' ? 'text-red-600' : 'text-green-600')}>{money(t.monto)}</TableCell>
+              <TableCell><TransactionActions transaction={t} onEdit={onEdit} onDelete={onDelete} /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
+function BalanceCard({ balance, income, expense, periodLabel }: { balance: number, income: number, expense: number, periodLabel: string }) {
+  return (
+    <Card>
+      <CardHeader className="items-center pb-4">
+        <CardTitle>Balance {periodLabel}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center">
+        <p className={`text-4xl font-bold ${balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+          {money(balance)}
+        </p>
+        <Separator className="my-4" />
+        <div className="flex w-full justify-around">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Ingresos</p>
+            <p className="text-lg font-semibold text-green-600">{money(income)}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Gastos</p>
+            <p className="text-lg font-semibold text-red-600">{money(expense)}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DailyTransactionSelector({ currentDate, setCurrentDate, setDateFilter }: { currentDate: Date, setCurrentDate: (d: Date) => void, setDateFilter: (f: DateFilter) => void }) {
+  const weekDays = eachDayOfInterval({
+    start: startOfWeek(currentDate, { locale: es }),
+    end: endOfWeek(currentDate, { locale: es }),
+  });
+
+  const handleDayClick = (day: Date) => {
+    setCurrentDate(day);
+    setDateFilter('day');
+  };
+
+  return (
+    <div>
+      <h3 className="text-lg font-semibold mb-2">Transacción diaria</h3>
+      <div className="flex justify-between items-center space-x-1 rounded-lg bg-muted p-1">
+        {weekDays.map(day => (
+          <button
+            key={day.toString()}
+            onClick={() => handleDayClick(day)}
+            className={cn(
+              "flex flex-col items-center justify-center rounded-md p-2 w-full transition-colors",
+              isSameDay(day, currentDate)
+                ? "bg-primary text-primary-foreground shadow"
+                : "hover:bg-background/50"
+            )}
+          >
+            <span className="text-xs capitalize">{format(day, 'eee', { locale: es })}</span>
+            <span className="font-bold text-lg">{format(day, 'd')}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 // --- Main Page Component ---
 export default function OperationsPage() {
   const [currentView, setCurrentView] = React.useState<View>('inicio');
@@ -275,6 +434,8 @@ export default function OperationsPage() {
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
                     onAddTransaction={() => handleOpenForm(null)}
+                    onEditTransaction={handleOpenForm}
+                    onDeleteTransaction={handleDeleteTransaction}
                 />;
       case 'informes':
         return <ReportsView 
@@ -412,9 +573,10 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
 }
 
 
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction }: any) {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction }: any) {
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
+  const isMobile = useIsMobile();
 
   const { totalIncome, totalExpense, potentialSaving } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
@@ -423,21 +585,15 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     return { totalIncome: income, totalExpense: expense, potentialSaving: saving };
   }, [transactions]);
   
-  const totalBudget = React.useMemo(() => budgets.reduce((sum: number, b: any) => sum + b.amount, 0), [budgets]);
-  const firstBudget = budgets.length > 0 ? budgets[0] : null;
-  const incomeShare = totalIncome > 0 && firstBudget ? (firstBudget.spent / totalIncome) * 100 : 0;
-  
-  const mainChartData = [
-    { name: 'Gasto', value: totalExpense, fill: 'hsl(var(--chart-3))' },
-    { name: 'Ahorro', value: Math.max(0, potentialSaving), fill: 'hsl(var(--chart-2))' },
-  ];
-  
-  const summaryData = [
-    { name: 'Ingreso Total', value: totalIncome, percentage: 100, color: 'bg-[hsl(var(--chart-1))]' },
-    { name: 'Presupuesto', value: totalBudget, percentage: totalIncome > 0 ? (totalBudget/totalIncome)*100 : 0, color: 'bg-[hsl(var(--chart-5))]' },
-    { name: 'Gastos', value: totalExpense, percentage: totalIncome > 0 ? (totalExpense/totalIncome)*100 : 0, color: 'bg-[hsl(var(--chart-3))]' },
-    { name: 'Ahorro Potencial', value: potentialSaving, percentage: totalIncome > 0 ? (potentialSaving/totalIncome)*100 : 0, color: 'bg-[hsl(var(--chart-2))]' },
-  ];
+  const getPeriodLabel = () => {
+    switch (dateFilter) {
+      case 'day': return 'Diario';
+      case 'week': return 'Semanal';
+      case 'year': return 'Anual';
+      case 'month':
+      default: return 'Mensual';
+    }
+  }
 
   const expenseSummaryData = React.useMemo(() => {
     const dataPoints: { [key: string]: number } = {};
@@ -477,6 +633,16 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     return Object.entries(dataPoints).map(([name, Gastos]) => ({ name, Gastos }));
   }, [transactions, currentDate, dateFilter]);
   
+  const dailyTransactions = React.useMemo(() => {
+    return transactions.filter((t: finanzas) => {
+        try {
+            return isSameDay(parseISO(t.fecha), currentDate);
+        } catch {
+            return false;
+        }
+    }).sort((a,b) => b.monto - a.monto);
+  }, [transactions, currentDate]);
+
   const handleBarClick = (data: any) => {
     if (!data || !data.activeLabel) return;
     
@@ -528,7 +694,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     <div className="space-y-6">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h2 className="text-2xl font-bold">Gastos diarios</h2>
+              <h2 className="text-2xl font-bold">Resumen Financiero</h2>
               <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
             <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
@@ -539,88 +705,75 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </div>
         </div>
 
-        <Card>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
-                <div className="relative flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                        <Pie data={mainChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={80} outerRadius={100} paddingAngle={5} startAngle={90} endAngle={-270}>
-                        {mainChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} className="stroke-background" />)}
-                        </Pie>
-                    </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute flex flex-col items-center justify-center">
-                        <span className="text-sm text-muted-foreground">Balance</span>
-                        <span className={`text-3xl font-bold ${potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(potentialSaving)}</span>
-                    </div>
-                </div>
-
-                <div className="flex flex-col justify-center space-y-4">
-                {summaryData.map(item => (
-                    <div key={item.name} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className={cn('h-3 w-3 rounded-full', item.color)} />
-                            <span className="text-muted-foreground">{item.name}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 space-y-6">
+                <BalanceCard 
+                    balance={potentialSaving}
+                    income={totalIncome}
+                    expense={totalExpense}
+                    periodLabel={getPeriodLabel()}
+                />
+                 <DailyTransactionSelector 
+                    currentDate={currentDate}
+                    setCurrentDate={setCurrentDate}
+                    setDateFilter={setDateFilter}
+                />
+            </div>
+            <Card className="lg:col-span-2 h-full">
+                <CardHeader>
+                    <CardTitle>
+                        Transacciones del {format(currentDate, "dd 'de' MMMM", { locale: es })}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="max-h-[450px] overflow-y-auto">
+                    {dailyTransactions.length > 0 ? (
+                    isMobile ? (
+                        <div className="space-y-4">
+                        {dailyTransactions.map(t => (
+                            <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                        ))}
                         </div>
-                        <div className="text-right">
-                            <p className="font-bold">{money(item.value)}</p>
-                            <p className="text-xs text-muted-foreground">{item.percentage.toFixed(0)}%</p>
-                        </div>
+                    ) : (
+                        <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead>Categoría</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead className="text-right">Monto</TableHead>
+                            <TableHead><span className="sr-only">Acciones</span></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {dailyTransactions.map(t => (
+                            <TableRow key={t.id}>
+                                <TableCell className="font-medium">{t.categoria}</TableCell>
+                                <TableCell>
+                                <Badge variant={t.tipo_transaccion === 'gasto' ? 'destructive' : 'default'} className="capitalize">{t.tipo_transaccion}</Badge>
+                                </TableCell>
+                                <TableCell className={`text-right font-bold ${t.tipo_transaccion === 'gasto' ? 'text-red-600' : 'text-green-600'}`}>
+                                {money(t.monto)}
+                                </TableCell>
+                                <TableCell>
+                                <TransactionActions transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                                </TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                        </Table>
+                    )
+                    ) : (
+                    <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
+                        <CalendarIcon className="h-12 w-12 mb-4" />
+                        <p>No hay transacciones para este día.</p>
                     </div>
-                ))}
-                </div>
-            </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-                <CardHeader><CardTitle>Ahorro Potencial Acumulado</CardTitle></CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-bold">{money(potentialSaving)}</p>
-                    <p className="text-xs text-muted-foreground">Desde {format(startOfMonth(currentDate), "MMMM yyyy", { locale: es })}</p>
+                    )}
                 </CardContent>
             </Card>
-            
-            {firstBudget ? (
-            <Card>
-                <CardHeader><CardTitle>Estado del Presupuesto</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                <div>
-                    <p className="font-bold">{firstBudget.category}</p>
-                    <Progress value={(firstBudget.spent / firstBudget.amount) * 100} className="mt-2" />
-                    <div className="flex justify-between text-xs mt-1">
-                    <span className="text-muted-foreground">Gastado: {money(firstBudget.spent)}</span>
-                    <span className={firstBudget.amount - firstBudget.spent < 0 ? "text-destructive" : "text-muted-foreground"}>
-                        Restante: {money(firstBudget.amount - firstBudget.spent)}
-                    </span>
-                    </div>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                    <p className="text-xs text-muted-foreground mb-1">Cuota de Ingresos</p>
-                    <ResponsiveContainer width={80} height={80}>
-                        <PieChart>
-                            <Pie data={[{ name: 'share', value: incomeShare }, { name: 'other', value: 100 - incomeShare }]} dataKey="value" stroke="none" innerRadius={25} outerRadius={35}>
-                            <Cell fill="hsl(var(--primary))" />
-                            <Cell fill="hsl(var(--muted))" />
-                            </Pie>
-                        </PieChart>
-                    </ResponsiveContainer>
-                    <p className="text-sm font-bold mt-1">{incomeShare.toFixed(1)}%</p>
-                </div>
-                </CardContent>
-            </Card>
-            ) : (
-            <Card className="flex items-center justify-center">
-                <CardContent className="text-center text-muted-foreground p-6">
-                <p>No hay presupuestos activos para mostrar.</p>
-                </CardContent>
-            </Card>
-            )}
         </div>
         
         <Card>
             <CardHeader>
-                <CardTitle>Resumen de Gastos</CardTitle>
+                <CardTitle>Resumen de Gastos del Periodo</CardTitle>
                 <CardDescription>Visualización de los gastos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -1303,99 +1456,6 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
     );
 }
 
-function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
-  const isExpense = transaction.tipo_transaccion === 'gasto';
-  return (
-    <Card className="p-3">
-        <div className="flex items-center gap-4">
-        <div className="flex flex-col items-center w-12 flex-shrink-0">
-            <div className={`rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-            {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
-            </div>
-            <span className={`text-[10px] mt-1 font-bold tracking-wider ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
-            {isExpense ? 'GASTO' : 'INGRESO'}
-            </span>
-        </div>
-        <div className="flex-1 space-y-0.5">
-            <p className="font-bold leading-tight">{transaction.categoria}</p>
-            <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
-        </div>
-        <div className="flex items-center gap-2">
-            <div className="text-right">
-                <p className={`font-bold text-base ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
-                {isExpense ? '-' : '+'} {money(transaction.monto)}
-                </p>
-            </div>
-            <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
-        </div>
-        </div>
-    </Card>
-  );
-}
-
-function TransactionTable({ transactions, onEdit, onDelete }: { transactions: finanzas[], onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
-  return (
-    <Card>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Fecha</TableHead>
-            <TableHead>Categoría</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Método de Pago</TableHead>
-            <TableHead>Notas</TableHead>
-            <TableHead className="text-right">Monto</TableHead>
-            <TableHead className="w-[50px]"><span className="sr-only">Acciones</span></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {transactions.map(t => (
-            <TableRow key={t.id}>
-              <TableCell>{format(new Date(t.fecha), 'dd MMM, yyyy', {locale: es})}</TableCell>
-              <TableCell className="font-medium">{t.categoria}{t.subcategoria && <span className="text-muted-foreground font-normal text-sm"> / {t.subcategoria}</span>}</TableCell>
-              <TableCell>
-                  <span className={cn("px-2 py-1 rounded-full text-xs font-semibold capitalize", t.tipo_transaccion === 'gasto' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>
-                      {t.tipo_transaccion}
-                  </span>
-              </TableCell>
-              <TableCell>{t.metodo_pago}</TableCell>
-              <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={t.notas || ''}>{t.notas || '-'}</TableCell>
-              <TableCell className={cn("text-right font-bold", t.tipo_transaccion === 'gasto' ? 'text-red-600' : 'text-green-600')}>{money(t.monto)}</TableCell>
-              <TableCell><TransactionActions transaction={t} onEdit={onEdit} onDelete={onDelete} /></TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
-  );
-}
-
-function TransactionActions({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-    return (
-        <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onEdit(transaction)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsDeleteDialogOpen(true)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>¿Estás seguro?</DialogTitle>
-                        <DialogDescription>Esta acción no se puede deshacer. Se eliminará permanentemente la transacción de {money(transaction.monto)}.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                        <Button variant="destructive" onClick={() => { onDelete(transaction.id); setIsDeleteDialogOpen(false); }}>Sí, eliminar</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
-    );
-}
 
 function BottomNav({ currentView, setView, onAdd }: { currentView: View, setView: (v: View) => void, onAdd: () => void }) {
   const navItems = [
@@ -1630,6 +1690,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
