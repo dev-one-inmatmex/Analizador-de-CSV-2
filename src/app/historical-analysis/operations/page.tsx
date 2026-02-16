@@ -175,7 +175,7 @@ export default function OperationsPage() {
             } else {
                  // We don't have the new ID, so we fetch again
                  const { data } = await supabase.from('finanzas').select('*').gte('fecha', format(monthStart, 'yyyy-MM-dd')).lte('fecha', format(monthEnd, 'yyyy-MM-dd')).order('fecha', { ascending: false });
-                 setTransactions(data as finanzas[]);
+                 if (data) setTransactions(data as finanzas[]);
             }
         }
 
@@ -282,7 +282,7 @@ export default function OperationsPage() {
                         <span className="sr-only">Añadir Transacción</span>
                     </Button>
                  </DialogTrigger>
-                 <DialogContent className="max-w-md">{FormComponent}</DialogContent>
+                 <DialogContent className="max-w-md p-0 flex flex-col h-auto max-h-[90vh]">{FormComponent}</DialogContent>
              </Dialog>
         </div>
         <div className="md:hidden">
@@ -533,7 +533,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   const Content = (
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex h-full flex-col">
-          <div className="p-1 flex-1 overflow-y-auto space-y-6">
+          <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-6">
             <FormField
               control={form.control}
               name="tipo_transaccion"
@@ -577,7 +577,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
                             <Button type="button" variant="ghost" onClick={() => setIsAddingCategory(false)}>Cancelar</Button>
                         </div>
                     ) : (
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger></FormControl>
                         <SelectContent>
                             {categories.map((cat:string) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
@@ -603,7 +603,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
                 <FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="metodo_pago" render={({ field }) => (
-                <FormItem><FormLabel>Método de Pago</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormItem><FormLabel>Método de Pago</FormLabel><Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un método" /></SelectTrigger></FormControl>
                     <SelectContent>
                         {paymentMethods.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
@@ -635,3 +635,4 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
     </>
   );
 }
+    

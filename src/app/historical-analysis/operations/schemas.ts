@@ -17,7 +17,7 @@ export const expenseFormSchema = z.object({
   metodo_pago: z.enum(paymentMethods, {
     required_error: "Debe seleccionar un método de pago.",
   }),
-  notas: z.string().max(280, { message: "Las notas no pueden exceder los 280 caracteres." }).optional(),
+  notas: z.string().max(280, { message: "Las notas no pueden exceder los 280 caracteres." }).optional().nullable(),
   // Defaulted fields for DB compatibility
   empresa: z.string().optional().default('Mi Empresa'),
   capturista: z.string().optional().default('WebApp User'),
@@ -25,3 +25,5 @@ export const expenseFormSchema = z.object({
 });
 
 export type TransactionFormValues = z.infer<typeof expenseFormSchema>;
+
+    
