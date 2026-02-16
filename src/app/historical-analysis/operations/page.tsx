@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, getDaysInMonth, startOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, eachWeekOfInterval, formatISO, parseISO } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,15 +31,14 @@ import {
   Edit,
   MoreVertical,
   Download,
-  Settings,
   List,
   Pencil,
   TrendingUp,
   Loader2,
 } from 'lucide-react';
-import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, AreaChart, Area } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +46,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
 import {
@@ -94,6 +92,7 @@ type TransactionTypeFilter = 'all' | 'gasto' | 'ingreso';
 
 const initialCategories = ['Comida', 'Transporte', 'Insumos', 'Servicios', 'Marketing', 'Renta', 'Sueldos', 'Otro'];
 type Budget = { id: number; category: string; amount: number; spent: number; startDate: Date; endDate: Date; };
+type Category = { name: string; subcategories: string[] };
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
@@ -104,7 +103,17 @@ export default function OperationsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingTransaction, setEditingTransaction] = React.useState<finanzas | null>(null);
-  const [categories, setCategories] = React.useState(initialCategories);
+  
+  const [categories, setCategories] = React.useState<Category[]>([
+    { name: 'Comida', subcategories: ['Restaurantes', 'Supermercado'] },
+    { name: 'Transporte', subcategories: ['Gasolina', 'Uber'] },
+    { name: 'Servicios', subcategories: ['Luz', 'Agua', 'Internet'] },
+    { name: 'Insumos', subcategories: [] },
+    { name: 'Marketing', subcategories: [] },
+    { name: 'Renta', subcategories: [] },
+    { name: 'Sueldos', subcategories: [] },
+    { name: 'Otro', subcategories: [] },
+  ]);
 
   const [dateFilter, setDateFilter] = React.useState<DateFilter>(() => {
     if (typeof window !== 'undefined') {
@@ -198,8 +207,6 @@ export default function OperationsPage() {
         const mappedValues = {
             ...values,
             empresa: 'Mi Empresa',
-            subcategoria: null,
-            capturista: null,
         };
 
         if (editingTransaction) {
@@ -220,8 +227,14 @@ export default function OperationsPage() {
         setIsFormOpen(false);
         setEditingTransaction(null);
         
-        // Refetch data by resetting the date, which triggers the useEffect
-        setCurrentDate(new Date(values.fecha));
+        const newDate = new Date(values.fecha);
+        if (newDate.getMonth() !== currentDate.getMonth() || newDate.getFullYear() !== currentDate.getFullYear()) {
+            setCurrentDate(newDate);
+        } else {
+            // Trigger refetch for the same month
+            setTransactions(prev => [...prev]); // This is a bit of a hack
+            setCurrentDate(new Date(currentDate)); // Force re-render and effect
+        }
 
     } catch (e: any) {
         toast({
@@ -254,6 +267,8 @@ export default function OperationsPage() {
                     transactions={transactions}
                     budgets={hydratedBudgets}
                     isLoading={isLoading}
+                    dateFilter={dateFilter}
+                    setDateFilter={setDateFilter}
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
                     onAddTransaction={() => handleOpenForm(null)}
@@ -267,9 +282,12 @@ export default function OperationsPage() {
                   setCurrentDate={setCurrentDate}
                   transactionTypeFilter={transactionTypeFilter}
                   setTransactionTypeFilter={setTransactionTypeFilter}
+                  onEditTransaction={handleOpenForm}
+                  onDeleteTransaction={handleDeleteTransaction}
+                  isMobile={isMobile}
                 />;
       case 'presupuestos':
-        return <BudgetsView categories={categories} transactions={transactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
+        return <BudgetsView categories={categories.map(c => c.name)} transactions={transactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
       case 'configuracion':
         return <ConfiguracionView 
                   categories={categories} 
@@ -301,7 +319,7 @@ export default function OperationsPage() {
                 <h1 className="text-xl font-bold tracking-tight">Gastos Diarios</h1>
             </div>
             <div className="flex items-center gap-4">
-                {!isMobile && (
+                {!isMobile ? (
                     <Tabs value={currentView} onValueChange={handleCurrentViewChange} className="w-auto">
                         <TabsList>
                             <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" />Inicio</TabsTrigger>
@@ -310,18 +328,22 @@ export default function OperationsPage() {
                             <TabsTrigger value="configuracion"><Cog className="mr-2 h-4 w-4" />Configuración</TabsTrigger>
                         </TabsList>
                     </Tabs>
+                ) : (
+                    <Button size="sm" onClick={() => handleOpenForm(null)}>
+                        <Plus className="h-4 w-4" />
+                    </Button>
                 )}
             </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-            <div className="mx-auto w-full max-w-6xl">{renderContent()}</div>
+            <div className="mx-auto w-full max-w-7xl">{renderContent()}</div>
         </main>
         
-        {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} onAdd={handleOpenForm} />}
+        {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} onAdd={() => handleOpenForm(null)} />}
         
         <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent className="flex max-h-[90vh] flex-col p-0 sm:max-w-md">
+            <DialogContent className="flex max-h-[90vh] flex-col p-0 sm:max-w-lg">
               <div className="flex-1 overflow-hidden">
                 {FormComponent}
               </div>
@@ -381,7 +403,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
         </Select>
         <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
             <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
-            <span className="w-32 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
+            <span className="w-36 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
             <Button variant="ghost" size="icon" onClick={() => handleDateChange('next')}><ChevronRight className="h-5 w-5" /></Button>
         </div>
     </div>
@@ -389,51 +411,63 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
 }
 
 
-function InsightsView({ transactions, budgets, isLoading, currentDate, setCurrentDate, onAddTransaction }: any) {
-  const { totalIncome, totalExpense, potentialSaving, totalBudget, expenseAsPercentage, savingAsPercentage } = React.useMemo(() => {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction }: any) {
+  const { totalIncome, totalExpense, potentialSaving, expenseAsPercentage, savingAsPercentage } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-    const budget = budgets.reduce((b: any, c: any) => b + c.amount, 0);
     const saving = income - expense;
     return {
       totalIncome: income,
       totalExpense: expense,
       potentialSaving: saving,
-      totalBudget: budget,
       expenseAsPercentage: income > 0 ? (expense / income) * 100 : (expense > 0 ? 100 : 0),
       savingAsPercentage: income > 0 ? (saving / income) * 100 : 0,
     };
-  }, [transactions, budgets]);
+  }, [transactions]);
 
   const donutData = [
     { name: 'Ahorro', value: Math.max(0, potentialSaving), color: 'hsl(var(--chart-2))' },
     { name: 'Gasto', value: totalExpense, color: 'hsl(var(--chart-3))' },
-    { name: 'No usado', value: Math.max(0, totalIncome - totalExpense - Math.max(0, potentialSaving)), color: 'hsl(var(--chart-1))' }
+    { name: 'No usado', value: Math.max(0, totalIncome - totalExpense - Math.max(0, potentialSaving)), color: 'hsl(var(--muted))' }
   ].filter(d => d.value > 0);
 
   const expenseSummaryData = React.useMemo(() => {
-    const dailyExpenses: { [key: string]: number } = {};
-    const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+    const dataPoints: { [key: string]: number } = {};
+    let interval: Date[];
+    let formatString: string;
 
-    daysInMonth.forEach(day => {
-        const dayKey = format(day, 'd');
-        dailyExpenses[dayKey] = 0;
+    switch (dateFilter) {
+        case 'week':
+            interval = eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) });
+            formatString = 'eee';
+            break;
+        case 'year':
+            interval = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
+            formatString = 'MMM';
+            break;
+        case 'month':
+        default:
+            interval = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+            formatString = 'd';
+    }
+    
+    interval.forEach(day => {
+        const dayKey = format(day, formatString, { locale: es });
+        dataPoints[dayKey] = 0;
     });
 
     transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').forEach((t: finanzas) => {
         try {
-            const dayKey = format(parseISO(t.fecha), 'd');
-            if (dayKey in dailyExpenses) {
-                dailyExpenses[dayKey] += t.monto;
+            const date = parseISO(t.fecha);
+            const dayKey = format(date, formatString, { locale: es });
+            if (dayKey in dataPoints) {
+                dataPoints[dayKey] += t.monto;
             }
         } catch(e) { console.error("invalid date", t.fecha); }
     });
     
-    return Object.entries(dailyExpenses).map(([name, Gastos]) => ({ name, Gastos }));
-
-  }, [transactions, currentDate]);
-
-  const mainBudget = budgets.length > 0 ? budgets[0] : null;
+    return Object.entries(dataPoints).map(([name, Gastos]) => ({ name, Gastos }));
+  }, [transactions, currentDate, dateFilter]);
   
   if(isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -441,25 +475,24 @@ function InsightsView({ transactions, budgets, isLoading, currentDate, setCurren
 
   return (
     <div className="space-y-6">
-        <div className="flex flex-col items-center justify-between gap-2 md:flex-row">
-            <h2 className="text-2xl font-bold">Insights</h2>
-             <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant="outline"><CalendarIcon className="mr-2 h-4 w-4" /> {format(currentDate, "MMMM yyyy", { locale: es })}</Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        mode="single"
-                        selected={currentDate}
-                        onSelect={(date) => date && setCurrentDate(date)}
-                        initialFocus
-                    />
-                </PopoverContent>
-            </Popover>
+        <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <h2 className="text-2xl font-bold">Hola, Usuario!</h2>
+              <p className="text-muted-foreground">Aquí tienes un resumen de tu actividad financiera.</p>
+            </div>
+            <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
+              <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+               <Button onClick={onAddTransaction} className="w-full md:w-auto">
+                    <Plus className="mr-2 h-4 w-4" /> Añadir Transacción
+                </Button>
+            </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <Card className="lg:col-span-3">
+                <CardHeader>
+                    <CardTitle>Balance del Periodo</CardTitle>
+                </CardHeader>
                 <CardContent className="flex flex-col items-center gap-6 p-6 md:flex-row">
                     <div className="relative h-48 w-48">
                         <ResponsiveContainer width="100%" height="100%">
@@ -470,24 +503,17 @@ function InsightsView({ transactions, budgets, isLoading, currentDate, setCurren
                             </PieChart>
                         </ResponsiveContainer>
                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <p className="text-sm text-muted-foreground">Ingreso Total</p>
-                            <p className="text-2xl font-bold">{money(totalIncome)}</p>
+                            <p className="text-sm text-muted-foreground">Balance Neto</p>
+                            <p className={`text-2xl font-bold ${potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(potentialSaving)}</p>
                         </div>
                     </div>
                     <div className="w-full flex-1 space-y-4">
                         <div className="flex justify-between">
                             <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-1))' }} />
-                                <span>Ingreso Total</span>
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
+                                <span>Ingresos</span>
                             </div>
                             <span className="font-semibold">{money(totalIncome)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-4))' }} />
-                                <span>Presupuesto</span>
-                            </div>
-                            <span className="font-semibold">{money(totalBudget)}</span>
                         </div>
                         <div className="flex justify-between">
                             <div className="flex items-center gap-2">
@@ -497,13 +523,9 @@ function InsightsView({ transactions, budgets, isLoading, currentDate, setCurren
                             <span className="font-semibold">{money(totalExpense)}</span>
                             <span className="text-sm text-muted-foreground">{expenseAsPercentage.toFixed(0)}%</span>
                         </div>
-                        <div className="flex justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
-                                <span>Ahorro Potencial</span>
-                            </div>
-                            <span className="font-semibold">{money(potentialSaving)}</span>
-                             <span className="text-sm text-muted-foreground">{savingAsPercentage.toFixed(0)}%</span>
+                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                            <span>Total</span>
+                            <span className={potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}>{money(potentialSaving)}</span>
                         </div>
                     </div>
                 </CardContent>
@@ -511,28 +533,28 @@ function InsightsView({ transactions, budgets, isLoading, currentDate, setCurren
 
             <div className="space-y-6 lg:col-span-2">
                 <Card>
-                    <CardHeader><CardTitle className="text-base">Ahorro Potencial Acumulado</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-base">Ahorro Potencial</CardTitle></CardHeader>
                     <CardContent>
                         <p className="text-2xl font-bold">{money(potentialSaving)}</p>
                         <div className="flex items-center text-sm text-muted-foreground">
                             <span>Desde {format(startOfMonth(currentDate), 'MMMM yyyy', {locale: es})}</span>
                             <span className="ml-auto flex items-center gap-1 text-green-600">
-                                <TrendingUp className="h-4 w-4" /> 0.00%
+                                <TrendingUp className="h-4 w-4" /> {savingAsPercentage.toFixed(1)}%
                             </span>
                         </div>
                     </CardContent>
                 </Card>
-                 {mainBudget && (
+                {budgets.length > 0 && (
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Estado del Presupuesto</CardTitle>
-                            <CardDescription>{mainBudget.category}</CardDescription>
+                            <CardTitle className="text-base">Estado del Presupuesto Principal</CardTitle>
+                            <CardDescription>{budgets[0].category}</CardDescription>
                         </CardHeader>
                         <CardContent>
-                           <Progress value={(mainBudget.spent / mainBudget.amount) * 100} />
+                           <Progress value={(budgets[0].spent / budgets[0].amount) * 100} />
                             <div className="mt-2 flex justify-between text-sm text-muted-foreground">
-                                <span>Gastado: <span className="font-semibold text-foreground">{money(mainBudget.spent)}</span></span>
-                                <span>Restante: <span className="font-semibold text-foreground">{money(mainBudget.amount - mainBudget.spent)}</span></span>
+                                <span>Gastado: <span className="font-semibold text-foreground">{money(budgets[0].spent)}</span></span>
+                                <span>Restante: <span className="font-semibold text-foreground">{money(budgets[0].amount - budgets[0].spent)}</span></span>
                             </div>
                         </CardContent>
                     </Card>
@@ -543,12 +565,7 @@ function InsightsView({ transactions, budgets, isLoading, currentDate, setCurren
         <Card>
             <CardHeader>
                 <CardTitle>Resumen de Gastos</CardTitle>
-                <Tabs defaultValue="daily" className="w-auto">
-                    <TabsList>
-                        <TabsTrigger value="daily">Diario</TabsTrigger>
-                        <TabsTrigger value="weekly" disabled>Semanal</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                <CardDescription>Visualización de los gastos a lo largo del periodo seleccionado.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
@@ -566,16 +583,16 @@ function InsightsView({ transactions, budgets, isLoading, currentDate, setCurren
   )
 }
 
-function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void }) {
+function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean }) {
     const { toast } = useToast();
-    const reportData = React.useMemo(() => {
-        if (!transactions) return {
-            totalIncome: 0, totalExpense: 0, netBalance: 0, expensesByCategory: [],
-            expensesByPaymentMethod: [], trendData: [],
-        };
-        
-        const filteredTransactions = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
+    const [transactionPage, setTransactionPage] = React.useState(1);
+    const TRANSACTION_PAGE_SIZE = 10;
+    
+    const filteredTransactions = React.useMemo(() => {
+        return transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
+    }, [transactions, transactionTypeFilter]);
 
+    const reportData = React.useMemo(() => {
         const totalIncome = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
         const totalExpense = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
         const netBalance = totalIncome - totalExpense;
@@ -598,44 +615,33 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         if (dateFilter === 'year') {
             const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
             trendData = months.map(month => {
-                const income = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
-                const expense = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
                 return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
             });
         } else if (dateFilter !== 'day') { // For week and month
-            const days = dateFilter === 'week' 
+             const days = dateFilter === 'week' 
                 ? eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) })
                 : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
             trendData = days.map(day => {
-                const income = filteredTransactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
-                const expense = filteredTransactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
-                return { name: format(day, 'dd/MM'), Ingresos: income, Gastos: expense };
+                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
+                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
+                return { name: format(day, dateFilter === 'week' ? 'eee d' : 'd'), Ingresos: income, Gastos: expense };
             });
         }
 
         return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData };
-    }, [transactions, currentDate, dateFilter, transactionTypeFilter]);
+    }, [filteredTransactions, transactions, currentDate, dateFilter]);
     
     const PIE_COLORS = [
-      "hsl(var(--chart-1))", 
-      "hsl(var(--chart-2))", 
-      "hsl(var(--chart-3))", 
-      "hsl(var(--chart-4))", 
-      "hsl(var(--chart-5))",
-      "hsl(220, 70%, 60%)",
-      "hsl(40, 70%, 60%)",
+      "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
+      "hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(180, 50%, 50%)", "hsl(300, 50%, 50%)"
     ];
 
-    const hasData = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter).length > 0;
+    const hasData = filteredTransactions.length > 0;
 
     const handleDownloadCsv = () => {
-        if (!transactions || transactions.length === 0) {
-            toast({ title: 'No hay datos', description: 'No hay transacciones para exportar.', variant: 'destructive' });
-            return;
-        }
-        const filteredTransactions = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
-        
-        if (filteredTransactions.length === 0) {
+        if (!hasData) {
             toast({ title: 'No hay datos', description: 'No hay transacciones para exportar con el filtro actual.', variant: 'destructive' });
             return;
         }
@@ -648,11 +654,17 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         toast({ title: 'Descarga Iniciada', description: 'Tu reporte CSV se está descargando.' });
     };
 
+    const totalTransactionPages = Math.ceil(filteredTransactions.length / TRANSACTION_PAGE_SIZE);
+    const paginatedTransactions = filteredTransactions.slice(
+        (transactionPage - 1) * TRANSACTION_PAGE_SIZE,
+        transactionPage * TRANSACTION_PAGE_SIZE
+    );
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
               <h2 className="text-2xl font-bold">Informes</h2>
-              <Button onClick={handleDownloadCsv}><Download className="mr-2 h-4 w-4" /> Descargar CSV</Button>
+              <Button onClick={handleDownloadCsv} variant="outline"><Download className="mr-2 h-4 w-4" /> Descargar CSV</Button>
             </div>
             
             <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
@@ -743,6 +755,35 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                   </Card>
               </div>
               )}
+                
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Lista de Transacciones del Periodo</CardTitle>
+                      <CardDescription>Un listado detallado de todos los movimientos que coinciden con los filtros actuales.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      {isMobile ? (
+                          <div className="space-y-4">
+                              {paginatedTransactions.map(t => (
+                                  <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                              ))}
+                          </div>
+                      ) : (
+                          <TransactionTable transactions={paginatedTransactions} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                      )}
+                  </CardContent>
+                   {totalTransactionPages > 1 && (
+                      <CardFooter>
+                          <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                              <div>Página {transactionPage} de {totalTransactionPages}</div>
+                              <div className="flex items-center gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => setTransactionPage(p => Math.max(1, p - 1))} disabled={transactionPage === 1}>Anterior</Button>
+                                  <Button variant="outline" size="sm" onClick={() => setTransactionPage(p => Math.min(totalTransactionPages, p + 1))} disabled={transactionPage === totalTransactionPages}>Siguiente</Button>
+                              </div>
+                          </div>
+                      </CardFooter>
+                  )}
+              </Card>
             </>
             )}
         </div>
@@ -895,21 +936,25 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
     );
 }
 
-function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilter }: { categories: string[], setCategories: React.Dispatch<React.SetStateAction<string[]>>, dateFilter: DateFilter, setDateFilter: React.Dispatch<React.SetStateAction<DateFilter>> }) {
+function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilter }: { categories: Category[], setCategories: React.Dispatch<React.SetStateAction<Category[]>>, dateFilter: DateFilter, setDateFilter: React.Dispatch<React.SetStateAction<DateFilter>> }) {
     const { toast } = useToast();
-    const [newCategory, setNewCategory] = React.useState('');
+    const [newCategoryName, setNewCategoryName] = React.useState('');
     const [isCategoryDialogOpen, setIsCategoryDialogOpen] = React.useState(false);
-    const [editingCategory, setEditingCategory] = React.useState<{ index: number; name: string } | null>(null);
+    const [editingCategory, setEditingCategory] = React.useState<Category | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-    const [deletingCategoryIndex, setDeletingCategoryIndex] = React.useState<number | null>(null);
+    const [deletingCategoryName, setDeletingCategoryName] = React.useState<string | null>(null);
     const [categoryInputValue, setCategoryInputValue] = React.useState('');
+    
+    const [newSubcategoryName, setNewSubcategoryName] = React.useState('');
+    const [editingSubcategory, setEditingSubcategory] = React.useState<{ category: Category, subcategory: string } | null>(null);
+
 
     const handleAddCategory = (e: React.FormEvent) => {
         e.preventDefault();
-        const trimmed = newCategory.trim();
-        if (trimmed && !categories.includes(trimmed)) {
-            setCategories(prev => [...prev, trimmed].sort());
-            setNewCategory('');
+        const trimmed = newCategoryName.trim();
+        if (trimmed && !categories.some(c => c.name === trimmed)) {
+            setCategories(prev => [...prev, { name: trimmed, subcategories: [] }].sort((a,b) => a.name.localeCompare(b.name)));
+            setNewCategoryName('');
             toast({ title: 'Categoría añadida', description: `"${trimmed}" se ha añadido a la lista.` });
         } else if (!trimmed) {
             toast({ title: 'Campo vacío', description: 'El nombre de la categoría no puede estar vacío.', variant: 'destructive' });
@@ -918,39 +963,57 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
         }
     };
     
-    const handleOpenEditDialog = (index: number) => {
-        setEditingCategory({ index, name: categories[index] });
-        setCategoryInputValue(categories[index]);
+    const handleOpenEditDialog = (category: Category) => {
+        setEditingCategory(category);
+        setCategoryInputValue(category.name);
+        setNewSubcategoryName('');
         setIsCategoryDialogOpen(true);
     };
 
     const handleUpdateCategory = () => {
-        if (editingCategory === null) return;
+        if (!editingCategory) return;
         const trimmed = categoryInputValue.trim();
-        if (trimmed && !categories.some((cat, i) => cat === trimmed && i !== editingCategory.index)) {
-            const updatedCategories = [...categories];
-            updatedCategories[editingCategory.index] = trimmed;
-            setCategories(updatedCategories.sort());
+        if (trimmed && !categories.some(c => c.name === trimmed && c.name !== editingCategory.name)) {
+            setCategories(prev => prev.map(c => c.name === editingCategory.name ? { ...c, name: trimmed } : c)
+                                      .sort((a, b) => a.name.localeCompare(b.name)));
             toast({ title: 'Categoría actualizada' });
         } else {
-             toast({ title: 'Error', description: 'El nombre de la categoría no puede estar vacío o ya existe.', variant: 'destructive' });
+             toast({ title: 'Error', description: 'El nombre no puede estar vacío o ya existe.', variant: 'destructive' });
         }
-        setIsCategoryDialogOpen(false);
-        setEditingCategory(null);
     };
+    
+    const handleAddSubcategory = () => {
+        if (!editingCategory || !newSubcategoryName.trim()) return;
+        const trimmedSub = newSubcategoryName.trim();
+        if (editingCategory.subcategories.includes(trimmedSub)) {
+             toast({ title: 'Subcategoría duplicada', variant: 'destructive' });
+             return;
+        }
+        const updatedCategory = { ...editingCategory, subcategories: [...editingCategory.subcategories, trimmedSub].sort() };
+        setCategories(prev => prev.map(c => c.name === editingCategory.name ? updatedCategory : c));
+        setEditingCategory(updatedCategory); // update state for the open dialog
+        setNewSubcategoryName('');
+    }
+    
+    const handleDeleteSubcategory = (subcategory: string) => {
+        if (!editingCategory) return;
+        const updatedCategory = { ...editingCategory, subcategories: editingCategory.subcategories.filter(s => s !== subcategory) };
+        setCategories(prev => prev.map(c => c.name === editingCategory.name ? updatedCategory : c));
+        setEditingCategory(updatedCategory);
+    }
 
-    const handleOpenDeleteDialog = (index: number) => {
-        setDeletingCategoryIndex(index);
+    const handleOpenDeleteDialog = (categoryName: string) => {
+        setDeletingCategoryName(categoryName);
         setIsDeleteDialogOpen(true);
     };
 
     const confirmDeleteCategory = () => {
-        if (deletingCategoryIndex !== null) {
-            setCategories(prev => prev.filter((_, i) => i !== deletingCategoryIndex));
+        if (deletingCategoryName !== null) {
+            setCategories(prev => prev.filter(c => c.name !== deletingCategoryName));
             toast({ title: 'Categoría eliminada' });
         }
         setIsDeleteDialogOpen(false);
-        setDeletingCategoryIndex(null);
+        setDeletingCategoryName(null);
     };
 
     const periodLabels: Record<DateFilter, string> = { day: 'Diario', week: 'Semanal', month: 'Mensual', year: 'Anual' };
@@ -962,28 +1025,35 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
                 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Gestionar Categorías</CardTitle>
+                        <CardTitle>Gestionar Categorías y Subcategorías</CardTitle>
                         <CardDescription>Añade, edita o elimina las categorías para tus transacciones.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleAddCategory} className="flex items-center gap-2 mb-4">
                             <Input 
                                 placeholder="Nombre de la nueva categoría" 
-                                value={newCategory} 
-                                onChange={(e) => setNewCategory(e.target.value)}
+                                value={newCategoryName} 
+                                onChange={(e) => setNewCategoryName(e.target.value)}
                             />
-                            <Button type="submit"><Plus className="mr-2 h-4 w-4" />Añadir</Button>
+                            <Button type="submit"><Plus className="mr-2 h-4 w-4" />Añadir Categoría</Button>
                         </form>
                         <div className="space-y-2 rounded-md border p-2">
-                            {categories.map((category, index) => (
-                                <div key={index} className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50">
-                                    <span className="font-medium">{category}</span>
+                            {categories.map((category) => (
+                                <div key={category.name} className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50">
+                                    <div className="flex flex-col">
+                                        <span className="font-medium">{category.name}</span>
+                                        {category.subcategories.length > 0 && 
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {category.subcategories.map(sub => <Badge key={sub} variant="secondary">{sub}</Badge>)}
+                                            </div>
+                                        }
+                                    </div>
                                     <div className="flex items-center gap-2">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(index)}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(category)}>
                                             <Pencil className="h-4 w-4" />
                                             <span className="sr-only">Editar</span>
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDeleteDialog(index)}>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDeleteDialog(category.name)}>
                                             <Trash2 className="h-4 w-4" />
                                             <span className="sr-only">Eliminar</span>
                                         </Button>
@@ -1024,7 +1094,7 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
                     <CardContent>
                         <div className="flex flex-wrap gap-2">
                             {paymentMethods.map(method => (
-                                <Badge key={method} variant="secondary">{method}</Badge>
+                                <Badge key={method} variant="outline">{method}</Badge>
                             ))}
                         </div>
                     </CardContent>
@@ -1033,23 +1103,41 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
 
             {/* Dialog for Editing Category */}
             <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
-                <DialogContent>
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Editar Categoría</DialogTitle>
-                        <DialogDescription>Cambia el nombre de la categoría.</DialogDescription>
+                        <DialogTitle>Editar Categoría: {editingCategory?.name}</DialogTitle>
+                        <DialogDescription>Cambia el nombre de la categoría y gestiona sus subcategorías.</DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="category-name">Nombre de la Categoría</Label>
-                        <Input 
-                            id="category-name" 
-                            value={categoryInputValue} 
-                            onChange={(e) => setCategoryInputValue(e.target.value)} 
-                            className="mt-2"
-                        />
+                    <div className="py-4 space-y-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="category-name">Nombre de la Categoría</Label>
+                             <div className="flex gap-2">
+                                <Input id="category-name" value={categoryInputValue} onChange={(e) => setCategoryInputValue(e.target.value)} className="mt-1" />
+                                <Button onClick={handleUpdateCategory} variant="outline">Guardar Nombre</Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Subcategorías</Label>
+                             <div className="flex items-center gap-2">
+                                <Input placeholder="Nueva subcategoría" value={newSubcategoryName} onChange={(e) => setNewSubcategoryName(e.target.value)} />
+                                <Button type="button" onClick={handleAddSubcategory}>Añadir</Button>
+                            </div>
+                             <div className="space-y-2 rounded-md border p-2 mt-2 max-h-40 overflow-y-auto">
+                                {editingCategory?.subcategories.length === 0 && <p className="text-xs text-center text-muted-foreground p-2">Sin subcategorías</p>}
+                                {editingCategory?.subcategories.map((sub, index) => (
+                                    <div key={index} className="flex items-center justify-between rounded-md p-1.5 hover:bg-muted/50">
+                                        <span className="text-sm">{sub}</span>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteSubcategory(sub)}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                        <Button onClick={handleUpdateCategory}>Guardar Cambios</Button>
+                        <Button onClick={() => setIsCategoryDialogOpen(false)}>Cerrar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -1060,7 +1148,7 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
                     <DialogHeader>
                         <DialogTitle>¿Estás seguro de eliminar esta categoría?</DialogTitle>
                         <DialogDescription>
-                            Esta acción no se puede deshacer. Se eliminará la categoría <span className="font-bold">{deletingCategoryIndex !== null && `"${categories[deletingCategoryIndex]}"`}</span>.
+                            Esta acción no se puede deshacer. Se eliminará la categoría <span className="font-bold">{deletingCategoryName && `"${deletingCategoryName}"`}</span>.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -1081,7 +1169,7 @@ function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finan
         {isExpense ? <ArrowDown /> : <ArrowUp />}
       </div>
       <div className="flex-1">
-        <p className="font-bold">{transaction.categoria}</p>
+        <p className="font-bold">{transaction.categoria}{transaction.subcategoria && <span className="text-muted-foreground font-normal text-sm"> / {transaction.subcategoria}</span>}</p>
         <p className="text-sm text-muted-foreground">{transaction.notas || 'Sin descripción'}</p>
       </div>
       <div className="text-right">
@@ -1105,6 +1193,7 @@ function TransactionTable({ transactions, onEdit, onDelete }: { transactions: fi
             <TableHead>Categoría</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Método de Pago</TableHead>
+            <TableHead>Notas</TableHead>
             <TableHead className="text-right">Monto</TableHead>
             <TableHead className="w-[50px]"><span className="sr-only">Acciones</span></TableHead>
           </TableRow>
@@ -1113,13 +1202,14 @@ function TransactionTable({ transactions, onEdit, onDelete }: { transactions: fi
           {transactions.map(t => (
             <TableRow key={t.id}>
               <TableCell>{format(new Date(t.fecha), 'dd MMM, yyyy', {locale: es})}</TableCell>
-              <TableCell className="font-medium">{t.categoria}</TableCell>
+              <TableCell className="font-medium">{t.categoria}{t.subcategoria && <span className="text-muted-foreground font-normal text-sm"> / {t.subcategoria}</span>}</TableCell>
               <TableCell>
                   <span className={cn("px-2 py-1 rounded-full text-xs font-semibold capitalize", t.tipo_transaccion === 'gasto' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>
                       {t.tipo_transaccion}
                   </span>
               </TableCell>
               <TableCell>{t.metodo_pago}</TableCell>
+              <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={t.notas || ''}>{t.notas || '-'}</TableCell>
               <TableCell className={cn("text-right font-bold", t.tipo_transaccion === 'gasto' ? 'text-red-600' : 'text-green-600')}>{money(t.monto)}</TableCell>
               <TableCell><TransactionActions transaction={t} onEdit={onEdit} onDelete={onDelete} /></TableCell>
             </TableRow>
@@ -1217,12 +1307,22 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
       tipo_transaccion: 'gasto',
       monto: undefined,
       categoria: '',
+      subcategoria: null,
       fecha: new Date(),
       metodo_pago: undefined,
       notas: '',
     },
   });
   
+  const selectedCategoryName = form.watch('categoria');
+  const availableSubcategories = React.useMemo(() => {
+      return categories.find((c:Category) => c.name === selectedCategoryName)?.subcategories || [];
+  }, [selectedCategoryName, categories]);
+
+  React.useEffect(() => {
+      form.resetField('subcategoria');
+  }, [selectedCategoryName, form]);
+
   React.useEffect(() => {
     if (isOpen) {
         if (transaction) {
@@ -1230,6 +1330,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
             tipo_transaccion: transaction.tipo_transaccion || 'gasto',
             monto: transaction.monto || 0,
             categoria: transaction.categoria || '',
+            subcategoria: transaction.subcategoria || null,
             fecha: transaction.fecha ? new Date(transaction.fecha) : new Date(),
             metodo_pago: transaction.metodo_pago,
             notas: transaction.notas || '',
@@ -1239,6 +1340,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
             tipo_transaccion: 'gasto',
             monto: undefined,
             categoria: '',
+            subcategoria: null,
             fecha: new Date(),
             metodo_pago: undefined,
             notas: '',
@@ -1248,13 +1350,13 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   }, [transaction, form, isOpen]);
   
   const handleAddCategory = () => {
-    if (newCategory.trim() && !categories.includes(newCategory.trim())) {
-        const updatedCategories = [...categories, newCategory.trim()];
-        setCategories(updatedCategories);
-        form.setValue('categoria', newCategory.trim());
+    const trimmed = newCategory.trim();
+    if (trimmed && !categories.some((c:Category) => c.name === trimmed)) {
+        setCategories((prev: Category[]) => [...prev, {name: trimmed, subcategories: []}]);
+        form.setValue('categoria', trimmed);
         setNewCategory('');
         setIsAddingCategory(false);
-        toast({ title: 'Categoría Añadida', description: `Se añadió "${newCategory.trim()}" a la lista.` });
+        toast({ title: 'Categoría Añadida', description: `Se añadió "${trimmed}" a la lista.` });
     }
   }
   
@@ -1309,25 +1411,35 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
             <FormField control={form.control} name="monto" render={({ field }) => (
                 <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="$0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )}/>
-             <FormField control={form.control} name="categoria" render={({ field }) => (
-                <FormItem><FormLabel>Categoría</FormLabel>
-                    {isAddingCategory ? (
-                        <div className="flex gap-2">
-                            <Input placeholder="Nueva categoría" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
-                            <Button type="button" onClick={handleAddCategory}>Añadir</Button>
-                            <Button type="button" variant="ghost" onClick={() => setIsAddingCategory(false)}>Cancelar</Button>
-                        </div>
-                    ) : (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger></FormControl>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="categoria" render={({ field }) => (
+                    <FormItem><FormLabel>Categoría</FormLabel>
+                        {isAddingCategory ? (
+                            <div className="flex gap-2">
+                                <Input placeholder="Nueva categoría" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
+                                <Button type="button" onClick={handleAddCategory} size="sm">Añadir</Button>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingCategory(false)}>X</Button>
+                            </div>
+                        ) : (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {categories.map((cat:Category) => <SelectItem key={cat.name} value={cat.name}>{cat.name}</SelectItem>)}
+                                <Button variant="ghost" className="w-full justify-start mt-1 h-8" onClick={(e) => { e.preventDefault(); setIsAddingCategory(true); }}><Plus className="mr-2 h-4 w-4"/>Añadir categoría</Button>
+                            </SelectContent>
+                        </Select>
+                        )}
+                    <FormMessage /></FormItem>
+                )}/>
+                <FormField control={form.control} name="subcategoria" render={({ field }) => (
+                     <FormItem><FormLabel>Subcategoría (Opcional)</FormLabel><Select onValueChange={field.onChange} value={field.value || ""} disabled={availableSubcategories.length === 0}>
+                        <FormControl><SelectTrigger><SelectValue placeholder={availableSubcategories.length > 0 ? "Selecciona una subcategoría" : "Sin subcategorías"} /></SelectTrigger></FormControl>
                         <SelectContent>
-                            {categories.map((cat:string) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                            <Button variant="ghost" className="w-full justify-start mt-1" onClick={(e) => { e.preventDefault(); setIsAddingCategory(true); }}><Plus className="mr-2 h-4 w-4"/>Añadir categoría</Button>
+                            {availableSubcategories.map((sub:string) => <SelectItem key={sub} value={sub}>{sub}</SelectItem>)}
                         </SelectContent>
-                    </Select>
-                    )}
-                <FormMessage /></FormItem>
-            )}/>
+                    </Select><FormMessage /></FormItem>
+                )}/>
+             </div>
             <FormField control={form.control} name="fecha" render={({ field }) => (
                 <FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel>
                 <Popover>
@@ -1352,12 +1464,12 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
                 </Select><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="notas" render={({ field }) => (
-                <FormItem><FormLabel>Notas (Opcional)</FormLabel><FormControl><Textarea placeholder="Añade una descripción..." {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Notas (Opcional)</FormLabel><FormControl><Textarea placeholder="Añade una descripción..." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )}/>
           </div>
-          <div className="border-t p-4 bg-background">
+          <div className="border-t p-4 bg-background mt-auto">
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? 'Guardando...' : transaction ? 'Guardar Cambios' : 'Guardar Transacción'}
+                  {form.formState.isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Guardando...</>) : transaction ? 'Guardar Cambios' : 'Guardar Transacción'}
               </Button>
           </div>
         </form>

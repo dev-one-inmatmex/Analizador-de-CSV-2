@@ -11,6 +11,7 @@ export const expenseFormSchema = z.object({
     .number({ invalid_type_error: "El monto debe ser un número." })
     .positive({ message: "El monto debe ser mayor que 0." }),
   categoria: z.string().min(1, { message: "Debe seleccionar una categoría." }),
+  subcategoria: z.string().optional().nullable(),
   fecha: z.date({
     required_error: "La fecha es obligatoria.",
   }),
@@ -18,11 +19,7 @@ export const expenseFormSchema = z.object({
     required_error: "Debe seleccionar un método de pago.",
   }),
   notas: z.string().max(280, { message: "Las notas no pueden exceder los 280 caracteres." }).optional().nullable(),
-  // Defaulted fields for DB compatibility
   empresa: z.string().optional().default('Mi Empresa'),
-  subcategoria: z.string().optional().nullable(),
 });
 
 export type TransactionFormValues = z.infer<typeof expenseFormSchema>;
-
-    
