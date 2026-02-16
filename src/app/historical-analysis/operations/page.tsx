@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, getDaysInMonth, startOfDay } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, getDaysInMonth, startOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, eachWeekOfInterval, formatISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -86,27 +86,28 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
+type DateFilter = 'day' | 'week' | 'month' | 'year';
 
-// Mock data until category management is fully implemented
 const initialCategories = ['Comida', 'Transporte', 'Insumos', 'Servicios', 'Marketing', 'Renta', 'Sueldos', 'Otro'];
+type Budget = { id: number; category: string; amount: number; spent: number; startDate: Date; endDate: Date; };
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
 // --- Main Page Component ---
 export default function OperationsPage() {
   const [currentView, setCurrentView] = React.useState<View>('inicio');
-  const [currentMonth, setCurrentMonth] = React.useState(new Date());
-  const [selectedDay, setSelectedDay] = React.useState(new Date());
   const [transactions, setTransactions] = React.useState<finanzas[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingTransaction, setEditingTransaction] = React.useState<finanzas | null>(null);
   const [categories, setCategories] = React.useState(initialCategories);
 
+  const [dateFilter, setDateFilter] = React.useState<DateFilter>('month');
+  const [currentDate, setCurrentDate] = React.useState(new Date());
+
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
-  // Data fetching
   React.useEffect(() => {
     const fetchTransactions = async () => {
       if (!supabase) {
@@ -115,11 +116,33 @@ export default function OperationsPage() {
         return;
       }
       setIsLoading(true);
+
+      let startDate, endDate;
+      switch(dateFilter) {
+        case 'day':
+          startDate = startOfDay(currentDate);
+          endDate = endOfDay(currentDate);
+          break;
+        case 'week':
+          startDate = startOfWeek(currentDate, { locale: es });
+          endDate = endOfWeek(currentDate, { locale: es });
+          break;
+        case 'year':
+          startDate = startOfYear(currentDate);
+          endDate = endOfYear(currentDate);
+          break;
+        case 'month':
+        default:
+          startDate = startOfMonth(currentDate);
+          endDate = endOfMonth(currentDate);
+          break;
+      }
+
       const { data, error } = await supabase
         .from('finanzas')
         .select('*')
-        .gte('fecha', format(startOfMonth(currentMonth), 'yyyy-MM-dd'))
-        .lte('fecha', format(endOfMonth(currentMonth), 'yyyy-MM-dd'))
+        .gte('fecha', formatISO(startDate))
+        .lte('fecha', formatISO(endDate))
         .order('fecha', { ascending: false });
 
       if (error) {
@@ -130,12 +153,8 @@ export default function OperationsPage() {
       setIsLoading(false);
     };
     fetchTransactions();
-  }, [currentMonth, toast]);
+  }, [currentDate, dateFilter, toast]);
 
-  const handleMonthChange = (direction: 'next' | 'prev') => {
-    setCurrentMonth(prev => subMonths(prev, direction === 'prev' ? 1 : -1));
-  };
-  
   const handleOpenForm = (transaction: finanzas | null = null) => {
     setEditingTransaction(transaction);
     setIsFormOpen(true);
@@ -148,6 +167,7 @@ export default function OperationsPage() {
             ...values,
             empresa: 'Mi Empresa',
             subcategoria: null,
+            capturista: null,
         };
 
         if (editingTransaction) {
@@ -167,21 +187,9 @@ export default function OperationsPage() {
 
         setIsFormOpen(false);
         setEditingTransaction(null);
-
-        // Manually update local state for immediate feedback
-        const monthStart = startOfMonth(currentMonth);
-        const monthEnd = endOfMonth(currentMonth);
-        const transactionDate = startOfDay(values.fecha);
-
-        if (transactionDate >= monthStart && transactionDate <= monthEnd) {
-            if (editingTransaction) {
-                 setTransactions(prev => prev.map(t => t.id === editingTransaction!.id ? { ...t, ...values, fecha: values.fecha.toISOString() } as finanzas : t));
-            } else {
-                 // We don't have the new ID, so we fetch again
-                 const { data } = await supabase.from('finanzas').select('*').gte('fecha', format(monthStart, 'yyyy-MM-dd')).lte('fecha', format(monthEnd, 'yyyy-MM-dd')).order('fecha', { ascending: false });
-                 if (data) setTransactions(data as finanzas[]);
-            }
-        }
+        
+        // Refetch data
+        setCurrentDate(new Date(values.fecha));
 
     } catch (e: any) {
         toast({
@@ -204,39 +212,31 @@ export default function OperationsPage() {
   };
 
 
-  const { dailyTransactions, monthlyBalance } = React.useMemo(() => {
-    const daily = transactions.filter(t => isSameDay(new Date(t.fecha), selectedDay));
-    const income = transactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
-    const expense = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
-    return { dailyTransactions: daily, monthlyBalance: { income, expense, total: income - expense } };
-  }, [transactions, selectedDay]);
-
-  const daysOfMonth = eachDayOfInterval({
-    start: startOfMonth(currentMonth),
-    end: endOfMonth(currentMonth),
-  });
-
   const renderContent = () => {
     switch (currentView) {
       case 'inicio':
         return <InicioView 
-                    currentMonth={currentMonth} 
-                    handleMonthChange={handleMonthChange}
-                    monthlyBalance={monthlyBalance}
-                    daysOfMonth={daysOfMonth}
-                    selectedDay={selectedDay}
-                    setSelectedDay={setSelectedDay}
-                    dailyTransactions={dailyTransactions}
+                    transactions={transactions}
                     isLoading={isLoading}
+                    dateFilter={dateFilter}
+                    setDateFilter={setDateFilter}
+                    currentDate={currentDate}
+                    setCurrentDate={setCurrentDate}
                     onEdit={handleOpenForm}
                     onDelete={handleDeleteTransaction}
                 />;
       case 'informes':
-        return <ReportsView transactions={transactions} currentMonth={currentMonth} />;
+        return <ReportsView 
+                  transactions={transactions} 
+                  dateFilter={dateFilter}
+                  setDateFilter={setDateFilter}
+                  currentDate={currentDate}
+                  setCurrentDate={setCurrentDate}
+                />;
       case 'presupuestos':
-        return <BudgetsView categories={categories} onAddCategory={(cat) => setCategories(prev => [...prev, cat])}/>;
+        return <BudgetsView categories={categories} transactions={transactions} />;
       case 'configuracion':
-        return <PlaceholderView title="Configuración" icon={Cog} />;
+        return <ConfiguracionView />;
       default:
         return null;
     }
@@ -303,60 +303,137 @@ export default function OperationsPage() {
 
 // --- Sub-components for OperationsPage ---
 
-function InicioView({ currentMonth, handleMonthChange, monthlyBalance, daysOfMonth, selectedDay, setSelectedDay, dailyTransactions, isLoading, onEdit, onDelete }: any) {
+function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDate }: any) {
+  const handleDateChange = (direction: 'next' | 'prev') => {
+    const amount = direction === 'prev' ? -1 : 1;
+    let newDate;
+    switch(dateFilter) {
+      case 'day': newDate = add(currentDate, { days: amount }); break;
+      case 'week': newDate = add(currentDate, { weeks: amount }); break;
+      case 'year': newDate = add(currentDate, { years: amount }); break;
+      case 'month':
+      default: newDate = add(currentDate, { months: amount }); break;
+    }
+    setCurrentDate(newDate);
+  };
+  
+  const getFormattedDate = () => {
+    switch(dateFilter) {
+      case 'day': return format(currentDate, "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
+      case 'week': 
+        const start = startOfWeek(currentDate, { locale: es });
+        const end = endOfWeek(currentDate, { locale: es });
+        return `Semana del ${format(start, 'dd/MM')} al ${format(end, 'dd/MM/yyyy')}`;
+      case 'year': return format(currentDate, "yyyy");
+      case 'month':
+      default: return format(currentDate, "MMMM yyyy", { locale: es });
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+        <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Seleccionar periodo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="day">Diario</SelectItem>
+            <SelectItem value="week">Semanal</SelectItem>
+            <SelectItem value="month">Mensual</SelectItem>
+            <SelectItem value="year">Anual</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
+            <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
+            <span className="w-32 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
+            <Button variant="ghost" size="icon" onClick={() => handleDateChange('next')}><ChevronRight className="h-5 w-5" /></Button>
+        </div>
+    </div>
+  );
+}
+
+function InicioView({ transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onEdit, onDelete }: any) {
     const isMobile = useIsMobile();
+    const [selectedDay, setSelectedDay] = React.useState(new Date());
+
+    React.useEffect(() => {
+        setSelectedDay(currentDate);
+    }, [currentDate]);
+    
+    const { periodBalance, dailyTransactions, daysOfPeriod } = React.useMemo(() => {
+        const income = transactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
+        const expense = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
+        
+        let days: Date[] = [];
+        if (dateFilter === 'month') {
+          days = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+        }
+
+        const daily = dateFilter === 'month' ? transactions.filter(t => isSameDay(new Date(t.fecha), selectedDay)) : transactions;
+
+        return { 
+            periodBalance: { income, expense, total: income - expense },
+            dailyTransactions: daily,
+            daysOfPeriod: days
+        };
+    }, [transactions, selectedDay, dateFilter, currentDate]);
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+             <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
                 <div>
                     <h2 className="text-2xl font-bold">Hola, Usuario! 👋</h2>
                     <p className="text-muted-foreground">Aquí tienes el resumen de tus finanzas.</p>
                 </div>
-                <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleMonthChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
-                    <span className="w-32 text-center font-semibold capitalize">{format(currentMonth, 'MMMM yyyy', { locale: es })}</span>
-                    <Button variant="ghost" size="icon" onClick={() => handleMonthChange('next')}><ChevronRight className="h-5 w-5" /></Button>
-                </div>
             </div>
+
+            <PeriodNavigator 
+                dateFilter={dateFilter}
+                setDateFilter={setDateFilter}
+                currentDate={currentDate}
+                setCurrentDate={setCurrentDate}
+            />
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Balance Mensual</CardTitle>
-                    <CardDescription>Resumen de tus ingresos y gastos para {format(currentMonth, 'MMMM', { locale: es })}.</CardDescription>
+                    <CardTitle>Balance del Periodo</CardTitle>
+                    <CardDescription>Resumen de tus ingresos y gastos para el periodo seleccionado.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
                      <div className="flex items-center gap-4 rounded-lg border p-4">
                         <div className="rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/50 dark:text-green-400"><ArrowUp/></div>
-                        <div><p className="text-sm text-muted-foreground">Ingresos</p><p className="text-xl font-bold">{money(monthlyBalance.income)}</p></div>
+                        <div><p className="text-sm text-muted-foreground">Ingresos</p><p className="text-xl font-bold">{money(periodBalance.income)}</p></div>
                     </div>
                      <div className="flex items-center gap-4 rounded-lg border p-4">
                         <div className="rounded-full bg-red-100 p-3 text-red-600 dark:bg-red-900/50 dark:text-red-400"><ArrowDown/></div>
-                        <div><p className="text-sm text-muted-foreground">Gastos</p><p className="text-xl font-bold">{money(monthlyBalance.expense)}</p></div>
+                        <div><p className="text-sm text-muted-foreground">Gastos</p><p className="text-xl font-bold">{money(periodBalance.expense)}</p></div>
                     </div>
                      <div className="flex items-center gap-4 rounded-lg border bg-primary/5 p-4">
                         <div className="rounded-full bg-primary/10 p-3 text-primary"><Landmark/></div>
-                        <div><p className="text-sm text-muted-foreground">Balance Total</p><p className="text-xl font-bold">{money(monthlyBalance.total)}</p></div>
+                        <div><p className="text-sm text-muted-foreground">Balance Total</p><p className="text-xl font-bold">{money(periodBalance.total)}</p></div>
                     </div>
                 </CardContent>
             </Card>
 
-            <div>
-                <h3 className="mb-3 text-lg font-semibold">Transacciones del Día</h3>
-                <div className="flex space-x-2 overflow-x-auto pb-4">
-                    {daysOfMonth.map(day => (
-                        <Button key={day.toString()} variant={isSameDay(day, selectedDay) ? "default" : "outline"}
-                            className="flex flex-col h-16 w-14 shrink-0 rounded-xl"
-                            onClick={() => setSelectedDay(day)}>
-                            <span className="text-xs font-normal capitalize">{format(day, 'E', { locale: es })}</span>
-                            <span className="text-xl font-bold">{format(day, 'd')}</span>
-                        </Button>
-                    ))}
+            {dateFilter === 'month' && (
+                <div>
+                    <h3 className="mb-3 text-lg font-semibold">Transacciones del Día</h3>
+                    <div className="flex space-x-2 overflow-x-auto pb-4">
+                        {daysOfPeriod.map(day => (
+                            <Button key={day.toString()} variant={isSameDay(day, selectedDay) ? "default" : "outline"}
+                                className="flex flex-col h-16 w-14 shrink-0 rounded-xl"
+                                onClick={() => setSelectedDay(day)}>
+                                <span className="text-xs font-normal capitalize">{format(day, 'E', { locale: es })}</span>
+                                <span className="text-xl font-bold">{format(day, 'd')}</span>
+                            </Button>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
             
             {isLoading ? <p className="text-center text-muted-foreground">Cargando transacciones...</p> : (
             <div className="space-y-4">
-                {dailyTransactions.length === 0 ? <p className="text-center text-muted-foreground pt-4">No hay transacciones para este día.</p>
+                {dailyTransactions.length === 0 ? <p className="text-center text-muted-foreground pt-4">No hay transacciones para este {dateFilter === 'month' ? 'día' : 'periodo'}.</p>
                 : isMobile ? dailyTransactions.map((t: finanzas) => <TransactionCard key={t.id} transaction={t} onEdit={onEdit} onDelete={onDelete} />)
                 : <TransactionTable transactions={dailyTransactions} onEdit={onEdit} onDelete={onDelete} />}
             </div>
@@ -365,15 +442,11 @@ function InicioView({ currentMonth, handleMonthChange, monthlyBalance, daysOfMon
     );
 }
 
-function ReportsView({ transactions, currentMonth }: { transactions: finanzas[], currentMonth: Date }) {
+function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void }) {
     const reportData = React.useMemo(() => {
         if (!transactions) return {
-            totalIncome: 0,
-            totalExpense: 0,
-            netBalance: 0,
-            expensesByCategory: [],
-            expensesByPaymentMethod: [],
-            dailyTrend: [],
+            totalIncome: 0, totalExpense: 0, netBalance: 0, expensesByCategory: [],
+            expensesByPaymentMethod: [], trendData: [],
         };
         
         const totalIncome = transactions.filter(t => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
@@ -383,59 +456,58 @@ function ReportsView({ transactions, currentMonth }: { transactions: finanzas[],
         const expensesByCategory = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
             const category = t.categoria || 'Sin Categoría';
             const existing = acc.find(item => item.name === category);
-            if (existing) {
-                existing.value += t.monto;
-            } else {
-                acc.push({ name: category, value: t.monto });
-            }
+            if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
         const expensesByPaymentMethod = transactions.filter(t => t.tipo_transaccion === 'gasto').reduce((acc, t) => {
             const method = t.metodo_pago || 'Otro';
             const existing = acc.find(item => item.name === method);
-            if (existing) {
-                existing.value += t.monto;
-            } else {
-                acc.push({ name: method, value: t.monto });
-            }
+            if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const daysInMonth = getDaysInMonth(currentMonth);
-        const dailyTrend = Array.from({ length: daysInMonth }, (_, i) => {
-            const day = i + 1;
-            const date = startOfDay(new Date(new Date(currentMonth).setDate(day)));
-            const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), date)).reduce((sum, t) => sum + t.monto, 0);
-            const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), date)).reduce((sum, t) => sum + t.monto, 0);
-            return { name: `${day}`, Ingresos: income, Gastos: expense };
-        });
+        let trendData: { name: string, Ingresos: number, Gastos: number }[] = [];
+        if (dateFilter === 'year') {
+            const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
+            trendData = months.map(month => {
+                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t) => sum + t.monto, 0);
+                return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
+            });
+        } else if (dateFilter !== 'day') { // For week and month
+            const days = dateFilter === 'week' 
+                ? eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) })
+                : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+            trendData = days.map(day => {
+                const income = transactions.filter(t => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
+                const expense = transactions.filter(t => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t) => sum + t.monto, 0);
+                return { name: format(day, 'dd/MM'), Ingresos: income, Gastos: expense };
+            });
+        }
 
-
-        return {
-            totalIncome,
-            totalExpense,
-            netBalance,
-            expensesByCategory,
-            expensesByPaymentMethod,
-            dailyTrend,
-        };
-    }, [transactions, currentMonth]);
+        return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData };
+    }, [transactions, currentDate, dateFilter]);
     
     const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
     if (transactions.length === 0) {
         return (
-             <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
-                <BarChart className="h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-xl font-semibold">No hay datos para mostrar</h3>
-                <p className="mt-2 text-sm text-muted-foreground">Registra transacciones para este mes para ver los informes.</p>
+            <div className="space-y-6">
+                <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+                <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center mt-8">
+                    <BarChart className="h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-xl font-semibold">No hay datos para mostrar</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">No hay transacciones en este periodo. Prueba con otro.</p>
+                </div>
             </div>
         )
     }
 
     return (
         <div className="space-y-6">
+            <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle></CardHeader>
@@ -451,39 +523,36 @@ function ReportsView({ transactions, currentMonth }: { transactions: finanzas[],
                 </Card>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Tendencia Diaria (Ingresos vs Gastos)</CardTitle>
-                    <CardDescription>Resumen diario de movimientos para el mes seleccionado.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <RechartsBarChart data={reportData.dailyTrend}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} label={{ value: 'Día del mes', position: 'insideBottom', offset: -5 }}/>
-                            <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value)/1000}k`}/>
-                            <Tooltip formatter={(value: number) => money(value)} />
-                            <Legend />
-                            <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                            <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
-                        </RechartsBarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
+            {dateFilter !== 'day' &&
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Tendencia del Periodo (Ingresos vs Gastos)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <RechartsBarChart data={reportData.trendData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value)/1000}k`}/>
+                                <Tooltip formatter={(value: number) => money(value)} />
+                                <Legend />
+                                <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                                <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                            </RechartsBarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            }
 
             <div className="grid gap-4 md:grid-cols-2">
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Gastos por Categoría</CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Gastos por Categoría</CardTitle></CardHeader>
                     <CardContent>
                          <ResponsiveContainer width="100%" height={250}>
                             <PieChart>
                                 <Tooltip formatter={(value: number) => money(value)} />
                                 <Pie data={reportData.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                    {reportData.expensesByCategory.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
+                                    {reportData.expensesByCategory.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                 </Pie>
                                 <Legend />
                             </PieChart>
@@ -491,17 +560,13 @@ function ReportsView({ transactions, currentMonth }: { transactions: finanzas[],
                     </CardContent>
                 </Card>
                  <Card>
-                    <CardHeader>
-                        <CardTitle>Gastos por Método de Pago</CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Gastos por Método de Pago</CardTitle></CardHeader>
                     <CardContent>
                          <ResponsiveContainer width="100%" height={250}>
                             <PieChart>
                                 <Tooltip formatter={(value: number) => money(value)} />
                                 <Pie data={reportData.expensesByPaymentMethod} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                    {reportData.expensesByPaymentMethod.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
+                                    {reportData.expensesByPaymentMethod.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                 </Pie>
                                 <Legend />
                             </PieChart>
@@ -513,31 +578,62 @@ function ReportsView({ transactions, currentMonth }: { transactions: finanzas[],
     );
 }
 
-function BudgetsView({ categories }: { categories: string[] }) {
-    // Note: This is mock data and state management.
-    // In a real implementation, this would come from a database.
-    const [budgets, setBudgets] = React.useState([
-        { id: 1, category: 'Comida', amount: 5000, spent: 3200, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()) },
-        { id: 2, category: 'Transporte', amount: 1500, spent: 1650, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()) },
-        { id: 3, category: 'Insumos', amount: 8000, spent: 4500, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()) },
+function BudgetsView({ categories, transactions }: { categories: string[], transactions: finanzas[] }) {
+    const [budgets, setBudgets] = React.useState<Budget[]>([
+        { id: 1, category: 'Comida', amount: 5000, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()), spent: 0 },
+        { id: 2, category: 'Transporte', amount: 1500, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()), spent: 0 },
     ]);
     const [isFormOpen, setIsFormOpen] = React.useState(false);
+    const [editingBudget, setEditingBudget] = React.useState<Budget | null>(null);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
+    const [deletingBudgetId, setDeletingBudgetId] = React.useState<number | null>(null);
+
+    const hydratedBudgets = React.useMemo(() => {
+        return budgets.map(budget => {
+            const spent = transactions
+                .filter(t => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
+                .reduce((sum, t) => sum + t.monto, 0);
+            return { ...budget, spent };
+        });
+    }, [budgets, transactions]);
     
-    // I'm using a simple Form here, not react-hook-form to keep it simple for this mock-up
-    const handleAddBudget = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleAddOrEditBudget = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const newBudget = {
-            id: budgets.length + 1,
+        const budgetData = {
             category: formData.get('category') as string,
             amount: parseFloat(formData.get('amount') as string),
-            spent: 0,
-            startDate: new Date(), // Simplified
-            endDate: new Date(),   // Simplified
+            // Date logic to be implemented
+            startDate: new Date(), 
+            endDate: new Date(),   
         };
-        setBudgets(prev => [...prev, newBudget]);
+
+        if (editingBudget) {
+            setBudgets(prev => prev.map(b => b.id === editingBudget.id ? { ...b, ...budgetData } : b));
+        } else {
+            setBudgets(prev => [...prev, { ...budgetData, id: Date.now(), spent: 0 }]);
+        }
         setIsFormOpen(false);
+        setEditingBudget(null);
     };
+
+    const handleEditClick = (budget: Budget) => {
+        setEditingBudget(budget);
+        setIsFormOpen(true);
+    }
+    
+    const handleDeleteClick = (id: number) => {
+        setDeletingBudgetId(id);
+        setIsDeleteConfirmOpen(true);
+    }
+
+    const confirmDelete = () => {
+        if (deletingBudgetId !== null) {
+            setBudgets(budgets.filter(b => b.id !== deletingBudgetId));
+        }
+        setIsDeleteConfirmOpen(false);
+        setDeletingBudgetId(null);
+    }
 
     return (
         <>
@@ -547,26 +643,32 @@ function BudgetsView({ categories }: { categories: string[] }) {
                         <h2 className="text-2xl font-bold">Presupuestos</h2>
                         <p className="text-muted-foreground">Controla tus gastos creando presupuestos por categoría.</p>
                     </div>
-                    <Button onClick={() => setIsFormOpen(true)}>
+                    <Button onClick={() => { setEditingBudget(null); setIsFormOpen(true); }}>
                         <Plus className="mr-2 h-4 w-4" /> Crear Presupuesto
                     </Button>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {budgets.map(budget => {
+                    {hydratedBudgets.map(budget => {
                         const progress = (budget.spent / budget.amount) * 100;
                         return (
                         <Card key={budget.id}>
                             <CardHeader>
                                 <CardTitle className="flex justify-between items-center">
                                     {budget.category}
-                                    <Badge variant={progress > 100 ? 'destructive' : 'secondary'}>
-                                        {progress > 100 ? 'Excedido' : 'En Rango'}
-                                    </Badge>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-4 w-4" /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => handleEditClick(budget)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleDeleteClick(budget.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </CardTitle>
                                 <CardDescription>{format(budget.startDate, 'dd MMM')} - {format(budget.endDate, 'dd MMM, yyyy', { locale: es })}</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                <Progress value={progress} />
+                                <Progress value={progress} className={progress > 100 ? '[&>div]:bg-destructive' : ''} />
                                 <div className="flex justify-between text-sm">
                                     <span className="font-medium">{money(budget.spent)} gastado</span>
                                     <span className="text-muted-foreground">de {money(budget.amount)}</span>
@@ -581,17 +683,17 @@ function BudgetsView({ categories }: { categories: string[] }) {
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Crear Nuevo Presupuesto</DialogTitle>
+                        <DialogTitle>{editingBudget ? 'Editar' : 'Crear Nuevo'} Presupuesto</DialogTitle>
                         <DialogDescription>Define un límite de gasto para una categoría en un periodo específico.</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleAddBudget} className="py-4 space-y-4">
+                    <form onSubmit={handleAddOrEditBudget} className="py-4 space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="budget-amount">Monto Máximo</Label>
-                            <Input id="budget-amount" name="amount" type="number" placeholder="Ej: 5000" required/>
+                            <Input id="budget-amount" name="amount" type="number" placeholder="Ej: 5000" required defaultValue={editingBudget?.amount}/>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="budget-category">Categoría</Label>
-                             <Select name="category" required>
+                             <Select name="category" required defaultValue={editingBudget?.category}>
                                 <SelectTrigger id="budget-category"><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger>
                                 <SelectContent>
                                     {categories.map((cat:string) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
@@ -601,26 +703,42 @@ function BudgetsView({ categories }: { categories: string[] }) {
                         <div className="space-y-2">
                             <Label>Periodo</Label>
                             <DateRangePicker date={undefined} onSelect={() => {}} />
-                            <p className="text-xs text-muted-foreground">Funcionalidad de selección de fecha se añadirá próximamente.</p>
+                            <p className="text-xs text-muted-foreground">La funcionalidad de fecha se añadirá próximamente.</p>
                         </div>
                         <DialogFooter>
                             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
-                            <Button type="submit">Guardar Presupuesto</Button>
+                            <Button type="submit">{editingBudget ? 'Guardar Cambios' : 'Crear Presupuesto'}</Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>¿Estás seguro?</DialogTitle>
+                        <DialogDescription>Esta acción eliminará el presupuesto permanentemente y no se puede deshacer.</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button variant="destructive" onClick={confirmDelete}>Sí, eliminar</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
     );
 }
 
+function ConfiguracionView() {
+  return <PlaceholderView title="Configuración" icon={Cog} />;
+}
 
 function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
   const isExpense = transaction.tipo_transaccion === 'gasto';
   return (
     <Card className="flex items-center p-4 gap-4">
       <div className={`rounded-full p-3 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-        {isExpense ? <ArrowUp /> : <ArrowDown />}
+        {isExpense ? <ArrowDown /> : <ArrowUp />}
       </div>
       <div className="flex-1">
         <p className="font-bold">{transaction.categoria}</p>
@@ -657,7 +775,7 @@ function TransactionTable({ transactions, onEdit, onDelete }: { transactions: fi
               <TableCell>{format(new Date(t.fecha), 'dd MMM, yyyy', {locale: es})}</TableCell>
               <TableCell className="font-medium">{t.categoria}</TableCell>
               <TableCell>
-                  <span className={cn("px-2 py-1 rounded-full text-xs font-semibold", t.tipo_transaccion === 'gasto' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>
+                  <span className={cn("px-2 py-1 rounded-full text-xs font-semibold capitalize", t.tipo_transaccion === 'gasto' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>
                       {t.tipo_transaccion}
                   </span>
               </TableCell>
@@ -760,24 +878,26 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   });
   
   React.useEffect(() => {
-    if (transaction) {
-      form.reset({
-        tipo_transaccion: transaction.tipo_transaccion || 'gasto',
-        monto: transaction.monto || 0,
-        categoria: transaction.categoria || '',
-        fecha: transaction.fecha ? new Date(transaction.fecha) : new Date(),
-        metodo_pago: transaction.metodo_pago,
-        notas: transaction.notas || '',
-      });
-    } else {
-      form.reset({
-        tipo_transaccion: 'gasto',
-        monto: 0,
-        categoria: '',
-        fecha: new Date(),
-        metodo_pago: undefined,
-        notas: '',
-      });
+    if (isOpen) {
+        if (transaction) {
+          form.reset({
+            tipo_transaccion: transaction.tipo_transaccion || 'gasto',
+            monto: transaction.monto || 0,
+            categoria: transaction.categoria || '',
+            fecha: transaction.fecha ? new Date(transaction.fecha) : new Date(),
+            metodo_pago: transaction.metodo_pago,
+            notas: transaction.notas || '',
+          });
+        } else {
+          form.reset({
+            tipo_transaccion: 'gasto',
+            monto: undefined,
+            categoria: '',
+            fecha: new Date(),
+            metodo_pago: undefined,
+            notas: '',
+          });
+        }
     }
   }, [transaction, form, isOpen]);
   
@@ -812,14 +932,14 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
                           <RadioGroupItem value="gasto" id="gasto" className="sr-only peer" />
                         </FormControl>
                         <Label htmlFor="gasto" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          <ArrowUp className="mb-3 h-6 w-6 text-red-500" />Gasto</Label>
+                          <ArrowDown className="mb-3 h-6 w-6 text-red-500" />Gasto</Label>
                       </FormItem>
                        <FormItem>
                         <FormControl>
                           <RadioGroupItem value="ingreso" id="ingreso" className="sr-only peer" />
                         </FormControl>
                          <Label htmlFor="ingreso" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                          <ArrowDown className="mb-3 h-6 w-6 text-green-500" />Ingreso</Label>
+                          <ArrowUp className="mb-3 h-6 w-6 text-green-500" />Ingreso</Label>
                       </FormItem>
                     </RadioGroup>
                   </FormControl>
@@ -887,14 +1007,21 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return (
     <>
-        <SheetHeader className="p-4 border-b">
+        <SheetHeader className="p-4 border-b sm:hidden">
             <SheetTitle>{transaction ? 'Editar' : 'Añadir'} Transacción</SheetTitle>
             <SheetDescription>
                 {transaction ? 'Modifica los detalles de la transacción.' : 'Registra un nuevo gasto o ingreso.'}
             </SheetDescription>
         </SheetHeader>
+        <DialogHeader className="p-6 pb-0 hidden sm:flex">
+             <DialogTitle>{transaction ? 'Editar' : 'Añadir'} Transacción</DialogTitle>
+            <DialogDescription>
+                {transaction ? 'Modifica los detalles de la transacción.' : 'Registra un nuevo gasto o ingreso.'}
+            </DialogDescription>
+        </DialogHeader>
         {Content}
     </>
   );
 }
     
+
