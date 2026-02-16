@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
-import type { gastos_diarios } from '@/types/database';
+import type { finanzas } from '@/types/database';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
 import { expenseFormSchema, paymentMethods, TransactionFormValues } from './schemas';
@@ -92,10 +92,10 @@ export default function OperationsPage() {
   const [currentView, setCurrentView] = React.useState<View>('inicio');
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [selectedDay, setSelectedDay] = React.useState(new Date());
-  const [transactions, setTransactions] = React.useState<gastos_diarios[]>([]);
+  const [transactions, setTransactions] = React.useState<finanzas[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFormOpen, setIsFormOpen] = React.useState(false);
-  const [editingTransaction, setEditingTransaction] = React.useState<gastos_diarios | null>(null);
+  const [editingTransaction, setEditingTransaction] = React.useState<finanzas | null>(null);
   const [categories, setCategories] = React.useState(initialCategories);
 
   const isMobile = useIsMobile();
@@ -111,7 +111,7 @@ export default function OperationsPage() {
       }
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('gastos_diarios')
+        .from('finanzas')
         .select('*')
         .gte('fecha', format(startOfMonth(currentMonth), 'yyyy-MM-dd'))
         .lte('fecha', format(endOfMonth(currentMonth), 'yyyy-MM-dd'))
@@ -120,7 +120,7 @@ export default function OperationsPage() {
       if (error) {
         toast({ title: 'Error al Cargar Datos', description: error.message, variant: 'destructive' });
       } else {
-        setTransactions(data as gastos_diarios[]);
+        setTransactions(data as finanzas[]);
       }
       setIsLoading(false);
     };
@@ -131,7 +131,7 @@ export default function OperationsPage() {
     setCurrentMonth(prev => subMonths(prev, direction === 'prev' ? 1 : -1));
   };
   
-  const handleOpenForm = (transaction: gastos_diarios | null = null) => {
+  const handleOpenForm = (transaction: finanzas | null = null) => {
     setEditingTransaction(transaction);
     setIsFormOpen(true);
   };
@@ -171,11 +171,11 @@ export default function OperationsPage() {
 
         if (transactionDate >= monthStart && transactionDate <= monthEnd) {
             if (editingTransaction) {
-                 setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? { ...t, ...values, fecha: values.fecha.toISOString() } : t));
+                 setTransactions(prev => prev.map(t => t.id === editingTransaction!.id ? { ...t, ...values, fecha: values.fecha.toISOString() } as finanzas : t));
             } else {
                  // We don't have the new ID, so we fetch again
-                 const { data } = await supabase.from('gastos_diarios').select('*').gte('fecha', format(monthStart, 'yyyy-MM-dd')).lte('fecha', format(monthEnd, 'yyyy-MM-dd')).order('fecha', { ascending: false });
-                 setTransactions(data as gastos_diarios[]);
+                 const { data } = await supabase.from('finanzas').select('*').gte('fecha', format(monthStart, 'yyyy-MM-dd')).lte('fecha', format(monthEnd, 'yyyy-MM-dd')).order('fecha', { ascending: false });
+                 setTransactions(data as finanzas[]);
             }
         }
 
@@ -351,7 +351,7 @@ function InicioView({ currentMonth, handleMonthChange, monthlyBalance, daysOfMon
             {isLoading ? <p className="text-center text-muted-foreground">Cargando transacciones...</p> : (
             <div className="space-y-4">
                 {dailyTransactions.length === 0 ? <p className="text-center text-muted-foreground pt-4">No hay transacciones para este día.</p>
-                : isMobile ? dailyTransactions.map((t: gastos_diarios) => <TransactionCard key={t.id} transaction={t} onEdit={onEdit} onDelete={onDelete} />)
+                : isMobile ? dailyTransactions.map((t: finanzas) => <TransactionCard key={t.id} transaction={t} onEdit={onEdit} onDelete={onDelete} />)
                 : <TransactionTable transactions={dailyTransactions} onEdit={onEdit} onDelete={onDelete} />}
             </div>
             )}
@@ -359,7 +359,7 @@ function InicioView({ currentMonth, handleMonthChange, monthlyBalance, daysOfMon
     );
 }
 
-function TransactionCard({ transaction, onEdit, onDelete }: { transaction: gastos_diarios, onEdit: (t: gastos_diarios) => void, onDelete: (id: number) => void }) {
+function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
   const isExpense = transaction.tipo_transaccion === 'gasto';
   return (
     <Card className="flex items-center p-4 gap-4">
@@ -381,7 +381,7 @@ function TransactionCard({ transaction, onEdit, onDelete }: { transaction: gasto
   );
 }
 
-function TransactionTable({ transactions, onEdit, onDelete }: { transactions: gastos_diarios[], onEdit: (t: gastos_diarios) => void, onDelete: (id: number) => void }) {
+function TransactionTable({ transactions, onEdit, onDelete }: { transactions: finanzas[], onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
   return (
     <Card>
       <Table>
@@ -416,7 +416,7 @@ function TransactionTable({ transactions, onEdit, onDelete }: { transactions: ga
   );
 }
 
-function TransactionActions({ transaction, onEdit, onDelete }: { transaction: gastos_diarios, onEdit: (t: gastos_diarios) => void, onDelete: (id: number) => void }) {
+function TransactionActions({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
     return (
         <>

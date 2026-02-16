@@ -16,21 +16,18 @@ export async function addExpenseAction(values: TransactionFormValues) {
     return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
-  // Map form values to the database schema
-  const dbData = {
-      ...validatedFields.data,
-      categoria: validatedFields.data.categoria, // 'categoria' from form maps to 'categoria' in DB
-  };
+  // Form values map directly to the database schema
+  const dbData = validatedFields.data;
 
-  const { error } = await supabaseAdmin.from('gastos_diarios').insert([dbData]);
+  const { error } = await supabaseAdmin.from('finanzas').insert([dbData]);
 
   if (error) {
     console.error('Supabase insert error:', error);
-    return { error: `Error al guardar el gasto: ${error.message}` };
+    return { error: `Error al guardar la transacción: ${error.message}` };
   }
 
   revalidatePath('/historical-analysis/operations', 'page');
-  return { data: "Gasto añadido exitosamente." };
+  return { data: "Transacción añadida exitosamente." };
 }
 
 export async function updateExpenseAction(id: number, values: TransactionFormValues) {
@@ -44,23 +41,20 @@ export async function updateExpenseAction(id: number, values: TransactionFormVal
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
     
-    const dbData = {
-      ...validatedFields.data,
-      categoria: validatedFields.data.categoria,
-    };
+    const dbData = validatedFields.data;
 
     const { error } = await supabaseAdmin
-        .from('gastos_diarios')
+        .from('finanzas')
         .update(dbData)
         .eq('id', id);
 
     if (error) {
         console.error('Supabase update error:', error);
-        return { error: `Error al actualizar el gasto: ${error.message}` };
+        return { error: `Error al actualizar la transacción: ${error.message}` };
     }
 
     revalidatePath('/historical-analysis/operations', 'page');
-    return { data: "Gasto actualizado exitosamente." };
+    return { data: "Transacción actualizada exitosamente." };
 }
 
 export async function deleteExpenseAction(id: number) {
@@ -69,15 +63,15 @@ export async function deleteExpenseAction(id: number) {
     }
 
     const { error } = await supabaseAdmin
-        .from('gastos_diarios')
+        .from('finanzas')
         .delete()
         .eq('id', id);
 
     if (error) {
         console.error('Supabase delete error:', error);
-        return { error: `Error al eliminar el gasto: ${error.message}` };
+        return { error: `Error al eliminar la transacción: ${error.message}` };
     }
     
     revalidatePath('/historical-analysis/operations', 'page');
-    return { data: "Gasto eliminado exitosamente." };
+    return { data: "Transacción eliminada exitosamente." };
 }
