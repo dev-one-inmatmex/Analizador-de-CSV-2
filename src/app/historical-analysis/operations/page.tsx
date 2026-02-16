@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, getDaysInMonth, startOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, eachWeekOfInterval, formatISO } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, getDaysInMonth, startOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, eachWeekOfInterval, formatISO, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,6 +34,7 @@ import {
   Settings,
   List,
   Pencil,
+  TrendingUp,
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -116,6 +117,11 @@ export default function OperationsPage() {
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
+   const [budgets, setBudgets] = React.useState<Budget[]>([
+        { id: 1, category: 'Comida', amount: 5000, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()), spent: 0 },
+        { id: 2, category: 'Transporte', amount: 1500, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()), spent: 0 },
+    ]);
+
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
         localStorage.setItem('operationsDateFilter', dateFilter);
@@ -168,6 +174,16 @@ export default function OperationsPage() {
     };
     fetchTransactions();
   }, [currentDate, dateFilter, toast]);
+
+    const hydratedBudgets = React.useMemo(() => {
+        return budgets.map(budget => {
+            const spent = transactions
+                .filter(t => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
+                .reduce((sum, t) => sum + t.monto, 0);
+            return { ...budget, spent };
+        });
+    }, [budgets, transactions]);
+
 
   const handleOpenForm = (transaction: finanzas | null = null) => {
     setEditingTransaction(transaction);
@@ -232,17 +248,12 @@ export default function OperationsPage() {
   const renderContent = () => {
     switch (currentView) {
       case 'inicio':
-        return <InicioView 
+        return <InsightsView 
                     transactions={transactions}
+                    budgets={hydratedBudgets}
                     isLoading={isLoading}
-                    dateFilter={dateFilter}
-                    setDateFilter={setDateFilter}
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
-                    onEdit={handleOpenForm}
-                    onDelete={handleDeleteTransaction}
-                    transactionTypeFilter={transactionTypeFilter}
-                    setTransactionTypeFilter={setTransactionTypeFilter}
                     onAddTransaction={() => handleOpenForm(null)}
                 />;
       case 'informes':
@@ -256,7 +267,7 @@ export default function OperationsPage() {
                   setTransactionTypeFilter={setTransactionTypeFilter}
                 />;
       case 'presupuestos':
-        return <BudgetsView categories={categories} transactions={transactions} />;
+        return <BudgetsView categories={categories} transactions={transactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
       case 'configuracion':
         return <ConfiguracionView 
                   categories={categories} 
@@ -293,17 +304,11 @@ export default function OperationsPage() {
                         <TabsList>
                             <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" />Inicio</TabsTrigger>
                             <TabsTrigger value="informes"><BarChart className="mr-2 h-4 w-4" />Informes</TabsTrigger>
-                            <TabsTrigger value="presupuestos"><Landmark className="mr-2 h-4 w-4" />Presupuestos</TabsTrigger>
+                            <TabsTrigger value="presupuestos"><List className="mr-2 h-4 w-4" />Presupuestos</TabsTrigger>
                             <TabsTrigger value="configuracion"><Cog className="mr-2 h-4 w-4" />Configuración</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 )}
-                 {isMobile && (
-                    <Button onClick={() => handleOpenForm(null)} size="icon">
-                        <Plus />
-                        <span className="sr-only">Añadir Transacción</span>
-                    </Button>
-                 )}
             </div>
         </header>
 
@@ -311,7 +316,7 @@ export default function OperationsPage() {
             <div className="mx-auto w-full max-w-6xl">{renderContent()}</div>
         </main>
         
-        {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} />}
+        {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} onAdd={handleOpenForm} />}
         
         <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="flex max-h-[90vh] flex-col p-0 sm:max-w-md">
@@ -381,113 +386,182 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
   );
 }
 
-function InicioView({ transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onEdit, onDelete, transactionTypeFilter, setTransactionTypeFilter, onAddTransaction }: any) {
-    const isMobile = useIsMobile();
-    const [selectedDay, setSelectedDay] = React.useState(new Date());
 
-    React.useEffect(() => {
-        setSelectedDay(currentDate);
-    }, [currentDate]);
+function InsightsView({ transactions, budgets, isLoading, currentDate, setCurrentDate, onAddTransaction }: any) {
+  const { totalIncome, totalExpense, potentialSaving, totalBudget, expenseAsPercentage, savingAsPercentage } = React.useMemo(() => {
+    const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
+    const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
+    const budget = budgets.reduce((b: any, c: any) => b + c.amount, 0);
+    const saving = income - expense;
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      potentialSaving: saving,
+      totalBudget: budget,
+      expenseAsPercentage: income > 0 ? (expense / income) * 100 : (expense > 0 ? 100 : 0),
+      savingAsPercentage: income > 0 ? (saving / income) * 100 : 0,
+    };
+  }, [transactions, budgets]);
+
+  const donutData = [
+    { name: 'Ahorro', value: Math.max(0, potentialSaving), color: 'hsl(var(--chart-2))' },
+    { name: 'Gasto', value: totalExpense, color: 'hsl(var(--chart-3))' },
+    { name: 'No usado', value: Math.max(0, totalIncome - totalExpense - Math.max(0, potentialSaving)), color: 'hsl(var(--chart-1))' }
+  ].filter(d => d.value > 0);
+
+  const expenseSummaryData = React.useMemo(() => {
+    const dailyExpenses: { [key: string]: number } = {};
+    const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+
+    daysInMonth.forEach(day => {
+        const dayKey = format(day, 'd');
+        dailyExpenses[dayKey] = 0;
+    });
+
+    transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').forEach((t: finanzas) => {
+        try {
+            const dayKey = format(parseISO(t.fecha), 'd');
+            if (dayKey in dailyExpenses) {
+                dailyExpenses[dayKey] += t.monto;
+            }
+        } catch(e) { console.error("invalid date", t.fecha); }
+    });
     
-    const { periodBalance, dailyTransactions, daysOfPeriod } = React.useMemo(() => {
-        const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-        const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-        
-        let days: Date[] = [];
-        if (dateFilter === 'month') {
-          days = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
-        }
+    return Object.entries(dailyExpenses).map(([name, Gastos]) => ({ name, Gastos }));
 
-        const dailyForPeriod = dateFilter === 'month' ? transactions.filter((t: finanzas) => isSameDay(new Date(t.fecha), selectedDay)) : transactions;
+  }, [transactions, currentDate]);
 
-        const filteredDaily = dailyForPeriod.filter((t: finanzas) => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
+  const mainBudget = budgets.length > 0 ? budgets[0] : null;
+  
+  if(isLoading) {
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
 
-        return { 
-            periodBalance: { income, expense, total: income - expense },
-            dailyTransactions: filteredDaily,
-            daysOfPeriod: days
-        };
-    }, [transactions, selectedDay, dateFilter, currentDate, transactionTypeFilter]);
+  return (
+    <div className="space-y-6">
+        <div className="flex flex-col items-center justify-between gap-2 md:flex-row">
+            <h2 className="text-2xl font-bold">Insights</h2>
+             <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="outline"><CalendarIcon className="mr-2 h-4 w-4" /> {format(currentDate, "MMMM yyyy", { locale: es })}</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                    <Calendar
+                        mode="single"
+                        selected={currentDate}
+                        onSelect={(date) => date && setCurrentDate(date)}
+                        initialFocus
+                    />
+                </PopoverContent>
+            </Popover>
+        </div>
 
-    return (
-        <div className="space-y-6">
-             <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <div>
-                    <h2 className="text-2xl font-bold">Hola, Usuario! 👋</h2>
-                    <p className="text-muted-foreground">Aquí tienes el resumen de tus finanzas.</p>
-                </div>
-                {!isMobile && (
-                  <Button onClick={onAddTransaction}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Añadir Transacción
-                  </Button>
-                )}
-            </div>
-
-            <PeriodNavigator 
-                dateFilter={dateFilter}
-                setDateFilter={setDateFilter}
-                currentDate={currentDate}
-                setCurrentDate={setCurrentDate}
-            />
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Balance del Periodo</CardTitle>
-                    <CardDescription>Resumen de tus ingresos y gastos para el periodo seleccionado.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-3">
-                     <div className="flex items-center gap-4 bg-background p-4">
-                        <div className="rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/50 dark:text-green-400"><ArrowUp/></div>
-                        <div><p className="text-sm text-muted-foreground">Ingresos</p><p className="text-xl font-bold">{money(periodBalance.income)}</p></div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+            <Card className="lg:col-span-3">
+                <CardContent className="flex flex-col items-center gap-6 p-6 md:flex-row">
+                    <div className="relative h-48 w-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={donutData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="70%" outerRadius="90%" startAngle={90} endAngle={450}>
+                                    {donutData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke={entry.color} />)}
+                                </Pie>
+                            </PieChart>
+                        </ResponsiveContainer>
+                         <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <p className="text-sm text-muted-foreground">Ingreso Total</p>
+                            <p className="text-2xl font-bold">{money(totalIncome)}</p>
+                        </div>
                     </div>
-                     <div className="flex items-center gap-4 bg-background p-4">
-                        <div className="rounded-full bg-red-100 p-3 text-red-600 dark:bg-red-900/50 dark:text-red-400"><ArrowDown/></div>
-                        <div><p className="text-sm text-muted-foreground">Gastos</p><p className="text-xl font-bold">{money(periodBalance.expense)}</p></div>
-                    </div>
-                     <div className="flex items-center gap-4 bg-background p-4">
-                        <div className="rounded-full bg-primary/10 p-3 text-primary"><Landmark/></div>
-                        <div><p className="text-sm text-muted-foreground">Balance Total</p><p className="text-xl font-bold">{money(periodBalance.total)}</p></div>
+                    <div className="w-full flex-1 space-y-4">
+                        <div className="flex justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-1))' }} />
+                                <span>Ingreso Total</span>
+                            </div>
+                            <span className="font-semibold">{money(totalIncome)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-4))' }} />
+                                <span>Presupuesto</span>
+                            </div>
+                            <span className="font-semibold">{money(totalBudget)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-3))' }} />
+                                <span>Gastos</span>
+                            </div>
+                            <span className="font-semibold">{money(totalExpense)}</span>
+                            <span className="text-sm text-muted-foreground">{expenseAsPercentage.toFixed(0)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
+                                <span>Ahorro Potencial</span>
+                            </div>
+                            <span className="font-semibold">{money(potentialSaving)}</span>
+                             <span className="text-sm text-muted-foreground">{savingAsPercentage.toFixed(0)}%</span>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {dateFilter === 'month' && (
-                <div>
-                    <h3 className="mb-3 text-lg font-semibold">Transacciones del Día</h3>
-                    <div className="flex space-x-2 overflow-x-auto pb-4">
-                        {daysOfPeriod.map(day => (
-                            <Button key={day.toString()} variant={isSameDay(day, selectedDay) ? "default" : "outline"}
-                                className="flex flex-col h-16 w-14 shrink-0 rounded-xl"
-                                onClick={() => setSelectedDay(day)}>
-                                <span className="text-xs font-normal capitalize">{format(day, 'E', { locale: es })}</span>
-                                <span className="text-xl font-bold">{format(day, 'd')}</span>
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-            )}
-            
-            <div className="flex items-center justify-start gap-4">
-              <Label>Filtrar por tipo:</Label>
-              <Tabs value={transactionTypeFilter} onValueChange={(v) => setTransactionTypeFilter(v as any)} className="w-auto">
-                  <TabsList>
-                      <TabsTrigger value="all">Todas</TabsTrigger>
-                      <TabsTrigger value="ingreso">Ingresos</TabsTrigger>
-                      <TabsTrigger value="gasto">Gastos</TabsTrigger>
-                  </TabsList>
-              </Tabs>
+            <div className="space-y-6 lg:col-span-2">
+                <Card>
+                    <CardHeader><CardTitle className="text-base">Ahorro Potencial Acumulado</CardTitle></CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold">{money(potentialSaving)}</p>
+                        <div className="flex items-center text-sm text-muted-foreground">
+                            <span>Desde {format(startOfMonth(currentDate), 'MMMM yyyy', {locale: es})}</span>
+                            <span className="ml-auto flex items-center gap-1 text-green-600">
+                                <TrendingUp className="h-4 w-4" /> 0.00%
+                            </span>
+                        </div>
+                    </CardContent>
+                </Card>
+                 {mainBudget && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Estado del Presupuesto</CardTitle>
+                            <CardDescription>{mainBudget.category}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <Progress value={(mainBudget.spent / mainBudget.amount) * 100} />
+                            <div className="mt-2 flex justify-between text-sm text-muted-foreground">
+                                <span>Gastado: <span className="font-semibold text-foreground">{money(mainBudget.spent)}</span></span>
+                                <span>Restante: <span className="font-semibold text-foreground">{money(mainBudget.amount - mainBudget.spent)}</span></span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
-
-            {isLoading ? <p className="text-center text-muted-foreground pt-4">Cargando transacciones...</p> : (
-            <div className="space-y-4">
-                {dailyTransactions.length === 0 ? <p className="text-center text-muted-foreground pt-4">No hay transacciones para esta selección.</p>
-                : isMobile ? dailyTransactions.map((t: finanzas) => <TransactionCard key={t.id} transaction={t} onEdit={onEdit} onDelete={onDelete} />)
-                : <TransactionTable transactions={dailyTransactions} onEdit={onEdit} onDelete={onDelete} />}
-            </div>
-            )}
         </div>
-    );
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Resumen de Gastos</CardTitle>
+                <Tabs defaultValue="daily" className="w-auto">
+                    <TabsList>
+                        <TabsTrigger value="daily">Diario</TabsTrigger>
+                        <TabsTrigger value="weekly" disabled>Semanal</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                    <RechartsBarChart data={expenseSummaryData}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
+                        <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </RechartsBarChart>
+                </ResponsiveContainer>
+            </CardContent>
+        </Card>
+    </div>
+  )
 }
 
 function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void }) {
@@ -541,11 +615,13 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
     }, [transactions, currentDate, dateFilter, transactionTypeFilter]);
     
     const PIE_COLORS = [
-      "hsl(160, 29%, 32%)", // primary dark green
-      "hsl(160, 25%, 50%)", // medium green
-      "hsl(160, 35%, 75%)", // light green
-      "hsl(160, 20%, 40%)", // desaturated green
-      "hsl(160, 40%, 20%)", // very dark green
+      "hsl(var(--chart-1))", 
+      "hsl(var(--chart-2))", 
+      "hsl(var(--chart-3))", 
+      "hsl(var(--chart-4))", 
+      "hsl(var(--chart-5))",
+      "hsl(220, 70%, 60%)",
+      "hsl(40, 70%, 60%)",
     ];
 
     const hasData = transactions.filter(t => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter).length > 0;
@@ -671,11 +747,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
     );
 }
 
-function BudgetsView({ categories, transactions }: { categories: string[], transactions: finanzas[] }) {
-    const [budgets, setBudgets] = React.useState<Budget[]>([
-        { id: 1, category: 'Comida', amount: 5000, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()), spent: 0 },
-        { id: 2, category: 'Transporte', amount: 1500, startDate: startOfMonth(new Date()), endDate: endOfMonth(new Date()), spent: 0 },
-    ]);
+function BudgetsView({ categories, transactions, budgets, setBudgets }: { categories: string[], transactions: finanzas[], budgets: Budget[], setBudgets: React.Dispatch<React.SetStateAction<Budget[]>> }) {
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingBudget, setEditingBudget] = React.useState<Budget | null>(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
@@ -1083,31 +1155,48 @@ function TransactionActions({ transaction, onEdit, onDelete }: { transaction: fi
     );
 }
 
-function BottomNav({ currentView, setView }: { currentView: View, setView: (v: View) => void }) {
+function BottomNav({ currentView, setView, onAdd }: { currentView: View, setView: (v: View) => void, onAdd: () => void }) {
   const navItems = [
     { id: 'inicio', label: 'Inicio', icon: Home },
+    { id: 'presupuestos', label: 'Presupuestos', icon: List },
+    { id: 'add', label: 'Añadir', icon: Plus },
     { id: 'informes', label: 'Informes', icon: BarChart },
-    { id: 'presupuestos', label: 'Presupuestos', icon: Landmark },
     { id: 'configuracion', label: 'Ajustes', icon: Cog },
   ] as const;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-t-lg md:hidden">
-      <div className="grid h-16 grid-cols-4">
-        {navItems.map(item => (
-          <Button
-            key={item.id}
-            variant="ghost"
-            className={cn(
-              "flex h-full flex-col items-center justify-center rounded-none gap-1",
-              currentView === item.id ? "text-primary bg-primary/10" : "text-muted-foreground"
-            )}
-            onClick={() => setView(item.id)}
-          >
-            <item.icon className="h-5 w-5" />
-            <span className="text-xs">{item.label}</span>
-          </Button>
-        ))}
+      <div className="grid h-20 grid-cols-5 items-center">
+        {navItems.map(item => {
+            if(item.id === 'add') {
+                return (
+                    <div key={item.id} className="flex justify-center items-center -mt-8">
+                        <Button
+                            size="icon"
+                            className="h-16 w-16 rounded-full shadow-lg"
+                            onClick={onAdd}
+                        >
+                            <Plus className="h-8 w-8" />
+                        </Button>
+                    </div>
+                );
+            }
+
+            return (
+              <Button
+                key={item.id}
+                variant="ghost"
+                className={cn(
+                  "flex h-full w-full flex-col items-center justify-center rounded-none gap-1 pt-2",
+                  currentView === item.id ? "text-primary bg-primary/10" : "text-muted-foreground"
+                )}
+                onClick={() => setView(item.id as View)}
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="text-xs">{item.label}</span>
+              </Button>
+            )
+        })}
       </div>
     </div>
   );
@@ -1276,3 +1365,4 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   return Content;
 }
 
+      
