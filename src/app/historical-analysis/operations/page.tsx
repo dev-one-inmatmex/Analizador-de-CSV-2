@@ -17,6 +17,7 @@ import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './ac
 import { expenseFormSchema, paymentMethods, TransactionFormValues } from './schemas';
 
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   BarChart,
@@ -26,15 +27,15 @@ import {
   Cog,
   Home,
   Landmark,
+  List,
+  Loader2,
+  MoreVertical,
+  Pencil,
   Plus,
   Trash2,
   Edit,
-  MoreVertical,
   Download,
-  List,
-  Pencil,
   TrendingUp,
-  Loader2,
   X,
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, AreaChart, Area } from 'recharts';
@@ -75,6 +76,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -416,24 +418,15 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
 
-  const { totalIncome, totalExpense, potentialSaving, expenseAsPercentage, savingAsPercentage } = React.useMemo(() => {
+  const { totalIncome, totalExpense, potentialSaving } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
     const saving = income - expense;
-    return {
-      totalIncome: income,
-      totalExpense: expense,
-      potentialSaving: saving,
-      expenseAsPercentage: income > 0 ? (expense / income) * 100 : (expense > 0 ? 100 : 0),
-      savingAsPercentage: income > 0 ? (saving / income) * 100 : 0,
-    };
+    return { totalIncome: income, totalExpense: expense, potentialSaving: saving };
   }, [transactions]);
 
-  const donutData = [
-    { name: 'Ahorro', value: Math.max(0, potentialSaving), color: 'hsl(var(--chart-2))' },
-    { name: 'Gasto', value: totalExpense, color: 'hsl(var(--chart-3))' },
-    { name: 'No usado', value: Math.max(0, totalIncome - totalExpense - Math.max(0, potentialSaving)), color: 'hsl(var(--muted))' }
-  ].filter(d => d.value > 0);
+  const totalBudget = React.useMemo(() => budgets.reduce((sum: number, b: any) => sum + b.amount, 0), [budgets]);
+  const overallSpendingPercentage = totalBudget > 0 ? (totalExpense / totalBudget) * 100 : (totalExpense > 0 ? 100 : 0);
 
   const expenseSummaryData = React.useMemo(() => {
     const dataPoints: { [key: string]: number } = {};
@@ -535,78 +528,79 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-            <Card className="lg:col-span-3">
-                <CardHeader>
-                    <CardTitle>Balance del Periodo</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center gap-6 p-6 md:flex-row">
-                    <div className="relative h-48 w-48">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={donutData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="70%" outerRadius="90%" startAngle={90} endAngle={450}>
-                                    {donutData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke={entry.color} />)}
-                                </Pie>
-                            </PieChart>
-                        </ResponsiveContainer>
-                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <p className="text-sm text-muted-foreground">Balance Neto</p>
-                            <p className={`text-2xl font-bold ${potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(potentialSaving)}</p>
-                        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Resumen del Periodo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Ingresos Totales</span>
+                        <span className="font-bold text-green-600">{money(totalIncome)}</span>
                     </div>
-                    <div className="w-full flex-1 space-y-4">
-                        <div className="flex justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
-                                <span>Ingresos</span>
-                            </div>
-                            <span className="font-semibold">{money(totalIncome)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-3))' }} />
-                                <span>Gastos</span>
-                            </div>
-                            <span className="font-semibold">{money(totalExpense)}</span>
-                            <span className="text-sm text-muted-foreground">{expenseAsPercentage.toFixed(0)}%</span>
-                        </div>
-                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                            <span>Total</span>
-                            <span className={potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}>{money(potentialSaving)}</span>
-                        </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Gastos Totales</span>
+                        <span className="font-bold text-red-600">{money(totalExpense)}</span>
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Balance</span>
+                        <span className={`font-bold ${potentialSaving >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(potentialSaving)}</span>
+                    </div>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                     <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Presupuesto Total</span>
+                        <span className="font-bold">{money(totalBudget)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Gastado</span>
+                        <span className="font-bold">{money(totalExpense)}</span>
+                    </div>
+                    <Progress value={overallSpendingPercentage} />
+                    <p className="text-sm text-right text-muted-foreground">{overallSpendingPercentage.toFixed(0)}% del presupuesto gastado</p>
+                </div>
+            </CardContent>
+        </Card>
 
-            <div className="space-y-6 lg:col-span-2">
-                <Card>
-                    <CardHeader><CardTitle className="text-base">Ahorro Potencial</CardTitle></CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold">{money(potentialSaving)}</p>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                            <span>Desde {format(startOfMonth(currentDate), 'MMMM yyyy', {locale: es})}</span>
-                            <span className="ml-auto flex items-center gap-1 text-green-600">
-                                <TrendingUp className="h-4 w-4" /> {savingAsPercentage.toFixed(1)}%
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-                {budgets.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Estado del Presupuesto Principal</CardTitle>
-                            <CardDescription>{budgets[0].category}</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <Progress value={(budgets[0].spent / budgets[0].amount) * 100} />
-                            <div className="mt-2 flex justify-between text-sm text-muted-foreground">
-                                <span>Gastado: <span className="font-semibold text-foreground">{money(budgets[0].spent)}</span></span>
-                                <span>Restante: <span className="font-semibold text-foreground">{money(budgets[0].amount - budgets[0].spent)}</span></span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+        <div>
+            <h2 className="text-2xl font-bold mb-4">Categorías de Presupuesto</h2>
+            {budgets.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {budgets.map((budget: any) => {
+                        const progress = budget.amount > 0 ? (budget.spent / budget.amount) * 100 : (budget.spent > 0 ? 100 : 0);
+                        const overspent = budget.spent > budget.amount;
+                        return (
+                            <Card key={budget.id}>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                      <div className="h-2 w-2 rounded-full bg-primary" />
+                                      {budget.category}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-2xl font-bold">{money(budget.spent)}</span>
+                                            <span className="text-muted-foreground">/ {money(budget.amount)}</span>
+                                        </div>
+                                        {overspent && (
+                                            <p className="text-sm text-destructive">{money(budget.spent - budget.amount)} por encima</p>
+                                        )}
+                                        <Progress value={progress} className={progress > 100 ? '[&>div]:bg-destructive' : ''} />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )
+                    })}
+                </div>
+            ) : (
+                <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Sin Presupuestos</AlertTitle>
+                    <AlertDescription>No has creado ningún presupuesto. Ve a la pestaña de "Presupuestos" para empezar.</AlertDescription>
+                </Alert>
+            )}
         </div>
 
         <Card>
