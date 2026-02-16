@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { CalendarCheck2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { addMonths, subMonths, format, setDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function OperationsPage() {
+  const router = useRouter();
   const [startDay, setStartDay] = useState('1');
   const [period, setPeriod] = useState({ start: '', end: '' });
   const [isClient, setIsClient] = useState(false);
@@ -19,6 +21,7 @@ export default function OperationsPage() {
   }, []);
   
   useEffect(() => {
+    if (!isClient) return;
     const day = parseInt(startDay, 10);
     if (isNaN(day)) return;
 
@@ -40,7 +43,11 @@ export default function OperationsPage() {
       start: format(startDate, 'd MMMM, yyyy', { locale: es }),
       end: format(endDate, 'd MMMM, yyyy', { locale: es }),
     });
-  }, [startDay]);
+  }, [startDay, isClient]);
+
+  const handleContinue = () => {
+    router.push(`/historical-analysis/operations/dashboard?startDay=${startDay}`);
+  }
 
   if (!isClient) {
     return (
@@ -110,7 +117,7 @@ export default function OperationsPage() {
             </CardContent>
           </Card>
           
-          <Button className="w-full" size="lg">Continuar</Button>
+          <Button className="w-full" size="lg" onClick={handleContinue}>Continuar</Button>
         </div>
       </main>
     </>
