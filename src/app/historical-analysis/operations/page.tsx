@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -532,7 +533,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   
   const Content = (
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex h-full flex-col">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0">
           <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-6">
             <FormField
               control={form.control}
