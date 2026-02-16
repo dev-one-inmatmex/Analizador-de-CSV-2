@@ -30,6 +30,9 @@ import {
   Edit,
   MoreVertical,
   Download,
+  Settings,
+  List,
+  Pencil,
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -99,12 +102,24 @@ export default function OperationsPage() {
   const [editingTransaction, setEditingTransaction] = React.useState<finanzas | null>(null);
   const [categories, setCategories] = React.useState(initialCategories);
 
-  const [dateFilter, setDateFilter] = React.useState<DateFilter>('month');
+  const [dateFilter, setDateFilter] = React.useState<DateFilter>(() => {
+    if (typeof window !== 'undefined') {
+        return (localStorage.getItem('operationsDateFilter') as DateFilter) || 'month';
+    }
+    return 'month';
+  });
+  
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [transactionTypeFilter, setTransactionTypeFilter] = React.useState<TransactionTypeFilter>('all');
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('operationsDateFilter', dateFilter);
+    }
+  }, [dateFilter]);
 
   React.useEffect(() => {
     const fetchTransactions = async () => {
@@ -227,6 +242,7 @@ export default function OperationsPage() {
                     onDelete={handleDeleteTransaction}
                     transactionTypeFilter={transactionTypeFilter}
                     setTransactionTypeFilter={setTransactionTypeFilter}
+                    onAddTransaction={() => handleOpenForm(null)}
                 />;
       case 'informes':
         return <ReportsView 
@@ -241,7 +257,12 @@ export default function OperationsPage() {
       case 'presupuestos':
         return <BudgetsView categories={categories} transactions={transactions} />;
       case 'configuracion':
-        return <ConfiguracionView />;
+        return <ConfiguracionView 
+                  categories={categories} 
+                  setCategories={setCategories}
+                  dateFilter={dateFilter}
+                  setDateFilter={setDateFilter}
+               />;
       default:
         return null;
     }
@@ -276,10 +297,12 @@ export default function OperationsPage() {
                         </TabsList>
                     </Tabs>
                 )}
-                 <Button onClick={() => handleOpenForm(null)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Añadir Transacción
-                </Button>
+                 {isMobile && (
+                    <Button onClick={() => handleOpenForm(null)} size="icon">
+                        <Plus />
+                        <span className="sr-only">Añadir Transacción</span>
+                    </Button>
+                 )}
             </div>
         </header>
 
@@ -290,8 +313,10 @@ export default function OperationsPage() {
         {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} />}
         
         <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent className="flex h-auto max-h-[90vh] flex-col p-0 sm:max-w-md">
-              <div className="flex-1 overflow-y-auto">{FormComponent}</div>
+            <DialogContent className="flex max-h-[90vh] flex-col p-0 sm:max-w-md">
+              <div className="flex-1 overflow-hidden">
+                {FormComponent}
+              </div>
             </DialogContent>
         </Dialog>
         <Sheet open={isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
@@ -355,7 +380,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
   );
 }
 
-function InicioView({ transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onEdit, onDelete, transactionTypeFilter, setTransactionTypeFilter }: any) {
+function InicioView({ transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onEdit, onDelete, transactionTypeFilter, setTransactionTypeFilter, onAddTransaction }: any) {
     const isMobile = useIsMobile();
     const [selectedDay, setSelectedDay] = React.useState(new Date());
 
@@ -385,11 +410,17 @@ function InicioView({ transactions, isLoading, dateFilter, setDateFilter, curren
 
     return (
         <div className="space-y-6">
-             <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+             <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
                 <div>
                     <h2 className="text-2xl font-bold">Hola, Usuario! 👋</h2>
                     <p className="text-muted-foreground">Aquí tienes el resumen de tus finanzas.</p>
                 </div>
+                {!isMobile && (
+                  <Button onClick={onAddTransaction}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Añadir Transacción
+                  </Button>
+                )}
             </div>
 
             <PeriodNavigator 
@@ -783,18 +814,182 @@ function BudgetsView({ categories, transactions }: { categories: string[], trans
     );
 }
 
-function ConfiguracionView() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
-        <Alert className="max-w-md">
-            <Cog className="h-4 w-4" />
-            <AlertTitle>Módulo en Construcción</AlertTitle>
-            <AlertDescription>
-                La sección de configuración está en desarrollo. Próximamente podrás personalizar tus categorías, métodos de pago y más.
-            </AlertDescription>
-        </Alert>
-    </div>
-  );
+function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilter }: { categories: string[], setCategories: React.Dispatch<React.SetStateAction<string[]>>, dateFilter: DateFilter, setDateFilter: React.Dispatch<React.SetStateAction<DateFilter>> }) {
+    const { toast } = useToast();
+    const [newCategory, setNewCategory] = React.useState('');
+    const [isCategoryDialogOpen, setIsCategoryDialogOpen] = React.useState(false);
+    const [editingCategory, setEditingCategory] = React.useState<{ index: number; name: string } | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
+    const [deletingCategoryIndex, setDeletingCategoryIndex] = React.useState<number | null>(null);
+    const [categoryInputValue, setCategoryInputValue] = React.useState('');
+
+    const handleAddCategory = (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmed = newCategory.trim();
+        if (trimmed && !categories.includes(trimmed)) {
+            setCategories(prev => [...prev, trimmed].sort());
+            setNewCategory('');
+            toast({ title: 'Categoría añadida', description: `"${trimmed}" se ha añadido a la lista.` });
+        } else if (!trimmed) {
+            toast({ title: 'Campo vacío', description: 'El nombre de la categoría no puede estar vacío.', variant: 'destructive' });
+        } else {
+            toast({ title: 'Categoría duplicada', description: 'Esa categoría ya existe.', variant: 'destructive' });
+        }
+    };
+    
+    const handleOpenEditDialog = (index: number) => {
+        setEditingCategory({ index, name: categories[index] });
+        setCategoryInputValue(categories[index]);
+        setIsCategoryDialogOpen(true);
+    };
+
+    const handleUpdateCategory = () => {
+        if (editingCategory === null) return;
+        const trimmed = categoryInputValue.trim();
+        if (trimmed && !categories.some((cat, i) => cat === trimmed && i !== editingCategory.index)) {
+            const updatedCategories = [...categories];
+            updatedCategories[editingCategory.index] = trimmed;
+            setCategories(updatedCategories.sort());
+            toast({ title: 'Categoría actualizada' });
+        } else {
+             toast({ title: 'Error', description: 'El nombre de la categoría no puede estar vacío o ya existe.', variant: 'destructive' });
+        }
+        setIsCategoryDialogOpen(false);
+        setEditingCategory(null);
+    };
+
+    const handleOpenDeleteDialog = (index: number) => {
+        setDeletingCategoryIndex(index);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDeleteCategory = () => {
+        if (deletingCategoryIndex !== null) {
+            setCategories(prev => prev.filter((_, i) => i !== deletingCategoryIndex));
+            toast({ title: 'Categoría eliminada' });
+        }
+        setIsDeleteDialogOpen(false);
+        setDeletingCategoryIndex(null);
+    };
+
+    const periodLabels: Record<DateFilter, string> = { day: 'Diario', week: 'Semanal', month: 'Mensual', year: 'Anual' };
+
+    return (
+        <>
+            <div className="space-y-8">
+                <h2 className="text-2xl font-bold">Configuración</h2>
+                
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Gestionar Categorías</CardTitle>
+                        <CardDescription>Añade, edita o elimina las categorías para tus transacciones.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleAddCategory} className="flex items-center gap-2 mb-4">
+                            <Input 
+                                placeholder="Nombre de la nueva categoría" 
+                                value={newCategory} 
+                                onChange={(e) => setNewCategory(e.target.value)}
+                            />
+                            <Button type="submit"><Plus className="mr-2 h-4 w-4" />Añadir</Button>
+                        </form>
+                        <div className="space-y-2 rounded-md border p-2">
+                            {categories.map((category, index) => (
+                                <div key={index} className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50">
+                                    <span className="font-medium">{category}</span>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(index)}>
+                                            <Pencil className="h-4 w-4" />
+                                            <span className="sr-only">Editar</span>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDeleteDialog(index)}>
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">Eliminar</span>
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Preferencias de Vista</CardTitle>
+                        <CardDescription>Elige la vista por defecto para el período de tiempo.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="w-full md:w-1/2">
+                            <Label htmlFor="default-period">Período por Defecto</Label>
+                            <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
+                                <SelectTrigger id="default-period" className="mt-2">
+                                    <SelectValue placeholder="Seleccionar periodo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(periodLabels).map(([value, label]) => (
+                                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Métodos de Pago</CardTitle>
+                        <CardDescription>Estos son los métodos de pago disponibles en el sistema.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                            {paymentMethods.map(method => (
+                                <Badge key={method} variant="secondary">{method}</Badge>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Dialog for Editing Category */}
+            <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Editar Categoría</DialogTitle>
+                        <DialogDescription>Cambia el nombre de la categoría.</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="category-name">Nombre de la Categoría</Label>
+                        <Input 
+                            id="category-name" 
+                            value={categoryInputValue} 
+                            onChange={(e) => setCategoryInputValue(e.target.value)} 
+                            className="mt-2"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button onClick={handleUpdateCategory}>Guardar Cambios</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog for Deleting Category */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>¿Estás seguro de eliminar esta categoría?</DialogTitle>
+                        <DialogDescription>
+                            Esta acción no se puede deshacer. Se eliminará la categoría <span className="font-bold">{deletingCategoryIndex !== null && `"${categories[deletingCategoryIndex]}"`}</span>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button variant="destructive" onClick={confirmDeleteCategory}>Sí, eliminar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
 }
 
 function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
