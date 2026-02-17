@@ -150,7 +150,9 @@ function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finan
                     {isExpense ? '-' : '+'} {money(transaction.monto)}
                 </p>
             </div>
-            <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
+            <div className="pl-2">
+                <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
+            </div>
         </div>
     );
 }
@@ -390,6 +392,7 @@ export default function OperationsPage() {
                     companyFilter={companyFilter}
                     setCompanyFilter={setCompanyFilter}
                     allCompanies={allCompanies}
+                    handleOpenForm={handleOpenForm}
                 />;
       case 'informes':
         return <ReportsView 
@@ -508,7 +511,47 @@ export default function OperationsPage() {
 
 // --- Sub-components for OperationsPage ---
 
-function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] | undefined }) {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies, handleOpenForm }: any) {
+  const { totalIncome, totalExpense, balance } = React.useMemo(() => {
+    const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
+    const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
+    const bal = income - expense;
+    return { totalIncome: income, totalExpense: expense, balance: bal };
+  }, [transactions]);
+
+  const totalBudget = React.useMemo(() => {
+    return budgets.reduce((sum: number, b: Budget) => sum + (b.amount || 0), 0);
+  }, [budgets]);
+  
+  const balanceChartData = React.useMemo(() => [
+      { name: 'Ingreso Total', value: totalIncome },
+      { name: 'Gasto Total', value: totalExpense },
+  ], [totalIncome, totalExpense]);
+
+  const chartColors = [
+    'hsl(var(--chart-2))', // A greenish color
+    'hsl(var(--chart-3))', // A reddish/pinkish color
+  ];
+
+  if(isLoading) {
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
+  
+  const CustomLegend = () => (
+    <ul className="flex flex-col gap-2 -translate-y-2">
+        <li className="flex items-center gap-2 text-sm">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }}/>
+            <div className="flex-1 text-muted-foreground">Ingreso Total</div>
+            <span className="font-bold ml-auto">{money(totalIncome)}</span>
+        </li>
+        <li className="flex items-center gap-2 text-sm">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-4))' }}/>
+            <div className="flex-1 text-muted-foreground">Presupuesto</div>
+            <span className="font-bold ml-auto">{money(totalBudget)}</span>
+        </li>
+    </ul>
+  );
+
   const handleDateChange = (direction: 'next' | 'prev') => {
     const amount = direction === 'prev' ? -1 : 1;
     let newDate;
@@ -536,179 +579,86 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
   };
 
   return (
-    <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-        <div className="grid w-full grid-cols-2 gap-4 md:flex md:w-auto">
-            <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
-                <SelectTrigger className="w-full md:w-auto">
-                    <SelectValue placeholder="Seleccionar periodo" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="day">Diario</SelectItem>
-                    <SelectItem value="week">Semanal</SelectItem>
-                    <SelectItem value="month">Mensual</SelectItem>
-                    <SelectItem value="year">Anual</SelectItem>
-                </SelectContent>
-            </Select>
+    <div className="space-y-6">
+       <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-center">
+        <div className="flex-1">
+          <h2 className="text-2xl font-bold">Resumen Financiero</h2>
+          <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
+        </div>
+        <div className="flex w-full flex-col items-stretch gap-2 md:w-auto md:flex-row md:items-center">
             <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="w-full md:w-auto">
-                    <SelectValue placeholder="Seleccionar empresa" />
+                <SelectTrigger className="w-full md:w-32">
+                    <SelectValue placeholder="Empresa" />
                 </SelectTrigger>
                 <SelectContent>
                     {(allCompanies || []).map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
             </Select>
+            <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
+                <SelectTrigger className="w-full md:w-32">
+                    <SelectValue placeholder="Periodo" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="month">Mensual</SelectItem>
+                    <SelectItem value="day">Diario</SelectItem>
+                    <SelectItem value="week">Semanal</SelectItem>
+                    <SelectItem value="year">Anual</SelectItem>
+                </SelectContent>
+            </Select>
+             <div className="flex items-center gap-1 rounded-lg border bg-background p-1">
+                <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
+                <span className="w-32 text-center text-sm font-semibold capitalize">{getFormattedDate()}</span>
+                <Button variant="ghost" size="icon" onClick={() => handleDateChange('next')}><ChevronRight className="h-5 w-5" /></Button>
+            </div>
+            <Button onClick={() => handleOpenForm(null)}>
+                <Plus className="h-4 w-4" />
+            </Button>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
-            <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
-            <span className="w-36 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
-            <Button variant="ghost" size="icon" onClick={() => handleDateChange('next')}><ChevronRight className="h-5 w-5" /></Button>
-        </div>
-    </div>
-  );
-}
+      </div>
 
-function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDate: Date, setCurrentDate: (date: Date) => void, dateFilter: DateFilter }) {
-    const scrollRef = React.useRef<HTMLDivElement>(null);
-    const [canScrollLeft, setCanScrollLeft] = React.useState(false);
-    const [canScrollRight, setCanScrollRight] = React.useState(true);
-
-    const days = React.useMemo(() => {
-        if (dateFilter === 'week') {
-            return eachDayOfInterval({
-                start: startOfWeek(currentDate, { locale: es }),
-                end: endOfWeek(currentDate, { locale: es }),
-            });
-        }
-        if (dateFilter === 'month') {
-            return eachDayOfInterval({
-                start: startOfMonth(currentDate),
-                end: endOfMonth(currentDate),
-            });
-        }
-        return [];
-    }, [currentDate, dateFilter]);
-
-    const checkScroll = React.useCallback(() => {
-        if (scrollRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-            setCanScrollLeft(scrollLeft > 5);
-            setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
-        }
-    }, []);
-    
-    React.useEffect(() => {
-        const ref = scrollRef.current;
-        checkScroll();
-        ref?.addEventListener('scroll', checkScroll, { passive: true });
-        return () => ref?.removeEventListener('scroll', checkScroll);
-    }, [days, checkScroll]);
-
-    React.useEffect(() => {
-        if(scrollRef.current){
-            const currentDayElement = scrollRef.current.querySelector(`[data-date="${format(currentDate, 'yyyy-MM-dd')}"]`) as HTMLElement;
-            if(currentDayElement) {
-                const container = scrollRef.current;
-                const scrollLeft = currentDayElement.offsetLeft - container.offsetLeft - (container.clientWidth / 2) + (currentDayElement.clientWidth / 2);
-                container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-            }
-        }
-    }, [currentDate, days]);
-
-
-    const scroll = (direction: 'left' | 'right') => {
-        if (scrollRef.current) {
-            const scrollAmount = direction === 'left' ? -250 : 250;
-            scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-        }
-    };
-
-    if (days.length === 0 || dateFilter === 'day' || dateFilter === 'year') return null;
-
-    return (
+      <div className="grid gap-6 md:grid-cols-2">
         <Card>
-            <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => scroll('left')} disabled={!canScrollLeft} className="h-10 w-10 shrink-0">
-                        <ChevronLeft className="h-5 w-5" />
-                    </Button>
-                    <div className="flex-1 overflow-x-auto whitespace-nowrap no-scrollbar" ref={scrollRef}>
-                        <div className="inline-flex gap-2 p-1">
-                            {days.map(day => (
-                                <Button
-                                    key={day.toISOString()}
-                                    data-date={format(day, 'yyyy-MM-dd')}
-                                    variant={isSameDay(day, currentDate) ? 'default' : 'outline'}
-                                    onClick={() => setCurrentDate(day)}
-                                    className="flex flex-col h-auto px-4 py-2 shrink-0"
-                                >
-                                    <span className="text-xs capitalize">{format(day, 'E', { locale: es })}</span>
-                                    <span className="font-bold text-lg">{format(day, 'd')}</span>
-                                </Button>
+            <CardHeader>
+                <CardTitle>Balance</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={150}>
+                    <PieChart>
+                        <Tooltip formatter={(value) => money(value as number)} />
+                        <Pie
+                            data={balanceChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={50}
+                            outerRadius={70}
+                            paddingAngle={5}
+                            startAngle={90}
+                            endAngle={450}
+                        >
+                            {balanceChartData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                             ))}
-                        </div>
-                    </div>
-                     <Button variant="ghost" size="icon" onClick={() => scroll('right')} disabled={!canScrollRight} className="h-10 w-10 shrink-0">
-                        <ChevronRight className="h-5 w-5" />
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: any) {
-  const { totalIncome, totalExpense, balance } = React.useMemo(() => {
-    const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
-    const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
-    const bal = income - expense;
-    return { totalIncome: income, totalExpense: expense, balance: bal };
-  }, [transactions]);
-  
-
-  if(isLoading) {
-    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
-  }
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Resumen Financiero</h2>
-
-      <PeriodNavigator 
-        dateFilter={dateFilter} 
-        setDateFilter={setDateFilter} 
-        currentDate={currentDate} 
-        setCurrentDate={setCurrentDate}
-        companyFilter={companyFilter}
-        setCompanyFilter={setCompanyFilter}
-        allCompanies={allCompanies}
-      />
-      <DailyNavigator currentDate={currentDate} setCurrentDate={setCurrentDate} dateFilter={dateFilter} />
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ahorro Potencial (Balance)</CardTitle>
-                <Landmark className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</div>
-                <p className="text-xs text-muted-foreground">Ingresos ({money(totalIncome)}) - Gastos ({money(totalExpense)})</p>
+                        </Pie>
+                        <Legend
+                            content={<CustomLegend/>}
+                            verticalAlign="middle"
+                            align="right"
+                            layout="vertical"
+                            wrapperStyle={{ right: -20 }}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
             </CardContent>
         </Card>
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Estado del Presupuesto</CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
+            <CardHeader>
+                <CardTitle>Ahorro Potencial Acumulado</CardTitle>
+                <CardDescription>
+                    {`Desde ${format(startOfMonth(currentDate), 'MMMM yyyy', { locale: es })}`}
+                </CardDescription>
             </CardHeader>
             <CardContent>
-            {budgets[0] ? (
-              <>
-                <div className="text-2xl font-bold">{money((budgets[0].amount || 0) - (budgets[0].spent || 0))}</div>
-                <p className="text-xs text-muted-foreground">Restante de {money(budgets[0].amount)}</p>
-                <Progress value={(budgets[0].spent / budgets[0].amount) * 100} className="mt-2" />
-              </>
-            ) : <p className="text-sm text-muted-foreground pt-2">No hay presupuesto.</p>}
+                <div className={`text-4xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</div>
             </CardContent>
         </Card>
       </div>
@@ -806,6 +756,65 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         (transactionPage - 1) * TRANSACTION_PAGE_SIZE,
         transactionPage * TRANSACTION_PAGE_SIZE
     );
+    
+    const PeriodNavigator = ({ dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] }) => {
+        const handleDateChange = (direction: 'next' | 'prev') => {
+            const amount = direction === 'prev' ? -1 : 1;
+            let newDate;
+            switch(dateFilter) {
+              case 'day': newDate = add(currentDate, { days: amount }); break;
+              case 'week': newDate = add(currentDate, { weeks: amount }); break;
+              case 'year': newDate = add(currentDate, { years: amount }); break;
+              case 'month':
+              default: newDate = add(currentDate, { months: amount }); break;
+            }
+            setCurrentDate(newDate);
+          };
+          
+          const getFormattedDate = () => {
+            switch(dateFilter) {
+              case 'day': return format(currentDate, "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
+              case 'week': 
+                const start = startOfWeek(currentDate, { locale: es });
+                const end = endOfWeek(currentDate, { locale: es });
+                return `Semana del ${format(start, 'dd/MM')} al ${format(end, 'dd/MM/yyyy')}`;
+              case 'year': return format(currentDate, "yyyy");
+              case 'month':
+              default: return format(currentDate, "MMMM yyyy", { locale: es });
+            }
+          };
+
+        return (
+            <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+                <div className="grid w-full grid-cols-2 gap-4 md:flex md:w-auto">
+                    <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
+                        <SelectTrigger className="w-full md:w-auto">
+                            <SelectValue placeholder="Seleccionar periodo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="day">Diario</SelectItem>
+                            <SelectItem value="week">Semanal</SelectItem>
+                            <SelectItem value="month">Mensual</SelectItem>
+                            <SelectItem value="year">Anual</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                        <SelectTrigger className="w-full md:w-auto">
+                            <SelectValue placeholder="Seleccionar empresa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {(allCompanies || []).map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
+                    <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
+                    <span className="w-36 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
+                    <Button variant="ghost" size="icon" onClick={() => handleDateChange('next')}><ChevronRight className="h-5 w-5" /></Button>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
