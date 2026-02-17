@@ -513,6 +513,95 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
   );
 }
 
+function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDate: Date, setCurrentDate: (date: Date) => void, dateFilter: DateFilter }) {
+    const scrollRef = React.useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+    const [canScrollRight, setCanScrollRight] = React.useState(true);
+
+    const days = React.useMemo(() => {
+        if (dateFilter === 'week') {
+            return eachDayOfInterval({
+                start: startOfWeek(currentDate, { locale: es }),
+                end: endOfWeek(currentDate, { locale: es }),
+            });
+        }
+        if (dateFilter === 'month') {
+            return eachDayOfInterval({
+                start: startOfMonth(currentDate),
+                end: endOfMonth(currentDate),
+            });
+        }
+        return [];
+    }, [currentDate, dateFilter]);
+
+    const checkScroll = React.useCallback(() => {
+        if (scrollRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+            setCanScrollLeft(scrollLeft > 5);
+            setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+        }
+    }, []);
+    
+    React.useEffect(() => {
+        const ref = scrollRef.current;
+        checkScroll();
+        ref?.addEventListener('scroll', checkScroll, { passive: true });
+        return () => ref?.removeEventListener('scroll', checkScroll);
+    }, [days, checkScroll]);
+
+    React.useEffect(() => {
+        if(scrollRef.current){
+            const currentDayElement = scrollRef.current.querySelector(`[data-date="${format(currentDate, 'yyyy-MM-dd')}"]`) as HTMLElement;
+            if(currentDayElement) {
+                const container = scrollRef.current;
+                const scrollLeft = currentDayElement.offsetLeft - container.offsetLeft - (container.clientWidth / 2) + (currentDayElement.clientWidth / 2);
+                container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+            }
+        }
+    }, [currentDate, days]);
+
+
+    const scroll = (direction: 'left' | 'right') => {
+        if (scrollRef.current) {
+            const scrollAmount = direction === 'left' ? -250 : 250;
+            scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
+
+    if (days.length === 0 || (dateFilter !== 'month' && dateFilter !== 'week')) return null;
+
+    return (
+        <Card>
+            <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => scroll('left')} disabled={!canScrollLeft} className="h-10 w-10 shrink-0">
+                        <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <div className="flex-1 overflow-x-auto whitespace-nowrap no-scrollbar" ref={scrollRef}>
+                        <div className="inline-flex gap-2 p-1">
+                            {days.map(day => (
+                                <Button
+                                    key={day.toISOString()}
+                                    data-date={format(day, 'yyyy-MM-dd')}
+                                    variant={isSameDay(day, currentDate) ? 'default' : 'outline'}
+                                    onClick={() => setCurrentDate(day)}
+                                    className="flex flex-col h-auto px-4 py-2 shrink-0"
+                                >
+                                    <span className="text-xs capitalize">{format(day, 'E', { locale: es })}</span>
+                                    <span className="font-bold text-lg">{format(day, 'd')}</span>
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                     <Button variant="ghost" size="icon" onClick={() => scroll('right')} disabled={!canScrollRight} className="h-10 w-10 shrink-0">
+                        <ChevronRight className="h-5 w-5" />
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile }: any) {
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
@@ -653,6 +742,9 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
               <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
             <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
+               <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)}>
+                    <Eye className="mr-2 h-4 w-4" /> Ver Transacciones del Día
+                </Button>
               <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
                <Button onClick={onAddTransaction} className="w-full md:w-auto">
                     <Plus className="mr-2 h-4 w-4" /> Añadir Transacción
@@ -755,6 +847,12 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </div>
         </div>
 
+        <DailyNavigator 
+            currentDate={currentDate} 
+            setCurrentDate={setCurrentDate} 
+            dateFilter={dateFilter} 
+        />
+
         <Card>
             <CardHeader>
                 <CardTitle>Resumen de Gastos</CardTitle>
@@ -764,12 +862,6 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </CardContent>
         </Card>
         
-        <div className="flex justify-center">
-            <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)}>
-                <Eye className="mr-2 h-4 w-4" /> Ver Transacciones del Día
-            </Button>
-        </div>
-
         <Card>
             <CardHeader>
                 <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
@@ -1768,6 +1860,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
