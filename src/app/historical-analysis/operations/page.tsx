@@ -38,6 +38,9 @@ import {
   Download,
   TrendingUp,
   X,
+  Wallet,
+  Receipt,
+  PiggyBank
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, AreaChart, Area } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -132,24 +135,24 @@ function TransactionActions({ transaction, onEdit, onDelete }: { transaction: fi
 }
 
 function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
-  const isExpense = transaction.tipo_transaccion === 'gasto';
-  return (
-    <Card className="flex items-center p-3">
-        <div className={`mr-4 rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-            {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
+    const isExpense = transaction.tipo_transaccion === 'gasto';
+    return (
+        <div className="flex items-center p-3 hover:bg-muted/50 rounded-lg">
+            <div className={`mr-4 rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400' : 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400'}`}>
+                {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
+            </div>
+            <div className="flex-1 space-y-0.5 min-w-0">
+                <p className="font-bold leading-tight truncate" title={transaction.categoria}>{transaction.categoria}</p>
+                <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
+            </div>
+            <div className="text-right ml-2 shrink-0">
+                <p className={`font-bold ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
+                    {isExpense ? '-' : '+'} {money(transaction.monto)}
+                </p>
+            </div>
+            <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
         </div>
-        <div className="flex-1 space-y-0.5">
-            <p className="font-bold leading-tight">{transaction.categoria}</p>
-            <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
-        </div>
-        <div className="text-right">
-            <p className={`font-bold ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
-                {isExpense ? '-' : '+'} {money(transaction.monto)}
-            </p>
-        </div>
-        <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
-    </Card>
-  );
+    );
 }
 
 function TransactionTable({ transactions, onEdit, onDelete }: { transactions: finanzas[], onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
@@ -622,25 +625,35 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
 
-  const { totalIncome, totalExpense, balance, expenseByCategory } = React.useMemo(() => {
+  const { totalIncome, totalExpense, balance, expenseByCategory, incomeByCategory } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const bal = income - expense;
+    
     const expByCategory = transactions
         .filter((t: finanzas) => t.tipo_transaccion === 'gasto')
         .reduce((acc: {[key: string]: number}, t: finanzas) => {
             const category = t.categoria || 'Sin Categoría';
             acc[category] = (acc[category] || 0) + t.monto;
             return acc;
-        }, {});
-    return { totalIncome: income, totalExpense: expense, balance: bal, expenseByCategory: expByCategory };
+        }, {} as {[key: string]: number});
+
+    const incByCategory = transactions
+        .filter((t: finanzas) => t.tipo_transaccion === 'ingreso')
+        .reduce((acc: {[key: string]: number}, t: finanzas) => {
+            const category = t.categoria || 'Sin Categoría';
+            acc[category] = (acc[category] || 0) + t.monto;
+            return acc;
+        }, {} as {[key: string]: number});
+
+    return { totalIncome: income, totalExpense: expense, balance: bal, expenseByCategory: expByCategory, incomeByCategory: incByCategory };
   }, [transactions]);
 
   const categoryChartData = React.useMemo(() => {
     if (!expenseByCategory) return [];
     return Object.entries(expenseByCategory)
         .map(([name, value]) => ({ name, value }))
-        .sort((a: { value: number }, b: { value: number }) => b.value - a.value);
+        .sort((a, b) => b.value - a.value);
   }, [expenseByCategory]);
 
 
@@ -734,15 +747,35 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     }
   };
 
+  const handleOpenDailyTransactions = () => {
+    setDetailModalContent({
+      title: `Transacciones del ${format(currentDate, 'd MMMM, yyyy', { locale: es })}`,
+      transactions: dailyTransactions
+    });
+    setDetailModalOpen(true);
+  };
+
   if(isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
   }
 
+  const firstBudget = budgets[0];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Resumen Financiero</h2>
-        <p className="text-muted-foreground">Tu resumen financiero del día, semana o mes.</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 className="text-2xl font-bold">Resumen Financiero</h2>
+            <p className="text-muted-foreground">Tu resumen financiero del día, semana o mes.</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleOpenDailyTransactions} disabled={dailyTransactions.length === 0}>
+                Ver Transacciones del Día ({dailyTransactions.length})
+            </Button>
+            <Button onClick={onAddTransaction} className="md:hidden">
+                <Plus className="mr-2 h-4 w-4" /> Añadir
+            </Button>
+        </div>
       </div>
 
       <PeriodNavigator 
@@ -760,67 +793,101 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         dateFilter={dateFilter} 
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-              <CardHeader><CardTitle>Ingresos</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-green-600">{money(totalIncome)}</p></CardContent>
-          </Card>
-           <Card>
-              <CardHeader><CardTitle>Gastos</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-red-600">{money(totalExpense)}</p></CardContent>
-          </Card>
-           <Card>
-              <CardHeader><CardTitle>Balance</CardTitle></CardHeader>
-              <CardContent><p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{money(balance)}</p></CardContent>
-          </Card>
-           <Card>
-              <CardHeader><CardTitle>Presupuesto</CardTitle></CardHeader>
-              <CardContent>
-                {budgets.length > 0 ? (
-                  <>
-                  <Progress value={(budgets[0].spent / budgets[0].amount) * 100} />
-                  <p className="text-sm mt-2">{money(budgets[0].spent)} de {money(budgets[0].amount)}</p>
-                  </>
-                ) : <p className="text-sm text-muted-foreground">No hay presupuesto.</p>}
-              </CardContent>
-          </Card>
-      </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Transacciones del Día</CardTitle>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Ahorro Potencial</CardTitle>
+                    <Wallet className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
-                <CardContent className="max-h-96 overflow-y-auto">
-                    {dailyTransactions.length > 0 ? (
-                        <div className="space-y-4">
-                            {dailyTransactions.map((t: finanzas) => (
-                                <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                            ))}
+                <CardContent>
+                    <div className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {money(balance)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Balance total del periodo</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Estado del Presupuesto ({firstBudget?.category})</CardTitle>
+                    <PiggyBank className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    {firstBudget ? (
+                    <>
+                        <div className="text-2xl font-bold">
+                        {money(firstBudget.amount - firstBudget.spent)}
                         </div>
-                    ) : (
-                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
-                            <CalendarIcon className="h-12 w-12 mb-4" />
-                            <p>No hay transacciones para este día.</p>
-                        </div>
-                    )}
+                        <p className="text-xs text-muted-foreground">
+                        {money(firstBudget.spent)} gastado de {money(firstBudget.amount)}
+                        </p>
+                        <Progress value={(firstBudget.spent / firstBudget.amount) * 100} className="mt-2" />
+                    </>
+                    ) : <p className="text-sm text-muted-foreground pt-2">No hay presupuesto configurado.</p>}
+                </CardContent>
+            </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+           <Card>
+                <CardHeader>
+                    <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
+                    <CardDescription>Ingresos vs Gastos en el periodo seleccionado.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <ResponsiveContainer width="100%" height={300}>
+                        <RechartsBarChart data={periodSummaryData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value)/1000}k`} />
+                            <Tooltip formatter={(value) => money(value as number)} />
+                            <Legend />
+                            <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} onClick={(data) => handleBarClick(data, 'Ingresos')} />
+                            <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} onClick={(data) => handleBarClick(data, 'Gastos')} />
+                        </RechartsBarChart>
+                    </ResponsiveContainer>
                 </CardContent>
             </Card>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Gastos por Categoría ({dateFilter})</CardTitle>
+                    <CardTitle>Balance del Periodo</CardTitle>
+                    <CardDescription>Proporción de ingresos vs. gastos</CardDescription>
                 </CardHeader>
-                <CardContent>
-                     <ResponsiveContainer width="100%" height={300}>
-                        <RechartsBarChart data={categoryChartData}>
-                            <CartesianGrid vertical={false} />
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                            <Tooltip formatter={(value: number) => money(value)} />
+                <CardContent className="flex justify-center items-center">
+                    <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                            <Tooltip formatter={(value) => money(value as number)} />
+                            <Pie
+                                data={[
+                                    { name: 'Ingresos', value: totalIncome },
+                                    { name: 'Gastos', value: totalExpense },
+                                ]}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={110}
+                                paddingAngle={5}
+                                labelLine={false}
+                                label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
+                                    const RADIAN = Math.PI / 180;
+                                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                                    return (
+                                        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-xs font-bold">
+                                            {`${(percent * 100).toFixed(0)}%`}
+                                        </text>
+                                    );
+                                }}
+                            >
+                                <Cell fill="hsl(var(--chart-2))" />
+                                <Cell fill="hsl(var(--chart-3))" />
+                            </Pie>
                             <Legend />
-                            <RechartsBar dataKey="value" name="Gastos" fill="hsl(var(--primary))" />
-                        </RechartsBarChart>
+                        </PieChart>
                     </ResponsiveContainer>
                 </CardContent>
             </Card>
@@ -832,28 +899,19 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 <DialogHeader>
                     <DialogTitle>{detailModalContent?.title}</DialogTitle>
                     <DialogDescription>
-                        Lista de movimientos que componen el total del día/mes seleccionado.
+                        Lista de movimientos que componen el total.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Categoría</TableHead>
-                                <TableHead>Notas</TableHead>
-                                <TableHead className="text-right">Monto</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6">
+                    {detailModalContent?.transactions.length === 0 ? (
+                        <p className="text-muted-foreground text-center py-8">No hay transacciones para mostrar.</p>
+                    ) : (
+                        <div className="space-y-1">
                             {detailModalContent?.transactions.map((t: finanzas) => (
-                                <TableRow key={t.id}>
-                                    <TableCell className="font-medium">{t.categoria}</TableCell>
-                                    <TableCell>{t.notas || '-'}</TableCell>
-                                    <TableCell className={cn("text-right font-bold", t.tipo_transaccion === 'gasto' ? 'text-destructive' : 'text-green-600')}>{money(t.monto)}</TableCell>
-                                </TableRow>
+                                <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
                             ))}
-                        </TableBody>
-                    </Table>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button onClick={() => setDetailModalOpen(false)}>Cerrar</Button>
@@ -1106,7 +1164,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                   </CardHeader>
                   <CardContent>
                       {isMobile ? (
-                          <div className="space-y-4">
+                          <div className="space-y-1">
                               {paginatedTransactions.map(t => (
                                   <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
                               ))}
