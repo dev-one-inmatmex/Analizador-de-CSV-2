@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { finanzas } from '@/types/database';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
-import { expenseFormSchema, paymentMethods, TransactionFormValues, companies } from './schemas';
+import { expenseFormSchema, TransactionFormValues, companies } from './schemas';
 
 import {
   AlertTriangle,
@@ -507,7 +507,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
     <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
         <div className="grid w-full grid-cols-2 gap-4 md:flex md:w-auto">
             <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
-                <SelectTrigger className="w-full md:w-[180px]">
+                <SelectTrigger className="w-full md:w-auto">
                     <SelectValue placeholder="Seleccionar periodo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -518,7 +518,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
                 </SelectContent>
             </Select>
             <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
+                <SelectTrigger className="w-full md:w-auto">
                     <SelectValue placeholder="Seleccionar empresa" />
                 </SelectTrigger>
                 <SelectContent>
@@ -775,27 +775,24 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                   <Eye className="mr-2 h-4 w-4" />
                   Ver Transacciones
                </Button>
-               <Button onClick={onAddTransaction} className="w-full md:w-auto hidden md:inline-flex">
-                    <Plus className="mr-2 h-4 w-4" /> Añadir Transacción
-                </Button>
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Balance del Periodo</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center space-x-6">
-                    <ResponsiveContainer width={200} height={200}>
+                    <ResponsiveContainer width={160} height={160}>
                         <PieChart>
                             <Pie
                                 data={donutChartData}
                                 cx="50%"
                                 cy="50%"
                                 dataKey="value"
-                                innerRadius={60}
-                                outerRadius={80}
+                                innerRadius={50}
+                                outerRadius={70}
                                 paddingAngle={2}
                                 stroke="hsl(var(--background))"
                                 strokeWidth={4}
