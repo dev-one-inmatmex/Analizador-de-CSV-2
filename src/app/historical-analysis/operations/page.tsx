@@ -289,7 +289,7 @@ export default function OperationsPage() {
   }, [currentDate, dateFilter, toast]);
 
     const hydratedBudgets = React.useMemo(() => {
-        return budgets.map(budget => {
+        return budgets.map((budget: Budget) => {
             const spent = transactions
                 .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
                 .reduce((sum, t: finanzas) => sum + t.monto, 0);
@@ -656,8 +656,8 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
                 <CardHeader>
                     <CardTitle>Balance</CardTitle>
                 </CardHeader>
@@ -714,7 +714,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 </CardContent>
             </Card>
 
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Ahorro Potencial Acumulado</CardTitle>
@@ -978,7 +978,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
             return;
         }
 
-        const worksheet = XLSX.utils.json_to_sheet(filteredTransactions);
+        const worksheet = XLSX.utils.json_to_sheet(filteredTransactions.map((t: finanzas) => ({...t})));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Transacciones");
         XLSX.writeFile(workbook, `reporte_gastos_${new Date().toISOString().split('T')[0]}.csv`);
@@ -1764,6 +1764,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
