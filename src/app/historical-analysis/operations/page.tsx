@@ -196,32 +196,6 @@ function TransactionTable({ transactions, onEdit, onDelete }: { transactions: fi
   );
 }
 
-function BalanceCard({ balance, income, expense, periodLabel }: { balance: number, income: number, expense: number, periodLabel: string }) {
-  return (
-    <Card>
-      <CardHeader className="items-center pb-4">
-        <CardTitle>Balance {periodLabel}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col items-center">
-        <p className={`text-4xl font-bold ${balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-          {money(balance)}
-        </p>
-        <Separator className="my-4" />
-        <div className="flex w-full justify-around">
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">Ingresos</p>
-            <p className="text-lg font-semibold text-green-600">{money(income)}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">Gastos</p>
-            <p className="text-lg font-semibold text-red-600">{money(expense)}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function DailyTransactionSelector({ currentDate, setCurrentDate, setDateFilter }: { currentDate: Date, setCurrentDate: (d: Date) => void, setDateFilter: (f: DateFilter) => void }) {
   const weekDays = eachDayOfInterval({
     start: startOfWeek(currentDate, { locale: es }),
@@ -578,22 +552,26 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
   const isMobile = useIsMobile();
 
-  const { totalIncome, totalExpense, potentialSaving } = React.useMemo(() => {
+  const getFormattedDate = () => {
+    switch(dateFilter) {
+      case 'day': return format(currentDate, "eeee, dd 'de' MMMM", { locale: es });
+      case 'week': return `la semana actual`;
+      case 'year': return `el año ${format(currentDate, "yyyy")}`;
+      case 'month':
+      default: return `el mes de ${format(currentDate, "MMMM yyyy", { locale: es })}`;
+    }
+  };
+
+  const { totalIncome, totalExpense } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-    const saving = income - expense;
-    return { totalIncome: income, totalExpense: expense, potentialSaving: saving };
+    return { totalIncome: income, totalExpense: expense };
   }, [transactions]);
-  
-  const getPeriodLabel = () => {
-    switch (dateFilter) {
-      case 'day': return 'Diario';
-      case 'week': return 'Semanal';
-      case 'year': return 'Anual';
-      case 'month':
-      default: return 'Mensual';
-    }
-  }
+
+  const balanceData = [
+    { name: 'Ingresos', value: totalIncome, color: 'hsl(var(--chart-2))' },
+    { name: 'Gastos', value: totalExpense, color: 'hsl(var(--chart-3))' },
+  ];
 
   const periodSummaryData = React.useMemo(() => {
     const dataPoints: { [key: string]: { Gastos: number; Ingresos: number } } = {};
@@ -716,70 +694,121 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6">
-                <BalanceCard 
-                    balance={potentialSaving}
-                    income={totalIncome}
-                    expense={totalExpense}
-                    periodLabel={getPeriodLabel()}
-                />
-                 <DailyTransactionSelector 
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <Card className="lg:col-span-2">
+                <CardHeader>
+                    <CardTitle>Balance del Periodo</CardTitle>
+                    <CardDescription>
+                        Visualización de ingresos vs. gastos para {getFormattedDate()}.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                            <Tooltip
+                                formatter={(value: number) => money(value)}
+                                contentStyle={{
+                                  borderRadius: '0.5rem',
+                                  borderColor: 'hsl(var(--border))',
+                                  backgroundColor: 'hsl(var(--background))'
+                                }}
+                            />
+                            <Pie
+                                data={balanceData}
+                                cx="50%"
+                                cy="50%"
+                                dataKey="value"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={2}
+                                labelLine={false}
+                            >
+                                {balanceData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                </CardContent>
+                <CardFooter className="flex flex-col gap-2 text-sm">
+                    <div className="flex w-full items-center justify-between border-t pt-4">
+                        <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-[hsl(var(--chart-2))]" />
+                            <span className="text-muted-foreground">Ingresos</span>
+                        </div>
+                        <span className="font-medium">{money(totalIncome)}</span>
+                    </div>
+                    <div className="flex w-full items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-[hsl(var(--chart-3))]" />
+                            <span className="text-muted-foreground">Gastos</span>
+                        </div>
+                        <span className="font-medium">{money(totalExpense)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex w-full items-center justify-between font-bold">
+                        <span className="text-muted-foreground">Balance</span>
+                        <span>{money(totalIncome - totalExpense)}</span>
+                    </div>
+                </CardFooter>
+            </Card>
+            <div className="lg:col-span-3 space-y-6">
+                <DailyTransactionSelector 
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
                     setDateFilter={setDateFilter}
                 />
-            </div>
-            <Card className="lg:col-span-2 h-full">
-                <CardHeader>
-                    <CardTitle>
-                        Transacciones del {format(currentDate, "dd 'de' MMMM", { locale: es })}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="max-h-[450px] overflow-y-auto">
-                    {dailyTransactions.length > 0 ? (
-                    isMobile ? (
-                        <div className="space-y-4">
-                        {dailyTransactions.map(t => (
-                            <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                        ))}
-                        </div>
-                    ) : (
-                        <Table>
-                        <TableHeader>
-                            <TableRow>
-                            <TableHead>Categoría</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead className="text-right">Monto</TableHead>
-                            <TableHead><span className="sr-only">Acciones</span></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                 <Card className="h-full">
+                    <CardHeader>
+                        <CardTitle>
+                            Transacciones del {format(currentDate, "dd 'de' MMMM", { locale: es })}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="max-h-[450px] overflow-y-auto">
+                        {dailyTransactions.length > 0 ? (
+                        isMobile ? (
+                            <div className="space-y-4">
                             {dailyTransactions.map(t => (
-                            <TableRow key={t.id}>
-                                <TableCell className="font-medium">{t.categoria}</TableCell>
-                                <TableCell>
-                                <Badge variant={t.tipo_transaccion === 'gasto' ? 'destructive' : 'default'} className="capitalize">{t.tipo_transaccion}</Badge>
-                                </TableCell>
-                                <TableCell className={`text-right font-bold ${t.tipo_transaccion === 'gasto' ? 'text-red-600' : 'text-green-600'}`}>
-                                {money(t.monto)}
-                                </TableCell>
-                                <TableCell>
-                                <TransactionActions transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                                </TableCell>
-                            </TableRow>
+                                <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
                             ))}
-                        </TableBody>
-                        </Table>
-                    )
-                    ) : (
-                    <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
-                        <CalendarIcon className="h-12 w-12 mb-4" />
-                        <p>No hay transacciones para este día.</p>
-                    </div>
-                    )}
-                </CardContent>
-            </Card>
+                            </div>
+                        ) : (
+                            <Table>
+                            <TableHeader>
+                                <TableRow>
+                                <TableHead>Categoría</TableHead>
+                                <TableHead>Tipo</TableHead>
+                                <TableHead className="text-right">Monto</TableHead>
+                                <TableHead><span className="sr-only">Acciones</span></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {dailyTransactions.map(t => (
+                                <TableRow key={t.id}>
+                                    <TableCell className="font-medium">{t.categoria}</TableCell>
+                                    <TableCell>
+                                    <Badge variant={t.tipo_transaccion === 'gasto' ? 'destructive' : 'default'} className="capitalize">{t.tipo_transaccion}</Badge>
+                                    </TableCell>
+                                    <TableCell className={`text-right font-bold ${t.tipo_transaccion === 'gasto' ? 'text-red-600' : 'text-green-600'}`}>
+                                    {money(t.monto)}
+                                    </TableCell>
+                                    <TableCell>
+                                    <TransactionActions transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                                    </TableCell>
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                            </Table>
+                        )
+                        ) : (
+                        <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
+                            <CalendarIcon className="h-12 w-12 mb-4" />
+                            <p>No hay transacciones para este día.</p>
+                        </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
         </div>
         
         <Card>
@@ -795,8 +824,8 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                         <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
                         <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
                         <Legend />
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} cursor="pointer" />
                         <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" />
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} cursor="pointer" />
                     </RechartsBarChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -1703,6 +1732,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
