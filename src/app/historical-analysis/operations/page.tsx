@@ -440,7 +440,7 @@ export default function OperationsPage() {
                 <h1 className="text-xl font-bold tracking-tight">Gastos Diarios</h1>
             </div>
             <div className="flex items-center gap-4">
-                {!isMobile ? (
+                {!isMobile && (
                     <Tabs value={currentView} onValueChange={handleCurrentViewChange} className="w-auto">
                         <TabsList>
                             <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" />Inicio</TabsTrigger>
@@ -449,10 +449,6 @@ export default function OperationsPage() {
                             <TabsTrigger value="configuracion"><Cog className="mr-2 h-4 w-4" />Configuración</TabsTrigger>
                         </TabsList>
                     </Tabs>
-                ) : (
-                    <Button size="sm" onClick={() => handleOpenForm(null)}>
-                        <Plus className="h-4 w-4" />
-                    </Button>
                 )}
             </div>
         </header>
@@ -509,7 +505,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
 
   return (
     <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-        <div className="flex w-full flex-col gap-4 md:w-auto md:flex-row">
+        <div className="grid w-full grid-cols-2 gap-4 md:flex md:w-auto">
             <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
                 <SelectTrigger className="w-full md:w-[180px]">
                     <SelectValue placeholder="Seleccionar periodo" />
@@ -762,10 +758,10 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     <div className="space-y-6">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h2 className="text-2xl font-bold">Resumen Financiero</h2>
+              <h2 className="text-2xl font-bold">Gastos diarios</h2>
               <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
-            <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
+            <div className="flex w-full flex-col items-center gap-4 md:w-auto md:flex-row">
               <PeriodNavigator 
                 dateFilter={dateFilter} 
                 setDateFilter={setDateFilter} 
@@ -779,13 +775,13 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                   <Eye className="mr-2 h-4 w-4" />
                   Ver Transacciones
                </Button>
-               <Button onClick={onAddTransaction} className="w-full md:w-auto">
+               <Button onClick={onAddTransaction} className="w-full md:w-auto hidden md:inline-flex">
                     <Plus className="mr-2 h-4 w-4" /> Añadir Transacción
                 </Button>
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Balance del Periodo</CardTitle>
@@ -966,54 +962,6 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   )
 }
 
-function ExpenseSummaryChart({ transactions, currentDate }: { transactions: finanzas[], currentDate: Date }) {
-    const [view, setView] = React.useState<'Daily' | 'Weekly'>('Daily');
-
-    const data = React.useMemo(() => {
-        if (view === 'Daily') {
-            const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
-            return daysInMonth.map(day => {
-                const total = transactions
-                    .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(parseISO(t.fecha), day))
-                    .reduce((sum, t: finanzas) => sum + t.monto, 0);
-                return { name: format(day, 'd'), Gastos: total };
-            });
-        } else { // Weekly
-            const weeksInMonth = eachWeekOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }, { locale: es });
-            return weeksInMonth.map((weekStart, index) => {
-                const weekEnd = endOfWeek(weekStart, { locale: es });
-                const total = transactions
-                    .filter((t: finanzas) => {
-                        const d = parseISO(t.fecha);
-                        return t.tipo_transaccion === 'gasto' && d >= weekStart && d <= weekEnd;
-                    })
-                    .reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                return { name: `Sem ${index + 1}`, Gastos: total };
-            });
-        }
-    }, [view, currentDate, transactions]);
-
-    return (
-        <Tabs value={view} onValueChange={(v) => setView(v as 'Daily' | 'Weekly')}>
-            <TabsList>
-                <TabsTrigger value="Daily">Diario</TabsTrigger>
-                <TabsTrigger value="Weekly">Semanal</TabsTrigger>
-            </TabsList>
-            <TabsContent value={view}>
-                <ResponsiveContainer width="100%" height={200}>
-                    <RechartsBarChart data={data}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                        <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} allowDecimals={false} />
-                        <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }} />
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                    </RechartsBarChart>
-                </ResponsiveContainer>
-            </TabsContent>
-        </Tabs>
-    );
-}
-
 function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile, companyFilter, setCompanyFilter, allCompanies }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] }) {
     const { toast } = useToast();
     const [transactionPage, setTransactionPage] = React.useState(1);
@@ -1061,7 +1009,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
             const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
             trendData = months.map(month => {
                 const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum, t: finanzas) => sum + t.monto, 0);
+                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
                 return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
             });
         } else if (dateFilter !== 'day') { // For week and month
@@ -1070,7 +1018,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                 : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
             trendData = days.map(day => {
                 const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t: finanzas) => sum + t.monto, 0);
+                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
                 return { name: format(day, dateFilter === 'week' ? 'eee d' : 'd'), Ingresos: income, Gastos: expense };
             });
         }
@@ -1924,23 +1872,3 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
-
-      
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

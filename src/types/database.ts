@@ -4,7 +4,7 @@ export interface Usuario {
     email: string;
 }
 
-export interface ventas {
+/* export interface ventas {
     numero_venta: string;
     fecha_venta: string | null;
     estado: string | null;
@@ -102,7 +102,7 @@ export interface categorias_madre{
   piezas_por_contenedor: number | null;
   bodega: string |null; 
   bloque: string | null;
-}
+} */
 
 export interface finanzas{
   id: number;
@@ -117,7 +117,7 @@ export interface finanzas{
   notas: string | null;
 }
 
-export interface diccionario_skus{
+/* export interface diccionario_skus{
   sku: string;
   categoria_madre: string | null;
   nombre_madre: string | null;
@@ -134,7 +134,7 @@ export interface diccionario_skus{
   presentacion_en_master_4: string | null;
   bodega: string | null;
   bloque: string | null;
-}
+} */
 
 export interface sales_excel {
   id: number;
