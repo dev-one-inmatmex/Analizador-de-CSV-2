@@ -1,9 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { DollarSign, AlertTriangle, Layers, Tag, ClipboardList, Loader2, Link2, ScanBarcode } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { DollarSign, AlertTriangle, Layers, ClipboardList, Loader2 } from 'lucide-react';
 import { BarChart, CartesianGrid, Tooltip, XAxis, YAxis, Bar, ResponsiveContainer } from 'recharts';
 
 import { Button } from '@/components/ui/button';
@@ -12,14 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import type { EnrichedMotherCatalog, EnrichedPublicationCount, EnrichedSkuMap } from './page';
-import type { publi_xsku, publi_tienda } from '@/types/database';
+import type { EnrichedPublicationCount } from './page';
+import type { publi_tienda } from '@/types/database';
 
 type ProductsData = {
     publications: publi_tienda[];
     skuCounts: EnrichedPublicationCount[];
-    skuMap: EnrichedSkuMap[];
-    motherCatalog: EnrichedMotherCatalog[];
     error: string | null;
 }
 
@@ -31,10 +27,20 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
         setIsClient(true);
     }, []);
 
-    const { publications, skuCounts, skuMap, motherCatalog } = productsData;
-    const [productPages, setProductPages] = React.useState({ pubs: 1, counts: 1, map: 1, catalog: 1 });
+    const { publications, skuCounts } = productsData;
+    const [productPages, setProductPages] = React.useState({ pubs: 1, counts: 1 });
 
     const { productsKpis, statusChartData } = React.useMemo(() => {
+        if (!publications || !skuCounts) {
+            return {
+                productsKpis: {
+                    totalPublications: 0,
+                    totalSkuWithPublications: 0,
+                    averagePrice: 0,
+                },
+                statusChartData: []
+            };
+        }
         const prices = publications.map(p => p.costo).filter((p): p is number => p !== null && p !== undefined);
         const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
         
@@ -50,12 +56,11 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
             productsKpis: {
                 totalPublications: publications.length,
                 totalSkuWithPublications: skuCounts.length,
-                totalMotherCatalogs: motherCatalog.length,
                 averagePrice: avgPrice,
             },
             statusChartData: chartData
         };
-    }, [publications, skuCounts, motherCatalog]);
+    }, [publications, skuCounts]);
     
     const renderProductsPagination = (currentPage: number, totalPages: number, setPage: (page: number) => void) => (
         <CardFooter>
@@ -66,17 +71,8 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
         </CardFooter>
     );
 
-    const paginatedPubs = publications.slice((productPages.pubs - 1) * PAGE_SIZE, productPages.pubs * PAGE_SIZE);
-    const totalPagesPubs = Math.ceil(publications.length / PAGE_SIZE);
-
-    const paginatedCounts = skuCounts.slice((productPages.counts - 1) * PAGE_SIZE, productPages.counts * PAGE_SIZE);
-    const totalPagesCounts = Math.ceil(skuCounts.length / PAGE_SIZE);
-
-    const paginatedMap = skuMap.slice((productPages.map - 1) * PAGE_SIZE, productPages.map * PAGE_SIZE);
-    const totalPagesMap = Math.ceil(skuMap.length / PAGE_SIZE);
-
-    const paginatedCatalog = motherCatalog.slice((productPages.catalog - 1) * PAGE_SIZE, productPages.catalog * PAGE_SIZE);
-    const totalPagesCatalog = Math.ceil(motherCatalog.length / PAGE_SIZE);
+    const paginatedPubs = publications ? publications.slice((productPages.pubs - 1) * PAGE_SIZE, productPages.pubs * PAGE_SIZE) : [];
+    const totalPagesPubs = publications ? Math.ceil(publications.length / PAGE_SIZE) : 0;
 
     if (!isClient) {
         return (
@@ -103,10 +99,9 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                         <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Error al cargar datos de publicaciones</AlertTitle><AlertDescription>{productsData.error}</AlertDescription></Alert>
                     ) : (
                     <>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                             <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Publicaciones</CardTitle><ClipboardList className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{productsKpis.totalPublications}</div></CardContent></Card>
                             <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">SKUs con Publicación</CardTitle><Layers className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{productsKpis.totalSkuWithPublications}</div></CardContent></Card>
-                            <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Categorías Madre</CardTitle><Tag className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{productsKpis.totalMotherCatalogs}</div></CardContent></Card>
                             <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Precio Promedio</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(productsKpis.averagePrice)}</div></CardContent></Card>
                         </div>
                         
@@ -130,7 +125,7 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                             <CardContent><Table><TableHeader><TableRow>
                                 <TableHead>SKU</TableHead>
                                 <TableHead className="text-right"># Publicaciones</TableHead>
-                            </TableRow></TableHeader><TableBody>{skuCounts.slice(0, 10).map((item: EnrichedPublicationCount, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="text-right font-medium">{item.num_publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
+                            </TableRow></TableHeader><TableBody>{skuCounts && skuCounts.slice(0, 10).map((item: EnrichedPublicationCount, index: number) => (<TableRow key={`${item.sku}-${index}`}><TableCell className="font-mono text-primary">{item.sku}</TableCell><TableCell className="text-right font-medium">{item.num_publicaciones}</TableCell></TableRow>))}</TableBody></Table></CardContent>
                             </Card>
                         </div>
 
@@ -168,58 +163,6 @@ export default function PublicationsClient({ productsData }: { productsData: Pro
                                 </Table>
                             </CardContent>
                             {totalPagesPubs > 1 && renderProductsPagination(productPages.pubs, totalPagesPubs, (p) => setProductPages(prev => ({...prev, pubs: p})))}
-                        </Card>
-                        <Card>
-                            <CardHeader><CardTitle>Mapeo SKU a Producto Madre</CardTitle><CardDescription>Relación entre SKUs, publicaciones y categoría madre.</CardDescription></CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>SKU</TableHead>
-                                            <TableHead>ID Publicación</TableHead>
-                                            <TableHead>Categoría Madre</TableHead>
-                                            <TableHead>Compañía</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {paginatedMap.map((item: EnrichedSkuMap, index: number) => (
-                                            <TableRow key={`${item.sku}-${item.item_id}-${index}`}>
-                                                <TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell>
-                                                <TableCell className="font-mono">{item.item_id}</TableCell>
-                                                <TableCell>{item.nombre_madre ?? 'N/A'}</TableCell>
-                                                <TableCell>{item.company ?? 'N/A'}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                            {totalPagesMap > 1 && renderProductsPagination(productPages.map, totalPagesMap, (p) => setProductPages(prev => ({...prev, map: p})))}
-                        </Card>
-                        <Card>
-                            <CardHeader><CardTitle>Catálogo de Productos Madre</CardTitle><CardDescription>Listado maestro de categorías principales.</CardDescription></CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>SKU</TableHead>
-                                            <TableHead>Categoría Madre</TableHead>
-                                            <TableHead>Título Publicación</TableHead>
-                                            <TableHead className="text-right">Precio</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {paginatedCatalog.map((item: EnrichedMotherCatalog, index: number) => (
-                                            <TableRow key={`${item.sku}-${index}`}>
-                                                <TableCell className="font-mono">{item.sku ?? 'N/A'}</TableCell>
-                                                <TableCell>{item.nombre_madre}</TableCell>
-                                                <TableCell className="max-w-sm truncate" title={item.publication_title ?? ''}>{item.publication_title ?? 'N/A'}</TableCell>
-                                                <TableCell className="text-right font-semibold">{item.price ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.price) : 'N/A'}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                            {totalPagesCatalog > 1 && renderProductsPagination(productPages.catalog, totalPagesCatalog, (p) => setProductPages(prev => ({...prev, catalog: p})))}
                         </Card>
                         </div>
                     </>
