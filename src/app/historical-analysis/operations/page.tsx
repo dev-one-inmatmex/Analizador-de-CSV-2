@@ -773,7 +773,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </div>
         </div>
         
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <Card>
                 <CardHeader>
                     <CardTitle>Ahorro Potencial</CardTitle>
@@ -811,13 +811,15 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </Card>
         </div>
 
-        <DailyNavigator 
-            currentDate={currentDate} 
-            setCurrentDate={setCurrentDate} 
-            dateFilter={dateFilter} 
-        />
+        <div className="hidden md:block">
+            <DailyNavigator 
+                currentDate={currentDate} 
+                setCurrentDate={setCurrentDate} 
+                dateFilter={dateFilter} 
+            />
+        </div>
         
-        <Card>
+        <Card className="hidden md:block">
             <CardHeader>
                 <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
                 <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
@@ -1814,5 +1816,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
+
 
 
