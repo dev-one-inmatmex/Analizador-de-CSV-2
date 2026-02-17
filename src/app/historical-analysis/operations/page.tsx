@@ -635,12 +635,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const bal = income - expense;
     return { totalIncome: income, totalExpense: expense, balance: bal };
-  }, [transactions, budgets]);
-
-  const donutChartData = [
-    { name: 'Gastos', value: totalExpense, color: 'hsl(var(--chart-2))' },
-    { name: 'Ingresos', value: totalIncome, color: 'hsl(var(--chart-1))' }
-  ];
+  }, [transactions]);
 
   const periodSummaryData = React.useMemo(() => {
     const dataPoints: { [key: string]: { Gastos: number; Ingresos: number } } = {};
@@ -771,99 +766,49 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 setCompanyFilter={setCompanyFilter}
                 allCompanies={allCompanies}
                />
-               <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)}>
+               <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)} className="w-full md:w-auto">
                   <Eye className="mr-2 h-4 w-4" />
                   Ver Transacciones
                </Button>
             </div>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Card>
                 <CardHeader>
-                    <CardTitle>Balance del Periodo</CardTitle>
+                    <CardTitle>Ahorro Potencial</CardTitle>
+                    <CardDescription>Balance del periodo seleccionado.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex items-center justify-center space-x-6">
-                    <ResponsiveContainer width={160} height={160}>
-                        <PieChart>
-                            <Pie
-                                data={donutChartData}
-                                cx="50%"
-                                cy="50%"
-                                dataKey="value"
-                                innerRadius={50}
-                                outerRadius={70}
-                                paddingAngle={2}
-                                stroke="hsl(var(--background))"
-                                strokeWidth={4}
-                            >
-                                {donutChartData.map((entry) => (
-                                    <Cell key={entry.name} fill={entry.color} />
-                                ))}
-                            </Pie>
-                             <Tooltip formatter={(value: number) => money(value)} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex-1 space-y-4">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Balance</p>
-                            <p className={`font-bold text-2xl ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="h-3 w-3 rounded-full" style={{backgroundColor: 'hsl(var(--chart-1))'}}/>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Ingresos</p>
-                                <p className="font-bold">{money(totalIncome)}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="h-3 w-3 rounded-full" style={{backgroundColor: 'hsl(var(--chart-2))'}}/>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Gastos</p>
-                                <p className="font-bold">{money(totalExpense)}</p>
-                            </div>
-                        </div>
+                <CardContent>
+                    <div className={`text-3xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                        {money(balance)}
                     </div>
                 </CardContent>
             </Card>
-
-            <div className="space-y-6">
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Ahorro Potencial</CardTitle>
-                      <CardDescription>Balance del periodo seleccionado.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <div className={`text-3xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                          {money(balance)}
-                      </div>
-                  </CardContent>
-              </Card>
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Estado del Presupuesto</CardTitle>
-                      {firstBudget ? <CardDescription>Progreso de tu presupuesto de {firstBudget.category}.</CardDescription> : <CardDescription>No hay presupuestos activos.</CardDescription>}
-                  </CardHeader>
-                  <CardContent>
-                      {firstBudget ? (
-                          <>
-                              <div className="flex justify-between text-sm mb-2">
-                                  <span className="font-medium">{money(firstBudget.spent)} gastado</span>
-                                  <span className="text-muted-foreground">de {money(firstBudget.amount)}</span>
-                              </div>
-                              <Progress 
-                                  value={(firstBudget.spent / firstBudget.amount) * 100} 
-                                  className={ (firstBudget.spent / firstBudget.amount) * 100 > 100 ? '[&>div]:bg-destructive' : '' }
-                              />
-                          </>
-                      ) : (
-                          <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-4">
-                              Crea un presupuesto para ver tu progreso aquí.
-                          </div>
-                      )}
-                  </CardContent>
-              </Card>
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Estado del Presupuesto</CardTitle>
+                    {firstBudget ? <CardDescription>Progreso de tu presupuesto de {firstBudget.category}.</CardDescription> : <CardDescription>No hay presupuestos activos.</CardDescription>}
+                </CardHeader>
+                <CardContent>
+                    {firstBudget ? (
+                        <>
+                            <div className="flex justify-between text-sm mb-2">
+                                <span className="font-medium">{money(firstBudget.spent)} gastado</span>
+                                <span className="text-muted-foreground">de {money(firstBudget.amount)}</span>
+                            </div>
+                            <Progress 
+                                value={(firstBudget.spent / firstBudget.amount) * 100} 
+                                className={ (firstBudget.spent / firstBudget.amount) * 100 > 100 ? '[&>div]:bg-destructive' : '' }
+                            />
+                        </>
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-4">
+                            Crea un presupuesto para ver tu progreso aquí.
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
 
         <DailyNavigator 
@@ -1869,3 +1814,4 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
+
