@@ -226,7 +226,6 @@ export default function OperationsPage() {
     return 'month';
   });
   
-  const [companyFilter, setCompanyFilter] = React.useState<string>('all');
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [transactionTypeFilter, setTransactionTypeFilter] = React.useState<TransactionTypeFilter>('all');
 
@@ -291,17 +290,7 @@ export default function OperationsPage() {
     fetchTransactions();
   }, [currentDate, dateFilter, toast]);
 
-  const allCompanies = React.useMemo(() => {
-    const companies = Array.from(new Set(transactions.map((t: finanzas) => t.empresa).filter((c): c is string => !!c)));
-    return ['all', ...companies.sort()];
-  }, [transactions]);
-
-  const filteredTransactions = React.useMemo(() => {
-    return transactions.filter((t: finanzas) => {
-      if (companyFilter === 'all') return true;
-      return t.empresa === companyFilter;
-    });
-  }, [transactions, companyFilter]);
+  const filteredTransactions = transactions;
 
     const hydratedBudgets = React.useMemo(() => {
         return budgets.map((budget: Budget) => {
@@ -381,9 +370,6 @@ export default function OperationsPage() {
                     isLoading={isLoading}
                     dateFilter={dateFilter}
                     setDateFilter={setDateFilter}
-                    companyFilter={companyFilter}
-                    setCompanyFilter={setCompanyFilter}
-                    allCompanies={allCompanies}
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
                     onAddTransaction={() => handleOpenForm(null)}
@@ -396,9 +382,6 @@ export default function OperationsPage() {
                   transactions={filteredTransactions} 
                   dateFilter={dateFilter}
                   setDateFilter={setDateFilter}
-                  companyFilter={companyFilter}
-                  setCompanyFilter={setCompanyFilter}
-                  allCompanies={allCompanies}
                   currentDate={currentDate}
                   setCurrentDate={setCurrentDate}
                   transactionTypeFilter={transactionTypeFilter}
@@ -619,7 +602,7 @@ function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDa
 }
 
 
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, companyFilter, setCompanyFilter, allCompanies, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile }: any) {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile }: any) {
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
   const [dailyTransactionsModalOpen, setDailyTransactionsModalOpen] = React.useState(false);
@@ -758,15 +741,6 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
               <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
             <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
-               <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Filtrar por empresa..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="all">Todas las empresas</SelectItem>
-                      {allCompanies.filter((c: string) => c !== 'all').map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-              </Select>
               <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
                <Button onClick={onAddTransaction} className="w-full md:w-auto">
                     <Plus className="mr-2 h-4 w-4" /> Añadir Transacción
@@ -1019,7 +993,7 @@ function ExpenseSummaryChart({ transactions, currentDate }: { transactions: fina
     );
 }
 
-function ReportsView({ transactions, dateFilter, setDateFilter, companyFilter, setCompanyFilter, allCompanies, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, companyFilter: string, setCompanyFilter: (f: string) => void, allCompanies: string[], currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean }) {
+function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean }) {
     const { toast } = useToast();
     const [transactionPage, setTransactionPage] = React.useState(1);
     const TRANSACTION_PAGE_SIZE = 10;
@@ -1115,15 +1089,6 @@ function ReportsView({ transactions, dateFilter, setDateFilter, companyFilter, s
             <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
               <h2 className="text-2xl font-bold">Informes</h2>
               <div className="flex items-center gap-2">
-                <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Filtrar por empresa..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas las empresas</SelectItem>
-                      {allCompanies.filter((c: string) => c !== 'all').map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                </Select>
                 <Button onClick={handleDownloadCsv} variant="outline"><Download className="mr-2 h-4 w-4" /> Descargar CSV</Button>
               </div>
             </div>
@@ -1741,7 +1706,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
     defaultValues: {
       tipo_transaccion: 'gasto',
       monto: undefined,
-      empresa: '',
       categoria: '',
       subcategoria: null,
       fecha: new Date(),
@@ -1765,7 +1729,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
           form.reset({
             tipo_transaccion: transaction.tipo_transaccion || 'gasto',
             monto: transaction.monto || 0,
-            empresa: transaction.empresa || '',
             categoria: transaction.categoria || '',
             subcategoria: transaction.subcategoria || null,
             fecha: transaction.fecha ? new Date(transaction.fecha) : new Date(),
@@ -1776,7 +1739,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
           form.reset({
             tipo_transaccion: 'gasto',
             monto: undefined,
-            empresa: '',
             categoria: '',
             subcategoria: null,
             fecha: new Date(),
@@ -1850,15 +1812,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
               <FormField control={form.control} name="monto" render={({ field }) => (
                   <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="$0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
               )}/>
-              <FormField control={form.control} name="empresa" render={({ field }) => (
-                  <FormItem>
-                      <FormLabel>Empresa</FormLabel>
-                      <FormControl>
-                          <Input placeholder="Ej: DO MESKA, TAL" {...field} value={field.value ?? ''} />
-                      </FormControl>
-                      <FormMessage />
-                  </FormItem>
-              )}/>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="categoria" render={({ field }) => (
@@ -1929,6 +1882,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
