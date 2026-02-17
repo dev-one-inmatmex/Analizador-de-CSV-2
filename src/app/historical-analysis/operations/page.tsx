@@ -634,15 +634,12 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
   const [dailyTransactionsModalOpen, setDailyTransactionsModalOpen] = React.useState(false);
 
-  const { totalIncome, totalExpense, totalBudget, balance } = React.useMemo(() => {
+  const { totalIncome, totalExpense, balance } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
-    const budget = budgets.reduce((sum: number, b: Budget) => sum + (b.amount || 0), 0);
     const bal = income - expense;
-    return { totalIncome: income, totalExpense: expense, totalBudget: budget, balance: bal };
+    return { totalIncome: income, totalExpense: expense, balance: bal };
   }, [transactions, budgets]);
-
-  const potentialSaving = totalIncome - totalExpense;
 
   const donutChartData = [
     { name: 'Gastos', value: totalExpense, color: 'hsl(var(--chart-2))' },
@@ -778,6 +775,10 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 setCompanyFilter={setCompanyFilter}
                 allCompanies={allCompanies}
                />
+               <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Ver Transacciones
+               </Button>
                <Button onClick={onAddTransaction} className="w-full md:w-auto">
                     <Plus className="mr-2 h-4 w-4" /> Añadir Transacción
                 </Button>
@@ -833,27 +834,43 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 </CardContent>
             </Card>
 
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Transacciones del Día</CardTitle>
-                    <Button variant="outline" size="sm" onClick={() => setDailyTransactionsModalOpen(true)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver Todo
-                    </Button>
-                </CardHeader>
-                <CardContent className="h-[250px] overflow-y-auto space-y-3 pr-2">
-                     {dailyTransactions.length > 0 ? (
-                        dailyTransactions.slice(0,5).map((t: finanzas) => (
-                            <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                        ))
-                     ) : (
-                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-full">
-                            <CalendarIcon className="h-12 w-12 mb-4" />
-                            <p>No hay transacciones para este día.</p>
-                        </div>
-                     )}
-                </CardContent>
-            </Card>
+            <div className="space-y-6">
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Ahorro Potencial</CardTitle>
+                      <CardDescription>Balance del periodo seleccionado.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <div className={`text-3xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                          {money(balance)}
+                      </div>
+                  </CardContent>
+              </Card>
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Estado del Presupuesto</CardTitle>
+                      {firstBudget ? <CardDescription>Progreso de tu presupuesto de {firstBudget.category}.</CardDescription> : <CardDescription>No hay presupuestos activos.</CardDescription>}
+                  </CardHeader>
+                  <CardContent>
+                      {firstBudget ? (
+                          <>
+                              <div className="flex justify-between text-sm mb-2">
+                                  <span className="font-medium">{money(firstBudget.spent)} gastado</span>
+                                  <span className="text-muted-foreground">de {money(firstBudget.amount)}</span>
+                              </div>
+                              <Progress 
+                                  value={(firstBudget.spent / firstBudget.amount) * 100} 
+                                  className={ (firstBudget.spent / firstBudget.amount) * 100 > 100 ? '[&>div]:bg-destructive' : '' }
+                              />
+                          </>
+                      ) : (
+                          <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-4">
+                              Crea un presupuesto para ver tu progreso aquí.
+                          </div>
+                      )}
+                  </CardContent>
+              </Card>
+            </div>
         </div>
 
         <DailyNavigator 
@@ -1053,7 +1070,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                 : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
             trendData = days.map(day => {
                 const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
+                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum, t: finanzas) => sum + t.monto, 0);
                 return { name: format(day, dateFilter === 'week' ? 'eee d' : 'd'), Ingresos: income, Gastos: expense };
             });
         }
@@ -1909,6 +1926,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
