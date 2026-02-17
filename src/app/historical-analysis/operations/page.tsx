@@ -811,35 +811,31 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </Card>
         </div>
 
-        <div className="hidden md:block">
-            <DailyNavigator 
-                currentDate={currentDate} 
-                setCurrentDate={setCurrentDate} 
-                dateFilter={dateFilter} 
-            />
-        </div>
+        <DailyNavigator 
+            currentDate={currentDate} 
+            setCurrentDate={setCurrentDate} 
+            dateFilter={dateFilter} 
+        />
         
-        <div className="hidden md:block">
-          <Card>
-              <CardHeader>
-                  <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
-                  <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <ResponsiveContainer width="100%" height={200}>
-                      <RechartsBarChart data={periodSummaryData}>
-                          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                          <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
-                          <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
-                          <Legend />
-                          <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
-                          <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
-                      </RechartsBarChart>
-                  </ResponsiveContainer>
-              </CardContent>
-          </Card>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
+                <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                    <RechartsBarChart data={periodSummaryData}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
+                        <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
+                        <Legend />
+                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
+                    </RechartsBarChart>
+                </ResponsiveContainer>
+            </CardContent>
+        </Card>
 
         <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
             <DialogContent className="max-w-2xl">
@@ -1818,6 +1814,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
+
 
 
 
