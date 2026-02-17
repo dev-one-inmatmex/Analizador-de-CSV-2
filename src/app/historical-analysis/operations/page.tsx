@@ -508,7 +508,7 @@ export default function OperationsPage() {
 
 // --- Sub-components for OperationsPage ---
 
-function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: any) {
+function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] | undefined }) {
   const handleDateChange = (direction: 'next' | 'prev') => {
     const amount = direction === 'prev' ? -1 : 1;
     let newDate;
@@ -554,7 +554,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
                     <SelectValue placeholder="Seleccionar empresa" />
                 </SelectTrigger>
                 <SelectContent>
-                    {allCompanies?.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {(allCompanies || []).map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
             </Select>
         </div>
