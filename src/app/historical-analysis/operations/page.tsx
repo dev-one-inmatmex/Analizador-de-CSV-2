@@ -588,12 +588,15 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     }).sort((a: finanzas,b: finanzas) => b.monto - a.monto);
   }, [transactions, currentDate]);
 
-  const handleBarClick = (data: any) => {
-    if (!data || !data.activeLabel) return;
+  const handleBarClick = (barData: any, barKey: 'Ingresos' | 'Gastos') => {
+    if (!barData || !barData.name || !barKey) return;
     
-    const label = data.activeLabel;
-    const clickedBarKey = data.activePayload?.[0]?.dataKey; // 'Gastos' or 'Ingresos'
-    if (!clickedBarKey) return;
+    if (barData[barKey] <= 0) {
+        return;
+    }
+
+    const label = barData.name;
+    const clickedBarKey = barKey;
     const typeToShow = clickedBarKey === 'Gastos' ? 'gasto' : 'ingreso';
 
     let formatString: string;
@@ -604,11 +607,12 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         case 'month': default: formatString = 'd'; break;
     }
 
-    const relevantTransactions = transactions.filter((t:finanzas) => {
+    const relevantTransactions = transactions.filter((t: finanzas) => {
         if (t.tipo_transaccion !== typeToShow) return false;
         try {
             const date = parseISO(t.fecha);
-            return format(date, formatString, { locale: es }).replace(/\.$/, '') === label;
+            const formattedDate = format(date, formatString, { locale: es }).replace(/\.$/, '');
+            return formattedDate === label;
         } catch {
             return false;
         }
@@ -619,10 +623,10 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
          if (dateFilter === 'month') title = `${clickedBarKey} del día ${label} de ${format(currentDate, 'MMMM', {locale: es})}`;
          else if (dateFilter === 'year') title = `${clickedBarKey} de ${label} ${format(currentDate, 'yyyy')}`;
          else if (dateFilter === 'week') {
-            const dayOfWeek = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'].indexOf(label);
+            const dayIndex = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'].indexOf(label);
             const start = startOfWeek(currentDate, { locale: es });
-            if (dayOfWeek !== -1) {
-                const clickedDate = add(start, { days: dayOfWeek });
+            if (dayIndex !== -1) {
+                const clickedDate = add(start, { days: dayIndex });
                 title = `${clickedBarKey} del ${format(clickedDate, "EEEE, dd 'de' MMMM", { locale: es })}`;
             }
          }
@@ -773,14 +777,14 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
-                    <RechartsBarChart data={periodSummaryData} onClick={handleBarClick}>
+                    <RechartsBarChart data={periodSummaryData}>
                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
                         <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                         <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
                         <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
                         <Legend />
-                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" />
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" />
+                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
                     </RechartsBarChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -1764,6 +1768,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
