@@ -387,6 +387,9 @@ export default function OperationsPage() {
                     setDateFilter={setDateFilter}
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
+                    companyFilter={companyFilter}
+                    setCompanyFilter={setCompanyFilter}
+                    allCompanies={allCompanies}
                 />;
       case 'informes':
         return <ReportsView 
@@ -551,7 +554,7 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
                     <SelectValue placeholder="Seleccionar empresa" />
                 </SelectTrigger>
                 <SelectContent>
-                    {allCompanies.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {allCompanies?.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
             </Select>
         </div>
@@ -654,7 +657,7 @@ function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDa
 }
 
 
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate }: any) {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: any) {
   const { totalIncome, totalExpense, balance } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
@@ -676,6 +679,9 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         setDateFilter={setDateFilter} 
         currentDate={currentDate} 
         setCurrentDate={setCurrentDate}
+        companyFilter={companyFilter}
+        setCompanyFilter={setCompanyFilter}
+        allCompanies={allCompanies}
       />
       <DailyNavigator currentDate={currentDate} setCurrentDate={setCurrentDate} dateFilter={dateFilter} />
 
