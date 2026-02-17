@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, parseISO } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, parseISO, eachWeekOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,6 +37,7 @@ import {
   Download,
   TrendingUp,
   X,
+  Eye,
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, AreaChart, Area } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -193,41 +194,6 @@ function TransactionTable({ transactions, onEdit, onDelete }: { transactions: fi
         </TableBody>
       </Table>
     </Card>
-  );
-}
-
-function DailyTransactionSelector({ currentDate, setCurrentDate, setDateFilter }: { currentDate: Date, setCurrentDate: (d: Date) => void, setDateFilter: (f: DateFilter) => void }) {
-  const weekDays = eachDayOfInterval({
-    start: startOfWeek(currentDate, { locale: es }),
-    end: endOfWeek(currentDate, { locale: es }),
-  });
-
-  const handleDayClick = (day: Date) => {
-    setCurrentDate(day);
-    setDateFilter('day');
-  };
-
-  return (
-    <div>
-      <h3 className="text-lg font-semibold mb-2">Transacción diaria</h3>
-      <div className="flex justify-between items-center space-x-1 rounded-lg bg-muted p-1">
-        {weekDays.map(day => (
-          <button
-            key={day.toString()}
-            onClick={() => handleDayClick(day)}
-            className={cn(
-              "flex flex-col items-center justify-center rounded-md p-2 w-full transition-colors",
-              isSameDay(day, currentDate)
-                ? "bg-primary text-primary-foreground shadow"
-                : "hover:bg-background/50"
-            )}
-          >
-            <span className="text-xs capitalize">{format(day, 'eee', { locale: es })}</span>
-            <span className="font-bold text-lg">{format(day, 'd')}</span>
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -410,6 +376,7 @@ export default function OperationsPage() {
                     onAddTransaction={() => handleOpenForm(null)}
                     onEditTransaction={handleOpenForm}
                     onDeleteTransaction={handleDeleteTransaction}
+                    isMobile={isMobile}
                 />;
       case 'informes':
         return <ReportsView 
@@ -547,30 +514,23 @@ function PeriodNavigator({ dateFilter, setDateFilter, currentDate, setCurrentDat
 }
 
 
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction }: any) {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile }: any) {
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
-  const isMobile = useIsMobile();
+  const [dailyTransactionsModalOpen, setDailyTransactionsModalOpen] = React.useState(false);
 
-  const getFormattedDate = () => {
-    switch(dateFilter) {
-      case 'day': return format(currentDate, "eeee, dd 'de' MMMM", { locale: es });
-      case 'week': return `la semana actual`;
-      case 'year': return `el año ${format(currentDate, "yyyy")}`;
-      case 'month':
-      default: return `el mes de ${format(currentDate, "MMMM yyyy", { locale: es })}`;
-    }
-  };
+  const { totalIncome, totalExpense, totalBudget } = React.useMemo(() => {
+    const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
+    const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
+    const budget = budgets.reduce((sum: number, b: Budget) => sum + (b.amount || 0), 0);
+    return { totalIncome: income, totalExpense: expense, totalBudget: budget };
+  }, [transactions, budgets]);
 
-  const { totalIncome, totalExpense } = React.useMemo(() => {
-    const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-    const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-    return { totalIncome: income, totalExpense: expense };
-  }, [transactions]);
+  const potentialSaving = totalIncome - totalExpense;
 
-  const balanceData = [
-    { name: 'Ingresos', value: totalIncome, color: 'hsl(var(--chart-2))' },
-    { name: 'Gastos', value: totalExpense, color: 'hsl(var(--chart-3))' },
+  const donutChartData = [
+    { name: 'Gastos', value: totalExpense, color: 'hsl(var(--chart-2))' },
+    { name: 'Ahorro', value: Math.max(0, potentialSaving), color: 'hsl(var(--chart-3))' }
   ];
 
   const periodSummaryData = React.useMemo(() => {
@@ -675,6 +635,8 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     }
   };
 
+  const firstBudget = budgets[0];
+
   if(isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
   }
@@ -694,123 +656,116 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <Card className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-1">
                 <CardHeader>
-                    <CardTitle>Balance del Periodo</CardTitle>
-                    <CardDescription>
-                        Visualización de ingresos vs. gastos para {getFormattedDate()}.
-                    </CardDescription>
+                    <CardTitle>Balance</CardTitle>
                 </CardHeader>
-                <CardContent className="flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height={200}>
+                <CardContent className="flex items-center justify-center space-x-6">
+                    <ResponsiveContainer width={150} height={150}>
                         <PieChart>
-                            <Tooltip
-                                formatter={(value: number) => money(value)}
-                                contentStyle={{
-                                  borderRadius: '0.5rem',
-                                  borderColor: 'hsl(var(--border))',
-                                  backgroundColor: 'hsl(var(--background))'
-                                }}
-                            />
                             <Pie
-                                data={balanceData}
+                                data={donutChartData}
                                 cx="50%"
                                 cy="50%"
                                 dataKey="value"
-                                innerRadius={60}
-                                outerRadius={80}
+                                innerRadius={50}
+                                outerRadius={70}
                                 paddingAngle={2}
-                                labelLine={false}
+                                stroke="hsl(var(--background))"
+                                strokeWidth={4}
                             >
-                                {balanceData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                {donutChartData.map((entry) => (
+                                    <Cell key={entry.name} fill={entry.color} />
                                 ))}
                             </Pie>
                         </PieChart>
                     </ResponsiveContainer>
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2 text-sm">
-                    <div className="flex w-full items-center justify-between border-t pt-4">
+                    <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-[hsl(var(--chart-2))]" />
-                            <span className="text-muted-foreground">Ingresos</span>
-                        </div>
-                        <span className="font-medium">{money(totalIncome)}</span>
-                    </div>
-                    <div className="flex w-full items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-[hsl(var(--chart-3))]" />
-                            <span className="text-muted-foreground">Gastos</span>
-                        </div>
-                        <span className="font-medium">{money(totalExpense)}</span>
-                    </div>
-                    <Separator className="my-2" />
-                    <div className="flex w-full items-center justify-between font-bold">
-                        <span className="text-muted-foreground">Balance</span>
-                        <span>{money(totalIncome - totalExpense)}</span>
-                    </div>
-                </CardFooter>
-            </Card>
-            <div className="lg:col-span-3 space-y-6">
-                <DailyTransactionSelector 
-                    currentDate={currentDate}
-                    setCurrentDate={setCurrentDate}
-                    setDateFilter={setDateFilter}
-                />
-                 <Card className="h-full">
-                    <CardHeader>
-                        <CardTitle>
-                            Transacciones del {format(currentDate, "dd 'de' MMMM", { locale: es })}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="max-h-[450px] overflow-y-auto">
-                        {dailyTransactions.length > 0 ? (
-                        isMobile ? (
-                            <div className="space-y-4">
-                            {dailyTransactions.map(t => (
-                                <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                            ))}
+                            <span className="h-3 w-3 rounded-full" style={{backgroundColor: 'hsl(var(--chart-1))'}}/>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Ingreso Total</p>
+                                <p className="font-bold text-lg">{money(totalIncome)}</p>
                             </div>
-                        ) : (
-                            <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead>Categoría</TableHead>
-                                <TableHead>Tipo</TableHead>
-                                <TableHead className="text-right">Monto</TableHead>
-                                <TableHead><span className="sr-only">Acciones</span></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {dailyTransactions.map(t => (
-                                <TableRow key={t.id}>
-                                    <TableCell className="font-medium">{t.categoria}</TableCell>
-                                    <TableCell>
-                                    <Badge variant={t.tipo_transaccion === 'gasto' ? 'destructive' : 'default'} className="capitalize">{t.tipo_transaccion}</Badge>
-                                    </TableCell>
-                                    <TableCell className={`text-right font-bold ${t.tipo_transaccion === 'gasto' ? 'text-red-600' : 'text-green-600'}`}>
-                                    {money(t.monto)}
-                                    </TableCell>
-                                    <TableCell>
-                                    <TransactionActions transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                                    </TableCell>
-                                </TableRow>
-                                ))}
-                            </TableBody>
-                            </Table>
-                        )
-                        ) : (
-                        <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
-                            <CalendarIcon className="h-12 w-12 mb-4" />
-                            <p>No hay transacciones para este día.</p>
                         </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full" style={{backgroundColor: 'hsl(var(--chart-4))'}}/>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Presupuesto</p>
+                                <p className="font-bold">{money(totalBudget)}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full" style={{backgroundColor: 'hsl(var(--chart-2))'}}/>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Gastos</p>
+                                <p className="font-bold">{money(totalExpense)}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full" style={{backgroundColor: 'hsl(var(--chart-3))'}}/>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Ahorro Potencial</p>
+                                <p className="font-bold">{money(potentialSaving)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="lg:col-span-2 space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Ahorro Potencial Acumulado</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-3xl font-bold">{money(potentialSaving)}</p>
+                        <p className="text-sm text-muted-foreground">Desde {format(startOfMonth(currentDate), 'MMMM yyyy', {locale: es})}</p>
                     </CardContent>
                 </Card>
+                 {firstBudget && (
+                    <Card>
+                        <CardHeader><CardTitle>Estado del Presupuesto</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="font-bold">{firstBudget.category}</p>
+                                <Progress value={(firstBudget.spent / firstBudget.amount) * 100} className="mt-2" />
+                                <div className="flex justify-between text-sm mt-1">
+                                    <span className="text-muted-foreground">Gastado</span>
+                                    <span>{money(firstBudget.spent)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Restante</span>
+                                    <span>{money(firstBudget.amount - firstBudget.spent)}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-center justify-center">
+                                <p className="text-sm text-muted-foreground">Participación</p>
+                                <p className="text-2xl font-bold">{((firstBudget.amount / totalIncome) * 100 || 0).toFixed(1)}%</p>
+                                <p className="text-xs text-muted-foreground">del ingreso</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                 )}
             </div>
         </div>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Resumen de Gastos</CardTitle>
+            </CardHeader>
+            <CardContent>
+                 <ExpenseSummaryChart transactions={transactions} currentDate={currentDate} />
+            </CardContent>
+        </Card>
         
+        <div className="flex justify-center">
+            <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)}>
+                <Eye className="mr-2 h-4 w-4" /> Ver Transacciones del Día
+            </Button>
+        </div>
+
         <Card>
             <CardHeader>
                 <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
@@ -824,8 +779,8 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                         <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
                         <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
                         <Legend />
-                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" />
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} cursor="pointer" />
+                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" />
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" />
                     </RechartsBarChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -864,9 +819,86 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        
+        <Dialog open={dailyTransactionsModalOpen} onOpenChange={setDailyTransactionsModalOpen}>
+            <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Transacciones del {format(currentDate, "dd 'de' MMMM", { locale: es })}</DialogTitle>
+                </DialogHeader>
+                 <div className="max-h-[60vh] overflow-y-auto">
+                    {dailyTransactions.length > 0 ? (
+                        isMobile ? (
+                            <div className="space-y-4 p-4">
+                                {dailyTransactions.map(t => (
+                                    <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                                ))}
+                            </div>
+                        ) : (
+                           <TransactionTable transactions={dailyTransactions} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                        )
+                    ) : (
+                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
+                            <CalendarIcon className="h-12 w-12 mb-4" />
+                            <p>No hay transacciones para este día.</p>
+                        </div>
+                    )}
+                 </div>
+                 <DialogFooter>
+                    <Button onClick={() => setDailyTransactionsModalOpen(false)}>Cerrar</Button>
+                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
     </div>
   )
+}
+
+function ExpenseSummaryChart({ transactions, currentDate }: { transactions: finanzas[], currentDate: Date }) {
+    const [view, setView] = React.useState<'Daily' | 'Weekly'>('Daily');
+
+    const data = React.useMemo(() => {
+        if (view === 'Daily') {
+            const daysInMonth = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+            return daysInMonth.map(day => {
+                const total = transactions
+                    .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(parseISO(t.fecha), day))
+                    .reduce((sum, t: finanzas) => sum + t.monto, 0);
+                return { name: format(day, 'd'), Gastos: total };
+            });
+        } else { // Weekly
+            const weeksInMonth = eachWeekOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }, { locale: es });
+            return weeksInMonth.map((weekStart, index) => {
+                const weekEnd = endOfWeek(weekStart, { locale: es });
+                const total = transactions
+                    .filter((t: finanzas) => {
+                        const d = parseISO(t.fecha);
+                        return t.tipo_transaccion === 'gasto' && d >= weekStart && d <= weekEnd;
+                    })
+                    .reduce((sum: number, t: finanzas) => sum + t.monto, 0);
+                return { name: `Sem ${index + 1}`, Gastos: total };
+            });
+        }
+    }, [view, currentDate, transactions]);
+
+    return (
+        <Tabs value={view} onValueChange={(v) => setView(v as 'Daily' | 'Weekly')}>
+            <TabsList>
+                <TabsTrigger value="Daily">Diario</TabsTrigger>
+                <TabsTrigger value="Weekly">Semanal</TabsTrigger>
+            </TabsList>
+            <TabsContent value={view}>
+                <ResponsiveContainer width="100%" height={200}>
+                    <RechartsBarChart data={data}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                        <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} allowDecimals={false} />
+                        <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }} />
+                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                    </RechartsBarChart>
+                </ResponsiveContainer>
+            </TabsContent>
+        </Tabs>
+    );
 }
 
 function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean }) {
@@ -1732,6 +1764,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
