@@ -630,12 +630,27 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
   const [dailyTransactionsModalOpen, setDailyTransactionsModalOpen] = React.useState(false);
 
-  const { totalIncome, totalExpense, balance } = React.useMemo(() => {
+  const { totalIncome, totalExpense, balance, expenseByCategory } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const bal = income - expense;
-    return { totalIncome: income, totalExpense: expense, balance: bal };
+    const expByCategory = transactions
+        .filter((t: finanzas) => t.tipo_transaccion === 'gasto')
+        .reduce((acc: {[key: string]: number}, t: finanzas) => {
+            const category = t.categoria || 'Sin Categoría';
+            acc[category] = (acc[category] || 0) + t.monto;
+            return acc;
+        }, {});
+    return { totalIncome: income, totalExpense: expense, balance: bal, expenseByCategory: expByCategory };
   }, [transactions]);
+
+  const categoryChartData = React.useMemo(() => {
+    if (!expenseByCategory) return [];
+    return Object.entries(expenseByCategory)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a,b) => b.value - a.value);
+  }, [expenseByCategory]);
+
 
   const periodSummaryData = React.useMemo(() => {
     const dataPoints: { [key: string]: { Gastos: number; Ingresos: number } } = {};
@@ -753,35 +768,52 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     <div className="space-y-6">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>
-              <h2 className="text-2xl font-bold">Gastos diarios</h2>
-              <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
+                <h2 className="text-2xl font-bold">Resumen Financiero</h2>
+                <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
-            <div className="flex w-full flex-col items-center gap-4 md:w-auto md:flex-row">
-              <PeriodNavigator 
-                dateFilter={dateFilter} 
-                setDateFilter={setDateFilter} 
-                currentDate={currentDate} 
-                setCurrentDate={setCurrentDate}
-                companyFilter={companyFilter}
-                setCompanyFilter={setCompanyFilter}
-                allCompanies={allCompanies}
-               />
-               <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)} className="w-full md:w-auto">
-                  <Eye className="mr-2 h-4 w-4" />
-                  Ver Transacciones
-               </Button>
+            <div className="flex w-full items-center justify-end gap-4 md:w-auto">
+                <PeriodNavigator 
+                    dateFilter={dateFilter} 
+                    setDateFilter={setDateFilter} 
+                    currentDate={currentDate} 
+                    setCurrentDate={setCurrentDate}
+                    companyFilter={companyFilter}
+                    setCompanyFilter={setCompanyFilter}
+                    allCompanies={allCompanies}
+                />
+                <Button onClick={() => setDailyTransactionsModalOpen(true)} className="hidden md:flex">
+                    <Eye className="mr-2 h-4 w-4" />
+                    Ver Transacciones del Día
+                </Button>
+                <Button onClick={onAddTransaction} className="hidden md:flex">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Añadir Transacción
+                </Button>
             </div>
         </div>
         
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <Card>
                 <CardHeader>
-                    <CardTitle>Ahorro Potencial</CardTitle>
-                    <CardDescription>Balance del periodo seleccionado.</CardDescription>
+                    <CardTitle>Balance del Periodo</CardTitle>
+                    <CardDescription>Ahorro Potencial Acumulado</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className={`text-3xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                        {money(balance)}
+                <CardContent className="flex items-center gap-4">
+                     <div className="flex-1">
+                        <div className={`text-3xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                            {money(balance)}
+                        </div>
+                    </div>
+                     <div className="h-24 w-24">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Tooltip formatter={(value: number) => money(value)} />
+                                <Pie data={[{ name: 'Ingresos', value: totalIncome }, { name: 'Gastos', value: totalExpense }]} dataKey="value" nameKey="name" innerRadius="60%" >
+                                    <Cell fill="hsl(var(--chart-1))" />
+                                    <Cell fill="hsl(var(--chart-2))" />
+                                </Pie>
+                            </PieChart>
+                        </ResponsiveContainer>
                     </div>
                 </CardContent>
             </Card>
@@ -817,25 +849,44 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             dateFilter={dateFilter} 
         />
         
-        <Card>
-            <CardHeader>
-                <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
-                <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                    <RechartsBarChart data={periodSummaryData}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                        <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
-                        <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
-                        <Legend />
-                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
-                    </RechartsBarChart>
-                </ResponsiveContainer>
-            </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+            <Card className="lg:col-span-3">
+                <CardHeader>
+                    <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
+                    <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <RechartsBarChart data={periodSummaryData}>
+                            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
+                            <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
+                            <Legend />
+                            <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
+                            <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
+                        </RechartsBarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+            <Card className="lg:col-span-2">
+                <CardHeader>
+                    <CardTitle>Gastos por Categoría</CardTitle>
+                    <CardDescription>Top 5 categorías de gastos del periodo.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <RechartsBarChart data={categoryChartData.slice(0, 5)} layout="vertical">
+                            <XAxis type="number" hide />
+                            <YAxis type="category" dataKey="name" width={80} stroke="#888888" fontSize={12} interval={0} />
+                            <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }} />
+                            <RechartsBar dataKey="value" name="Gastos" fill="hsl(var(--chart-3))" radius={[0, 4, 4, 0]} />
+                        </RechartsBarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+        </div>
+
 
         <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
             <DialogContent className="max-w-2xl">
@@ -1814,6 +1865,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
+
 
 
 
