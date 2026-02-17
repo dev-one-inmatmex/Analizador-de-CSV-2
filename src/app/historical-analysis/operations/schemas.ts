@@ -2,8 +2,12 @@ import { z } from 'zod';
 
 export const transactionTypes = ['gasto', 'ingreso'] as const;
 export const paymentMethods = ['Efectivo', 'Tarjeta', 'Cash', 'Otro'] as const;
+export const companies = ['DK', 'MTM', 'TAL', 'Otro'] as const;
 
 export const expenseFormSchema = z.object({
+  empresa: z.enum(companies, {
+    required_error: "Debe seleccionar una empresa.",
+  }),
   tipo_transaccion: z.enum(transactionTypes, {
     required_error: "Debe seleccionar un tipo de transacción.",
   }),

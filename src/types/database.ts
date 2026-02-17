@@ -111,6 +111,7 @@ export interface finanzas{
   subcategoria: string | null;
   monto: number;
   capturista: string | null;
+  empresa: 'DK' | 'MTM' | 'TAL' | 'Otro' | null;
   tipo_transaccion: 'gasto' | 'ingreso';
   metodo_pago: 'Efectivo' | 'Tarjeta' | 'Cash' | 'Otro';
   notas: string | null;
