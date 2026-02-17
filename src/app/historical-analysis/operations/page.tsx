@@ -137,26 +137,26 @@ function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finan
   return (
     <Card className="p-3">
         <div className="flex items-center gap-4">
-        <div className="flex flex-col items-center w-12 flex-shrink-0">
-            <div className={`rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-            {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
+            <div className="flex flex-col items-center w-12 flex-shrink-0">
+                <div className={`rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
+                </div>
+                <span className={`text-[10px] mt-1 font-bold tracking-wider ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
+                {isExpense ? 'GASTO' : 'INGRESO'}
+                </span>
             </div>
-            <span className={`text-[10px] mt-1 font-bold tracking-wider ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
-            {isExpense ? 'GASTO' : 'INGRESO'}
-            </span>
-        </div>
-        <div className="flex-1 space-y-0.5">
-            <p className="font-bold leading-tight">{transaction.categoria}</p>
-            <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
-        </div>
-        <div className="flex items-center gap-2">
-            <div className="text-right">
-                <p className={`font-bold text-base ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
-                {isExpense ? '-' : '+'} {money(transaction.monto)}
-                </p>
+            <div className="flex-1 space-y-0.5 min-w-0">
+                <p className="font-bold leading-tight truncate">{transaction.categoria}</p>
+                <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
             </div>
-            <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
-        </div>
+            <div className="flex items-center gap-2">
+                <div className="text-right">
+                    <p className={`font-bold text-base whitespace-nowrap ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
+                    {isExpense ? '-' : '+'} {money(transaction.monto)}
+                    </p>
+                </div>
+                <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
+            </div>
         </div>
     </Card>
   );
@@ -819,25 +819,27 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
             />
         </div>
         
-        <Card className="hidden md:block">
-            <CardHeader>
-                <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
-                <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                    <RechartsBarChart data={periodSummaryData}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                        <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
-                        <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
-                        <Legend />
-                        <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
-                        <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
-                    </RechartsBarChart>
-                </ResponsiveContainer>
-            </CardContent>
-        </Card>
+        <div className="hidden md:block">
+          <Card>
+              <CardHeader>
+                  <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
+                  <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado. Haz clic en una barra para ver el detalle.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <ResponsiveContainer width="100%" height={200}>
+                      <RechartsBarChart data={periodSummaryData}>
+                          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                          <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
+                          <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
+                          <Legend />
+                          <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
+                          <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
+                      </RechartsBarChart>
+                  </ResponsiveContainer>
+              </CardContent>
+          </Card>
+        </div>
 
         <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
             <DialogContent className="max-w-2xl">
@@ -1816,6 +1818,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
+
 
 
 
