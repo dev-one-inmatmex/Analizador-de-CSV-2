@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -639,7 +640,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     if (!expenseByCategory) return [];
     return Object.entries(expenseByCategory)
         .map(([name, value]) => ({ name, value }))
-        .sort((a,b) => b.value - a.value);
+        .sort((a: { value: number }, b: { value: number }) => b.value - a.value);
   }, [expenseByCategory]);
 
 
