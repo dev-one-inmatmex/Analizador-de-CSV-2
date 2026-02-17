@@ -228,6 +228,7 @@ export default function OperationsPage() {
   
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [transactionTypeFilter, setTransactionTypeFilter] = React.useState<TransactionTypeFilter>('all');
+  const [companyFilter, setCompanyFilter] = React.useState('Todos');
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -290,14 +291,24 @@ export default function OperationsPage() {
     fetchTransactions();
   }, [currentDate, dateFilter, toast]);
 
+  const allCompanies = React.useMemo(() => ['Todos', ...Array.from(new Set(transactions.map(t => t.empresa).filter(Boolean) as string[]))], [transactions]);
+
+  const filteredTransactions = React.useMemo(() => {
+      return transactions.filter(t => {
+        const companyMatch = companyFilter === 'Todos' || t.empresa === companyFilter;
+        const typeMatch = transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter;
+        return companyMatch && typeMatch;
+      });
+  }, [transactions, companyFilter, transactionTypeFilter]);
+
     const hydratedBudgets = React.useMemo(() => {
         return budgets.map((budget: Budget) => {
-            const spent = transactions
+            const spent = filteredTransactions
                 .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
                 .reduce((sum, t: finanzas) => sum + t.monto, 0);
             return { ...budget, spent };
         });
-    }, [budgets, transactions]);
+    }, [budgets, filteredTransactions]);
 
 
   const handleOpenForm = (transaction: finanzas | null = null) => {
@@ -310,7 +321,6 @@ export default function OperationsPage() {
         let result;
         const mappedValues = {
             ...values,
-            empresa: 'Mi Empresa',
         };
 
         if (editingTransaction) {
@@ -368,7 +378,7 @@ export default function OperationsPage() {
     switch (currentView) {
       case 'inicio':
         return <InsightsView 
-                    transactions={transactions}
+                    transactions={filteredTransactions}
                     budgets={hydratedBudgets}
                     isLoading={isLoading}
                     dateFilter={dateFilter}
@@ -379,10 +389,13 @@ export default function OperationsPage() {
                     onEditTransaction={handleOpenForm}
                     onDeleteTransaction={handleDeleteTransaction}
                     isMobile={isMobile}
+                    companyFilter={companyFilter}
+                    setCompanyFilter={setCompanyFilter}
+                    allCompanies={allCompanies}
                 />;
       case 'informes':
         return <ReportsView 
-                  transactions={transactions} 
+                  transactions={filteredTransactions} 
                   dateFilter={dateFilter}
                   setDateFilter={setDateFilter}
                   currentDate={currentDate}
@@ -392,9 +405,12 @@ export default function OperationsPage() {
                   onEditTransaction={handleOpenForm}
                   onDeleteTransaction={handleDeleteTransaction}
                   isMobile={isMobile}
+                  companyFilter={companyFilter}
+                  setCompanyFilter={setCompanyFilter}
+                  allCompanies={allCompanies}
                 />;
       case 'presupuestos':
-        return <BudgetsView categories={categories.map(c => c.name)} transactions={transactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
+        return <BudgetsView categories={categories.map(c => c.name)} transactions={filteredTransactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
       case 'configuracion':
         return <ConfiguracionView 
                   categories={categories} 
@@ -605,7 +621,7 @@ function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDa
 }
 
 
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile }: any) {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile, companyFilter, setCompanyFilter, allCompanies }: any) {
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
   const [dailyTransactionsModalOpen, setDailyTransactionsModalOpen] = React.useState(false);
@@ -702,8 +718,8 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         if (t.tipo_transaccion !== typeToShow) return false;
         try {
             const date = parseISO(t.fecha);
-            const formattedDate = format(date, formatString, { locale: es }).replace(/\.$/, '');
-            return formattedDate === label;
+            const formattedDate = format(date, formatString, { locale: es }).replace(/\.$/, '').toLowerCase();
+            return formattedDate === label.toLowerCase();
         } catch {
             return false;
         }
@@ -714,7 +730,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
          if (dateFilter === 'month') title = `${clickedBarKey} del día ${label} de ${format(currentDate, 'MMMM', {locale: es})}`;
          else if (dateFilter === 'year') title = `${clickedBarKey} de ${label} ${format(currentDate, 'yyyy')}`;
          else if (dateFilter === 'week') {
-            const dayIndex = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'].indexOf(label);
+            const dayIndex = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'].indexOf(label.toLowerCase());
             const start = startOfWeek(currentDate, { locale: es });
             if (dayIndex !== -1) {
                 const clickedDate = add(start, { days: dayIndex });
@@ -743,7 +759,15 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
               <h2 className="text-2xl font-bold">Resumen Financiero</h2>
               <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
             </div>
-            <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row">
+            <div className="flex w-full flex-col-reverse items-center gap-4 md:w-auto md:flex-row md:flex-wrap md:justify-end">
+                <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                        <SelectValue placeholder="Filtrar empresa..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {allCompanies.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                </Select>
                <Button variant="outline" onClick={() => setDailyTransactionsModalOpen(true)}>
                     <Eye className="mr-2 h-4 w-4" /> Ver Transacciones del Día
                 </Button>
@@ -999,42 +1023,38 @@ function ExpenseSummaryChart({ transactions, currentDate }: { transactions: fina
     );
 }
 
-function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean }) {
+function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile, companyFilter, setCompanyFilter, allCompanies }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] }) {
     const { toast } = useToast();
     const [transactionPage, setTransactionPage] = React.useState(1);
     const TRANSACTION_PAGE_SIZE = 10;
     
-    const filteredTransactions = React.useMemo(() => {
-        return transactions.filter((t: finanzas) => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
-    }, [transactions, transactionTypeFilter]);
-
     const reportData = React.useMemo(() => {
-        const totalIncome = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum, t: finanzas) => sum + t.monto, 0);
-        const totalExpense = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum, t: finanzas) => sum + t.monto, 0);
+        const totalIncome = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum, t: finanzas) => sum + t.monto, 0);
+        const totalExpense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum, t: finanzas) => sum + t.monto, 0);
         const netBalance = totalIncome - totalExpense;
 
-        const expensesByCategory = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
+        const expensesByCategory = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
             const category = t.categoria || 'Sin Categoría';
             const existing = acc.find(item => item.name === category);
             if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const expensesByPaymentMethod = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
+        const expensesByPaymentMethod = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
             const method = t.metodo_pago || 'Otro';
             const existing = acc.find(item => item.name === method);
             if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const incomesByCategory = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
+        const incomesByCategory = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
             const category = t.categoria || 'Sin Categoría';
             const existing = acc.find(item => item.name === category);
             if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
             return acc;
         }, [] as { name: string, value: number }[]);
         
-        const incomesByPaymentMethod = filteredTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
+        const incomesByPaymentMethod = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
             const method = t.metodo_pago || 'Otro';
             const existing = acc.find(item => item.name === method);
             if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
@@ -1061,14 +1081,14 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         }
 
         return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData, incomesByCategory, incomesByPaymentMethod };
-    }, [filteredTransactions, transactions, currentDate, dateFilter]);
+    }, [transactions, currentDate, dateFilter]);
     
     const PIE_COLORS = [
       "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
       "hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(180, 50%, 50%)", "hsl(300, 50%, 50%)"
     ];
 
-    const hasData = filteredTransactions.length > 0;
+    const hasData = transactions.length > 0;
 
     const handleDownloadCsv = () => {
         if (!hasData) {
@@ -1076,7 +1096,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
             return;
         }
 
-        const worksheet = XLSX.utils.json_to_sheet(filteredTransactions.map((t: finanzas) => ({...t})));
+        const worksheet = XLSX.utils.json_to_sheet(transactions.map((t: finanzas) => ({...t})));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Transacciones");
         XLSX.writeFile(workbook, `reporte_gastos_${new Date().toISOString().split('T')[0]}.csv`);
@@ -1084,8 +1104,8 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         toast({ title: 'Descarga Iniciada', description: 'Tu reporte CSV se está descargando.' });
     };
 
-    const totalTransactionPages = Math.ceil(filteredTransactions.length / TRANSACTION_PAGE_SIZE);
-    const paginatedTransactions = filteredTransactions.slice(
+    const totalTransactionPages = Math.ceil(transactions.length / TRANSACTION_PAGE_SIZE);
+    const paginatedTransactions = transactions.slice(
         (transactionPage - 1) * TRANSACTION_PAGE_SIZE,
         transactionPage * TRANSACTION_PAGE_SIZE
     );
@@ -1097,17 +1117,34 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
               <Button onClick={handleDownloadCsv} variant="outline"><Download className="mr-2 h-4 w-4" /> Descargar CSV</Button>
             </div>
             
-            <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+            <Card>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                    <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+                    <div className="flex items-end">
+                        <div className="w-full">
+                            <Label>Empresa</Label>
+                            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Filtrar empresa" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {allCompanies.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-center md:col-span-2 lg:col-span-1 lg:justify-end">
+                        <Tabs value={transactionTypeFilter} onValueChange={(v) => setTransactionTypeFilter(v as TransactionTypeFilter)}>
+                            <TabsList>
+                            <TabsTrigger value="all">Ver Todo</TabsTrigger>
+                            <TabsTrigger value="ingreso">Solo Ingresos</TabsTrigger>
+                            <TabsTrigger value="gasto">Solo Gastos</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+                </CardContent>
+            </Card>
 
-            <div className="flex justify-center">
-              <Tabs value={transactionTypeFilter} onValueChange={(v) => setTransactionTypeFilter(v as TransactionTypeFilter)}>
-                <TabsList>
-                  <TabsTrigger value="all">Ver Todo</TabsTrigger>
-                  <TabsTrigger value="ingreso">Solo Ingresos</TabsTrigger>
-                  <TabsTrigger value="gasto">Solo Gastos</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
 
             {!hasData ? (
                 <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center mt-8">
@@ -1710,6 +1747,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
     defaultValues: {
       tipo_transaccion: 'gasto',
       monto: undefined,
+      empresa: '',
       categoria: '',
       subcategoria: null,
       fecha: new Date(),
@@ -1733,6 +1771,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
           form.reset({
             tipo_transaccion: transaction.tipo_transaccion || 'gasto',
             monto: transaction.monto || 0,
+            empresa: transaction.empresa || '',
             categoria: transaction.categoria || '',
             subcategoria: transaction.subcategoria || null,
             fecha: transaction.fecha ? new Date(transaction.fecha) : new Date(),
@@ -1743,6 +1782,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
           form.reset({
             tipo_transaccion: 'gasto',
             monto: undefined,
+            empresa: '',
             categoria: '',
             subcategoria: null,
             fecha: new Date(),
@@ -1815,6 +1855,9 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
             <FormField control={form.control} name="monto" render={({ field }) => (
                 <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="$0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )}/>
+            <FormField control={form.control} name="empresa" render={({ field }) => (
+                <FormItem><FormLabel>Empresa</FormLabel><FormControl><Input placeholder="Ej: DO MESKA, TAL, MTM" {...field} /></FormControl><FormMessage /></FormItem>
+            )}/>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="categoria" render={({ field }) => (
                     <FormItem><FormLabel>Categoría</FormLabel>
@@ -1884,6 +1927,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
