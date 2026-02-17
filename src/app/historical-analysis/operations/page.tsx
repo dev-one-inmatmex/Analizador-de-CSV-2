@@ -200,6 +200,7 @@ export default function OperationsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingTransaction, setEditingTransaction] = React.useState<finanzas | null>(null);
+  const [isDailyTxModalOpen, setIsDailyTxModalOpen] = React.useState(false);
   
   const [categories, setCategories] = React.useState<Category[]>([
     { name: 'Comida', subcategories: ['Restaurantes', 'Supermercado'] },
@@ -294,6 +295,16 @@ export default function OperationsPage() {
             return companyMatch;
         });
     }, [transactions, companyFilter]);
+    
+    const dailyTransactions = React.useMemo(() => {
+        return transactions.filter((t: finanzas) => {
+            try {
+                return isSameDay(parseISO(t.fecha), currentDate);
+            } catch {
+                return false;
+            }
+        }).sort((a: finanzas,b: finanzas) => b.monto - a.monto);
+      }, [transactions, currentDate]);
 
 
     const hydratedBudgets = React.useMemo(() => {
@@ -376,13 +387,6 @@ export default function OperationsPage() {
                     setDateFilter={setDateFilter}
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
-                    onAddTransaction={() => handleOpenForm(null)}
-                    onEditTransaction={handleOpenForm}
-                    onDeleteTransaction={handleDeleteTransaction}
-                    isMobile={isMobile}
-                    companyFilter={companyFilter}
-                    setCompanyFilter={setCompanyFilter}
-                    allCompanies={allCompanies}
                 />;
       case 'informes':
         return <ReportsView 
@@ -443,6 +447,9 @@ export default function OperationsPage() {
                         </TabsList>
                     </Tabs>
                 )}
+                 <Button onClick={() => setIsDailyTxModalOpen(true)} variant="outline" size="sm">
+                    Ver Transacciones
+                </Button>
                  <Button onClick={() => handleOpenForm(null)} size="sm">
                     <Plus className="mr-2 h-4 w-4"/> Añadir Transacción
                 </Button>
@@ -465,6 +472,32 @@ export default function OperationsPage() {
               {FormComponent}
             </SheetContent>
         </Sheet>
+        <Dialog open={isDailyTxModalOpen} onOpenChange={setIsDailyTxModalOpen}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Transacciones del Día</DialogTitle>
+                    <DialogDescription>
+                    {format(currentDate, "eeee, dd 'de' MMMM", { locale: es })}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto pr-4">
+                    {dailyTransactions.length > 0 ? (
+                        <div className="space-y-1">
+                            {dailyTransactions.map(t => (
+                                <TransactionCard key={t.id} transaction={t} onEdit={handleOpenForm} onDelete={handleDeleteTransaction} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex h-full min-h-48 items-center justify-center rounded-lg border-2 border-dashed p-4 text-center">
+                            <p className="text-sm text-muted-foreground">No hay transacciones para este día.</p>
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <Button onClick={() => setIsDailyTxModalOpen(false)}>Cerrar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
@@ -621,37 +654,18 @@ function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDa
 }
 
 
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile, companyFilter, setCompanyFilter, allCompanies }: any) {
-  const { totalIncome, totalExpense, balance, expenseByCategory } = React.useMemo(() => {
+function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate }: any) {
+  const { totalIncome, totalExpense, balance } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const bal = income - expense;
-    
-    const expByCategory = transactions
-        .filter((t: finanzas) => t.tipo_transaccion === 'gasto')
-        .reduce((acc: {[key: string]: number}, t: finanzas) => {
-            const category = t.categoria || 'Sin Categoría';
-            acc[category] = (acc[category] || 0) + t.monto;
-            return acc;
-        }, {} as {[key: string]: number});
-    return { totalIncome: income, totalExpense: expense, balance: bal, expenseByCategory: expByCategory };
+    return { totalIncome: income, totalExpense: expense, balance: bal };
   }, [transactions]);
   
-  const dailyTransactions = React.useMemo(() => {
-    return transactions.filter((t: finanzas) => {
-        try {
-            return isSameDay(parseISO(t.fecha), currentDate);
-        } catch {
-            return false;
-        }
-    }).sort((a: finanzas,b: finanzas) => b.monto - a.monto);
-  }, [transactions, currentDate]);
 
   if(isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
   }
-
-  const categoryChartData = Object.entries(expenseByCategory).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
 
   return (
     <div className="space-y-6">
@@ -662,17 +676,26 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         setDateFilter={setDateFilter} 
         currentDate={currentDate} 
         setCurrentDate={setCurrentDate}
-        companyFilter={companyFilter}
-        setCompanyFilter={setCompanyFilter}
-        allCompanies={allCompanies}
       />
       <DailyNavigator currentDate={currentDate} setCurrentDate={setCurrentDate} dateFilter={dateFilter} />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><ArrowUp className="h-4 w-4 text-green-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{money(totalIncome)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Gastos Totales</CardTitle><ArrowDown className="h-4 w-4 text-red-500" /></CardHeader><CardContent><div className="text-2xl font-bold text-red-600">{money(totalExpense)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Balance Neto</CardTitle><Landmark className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</div></CardContent></Card>
-        <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Presupuesto</CardTitle><Receipt className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ahorro Potencial (Balance)</CardTitle>
+                <Landmark className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</div>
+                <p className="text-xs text-muted-foreground">Ingresos ({money(totalIncome)}) - Gastos ({money(totalExpense)})</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Estado del Presupuesto</CardTitle>
+                <Receipt className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
             {budgets[0] ? (
               <>
                 <div className="text-2xl font-bold">{money((budgets[0].amount || 0) - (budgets[0].spent || 0))}</div>
@@ -680,46 +703,6 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 <Progress value={(budgets[0].spent / budgets[0].amount) * 100} className="mt-2" />
               </>
             ) : <p className="text-sm text-muted-foreground pt-2">No hay presupuesto.</p>}
-        </CardContent></Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-            <CardHeader>
-                <CardTitle>Transacciones del Día</CardTitle>
-                <CardDescription>
-                  {format(currentDate, "eeee, dd 'de' MMMM", { locale: es })}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                 {dailyTransactions.length > 0 ? (
-                    <div className="space-y-1">
-                        {dailyTransactions.map(t => (
-                           <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex h-full min-h-48 items-center justify-center rounded-lg border-2 border-dashed p-4 text-center">
-                      <p className="text-sm text-muted-foreground">No hay transacciones para este día.</p>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader>
-                <CardTitle>Gastos por Categoría</CardTitle>
-                <CardDescription>Principales categorías de gastos del periodo.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                    <RechartsBarChart data={categoryChartData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" hide />
-                        <YAxis type="category" dataKey="name" width={100} tickLine={false} axisLine={false} />
-                        <Tooltip formatter={(value) => money(value as number)} cursor={{fill: 'hsl(var(--muted))'}} />
-                        <RechartsBar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
-                    </RechartsBarChart>
-                </ResponsiveContainer>
             </CardContent>
         </Card>
       </div>

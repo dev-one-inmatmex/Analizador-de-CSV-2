@@ -149,56 +149,38 @@ export default function SalesDashboardClient({
         const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
             .map(([name, value]) => ({ name, value }));
             
-        const salesByMonth: Record<string, { total: number, date: Date }> = {};
+        const salesByMonth: Record<string, number> = {};
         filteredSales.forEach(sale => {
             if (sale.fecha_venta) {
                 try {
                     const saleDate = new Date(sale.fecha_venta);
                     if(!isValid(saleDate)) return;
-                    const monthKey = format(saleDate, 'yyyy-MM');
-                    
-                    if (!salesByMonth[monthKey]) {
-                    salesByMonth[monthKey] = { total: 0, date: startOfMonth(saleDate) };
-                    }
-                    salesByMonth[monthKey].total += sale.total || 0;
+                    const monthKey = format(startOfMonth(saleDate), 'MMM yy', { locale: es });
+                    salesByMonth[monthKey] = (salesByMonth[monthKey] || 0) + (sale.total || 0);
                 } catch (e) {
                     // ignore invalid dates
                 }
             }
         });
         
-        const salesTrendChart: ChartData[] = Object.values(salesByMonth)
-            .sort((a,b) => a.date.getTime() - b.date.getTime())
-            .map(month => ({
-            name: (format(month.date, 'MMM yy', { locale: es })).replace(/^\w/, c => c.toUpperCase()),
-            value: month.total
-            }));
+        const salesTrendChart: ChartData[] = Object.entries(salesByMonth).map(([name, value]) => ({ name, value }));
 
-        const salesByDay: Record<string, { total: number, date: Date }> = {};
+        const salesByDay: Record<string, number> = {};
         const ninetyDaysAgo = subMonths(new Date(), 3);
         filteredSales.forEach(sale => {
             if (sale.fecha_venta) {
                 try {
                     const saleDate = new Date(sale.fecha_venta);
                     if (isValid(saleDate) && saleDate >= ninetyDaysAgo) {
-                        const dayKey = format(saleDate, 'yyyy-MM-dd');
-                        
-                        if (!salesByDay[dayKey]) {
-                            salesByDay[dayKey] = { total: 0, date: startOfDay(saleDate) };
-                        }
-                        salesByDay[dayKey].total += sale.total || 0;
+                        const dayKey = format(saleDate, 'dd MMM', { locale: es });
+                        salesByDay[dayKey] = (salesByDay[dayKey] || 0) + (sale.total || 0);
                     }
                 } catch (e) {
                     // ignore invalid dates
                 }
             }
         });
-        const salesByDayChart: ChartData[] = Object.values(salesByDay)
-            .sort((a,b) => a.date.getTime() - b.date.getTime())
-            .map(day => ({
-            name: format(day.date, 'dd MMM', { locale: es }),
-            value: day.total
-            }));
+        const salesByDayChart: ChartData[] = Object.entries(salesByDay).map(([name, value]) => ({ name, value }));
 
         const todayStart = startOfDay(new Date());
         const todayEnd = endOfDay(new Date());
