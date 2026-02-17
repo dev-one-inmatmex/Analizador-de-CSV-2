@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { finanzas } from '@/types/database';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
-import { expenseFormSchema, TransactionFormValues, companies } from './schemas';
+import { expenseFormSchema, TransactionFormValues, companies, paymentMethods } from './schemas';
 
 import {
   AlertTriangle,
@@ -1814,4 +1814,5 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
+
 
