@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -38,7 +37,6 @@ import {
   Download,
   TrendingUp,
   X,
-  Eye,
 } from 'lucide-react';
 import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, AreaChart, Area } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -135,29 +133,20 @@ function TransactionActions({ transaction, onEdit, onDelete }: { transaction: fi
 function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finanzas, onEdit: (t: finanzas) => void, onDelete: (id: number) => void }) {
   const isExpense = transaction.tipo_transaccion === 'gasto';
   return (
-    <Card className="p-3">
-        <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center w-12 flex-shrink-0">
-                <div className={`rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
-                </div>
-                <span className={`text-[10px] mt-1 font-bold tracking-wider ${isExpense ? 'text-red-600' : 'text-green-600'}`}>
-                {isExpense ? 'GASTO' : 'INGRESO'}
-                </span>
-            </div>
-            <div className="flex-1 space-y-0.5 min-w-0">
-                <p className="font-bold leading-tight truncate">{transaction.categoria}</p>
-                <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="text-right">
-                    <p className={`font-bold text-base whitespace-nowrap ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
-                    {isExpense ? '-' : '+'} {money(transaction.monto)}
-                    </p>
-                </div>
-                <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
-            </div>
+    <Card className="flex items-center p-3">
+        <div className={`mr-4 rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+            {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
         </div>
+        <div className="flex-1 space-y-0.5">
+            <p className="font-bold leading-tight">{transaction.categoria}</p>
+            <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
+        </div>
+        <div className="text-right">
+            <p className={`font-bold ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
+                {isExpense ? '-' : '+'} {money(transaction.monto)}
+            </p>
+        </div>
+        <TransactionActions transaction={transaction} onEdit={onEdit} onDelete={onDelete} />
     </Card>
   );
 }
@@ -450,6 +439,9 @@ export default function OperationsPage() {
                         </TabsList>
                     </Tabs>
                 )}
+                 <Button onClick={() => handleOpenForm(null)} size="sm">
+                    <Plus className="mr-2 h-4 w-4"/> Añadir Transacción
+                </Button>
             </div>
         </header>
 
@@ -457,7 +449,7 @@ export default function OperationsPage() {
             <div className="mx-auto w-full max-w-7xl">{renderContent()}</div>
         </main>
         
-        {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} onAdd={() => handleOpenForm(null)} />}
+        {isMobile && <BottomNav currentView={currentView} setView={handleCurrentViewChange} />}
         
         <Dialog open={!isMobile && isFormOpen} onOpenChange={setIsFormOpen}>
             <DialogContent className="flex h-[90vh] flex-col p-0 sm:max-w-lg">
@@ -590,7 +582,7 @@ function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDa
         }
     };
 
-    if (days.length === 0 || (dateFilter !== 'month' && dateFilter !== 'week')) return null;
+    if (days.length === 0 || dateFilter === 'day' || dateFilter === 'year') return null;
 
     return (
         <Card>
@@ -628,7 +620,6 @@ function DailyNavigator({ currentDate, setCurrentDate, dateFilter }: { currentDa
 function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, onAddTransaction, onEditTransaction, onDeleteTransaction, isMobile, companyFilter, setCompanyFilter, allCompanies }: any) {
   const [detailModalOpen, setDetailModalOpen] = React.useState(false);
   const [detailModalContent, setDetailModalContent] = React.useState<{ title: string; transactions: finanzas[] } | null>(null);
-  const [dailyTransactionsModalOpen, setDailyTransactionsModalOpen] = React.useState(false);
 
   const { totalIncome, totalExpense, balance, expenseByCategory } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
@@ -708,12 +699,8 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   }, [transactions, currentDate]);
 
   const handleBarClick = (barData: any, barKey: 'Ingresos' | 'Gastos') => {
-    if (!barData || !barData.name || !barKey) return;
+    if (!barData || !barData.name) return;
     
-    if (barData[barKey] <= 0) {
-        return;
-    }
-
     const label = barData.name;
     const clickedBarKey = barKey;
     const typeToShow = clickedBarKey === 'Gastos' ? 'gasto' : 'ingreso';
@@ -738,27 +725,13 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     });
 
     if (relevantTransactions.length > 0) {
-         let title = `${clickedBarKey} del ${label}`;
-         if (dateFilter === 'month') title = `${clickedBarKey} del día ${label} de ${format(currentDate, 'MMMM', {locale: es})}`;
-         else if (dateFilter === 'year') title = `${clickedBarKey} de ${label} ${format(currentDate, 'yyyy')}`;
-         else if (dateFilter === 'week') {
-            const dayIndex = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'].indexOf(label.replace(/\.$/, ''));
-            const start = startOfWeek(currentDate, { locale: es });
-            if (dayIndex !== -1) {
-                const clickedDate = add(start, { days: dayIndex });
-                title = `${clickedBarKey} del ${format(clickedDate, "EEEE, dd 'de' MMMM", { locale: es })}`;
-            }
-         }
-         
          setDetailModalContent({
-             title: title,
+             title: `${clickedBarKey} del ${label}`,
              transactions: relevantTransactions
          });
          setDetailModalOpen(true);
     }
   };
-
-  const firstBudget = budgets[0];
 
   if(isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -766,121 +739,86 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
 
   return (
     <div className="space-y-6">
-        <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <div>
-                <h2 className="text-2xl font-bold">Resumen Financiero</h2>
-                <p className="text-muted-foreground">Tu resumen financiero del periodo.</p>
-            </div>
-            <div className="flex w-full items-center justify-end gap-4 md:w-auto">
-                <PeriodNavigator 
-                    dateFilter={dateFilter} 
-                    setDateFilter={setDateFilter} 
-                    currentDate={currentDate} 
-                    setCurrentDate={setCurrentDate}
-                    companyFilter={companyFilter}
-                    setCompanyFilter={setCompanyFilter}
-                    allCompanies={allCompanies}
-                />
-                <Button onClick={() => setDailyTransactionsModalOpen(true)} className="hidden md:flex">
-                    <Eye className="mr-2 h-4 w-4" />
-                    Ver Transacciones del Día
-                </Button>
-                <Button onClick={onAddTransaction} className="hidden md:flex">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Añadir Transacción
-                </Button>
-            </div>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <div>
+        <h2 className="text-2xl font-bold">Resumen Financiero</h2>
+        <p className="text-muted-foreground">Tu resumen financiero del día, semana o mes.</p>
+      </div>
+
+      <PeriodNavigator 
+        dateFilter={dateFilter} 
+        setDateFilter={setDateFilter} 
+        currentDate={currentDate} 
+        setCurrentDate={setCurrentDate}
+        companyFilter={companyFilter}
+        setCompanyFilter={setCompanyFilter}
+        allCompanies={allCompanies}
+      />
+      <DailyNavigator 
+        currentDate={currentDate} 
+        setCurrentDate={setCurrentDate} 
+        dateFilter={dateFilter} 
+      />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+              <CardHeader><CardTitle>Ingresos</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold text-green-600">{money(totalIncome)}</p></CardContent>
+          </Card>
+           <Card>
+              <CardHeader><CardTitle>Gastos</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold text-red-600">{money(totalExpense)}</p></CardContent>
+          </Card>
+           <Card>
+              <CardHeader><CardTitle>Balance</CardTitle></CardHeader>
+              <CardContent><p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{money(balance)}</p></CardContent>
+          </Card>
+           <Card>
+              <CardHeader><CardTitle>Presupuesto</CardTitle></CardHeader>
+              <CardContent>
+                {budgets.length > 0 ? (
+                  <>
+                  <Progress value={(budgets[0].spent / budgets[0].amount) * 100} />
+                  <p className="text-sm mt-2">{money(budgets[0].spent)} de {money(budgets[0].amount)}</p>
+                  </>
+                ) : <p className="text-sm text-muted-foreground">No hay presupuesto.</p>}
+              </CardContent>
+          </Card>
+      </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Card>
                 <CardHeader>
-                    <CardTitle>Balance del Periodo</CardTitle>
-                    <CardDescription>Ahorro Potencial Acumulado</CardDescription>
+                    <CardTitle>Transacciones del Día</CardTitle>
                 </CardHeader>
-                <CardContent className="flex items-center gap-4">
-                     <div className="flex-1">
-                        <div className={`text-3xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                            {money(balance)}
+                <CardContent className="max-h-96 overflow-y-auto">
+                    {dailyTransactions.length > 0 ? (
+                        <div className="space-y-4">
+                            {dailyTransactions.map((t: finanzas) => (
+                                <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
+                            ))}
                         </div>
-                    </div>
-                     <div className="h-24 w-24">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Tooltip formatter={(value: number) => money(value)} />
-                                <Pie data={[{ name: 'Ingresos', value: totalIncome }, { name: 'Gastos', value: totalExpense }]} dataKey="value" nameKey="name" innerRadius="60%" >
-                                    <Cell fill="hsl(var(--chart-1))" />
-                                    <Cell fill="hsl(var(--chart-2))" />
-                                </Pie>
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Estado del Presupuesto</CardTitle>
-                    {firstBudget ? <CardDescription>Progreso de tu presupuesto de {firstBudget.category}.</CardDescription> : <CardDescription>No hay presupuestos activos.</CardDescription>}
-                </CardHeader>
-                <CardContent>
-                    {firstBudget ? (
-                        <>
-                            <div className="flex justify-between text-sm mb-2">
-                                <span className="font-medium">{money(firstBudget.spent)} gastado</span>
-                                <span className="text-muted-foreground">de {money(firstBudget.amount)}</span>
-                            </div>
-                            <Progress 
-                                value={(firstBudget.spent / firstBudget.amount) * 100} 
-                                className={ (firstBudget.spent / firstBudget.amount) * 100 > 100 ? '[&>div]:bg-destructive' : '' }
-                            />
-                        </>
                     ) : (
-                        <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-4">
-                            Crea un presupuesto para ver tu progreso aquí.
+                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
+                            <CalendarIcon className="h-12 w-12 mb-4" />
+                            <p>No hay transacciones para este día.</p>
                         </div>
                     )}
                 </CardContent>
             </Card>
-        </div>
 
-        <DailyNavigator 
-            currentDate={currentDate} 
-            setCurrentDate={setCurrentDate} 
-            dateFilter={dateFilter} 
-        />
-        
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-            <Card className="lg:col-span-3">
+            <Card>
                 <CardHeader>
-                    <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
-                    <CardDescription>Visualización de los gastos e ingresos a lo largo del periodo seleccionado.</CardDescription>
+                    <CardTitle>Gastos por Categoría ({dateFilter})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <RechartsBarChart data={periodSummaryData}>
-                            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                            <YAxis tickFormatter={(value) => `$${Number(value)/1000}k`} tick={{ fontSize: 12 }} />
-                            <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }}/>
+                     <ResponsiveContainer width="100%" height={300}>
+                        <RechartsBarChart data={categoryChartData}>
+                            <CartesianGrid vertical={false} />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip formatter={(value: number) => money(value)} />
                             <Legend />
-                            <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Ingresos')} />
-                            <RechartsBar dataKey="Gastos" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleBarClick(data, 'Gastos')} />
-                        </RechartsBarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
-            <Card className="lg:col-span-2">
-                <CardHeader>
-                    <CardTitle>Gastos por Categoría</CardTitle>
-                    <CardDescription>Top 5 categorías de gastos del periodo.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <RechartsBarChart data={categoryChartData.slice(0, 5)} layout="vertical">
-                            <XAxis type="number" hide />
-                            <YAxis type="category" dataKey="name" width={80} stroke="#888888" fontSize={12} interval={0} />
-                            <Tooltip formatter={(value: number) => money(value)} cursor={{ fill: 'hsl(var(--muted))' }} />
-                            <RechartsBar dataKey="value" name="Gastos" fill="hsl(var(--chart-3))" radius={[0, 4, 4, 0]} />
+                            <RechartsBar dataKey="value" name="Gastos" fill="hsl(var(--primary))" />
                         </RechartsBarChart>
                     </ResponsiveContainer>
                 </CardContent>
@@ -889,7 +827,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
 
 
         <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-xl">
                 <DialogHeader>
                     <DialogTitle>{detailModalContent?.title}</DialogTitle>
                     <DialogDescription>
@@ -919,35 +857,6 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                 <DialogFooter>
                     <Button onClick={() => setDetailModalOpen(false)}>Cerrar</Button>
                 </DialogFooter>
-            </DialogContent>
-        </Dialog>
-        
-        <Dialog open={dailyTransactionsModalOpen} onOpenChange={setDailyTransactionsModalOpen}>
-            <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>Transacciones del {format(currentDate, "dd 'de' MMMM", { locale: es })}</DialogTitle>
-                </DialogHeader>
-                 <div className="max-h-[60vh] overflow-y-auto">
-                    {dailyTransactions.length > 0 ? (
-                        isMobile ? (
-                            <div className="space-y-4 p-4">
-                                {dailyTransactions.map((t: finanzas) => (
-                                    <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                                ))}
-                            </div>
-                        ) : (
-                           <TransactionTable transactions={dailyTransactions} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
-                        )
-                    ) : (
-                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground p-8 h-full">
-                            <CalendarIcon className="h-12 w-12 mb-4" />
-                            <p>No hay transacciones para este día.</p>
-                        </div>
-                    )}
-                 </div>
-                 <DialogFooter>
-                    <Button onClick={() => setDailyTransactionsModalOpen(false)}>Cerrar</Button>
-                 </DialogFooter>
             </DialogContent>
         </Dialog>
 
@@ -1617,48 +1526,31 @@ function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilte
 }
 
 
-function BottomNav({ currentView, setView, onAdd }: { currentView: View, setView: (v: View) => void, onAdd: () => void }) {
+function BottomNav({ currentView, setView }: { currentView: View, setView: (v: View) => void }) {
   const navItems = [
     { id: 'inicio', label: 'Inicio', icon: Home },
-    { id: 'presupuestos', label: 'Presupuestos', icon: List },
-    { id: 'add', label: 'Añadir', icon: Plus },
     { id: 'informes', label: 'Informes', icon: BarChart },
+    { id: 'presupuestos', label: 'Presupuestos', icon: List },
     { id: 'configuracion', label: 'Ajustes', icon: Cog },
-  ] as const;
+  ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-t-lg md:hidden">
-      <div className="grid h-20 grid-cols-5 items-center">
-        {navItems.map(item => {
-            if(item.id === 'add') {
-                return (
-                    <div key={item.id} className="flex justify-center items-center -mt-8">
-                        <Button
-                            size="icon"
-                            className="h-16 w-16 rounded-full shadow-lg"
-                            onClick={onAdd}
-                        >
-                            <Plus className="h-8 w-8" />
-                        </Button>
-                    </div>
-                );
-            }
-
-            return (
-              <Button
-                key={item.id}
-                variant="ghost"
-                className={cn(
-                  "flex h-full w-full flex-col items-center justify-center rounded-none gap-1 pt-2",
-                  currentView === item.id ? "text-primary bg-primary/10" : "text-muted-foreground"
-                )}
-                onClick={() => setView(item.id as View)}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="text-xs">{item.label}</span>
-              </Button>
-            )
-        })}
+      <div className="grid h-16 grid-cols-4 items-center">
+        {navItems.map(item => (
+          <Button
+            key={item.id}
+            variant="ghost"
+            className={cn(
+              "flex h-full w-full flex-col items-center justify-center rounded-none gap-1 pt-2",
+              currentView === item.id ? "text-primary bg-primary/10" : "text-muted-foreground"
+            )}
+            onClick={() => setView(item.id as View)}
+          >
+            <item.icon className="h-5 w-5" />
+            <span className="text-xs">{item.label}</span>
+          </Button>
+        ))}
       </div>
     </div>
   );
@@ -1865,9 +1757,3 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 
   return Content;
 }
-
-
-
-
-
-
