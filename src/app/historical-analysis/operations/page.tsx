@@ -555,14 +555,14 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     }
 
     interval.forEach(day => {
-      const dayKey = format(day, formatString, { locale: es });
+      const dayKey = format(day, formatString, { locale: es }).replace(/\.$/, '');
       dataPoints[dayKey] = { Gastos: 0, Ingresos: 0 };
     });
 
     transactions.forEach((t: finanzas) => {
       try {
         const date = parseISO(t.fecha);
-        const dayKey = format(date, formatString, { locale: es });
+        const dayKey = format(date, formatString, { locale: es }).replace(/\.$/, '');
         if (dayKey in dataPoints) {
           if (t.tipo_transaccion === 'gasto') {
             dataPoints[dayKey].Gastos += t.monto;
@@ -608,7 +608,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         if (t.tipo_transaccion !== typeToShow) return false;
         try {
             const date = parseISO(t.fecha);
-            return format(date, formatString, { locale: es }) === label;
+            return format(date, formatString, { locale: es }).replace(/\.$/, '') === label;
         } catch {
             return false;
         }
@@ -1764,6 +1764,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
