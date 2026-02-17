@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, parseISO, eachWeekOfInterval } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { finanzas } from '@/types/database';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
-import { expenseFormSchema, TransactionFormValues, companies, paymentMethods } from './schemas';
+import { expenseFormSchema, TransactionFormValues, paymentMethods } from './schemas';
 
 import {
   AlertTriangle,
@@ -42,9 +42,9 @@ import {
   Receipt,
   PiggyBank
 } from 'lucide-react';
-import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, AreaChart, Area } from 'recharts';
+import { Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -141,11 +141,11 @@ function TransactionCard({ transaction, onEdit, onDelete }: { transaction: finan
             <div className={`mr-4 rounded-lg p-2 ${isExpense ? 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400' : 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400'}`}>
                 {isExpense ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
             </div>
-            <div className="flex-1 space-y-0.5 min-w-0">
-                <p className="font-bold leading-tight truncate" title={transaction.categoria}>{transaction.categoria}</p>
+            <div className="flex-1 space-y-0.5">
+                <p className="font-bold leading-tight">{transaction.categoria}</p>
                 <p className="text-sm text-muted-foreground">{format(new Date(transaction.fecha), 'dd MMM yyyy', { locale: es })}</p>
             </div>
-            <div className="text-right ml-2 shrink-0">
+            <div className="text-right ml-2">
                 <p className={`font-bold ${isExpense ? 'text-destructive' : 'text-green-600'}`}>
                     {isExpense ? '-' : '+'} {money(transaction.monto)}
                 </p>
@@ -202,7 +202,6 @@ export default function OperationsPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingTransaction, setEditingTransaction] = React.useState<finanzas | null>(null);
-  const [isDailyTxModalOpen, setIsDailyTxModalOpen] = React.useState(false);
   
   const [categories, setCategories] = React.useState<Category[]>([
     { name: 'Comida', subcategories: ['Restaurantes', 'Supermercado'] },
@@ -224,9 +223,6 @@ export default function OperationsPage() {
   
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [transactionTypeFilter, setTransactionTypeFilter] = React.useState<TransactionTypeFilter>('all');
-  const [companyFilter, setCompanyFilter] = React.useState('Todas');
-  const [allCompanies, setAllCompanies] = React.useState<string[]>(['Todas']);
-
 
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -283,21 +279,12 @@ export default function OperationsPage() {
         toast({ title: 'Error al Cargar Datos', description: error.message, variant: 'destructive' });
       } else {
         setTransactions(data as finanzas[]);
-        const uniqueCompanies = ['Todas', ...Array.from(new Set((data as finanzas[]).map(t => t.empresa).filter(Boolean) as string[]))];
-        setAllCompanies(uniqueCompanies);
       }
       setIsLoading(false);
     };
     fetchTransactions();
   }, [currentDate, dateFilter, toast]);
 
-    const filteredTransactions = React.useMemo(() => {
-        return transactions.filter(t => {
-            const companyMatch = companyFilter === 'Todas' || t.empresa === companyFilter;
-            return companyMatch;
-        });
-    }, [transactions, companyFilter]);
-    
     const dailyTransactions = React.useMemo(() => {
         return transactions.filter((t: finanzas) => {
             try {
@@ -308,15 +295,14 @@ export default function OperationsPage() {
         }).sort((a: finanzas,b: finanzas) => b.monto - a.monto);
       }, [transactions, currentDate]);
 
-
     const hydratedBudgets = React.useMemo(() => {
         return budgets.map((budget: Budget) => {
-            const spent = filteredTransactions
+            const spent = transactions
                 .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
                 .reduce((sum, t: finanzas) => sum + t.monto, 0);
             return { ...budget, spent };
         });
-    }, [budgets, filteredTransactions]);
+    }, [budgets, transactions]);
 
 
   const handleOpenForm = (transaction: finanzas | null = null) => {
@@ -382,21 +368,20 @@ export default function OperationsPage() {
     switch (currentView) {
       case 'inicio':
         return <InsightsView 
-                    transactions={filteredTransactions}
+                    transactions={transactions}
+                    dailyTransactions={dailyTransactions}
                     budgets={hydratedBudgets}
                     isLoading={isLoading}
                     dateFilter={dateFilter}
                     setDateFilter={setDateFilter}
                     currentDate={currentDate}
                     setCurrentDate={setCurrentDate}
-                    companyFilter={companyFilter}
-                    setCompanyFilter={setCompanyFilter}
-                    allCompanies={allCompanies}
                     handleOpenForm={handleOpenForm}
+                    handleDeleteTransaction={handleDeleteTransaction}
                 />;
       case 'informes':
         return <ReportsView 
-                  transactions={filteredTransactions} 
+                  transactions={transactions} 
                   dateFilter={dateFilter}
                   setDateFilter={setDateFilter}
                   currentDate={currentDate}
@@ -406,12 +391,9 @@ export default function OperationsPage() {
                   onEditTransaction={handleOpenForm}
                   onDeleteTransaction={handleDeleteTransaction}
                   isMobile={isMobile}
-                  companyFilter={companyFilter}
-                  setCompanyFilter={setCompanyFilter}
-                  allCompanies={allCompanies}
                 />;
       case 'presupuestos':
-        return <BudgetsView categories={categories.map(c => c.name)} transactions={filteredTransactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
+        return <BudgetsView categories={categories.map(c => c.name)} transactions={transactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
       case 'configuracion':
         return <ConfiguracionView 
                   categories={categories} 
@@ -453,9 +435,6 @@ export default function OperationsPage() {
                         </TabsList>
                     </Tabs>
                 )}
-                 <Button onClick={() => setIsDailyTxModalOpen(true)} variant="outline" size="sm">
-                    Ver Transacciones
-                </Button>
                  <Button onClick={() => handleOpenForm(null)} size="sm">
                     <Plus className="mr-2 h-4 w-4"/> Añadir Transacción
                 </Button>
@@ -478,32 +457,6 @@ export default function OperationsPage() {
               {FormComponent}
             </SheetContent>
         </Sheet>
-        <Dialog open={isDailyTxModalOpen} onOpenChange={setIsDailyTxModalOpen}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Transacciones del Día</DialogTitle>
-                    <DialogDescription>
-                    {format(currentDate, "eeee, dd 'de' MMMM", { locale: es })}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto pr-4">
-                    {dailyTransactions.length > 0 ? (
-                        <div className="space-y-1">
-                            {dailyTransactions.map(t => (
-                                <TransactionCard key={t.id} transaction={t} onEdit={handleOpenForm} onDelete={handleDeleteTransaction} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="flex h-full min-h-48 items-center justify-center rounded-lg border-2 border-dashed p-4 text-center">
-                            <p className="text-sm text-muted-foreground">No hay transacciones para este día.</p>
-                        </div>
-                    )}
-                </div>
-                <DialogFooter>
-                    <Button onClick={() => setIsDailyTxModalOpen(false)}>Cerrar</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
     </div>
   );
 }
@@ -548,30 +501,11 @@ function DailyNavigator({ currentDate, setCurrentDate, dateFilter, transactions 
   );
 }
 
-function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies, handleOpenForm }: any) {
-  const { totalIncome, totalExpense, balance, trendData, expensesByCategory } = React.useMemo(() => {
+function InsightsView({ transactions, dailyTransactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, handleOpenForm, handleDeleteTransaction }: any) {
+  const { totalIncome, totalExpense, balance, expensesByCategory } = React.useMemo(() => {
     const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
     const bal = income - expense;
-
-    let trendData: { name: string, Ingresos: number, Gastos: number }[] = [];
-    if (dateFilter === 'year') {
-        const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
-        trendData = months.map(month => {
-            const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-            const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-            return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
-        });
-    } else if (dateFilter !== 'day') { // For week and month
-         const days = dateFilter === 'week' 
-            ? eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) })
-            : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
-        trendData = days.map(day => {
-            const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-            const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-            return { name: format(day, dateFilter === 'week' ? 'eee d' : 'd'), Ingresos: income, Gastos: expense };
-        });
-    }
 
     const expensesByCategoryData = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc: any, t: finanzas) => {
         const category = t.categoria || 'Sin Categoría';
@@ -580,14 +514,14 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
         return acc;
     }, [] as { name: string, value: number }[]).sort((a: any, b: any) => b.value - a.value);
 
-    return { totalIncome: income, totalExpense: expense, balance: bal, trendData, expensesByCategory: expensesByCategoryData };
-  }, [transactions, currentDate, dateFilter]);
+    return { totalIncome: income, totalExpense: expense, balance: bal, expensesByCategory: expensesByCategoryData };
+  }, [transactions]);
 
   if(isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
   }
 
-  const PeriodNavigator = ({ dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] }) => {
+  const PeriodNavigator = ({ dateFilter, setDateFilter, currentDate, setCurrentDate }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void }) => {
       const handleDateChange = (direction: 'next' | 'prev') => {
           const amount = direction === 'prev' ? -1 : 1;
           let newDate;
@@ -616,27 +550,17 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
 
       return (
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-              <div className="grid w-full grid-cols-2 gap-4 md:flex md:w-auto">
-                  <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
-                      <SelectTrigger className="w-full md:w-auto">
-                          <SelectValue placeholder="Seleccionar periodo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="day">Diario</SelectItem>
-                          <SelectItem value="week">Semanal</SelectItem>
-                          <SelectItem value="month">Mensual</SelectItem>
-                          <SelectItem value="year">Anual</SelectItem>
-                      </SelectContent>
-                  </Select>
-                  <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                      <SelectTrigger className="w-full md:w-auto">
-                          <SelectValue placeholder="Seleccionar empresa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {(allCompanies || []).map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
-              </div>
+              <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
+                  <SelectTrigger className="w-full md:w-auto">
+                      <SelectValue placeholder="Seleccionar periodo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="day">Diario</SelectItem>
+                      <SelectItem value="week">Semanal</SelectItem>
+                      <SelectItem value="month">Mensual</SelectItem>
+                      <SelectItem value="year">Anual</SelectItem>
+                  </SelectContent>
+              </Select>
               <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
                   <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
                   <span className="w-36 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
@@ -650,57 +574,32 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Resumen Financiero</h2>
-        <PeriodNavigator 
-            dateFilter={dateFilter} 
-            setDateFilter={setDateFilter} 
-            currentDate={currentDate} 
-            setCurrentDate={setCurrentDate}
-            companyFilter={companyFilter}
-            setCompanyFilter={setCompanyFilter}
-            allCompanies={allCompanies}
-        />
+        <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
       </div>
 
       <DailyNavigator currentDate={currentDate} setCurrentDate={setCurrentDate} dateFilter={dateFilter} transactions={transactions} />
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-            <CardHeader>
-                <CardTitle>Ahorro Potencial Acumulado</CardTitle>
-                <CardDescription>
-                    {`Desde ${format(startOfMonth(currentDate), 'MMMM yyyy', { locale: es })}`}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className={`text-4xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</div>
-            </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos del Periodo</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold text-green-600">{money(totalIncome)}</p></CardContent>
         </Card>
         <Card>
-            <CardHeader>
-                <CardTitle className="text-lg">Estado del Presupuesto</CardTitle>
-                <CardDescription>
-                    Progreso de tus presupuestos para {format(currentDate, "MMMM yyyy", { locale: es })}
-                </CardDescription>
-            </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Gastos del Periodo</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold text-red-600">{money(totalExpense)}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Balance del Periodo</CardTitle></CardHeader>
+          <CardContent><p className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</p></CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Presupuesto (Comida)</CardTitle></CardHeader>
             <CardContent>
-                {budgets.length > 0 ? (
-                    <div className="space-y-4">
-                        {budgets.slice(0, 2).map((b: Budget) => {
-                            const progress = b.amount > 0 ? (b.spent / b.amount) * 100 : 0;
-                            return (
-                                <div key={b.id}>
-                                    <div className="flex justify-between text-sm mb-1">
-                                        <span className="font-medium">{b.category}</span>
-                                        <span>{money(b.spent)} / {money(b.amount)}</span>
-                                    </div>
-                                    <Progress value={progress} className={progress > 100 ? '[&>div]:bg-destructive' : ''} />
-                                </div>
-                            )
-                        })}
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">No hay presupuestos definidos para este mes.</p>
-                )}
+                <div className="flex items-baseline gap-2">
+                    <p className="text-2xl font-bold">{money(budgets[0]?.spent || 0)}</p>
+                    <span className="text-sm text-muted-foreground">de {money(budgets[0]?.amount || 0)}</span>
+                </div>
+                 <Progress value={(budgets[0]?.spent || 0) / (budgets[0]?.amount || 1) * 100} className="mt-2" />
             </CardContent>
         </Card>
       </div>
@@ -708,39 +607,33 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
             <CardHeader>
-                <CardTitle>Resumen de Movimientos del Periodo</CardTitle>
+                <CardTitle>Transacciones del Día</CardTitle>
+                <CardDescription>
+                    {format(currentDate, "eeee, dd 'de' MMMM", { locale: es })}
+                </CardDescription>
             </CardHeader>
             <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={trendData}>
-                        <defs>
-                            <linearGradient id="colorIngreso" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8}/>
-                                <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
-                            </linearGradient>
-                            <linearGradient id="colorGasto" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.8}/>
-                                <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0}/>
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value)/1000}k`} />
-                        <Tooltip formatter={(value: number) => money(value)} />
-                        <Legend />
-                        <Area type="monotone" dataKey="Ingresos" stroke="hsl(var(--chart-2))" fillOpacity={1} fill="url(#colorIngreso)" />
-                        <Area type="monotone" dataKey="Gastos" stroke="hsl(var(--chart-3))" fillOpacity={1} fill="url(#colorGasto)" />
-                    </AreaChart>
-                </ResponsiveContainer>
+                {dailyTransactions.length > 0 ? (
+                    <div className="space-y-1">
+                        {dailyTransactions.map(t => (
+                            <TransactionCard key={t.id} transaction={t} onEdit={handleOpenForm} onDelete={handleDeleteTransaction} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex h-full min-h-48 items-center justify-center rounded-lg border-2 border-dashed p-4 text-center">
+                        <p className="text-sm text-muted-foreground">No hay transacciones para este día.</p>
+                    </div>
+                )}
             </CardContent>
         </Card>
         <Card>
             <CardHeader>
                 <CardTitle>Gastos por Categoría</CardTitle>
+                 <CardDescription>Resumen del periodo actual.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                    <RechartsBarChart data={expensesByCategory.slice(0, 5)} layout="vertical">
+                    <RechartsBarChart data={expensesByCategory} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis type="number" hide />
                         <YAxis type="category" width={80} dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
@@ -755,7 +648,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
   )
 }
 
-function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile, companyFilter, setCompanyFilter, allCompanies }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] }) {
+function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean }) {
     const { toast } = useToast();
     const [transactionPage, setTransactionPage] = React.useState(1);
     const TRANSACTION_PAGE_SIZE = 10;
@@ -846,7 +739,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
         transactionPage * TRANSACTION_PAGE_SIZE
     );
     
-    const PeriodNavigator = ({ dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, allCompanies }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, companyFilter: string, setCompanyFilter: (c: string) => void, allCompanies: string[] }) => {
+    const PeriodNavigator = ({ dateFilter, setDateFilter, currentDate, setCurrentDate }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void }) => {
         const handleDateChange = (direction: 'next' | 'prev') => {
             const amount = direction === 'prev' ? -1 : 1;
             let newDate;
@@ -875,27 +768,17 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
 
         return (
             <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-                <div className="grid w-full grid-cols-2 gap-4 md:flex md:w-auto">
-                    <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
-                        <SelectTrigger className="w-full md:w-auto">
-                            <SelectValue placeholder="Seleccionar periodo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="day">Diario</SelectItem>
-                            <SelectItem value="week">Semanal</SelectItem>
-                            <SelectItem value="month">Mensual</SelectItem>
-                            <SelectItem value="year">Anual</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                        <SelectTrigger className="w-full md:w-auto">
-                            <SelectValue placeholder="Seleccionar empresa" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {(allCompanies || []).map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
+                <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
+                    <SelectTrigger className="w-full md:w-auto">
+                        <SelectValue placeholder="Seleccionar periodo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="day">Diario</SelectItem>
+                        <SelectItem value="week">Semanal</SelectItem>
+                        <SelectItem value="month">Mensual</SelectItem>
+                        <SelectItem value="year">Anual</SelectItem>
+                    </SelectContent>
+                </Select>
                 <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
                     <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
                     <span className="w-36 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
@@ -914,15 +797,7 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
               </div>
             </div>
             
-            <PeriodNavigator 
-                dateFilter={dateFilter} 
-                setDateFilter={setDateFilter} 
-                currentDate={currentDate} 
-                setCurrentDate={setCurrentDate}
-                companyFilter={companyFilter}
-                setCompanyFilter={setCompanyFilter}
-                allCompanies={allCompanies}
-            />
+            <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate}/>
 
             <div className="flex justify-center">
               <Tabs value={transactionTypeFilter} onValueChange={(v) => setTransactionTypeFilter(v as TransactionTypeFilter)}>
@@ -1064,17 +939,6 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
                           <TransactionTable transactions={paginatedTransactions} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
                       )}
                   </CardContent>
-                   {totalTransactionPages > 1 && (
-                      <CardFooter>
-                          <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
-                              <div>Página {transactionPage} de {totalTransactionPages}</div>
-                              <div className="flex items-center gap-2">
-                                  <Button variant="outline" size="sm" onClick={() => setTransactionPage(p => Math.max(1, p - 1))} disabled={transactionPage === 1}>Anterior</Button>
-                                  <Button variant="outline" size="sm" onClick={() => setTransactionPage(p => Math.min(totalTransactionPages, p + 1))} disabled={transactionPage === totalTransactionPages}>Siguiente</Button>
-                              </div>
-                          </div>
-                      </CardFooter>
-                  )}
               </Card>
             </>
             )}
@@ -1516,7 +1380,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
-      empresa: undefined,
       tipo_transaccion: 'gasto',
       monto: undefined,
       categoria: '',
@@ -1540,7 +1403,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
     if (isOpen) {
         if (transaction) {
           form.reset({
-            empresa: transaction.empresa || undefined,
             tipo_transaccion: transaction.tipo_transaccion || 'gasto',
             monto: transaction.monto || 0,
             categoria: transaction.categoria || '',
@@ -1551,7 +1413,6 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
           });
         } else {
           form.reset({
-            empresa: undefined,
             tipo_transaccion: 'gasto',
             monto: undefined,
             categoria: '',
@@ -1623,23 +1484,9 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="monto" render={({ field }) => (
-                  <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="$0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-              )}/>
-              <FormField control={form.control} name="empresa" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Empresa</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecciona una empresa" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}/>
-            </div>
+            <FormField control={form.control} name="monto" render={({ field }) => (
+                <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="$0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            )}/>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="categoria" render={({ field }) => (
                     <FormItem><FormLabel>Categoría</FormLabel>
