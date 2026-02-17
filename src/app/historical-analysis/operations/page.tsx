@@ -804,7 +804,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {detailModalContent?.transactions.map(t => (
+                            {detailModalContent?.transactions.map((t: finanzas) => (
                                 <TableRow key={t.id}>
                                     <TableCell className="font-medium">{t.categoria}</TableCell>
                                     <TableCell>{t.notas || '-'}</TableCell>
@@ -829,7 +829,7 @@ function InsightsView({ transactions, budgets, isLoading, dateFilter, setDateFil
                     {dailyTransactions.length > 0 ? (
                         isMobile ? (
                             <div className="space-y-4 p-4">
-                                {dailyTransactions.map(t => (
+                                {dailyTransactions.map((t: finanzas) => (
                                     <TransactionCard key={t.id} transaction={t} onEdit={onEditTransaction} onDelete={onDeleteTransaction} />
                                 ))}
                             </div>
@@ -1764,6 +1764,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
