@@ -10,7 +10,7 @@ export const expenseFormSchema = z.object({
   monto: z.coerce
     .number({ invalid_type_error: "El monto debe ser un número." })
     .positive({ message: "El monto debe ser mayor que 0." }),
-  empresa: z.string().min(1, "La empresa es obligatoria."),
+  empresa: z.string().min(1, { message: "El nombre de la empresa es obligatorio." }),
   categoria: z.string().min(1, { message: "Debe seleccionar una categoría." }),
   subcategoria: z.string().optional().nullable(),
   fecha: z.date({
