@@ -8,6 +8,7 @@ import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as XLSX from 'xlsx';
+import type { DateRange } from "react-day-picker"
 
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
@@ -88,6 +89,7 @@ import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/lib/supabaseClient';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
@@ -1256,10 +1258,15 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
 }
 
 function BudgetsView({ categories, transactions, budgets, setBudgets }: { categories: string[], transactions: finanzas[], budgets: Budget[], setBudgets: React.Dispatch<React.SetStateAction<Budget[]>> }) {
+    const { toast } = useToast();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingBudget, setEditingBudget] = React.useState<Budget | null>(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
     const [deletingBudgetId, setDeletingBudgetId] = React.useState<number | null>(null);
+
+    const [budgetAmount, setBudgetAmount] = React.useState('');
+    const [budgetCategory, setBudgetCategory] = React.useState('');
+    const [budgetDateRange, setBudgetDateRange] = React.useState<DateRange | undefined>();
 
     const hydratedBudgets = React.useMemo(() => {
         return budgets.map(budget => {
@@ -1272,19 +1279,25 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
     
     const handleAddOrEditBudget = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const formData = new FormData(e.currentTarget);
+
+        if (!budgetAmount || !budgetCategory || !budgetDateRange?.from) {
+             toast({ title: 'Campos Incompletos', description: 'Asegúrate de llenar el monto, categoría y al menos la fecha de inicio.', variant: 'destructive' });
+             return;
+        }
+
         const budgetData = {
-            category: formData.get('category') as string,
-            amount: parseFloat(formData.get('amount') as string),
-            // Date logic to be implemented
-            startDate: new Date(), 
-            endDate: new Date(),   
+            category: budgetCategory,
+            amount: parseFloat(budgetAmount),
+            startDate: budgetDateRange.from, 
+            endDate: budgetDateRange.to || budgetDateRange.from,   
         };
 
         if (editingBudget) {
-            setBudgets(prev => prev.map(b => b.id === editingBudget.id ? { ...b, ...budgetData } : b));
+            setBudgets(prev => prev.map(b => b.id === editingBudget.id ? { ...editingBudget, ...budgetData } : b));
+            toast({ title: 'Presupuesto Actualizado', description: 'Los cambios se han guardado.' });
         } else {
             setBudgets(prev => [...prev, { ...budgetData, id: Date.now(), spent: 0 }]);
+            toast({ title: 'Presupuesto Creado', description: 'Se ha añadido el nuevo presupuesto.' });
         }
         setIsFormOpen(false);
         setEditingBudget(null);
@@ -1292,6 +1305,17 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
 
     const handleEditClick = (budget: Budget) => {
         setEditingBudget(budget);
+        setBudgetAmount(String(budget.amount));
+        setBudgetCategory(budget.category);
+        setBudgetDateRange({ from: budget.startDate, to: budget.endDate });
+        setIsFormOpen(true);
+    }
+
+    const handleOpenNewBudgetForm = () => {
+        setEditingBudget(null);
+        setBudgetAmount('');
+        setBudgetCategory('');
+        setBudgetDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
         setIsFormOpen(true);
     }
     
@@ -1316,7 +1340,7 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
                         <h2 className="text-2xl font-bold">Presupuestos</h2>
                         <p className="text-muted-foreground">Controla tus gastos creando presupuestos por categoría.</p>
                     </div>
-                    <Button onClick={() => { setEditingBudget(null); setIsFormOpen(true); }}>
+                    <Button onClick={handleOpenNewBudgetForm}>
                         <Plus className="mr-2 h-4 w-4" /> Crear Presupuesto
                     </Button>
                 </div>
@@ -1362,11 +1386,11 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
                     <form onSubmit={handleAddOrEditBudget} className="py-4 space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="budget-amount">Monto Máximo</Label>
-                            <Input id="budget-amount" name="amount" type="number" placeholder="Ej: 5000" required defaultValue={editingBudget?.amount}/>
+                            <Input id="budget-amount" name="amount" type="number" placeholder="Ej: 5000" required value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)}/>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="budget-category">Categoría</Label>
-                             <Select name="category" required defaultValue={editingBudget?.category}>
+                             <Select name="category" required value={budgetCategory} onValueChange={setBudgetCategory}>
                                 <SelectTrigger id="budget-category"><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger>
                                 <SelectContent>
                                     {categories.map((cat:string) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
@@ -1375,7 +1399,7 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
                         </div>
                         <div className="space-y-2">
                             <Label>Periodo</Label>
-                            <p className="text-xs text-muted-foreground p-2 bg-muted rounded-md">La selección de fechas para presupuestos se habilitará pronto.</p>
+                            <DateRangePicker date={budgetDateRange} onSelect={setBudgetDateRange} />
                         </div>
                         <DialogFooter>
                             <DialogClose asChild><Button variant="outline" type="button">Cancelar</Button></DialogClose>
@@ -1860,6 +1884,7 @@ function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories,
 }
 
       
+
 
 
 
