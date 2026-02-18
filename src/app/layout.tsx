@@ -29,12 +29,13 @@ import {
   Puzzle,
   ClipboardList,
   BookType,
+  Settings,
 } from 'lucide-react';
 
 const menuLinks = [
   { href: '/', label: 'Analizador de datos CSV', icon: FileCheck },
   { href: '/historical-analysis/sales', label: 'Ventas', icon: BarChart3 },
-  { href: '/historical-analysis/operations', label: 'Gastos diarios', icon: Receipt },
+  { href: '/historical-analysis/operations', label: 'Gastos financieros', icon: Receipt },
   { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },
   { href: '/historical-analysis/trends-prediction', label: 'Recompra', icon: Repeat },
   { href: '/historical-analysis/publications', label: 'Análisis de Publicaciones', icon: ClipboardList },
@@ -43,6 +44,7 @@ const menuLinks = [
   { href: '/historical-analysis/alerts', label: 'Alertas', icon: AlertTriangle },
   { href: '/historical-analysis/access-management', label: 'Auditoría', icon: Users },
   { href: '/historical-analysis/financial-close', label: 'Cierre financiero', icon: Landmark },
+  { href: '/historical-analysis/operations?tab=configuracion', label: 'Configuración', icon: Settings },
 ];
 
 
