@@ -3,46 +3,26 @@
 import * as React from 'react';
 import { 
   BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, 
-  Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon, Maximize, Repeat 
+  Layers, Filter, Maximize, Loader2 
 } from 'lucide-react';
-import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths, parseISO } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, 
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart 
+  PieChart, Pie, Cell, Line, ComposedChart 
 } from 'recharts';
-import { useToast } from '@/hooks/use-toast';
 import { DateRange } from 'react-day-picker';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import type { Sale, ChartData, EnrichedCategoriaMadre } from './page';
-import type { skus_unicos, skuxpublicaciones } from '@/types/database';
+import type { Sale } from './page';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
-
-type InventoryData = {
-    categoriasMadre: EnrichedCategoriaMadre[];
-    skusUnicos: skus_unicos[];
-    skuPublicaciones: skuxpublicaciones[];
-    error: string | null;
-}
-
-type ParetoProduct = {
-    name: string;
-    revenue: number;
-    units: number;
-    percentageOfTotal: number;
-    cumulativePercentage: number;
-};
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const PAGE_SIZE = 15;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -50,11 +30,9 @@ const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3
 export default function SalesDashboardClient({ 
     initialSales, 
     allCompanies,
-    inventoryData,
 }: { 
     initialSales: Sale[], 
     allCompanies: string[],
-    inventoryData: InventoryData,
 }) {
     const [currentPage, setCurrentPage] = React.useState(1);
     const [isClient, setIsClient] = React.useState(false);
@@ -71,7 +49,7 @@ export default function SalesDashboardClient({
 
     const { sales, kpis, charts, paretoAnalysisData } = React.useMemo(() => {
         const filteredSales = initialSales.filter(sale => {
-            const companyMatch = company === 'Todos' || sale.company === company;
+            const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
 
             if (date?.from) {
@@ -93,7 +71,7 @@ export default function SalesDashboardClient({
         const productRevenue: Record<string, number> = {};
         const productUnits: Record<string, number> = {};
         filteredSales.forEach(sale => {
-            const key = sale.title || 'Producto Desconocido';
+            const key = sale.tit_pub || 'Producto Desconocido';
             productRevenue[key] = (productRevenue[key] || 0) + (sale.total || 0);
             productUnits[key] = (productUnits[key] || 0) + (sale.unidades || 0);
         });
@@ -107,20 +85,12 @@ export default function SalesDashboardClient({
         let cumValue = 0;
         const topProductsChart = sortedProducts.slice(0, 10).map(p => {
             cumValue += p.revenue;
-            return { name: p.name, value: p.revenue, cumulative: (cumValue / totalRevenue) * 100 };
-        });
-
-        const salesTrend: Record<string, number> = {};
-        filteredSales.forEach(s => {
-            if (s.fecha_venta) {
-                const m = format(parseISO(s.fecha_venta), 'MMM yy', { locale: es });
-                salesTrend[m] = (salesTrend[m] || 0) + (s.total || 0);
-            }
+            return { name: p.name, value: p.revenue, cumulative: (cumValue / (totalRevenue || 1)) * 100 };
         });
 
         const companyMap: Record<string, number> = {};
         filteredSales.forEach(s => {
-            const c = s.company || 'Otros';
+            const c = s.tienda || 'Otros';
             companyMap[c] = (companyMap[c] || 0) + (s.total || 0);
         });
 
@@ -129,15 +99,15 @@ export default function SalesDashboardClient({
             fullCum += p.revenue;
             return {
                 name: p.name, revenue: p.revenue, units: p.units,
-                percentageOfTotal: (p.revenue / totalRevenue) * 100,
-                cumulativePercentage: (fullCum / totalRevenue) * 100
+                percentageOfTotal: (p.revenue / (totalRevenue || 1)) * 100,
+                cumulativePercentage: (fullCum / (totalRevenue || 1)) * 100
             };
         });
 
         return {
             sales: filteredSales,
             kpis: { totalRevenue, totalSales: totalSalesCount, avgSale, topProductName: topProduct.name, topProductRevenue: topProduct.revenue },
-            charts: { topProducts: topProductsChart, salesTrend: Object.entries(salesTrend).map(([name, value]) => ({ name, value })), salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })) },
+            charts: { topProducts: topProductsChart, salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })) },
             paretoAnalysisData: paretoData
         };
     }, [initialSales, company, date]);
@@ -153,8 +123,8 @@ export default function SalesDashboardClient({
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4">
                     <SidebarTrigger />
-                    <h1 className="text-xl font-bold">Ventas Consolidadas</h1>
-                    <Badge variant="outline">ml_sales Sync</Badge>
+                    <h1 className="text-xl font-bold">Ventas Consolidadas (ml_sales)</h1>
+                    <Badge variant="outline" className="hidden sm:flex">Esquema Extendido</Badge>
                 </div>
             </header>
 
@@ -166,7 +136,7 @@ export default function SalesDashboardClient({
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2"><Label>Periodo de Análisis</Label><DateRangePicker date={date} onSelect={setDate} /></div>
-                        <div className="space-y-2"><Label>Filtrar por Tienda/Empresa</Label>
+                        <div className="space-y-2"><Label>Filtrar por Tienda</Label>
                             <Select value={company} onValueChange={setCompany}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>{allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -176,31 +146,31 @@ export default function SalesDashboardClient({
                 </Card>
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.totalRevenue)}</div></CardContent></Card>
-                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ventas Totales</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalSales.toLocaleString()}</div></CardContent></Card>
-                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ticket Promedio</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.avgSale)}</div></CardContent></Card>
-                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Top Product</CardTitle></CardHeader><CardContent><div className="text-md font-bold truncate">{kpis.topProductName}</div></CardContent></Card>
+                    <Card><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground">Ingresos Netos</CardHeader><CardContent><div className="text-2xl font-black text-primary">{money(kpis.totalRevenue)}</div></CardContent></Card>
+                    <Card><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground">Volumen Ventas</CardHeader><CardContent><div className="text-2xl font-black">{kpis.totalSales.toLocaleString()}</div></CardContent></Card>
+                    <Card><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground">Ticket Promedio</CardHeader><CardContent><div className="text-2xl font-black">{money(kpis.avgSale)}</div></CardContent></Card>
+                    <Card><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground">Top Publication</CardHeader><CardContent><div className="text-sm font-bold truncate" title={kpis.topProductName}>{kpis.topProductName}</div></CardContent></Card>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
-                        <CardHeader><CardTitle>Pareto (80/20) - Top 10 Productos</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>Pareto (80/20) - Análisis de Ingresos</CardTitle></CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={charts.topProducts} margin={{ bottom: 100 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" fontSize={10} interval={0} height={100} />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" fontSize={9} interval={0} height={100} />
                                     <YAxis yAxisId="left" orientation="left" tickFormatter={v => `$${v/1000}k`} />
                                     <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
                                     <Tooltip />
-                                    <Bar yAxisId="left" dataKey="value" fill="hsl(var(--primary))" name="Ingresos" />
-                                    <Line yAxisId="right" dataKey="cumulative" stroke="hsl(var(--destructive))" name="Acumulado %" />
+                                    <Bar yAxisId="left" dataKey="value" fill="hsl(var(--primary))" name="Ingresos" radius={[4, 4, 0, 0]} />
+                                    <Line yAxisId="right" dataKey="cumulative" stroke="hsl(var(--destructive))" name="Acumulado %" strokeWidth={3} dot={{ r: 4 }} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
                     <Card>
-                        <CardHeader><CardTitle>Distribución por Empresa</CardTitle></CardHeader>
+                        <CardHeader><CardTitle>Ventas por Tienda</CardTitle></CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -217,43 +187,67 @@ export default function SalesDashboardClient({
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <div><CardTitle>Historial Detallado (ml_sales Sync)</CardTitle><CardDescription>Mostrando todas las columnas del esquema oficial.</CardDescription></div>
-                        <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)}><Maximize className="mr-2 h-4 w-4" /> Pareto Completo</Button>
+                        <div><CardTitle>Ciclo de Vida de Ventas (ml_sales)</CardTitle><CardDescription>Explora todas las dimensiones: Financiera, Logística y Fiscal.</CardDescription></div>
+                        <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)}><Maximize className="mr-2 h-4 w-4" /> Ver Análisis Pareto</Button>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="relative w-full overflow-auto">
                             <Table>
                                 <TableHeader className="bg-muted/50">
-                                    <TableRow>
-                                        <TableHead className="font-bold border-r"># Venta</TableHead>
-                                        <TableHead className="font-bold border-r">Fecha</TableHead>
-                                        <TableHead className="font-bold border-r">Tienda</TableHead>
-                                        <TableHead className="font-bold border-r">SKU</TableHead>
-                                        <TableHead className="font-bold border-r text-right">Total Neto</TableHead>
-                                        <TableHead className="font-bold border-r">Comprador</TableHead>
-                                        <TableHead className="font-bold border-r">Transportista</TableHead>
-                                        <TableHead className="font-bold border-r">Seguimiento</TableHead>
-                                        <TableHead className="font-bold border-r">Estado</TableHead>
-                                        <TableHead className="font-bold border-r">CFDI</TableHead>
-                                        <TableHead className="font-bold border-r">Régimen</TableHead>
-                                        <TableHead className="font-bold">Dirección</TableHead>
+                                    <TableRow className="text-[10px] uppercase font-bold text-muted-foreground">
+                                        <TableHead className="border-r min-w-[120px]">ID / Status</TableHead>
+                                        <TableHead className="border-r min-w-[150px]">Producto (sku/publi)</TableHead>
+                                        <TableHead className="border-r text-right min-w-[100px]">Finanzas ($)</TableHead>
+                                        <TableHead className="border-r min-w-[150px]">Comprador / Fiscal</TableHead>
+                                        <TableHead className="border-r min-w-[180px]">Logística Seg. 1</TableHead>
+                                        <TableHead className="border-r min-w-[180px]">Logística Seg. 2</TableHead>
+                                        <TableHead className="min-w-[150px]">Resultados Finales</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {paginatedSales.map((s) => (
-                                        <TableRow key={s.id}>
-                                            <TableCell className="font-mono text-xs border-r">{s.numero_venta}</TableCell>
-                                            <TableCell className="whitespace-nowrap border-r">{s.fecha_venta ? format(parseISO(s.fecha_venta), 'dd/MM/yy HH:mm') : 'N/A'}</TableCell>
-                                            <TableCell className="border-r"><Badge variant="outline">{s.company}</Badge></TableCell>
-                                            <TableCell className="font-mono text-xs border-r">{s.sku}</TableCell>
-                                            <TableCell className="text-right font-black text-primary border-r">{money(s.total)}</TableCell>
-                                            <TableCell className="max-w-[150px] truncate border-r" title={s.comprador || ''}>{s.comprador}</TableCell>
-                                            <TableCell className="border-r text-xs">{s.transportista_envio || s.transportista || 'N/A'}</TableCell>
-                                            <TableCell className="font-mono text-[10px] border-r">{s.numero_seguimiento_envio || 'N/A'}</TableCell>
-                                            <TableCell className="border-r"><Badge variant="secondary" className="text-[10px] uppercase">{s.estado}</Badge></TableCell>
-                                            <TableCell className="border-r text-xs">{s.cfdi || 'N/A'}</TableCell>
-                                            <TableCell className="border-r text-xs">{s.regimen_fiscal || 'N/A'}</TableCell>
-                                            <TableCell className="max-w-[200px] truncate text-xs" title={s.domicilio_entrega || ''}>{s.domicilio_entrega}</TableCell>
+                                    {paginatedSales.map((s, idx) => (
+                                        <TableRow key={s.num_venta || idx} className="text-xs">
+                                            <TableCell className="border-r align-top space-y-1">
+                                                <div className="font-mono font-bold">#{s.num_venta}</div>
+                                                <div className="text-[10px]">{s.fecha_venta ? format(parseISO(s.fecha_venta), 'dd/MM/yy HH:mm') : 'N/A'}</div>
+                                                <Badge variant="outline" className="text-[9px] block text-center uppercase">{s.status}</Badge>
+                                            </TableCell>
+                                            <TableCell className="border-r align-top space-y-1">
+                                                <div className="font-bold line-clamp-2" title={s.tit_pub || ''}>{s.tit_pub}</div>
+                                                <div className="flex gap-2 text-[9px] text-muted-foreground">
+                                                    <span>SKU: {s.sku}</span>
+                                                    <span>Pub: {s.num_publi}</span>
+                                                </div>
+                                                <div className="text-[9px]"><Badge variant="secondary">{s.tienda}</Badge></div>
+                                            </TableCell>
+                                            <TableCell className="border-r align-top text-right space-y-1">
+                                                <div className="font-black text-primary text-sm">{money(s.total)}</div>
+                                                <div className="text-[9px] text-muted-foreground">Unidades: {s.unidades}</div>
+                                                <div className="text-[9px] border-t pt-1">
+                                                    <div>Ingreso Prod: {money(s.ing_xunidad)}</div>
+                                                    <div>Costo Envío: {money(s.costo_envio)}</div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="border-r align-top space-y-1">
+                                                <div className="font-bold truncate max-w-[140px]">{s.comprador}</div>
+                                                <div className="text-[9px] italic">{s.r_fiscal}</div>
+                                                <div className="text-[9px] opacity-70">CFDI: {s.cfdi}</div>
+                                            </TableCell>
+                                            <TableCell className="border-r align-top space-y-1">
+                                                <div className="text-[10px] font-bold">{s.transportista}</div>
+                                                <div className="font-mono text-[9px] text-blue-600">{s.num_seguimiento}</div>
+                                                <div className="text-[9px]">Entregado: {s.f_entregado ? format(parseISO(s.f_entregado), 'dd/MM/yy') : '-'}</div>
+                                            </TableCell>
+                                            <TableCell className="border-r align-top space-y-1">
+                                                <div className="text-[10px] font-bold">{s.transportista2}</div>
+                                                <div className="font-mono text-[9px] text-green-600">{s.num_seguimiento2}</div>
+                                                <div className="text-[9px]">Status: {s.status}</div>
+                                            </TableCell>
+                                            <TableCell className="align-top space-y-1">
+                                                <div className="font-bold text-[10px]">{s.resultado || 'Pendiente'}</div>
+                                                <div className="text-[9px] text-muted-foreground line-clamp-2">{s.motivo_resul}</div>
+                                                {s.r_abierto && <Badge variant="destructive" className="text-[8px] h-4">RECLAMO ABIERTO</Badge>}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -276,9 +270,9 @@ export default function SalesDashboardClient({
                     <div className="flex-1 overflow-auto">
                         <Table>
                             <TableHeader><TableRow>
-                                <TableHead>Producto</TableHead>
+                                <TableHead>Publicación</TableHead>
                                 <TableHead className="text-right">Ingresos</TableHead>
-                                <TableHead className="text-right">Piezas</TableHead>
+                                <TableHead className="text-right">Unidades</TableHead>
                                 <TableHead className="text-right">% Acumulado</TableHead>
                             </TableRow></TableHeader>
                             <TableBody>
@@ -298,8 +292,11 @@ export default function SalesDashboardClient({
                         </Table>
                     </div>
                     <DialogFooter className="border-t pt-4">
-                        <Button variant="outline" onClick={() => setParetoPage(p => Math.max(1, p-1))} disabled={paretoPage === 1}>Anterior</Button>
-                        <Button variant="outline" onClick={() => setParetoPage(p => p+1)}>Siguiente</Button>
+                        <div className="flex-1 text-xs text-muted-foreground">Página {paretoPage}</div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => Math.max(1, p-1))} disabled={paretoPage === 1}>Anterior</Button>
+                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)}>Siguiente</Button>
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -1,29 +1,24 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  UploadCloud, File as FileIcon, X, Loader2, Save, Search, Database, RefreshCcw, 
-  Undo2, CheckCircle, AlertTriangle, Map as MapIcon, Sheet as SheetIcon, AlertCircle 
+  UploadCloud, File as FileIcon, X, Loader2, Database, RefreshCcw, 
+  Undo2, CheckCircle, AlertTriangle 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     finanzas: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'categoria', 'subcategoria', 'monto', 'capturista', 'tipo_transaccion', 'metodo_pago', 'metodo_pago_especificar', 'banco', 'banco_especificar', 'cuenta', 'cuenta_especificar', 'descripcion', 'notas'] },
     finanzas2: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'categoria', 'subcategoria', 'monto', 'capturista', 'tipo_transaccion', 'metodo_pago', 'metodo_pago_especificar', 'banco', 'banco_especificar', 'cuenta', 'cuenta_especificar', 'descripcion', 'notas'] },
-    ventas: { pk: 'numero_venta', columns: [ 'numero_venta', 'fecha_venta', 'estado', 'descripcion_estado', 'es_paquete_varios', 'pertenece_kit', 'unidades', 'ingreso_productos', 'cargo_venta_impuestos', 'ingreso_envio', 'costo_envio', 'costo_medidas_peso', 'cargo_diferencia_peso', 'anulaciones_reembolsos', 'total', 'venta_publicidad', 'sku', 'item_id', 'company', 'title', 'variante', 'price', 'tipo_publicacion', 'factura_adjunta', 'datos_personales_empresa', 'tipo_numero_documento', 'direccion_fiscal', 'tipo_contribuyente', 'cfdi', 'tipo_usuario', 'regimen_fiscal', 'comprador', 'negocio', 'ife', 'domicilio_entrega', 'municipio_alcaldia', 'estado_comprador', 'codigo_postal', 'pais', 'forma_entrega_envio', 'fecha_en_camino_envio', 'fecha_entregado_envio', 'transportista_envio', 'numero_seguimiento_envio', 'url_seguimiento_envio', 'unidades_envio', 'forma_entrega', 'fecha_en_camino', 'fecha_entregado', 'transportista', 'numero_seguimiento', 'url_seguimiento', 'revisado_por_ml', 'fecha_revision', 'dinero_a_favor', 'resultado', 'destino', 'motivo_resultado', 'unidades_reclamo', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'] },
+    ml_sales: { pk: 'num_venta', columns: ['num_venta', 'fecha_venta', 'status', 'desc_status', 'paquete_varios', 'pertenece_kit', 'unidades', 'ing_xunidad', 'cargo_venta', 'ing_xenvio', 'costo_envio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'total', 'venta_xpublicidad', 'sku', 'num_publi', 'tienda', 'tit_pub', 'variante', 'price', 'tip_publi', 'factura_a', 'datos_poe', 'tipo_ndoc', 'direccion', 't_contribuyente', 'cfdi', 't_usuario', 'r_fiscal', 'comprador', 'negocio', 'ife', 'domicilio', 'mun_alcaldia', 'estado', 'c_postal', 'pais', 'f_entrega', 'f_camino', 'f_entregado', 'transportista', 'num_seguimiento', 'url_seguimiento', 'unidades_2', 'f_entrega2', 'f_camino2', 'f_entregado2', 'transportista2', 'num_seguimiento2', 'url_seguimiento2', 'revisado_xml', 'f_revision3', 'd_afavor', 'resultado', 'destino', 'motivo_resul', 'unidades_3', 'r_abierto', 'r_cerrado', 'c_mediacion'] },
     sku_m: { pk: 'sku_mdr', columns: ['sku_mdr', 'cat_mdr', 'piezas_por_sku', 'sku', 'piezas_xcontenedor', 'bodega', 'bloque', 'landed_cost'] },
     diccionario_skus: { pk: 'sku', columns: ['sku', 'categoria_madre', 'landed_cost', 'codigo_en_siggo', 'nombre_en_siggo', 'rock_en_siggo', 'piezas_totales', 'estado_en_siggo', 'bodega', 'bloque'] },
     catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
@@ -42,7 +37,8 @@ function parseValue(key: string, value: any): any {
     const numericFields = [
         'monto', 'total', 'unidades', 'price', 'landed_cost', 'costo_envio', 
         'piezas_por_sku', 'rock_en_siggo', 'piezas_totales', 'esti_time', 
-        'piezas_xcontenedor', 'bloque', 'costo'
+        'piezas_xcontenedor', 'bloque', 'costo', 'ing_xunidad', 'cargo_venta',
+        'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3'
     ];
     
     if (numericFields.includes(key)) {
@@ -50,7 +46,10 @@ function parseValue(key: string, value: any): any {
         return isNaN(num) ? null : num;
     }
 
-    const booleanFields = ['negocio', 'venta_publicidad', 'revisado_por_ml', 'es_paquete_varios', 'pertenece_kit', 'reclamo_abierto', 'reclamo_cerrado', 'con_mediacion'];
+    const booleanFields = [
+        'negocio', 'venta_xpublicidad', 'paquete_varios', 'pertenece_kit', 
+        'r_abierto', 'r_cerrado', 'c_mediacion'
+    ];
     if (booleanFields.includes(key)) {
         const v = str.toLowerCase();
         return ['true', '1', 'si', 'sí', 'verdadero'].includes(v);
@@ -93,7 +92,6 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[table];
         const map: Record<number, string> = {};
         headers.forEach((h, i) => {
-            // Intento de auto-match por nombre
             const cleanHeader = h.toLowerCase().replace(/\s/g, '_');
             const match = schema.columns.find(c => c.toLowerCase() === cleanHeader);
             map[i] = match || IGNORE_COLUMN_VALUE;
@@ -107,7 +105,6 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[selectedTable];
         let processed = 0, errors: any[] = [];
 
-        // Procesamiento por lotes pequeños para evitar timeouts en archivos grandes
         const BATCH_SIZE = 50;
         for (let i = 0; i < rawRows.length; i += BATCH_SIZE) {
             const batch = rawRows.slice(i, i + BATCH_SIZE);
@@ -151,7 +148,7 @@ export default function CsvUploader() {
                         >
                             <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
                             <p className="mt-2 font-medium">Haz clic para subir CSV o arrastra el archivo aquí</p>
-                            <p className="text-xs text-muted-foreground mt-1">Formato recomendado: Windows-1252 (ANSI)</p>
+                            <p className="text-xs text-muted-foreground mt-1">ANSI / Windows-1252 recomendado</p>
                             <input id="file-input" type="file" className="hidden" accept=".csv" onChange={e => e.target.files && processFile(e.target.files[0])} />
                         </div>
                         
@@ -160,7 +157,7 @@ export default function CsvUploader() {
                                 <FileIcon className="h-5 w-5 text-primary" />
                                 <div className="flex-1">
                                     <p className="text-sm font-medium">{file.name}</p>
-                                    <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB • {rawRows.length} filas detectadas</p>
+                                    <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB • {rawRows.length} filas</p>
                                 </div>
                                 <Button variant="ghost" size="sm" onClick={() => { setFile(null); setHeaders([]); setRawRows([]); }}>
                                     <X className="h-4 w-4" />
@@ -170,20 +167,19 @@ export default function CsvUploader() {
 
                         {headers.length > 0 && (
                             <div className="mt-6 space-y-2">
-                                <Label>Seleccionar Tabla de Destino</Label>
+                                <Label>Tabla de Destino</Label>
                                 <Select onValueChange={handleTableSelect}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Selecciona una tabla para mapear..." />
+                                        <SelectValue placeholder="Selecciona..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="ventas">Ventas (ml_sales)</SelectItem>
-                                        <SelectItem value="finanzas">Egresos (Gastos/Compras)</SelectItem>
-                                        <SelectItem value="finanzas2">Ingresos (Ventas/Otros)</SelectItem>
-                                        <SelectItem value="sku_m">Categorías Madre (sku_m)</SelectItem>
+                                        <SelectItem value="ml_sales">Ventas (ml_sales)</SelectItem>
+                                        <SelectItem value="finanzas">Egresos (finanzas)</SelectItem>
+                                        <SelectItem value="finanzas2">Ingresos (finanzas2)</SelectItem>
+                                        <SelectItem value="sku_m">SKU Maestro (sku_m)</SelectItem>
                                         <SelectItem value="diccionario_skus">Diccionario SKU</SelectItem>
-                                        <SelectItem value="catalogo_madre">Catálogo Madre</SelectItem>
                                         <SelectItem value="sku_costos">Historial de Costos</SelectItem>
-                                        <SelectItem value="sku_alterno">SKUs Alternos</SelectItem>
+                                        <SelectItem value="sku_alterno">Relación SKUs Alternos</SelectItem>
                                         <SelectItem value="publi_tienda">Publicaciones de Tienda</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -197,11 +193,11 @@ export default function CsvUploader() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
-                            <CardTitle>Mapeo de Columnas: {selectedTable}</CardTitle>
-                            <CardDescription>Asocia las columnas de tu CSV con los campos de la base de datos.</CardDescription>
+                            <CardTitle>Mapeo: {selectedTable}</CardTitle>
+                            <CardDescription>Asocia columnas de CSV con la DB.</CardDescription>
                         </div>
                         <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')}>
-                            <RefreshCcw className="mr-2 h-4 w-4" /> Cambiar Tabla
+                            <RefreshCcw className="mr-2 h-4 w-4" /> Cambiar
                         </Button>
                     </CardHeader>
                     <CardContent>
@@ -209,21 +205,21 @@ export default function CsvUploader() {
                             <Table>
                                 <TableHeader className="bg-muted/50">
                                     <TableRow>
-                                        <TableHead>Columna en CSV</TableHead>
-                                        <TableHead>Destino en Base de Datos</TableHead>
+                                        <TableHead>Columna CSV</TableHead>
+                                        <TableHead>Campo DB</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {headers.map((h, i) => (
                                         <TableRow key={i}>
-                                            <TableCell className="font-medium">{h}</TableCell>
+                                            <TableCell className="font-medium text-xs">{h}</TableCell>
                                             <TableCell>
                                                 <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
-                                                    <SelectTrigger className={cn("w-full", headerMap[i] === IGNORE_COLUMN_VALUE ? "text-muted-foreground opacity-60" : "text-primary font-bold")}>
+                                                    <SelectTrigger className={cn("w-full h-8 text-[10px]", headerMap[i] === IGNORE_COLUMN_VALUE ? "text-muted-foreground opacity-60" : "text-primary font-bold")}>
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value={IGNORE_COLUMN_VALUE}>-- Ignorar esta columna --</SelectItem>
+                                                        <SelectItem value={IGNORE_COLUMN_VALUE}>-- Ignorar --</SelectItem>
                                                         {TABLE_SCHEMAS[selectedTable].columns.map(c => (
                                                             <SelectItem key={c} value={c}>{c}</SelectItem>
                                                         ))}
@@ -254,37 +250,24 @@ export default function CsvUploader() {
                         <CheckCircle className={cn("h-4 w-4", syncResult.errors.length > 0 ? "text-amber-600" : "text-green-600")} />
                         <AlertTitle className="font-bold">Proceso Finalizado</AlertTitle>
                         <AlertDescription>
-                            Se han procesado **{syncResult.updated}** registros correctamente en la tabla **{selectedTable}**.
+                            Se han sincronizado **{syncResult.updated}** registros en la tabla **{selectedTable}**.
                         </AlertDescription>
                     </Alert>
 
                     {syncResult.errors.length > 0 && (
                         <Card className="border-destructive">
-                            <CardHeader className="bg-destructive/5">
-                                <CardTitle className="text-destructive flex items-center gap-2">
-                                    <AlertTriangle className="h-5 w-5" /> Errores de Sincronización
-                                </CardTitle>
-                                <CardDescription>Algunos lotes de datos fallaron al insertarse.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="pt-4">
-                                <div className="space-y-2">
-                                    {syncResult.errors.map((e, i) => (
-                                        <div key={i} className="p-3 border rounded-md bg-muted/30 text-sm">
-                                            <span className="font-bold">Lote #{e.batch}:</span> {e.msg}
-                                        </div>
-                                    ))}
-                                </div>
+                            <CardHeader className="bg-destructive/5"><CardTitle className="text-destructive text-sm">Errores detectados</CardTitle></CardHeader>
+                            <CardContent className="pt-4 max-h-[200px] overflow-auto">
+                                {syncResult.errors.map((e, i) => (
+                                    <div key={i} className="text-xs p-2 border-b last:border-0">Lote #{e.batch}: {e.msg}</div>
+                                ))}
                             </CardContent>
                         </Card>
                     )}
                     
                     <div className="flex gap-3">
-                        <Button variant="outline" className="flex-1" onClick={() => setCurrentStep('upload')}>
-                            <Undo2 className="mr-2 h-4 w-4" /> Cargar otro archivo
-                        </Button>
-                        <Button className="flex-1" onClick={() => window.location.reload()}>
-                            <RefreshCcw className="mr-2 h-4 w-4" /> Finalizar y Limpiar
-                        </Button>
+                        <Button variant="outline" className="flex-1" onClick={() => setCurrentStep('upload')}>Cargar otro</Button>
+                        <Button className="flex-1" onClick={() => window.location.reload()}>Finalizar</Button>
                     </div>
                 </div>
             )}
