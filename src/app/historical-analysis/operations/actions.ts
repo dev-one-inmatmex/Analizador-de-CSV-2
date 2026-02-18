@@ -15,18 +15,15 @@ export async function addExpenseAction(values: TransactionFormValues) {
     return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
-  const flow = values.tipo_transaccion === 'gasto' || values.tipo_transaccion === 'compra' ? 'egreso' : 'ingreso';
-  const table = flow === 'egreso' ? 'finanzas' : 'finanzas2';
-
-  const { error } = await supabaseAdmin.from(table).insert([values]);
+  const { error } = await supabaseAdmin.from('gastos_diarios').insert([values]);
 
   if (error) {
     console.error('Supabase insert error:', error);
-    return { error: `Error al guardar la transacción: ${error.message}` };
+    return { error: `Error al guardar: ${error.message}` };
   }
 
-  revalidatePath('/historical-analysis/operations', 'page');
-  return { data: "Transacción añadida exitosamente." };
+  revalidatePath('/historical-analysis/operations');
+  return { data: "Gasto registrado exitosamente." };
 }
 
 export async function updateExpenseAction(id: number, values: TransactionFormValues) {
@@ -40,40 +37,35 @@ export async function updateExpenseAction(id: number, values: TransactionFormVal
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
     
-    const flow = values.tipo_transaccion === 'gasto' || values.tipo_transaccion === 'compra' ? 'egreso' : 'ingreso';
-    const table = flow === 'egreso' ? 'finanzas' : 'finanzas2';
-
     const { error } = await supabaseAdmin
-        .from(table)
+        .from('gastos_diarios')
         .update(values)
         .eq('id', id);
 
     if (error) {
         console.error('Supabase update error:', error);
-        return { error: `Error al actualizar la transacción: ${error.message}` };
+        return { error: `Error al actualizar: ${error.message}` };
     }
 
-    revalidatePath('/historical-analysis/operations', 'page');
-    return { data: "Transacción actualizada exitosamente." };
+    revalidatePath('/historical-analysis/operations');
+    return { data: "Registro actualizado exitosamente." };
 }
 
-export async function deleteExpenseAction(id: number, flow: 'egreso' | 'ingreso') {
+export async function deleteExpenseAction(id: number) {
     if (!supabaseAdmin) {
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
 
-    const table = flow === 'egreso' ? 'finanzas' : 'finanzas2';
-
     const { error } = await supabaseAdmin
-        .from(table)
+        .from('gastos_diarios')
         .delete()
         .eq('id', id);
 
     if (error) {
         console.error('Supabase delete error:', error);
-        return { error: `Error al eliminar la transacción: ${error.message}` };
+        return { error: `Error al eliminar: ${error.message}` };
     }
     
-    revalidatePath('/historical-analysis/operations', 'page');
-    return { data: "Transacción eliminada exitosamente." };
+    revalidatePath('/historical-analysis/operations');
+    return { data: "Registro eliminado exitosamente." };
 }
