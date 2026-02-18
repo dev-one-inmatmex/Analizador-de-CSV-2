@@ -63,7 +63,7 @@ export default function InventoryAnalysisClient({
         e.preventDefault();
         setIsSubmitting(true);
         const fd = new FormData(e.currentTarget);
-        const data = Object.fromEntries(fd.entries());
+        const data: Record<string, any> = Object.fromEntries(fd.entries());
         
         // Conversión de tipos numérica
         ['piezas_por_sku', 'piezas_xcontenedor', 'bloque', 'landed_cost', 'esti_time'].forEach(key => {
