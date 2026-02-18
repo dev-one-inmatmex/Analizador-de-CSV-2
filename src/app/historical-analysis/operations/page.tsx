@@ -3,7 +3,7 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, parseISO } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,8 +21,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
-  BarChart,
-  Calendar as CalendarIcon,
+  BarChart as BarChartIcon,
   ChevronLeft,
   ChevronRight,
   Cog,
@@ -34,8 +33,12 @@ import {
   Pencil,
   Plus,
   Trash2,
-  Edit,
-  Download,
+  Eye,
+  CreditCard,
+  Building2,
+  Wallet,
+  MessageSquare,
+  StickyNote,
   TrendingUp,
   X,
   Wallet,
@@ -247,70 +250,42 @@ export default function OperationsPage() {
       }
       setIsLoading(true);
 
-      let startDate, endDate;
-      switch(dateFilter) {
-        case 'day':
-          startDate = startOfDay(currentDate);
-          endDate = endOfDay(currentDate);
-          break;
-        case 'week':
-          startDate = startOfWeek(currentDate, { locale: es });
-          endDate = endOfWeek(currentDate, { locale: es });
-          break;
-        case 'year':
-          startDate = startOfYear(currentDate);
-          endDate = endOfYear(currentDate);
-          break;
-        case 'month':
-        default:
-          startDate = startOfMonth(currentDate);
-          endDate = endOfMonth(currentDate);
-          break;
-      }
+    let startDate, endDate;
+    switch(dateFilter) {
+      case 'day': startDate = startOfDay(currentDate); endDate = endOfDay(currentDate); break;
+      case 'week': startDate = startOfWeek(currentDate, { locale: es }); endDate = endOfWeek(currentDate, { locale: es }); break;
+      case 'year': startDate = startOfYear(currentDate); endDate = endOfYear(currentDate); break;
+      default: startDate = startOfMonth(currentDate); endDate = endOfMonth(currentDate); break;
+    }
 
-      const { data, error } = await supabase
-        .from('finanzas')
-        .select('*')
-        .gte('fecha', formatISO(startDate))
-        .lte('fecha', formatISO(endDate))
-        .order('fecha', { ascending: false });
+    const isoStart = formatISO(startDate);
+    const isoEnd = formatISO(endDate);
 
-      if (error) {
-        toast({ title: 'Error al Cargar Datos', description: error.message, variant: 'destructive' });
-      } else {
-        setTransactions(data as finanzas[]);
-      }
-      setIsLoading(false);
-    };
-    fetchTransactions();
-  }, [currentDate, dateFilter, toast]);
+    const [resFinanzas, resFinanzas2] = await Promise.all([
+      supabase.from('finanzas').select('*').gte('fecha', isoStart).lte('fecha', isoEnd),
+      supabase.from('finanzas2').select('*').gte('fecha', isoStart).lte('fecha', isoEnd)
+    ]);
 
-    const dailyTransactions = React.useMemo(() => {
-        return transactions.filter((t: finanzas) => {
-            try {
-                return isSameDay(parseISO(t.fecha), currentDate);
-            } catch {
-                return false;
-            }
-        }).sort((a: finanzas,b: finanzas) => b.monto - a.monto);
-      }, [transactions, currentDate]);
+    const egresos = (resFinanzas.data || []).map((t: any) => ({ ...t, __flowType: 'egreso' as const }));
+    const ingresos = (resFinanzas2.data || []).map((t: any) => ({ ...t, __flowType: 'ingreso' as const }));
 
-    const hydratedBudgets = React.useMemo(() => {
-        return budgets.map((budget: Budget) => {
-            const spent = transactions
-                .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
-                .reduce((sum, t: finanzas) => sum + t.monto, 0);
-            return { ...budget, spent };
-        });
-    }, [budgets, transactions]);
+    setTransactions([...egresos, ...ingresos].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()));
+    setIsLoading(false);
+  }, [currentDate, dateFilter]);
 
+  React.useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
-  const handleOpenForm = (transaction: finanzas | null = null) => {
-    setEditingTransaction(transaction);
-    setIsFormOpen(true);
-  };
-  
-  const handleFormSubmit = async (values: TransactionFormValues) => {
+  const filteredTransactions = React.useMemo(() => {
+    return transactions.filter(t => {
+        const matchesCompany = companyFilter === 'Todas' || t.empresa === companyFilter;
+        const matchesAccount = accountFilter === 'Todas' || t.cuenta === accountFilter;
+        return matchesCompany && matchesAccount;
+    });
+  }, [transactions, companyFilter, accountFilter]);
+
+  const handleSave = async (values: TransactionFormValues) => {
     try {
         let result;
         if (editingTransaction) {
@@ -395,28 +370,11 @@ export default function OperationsPage() {
       case 'presupuestos':
         return <BudgetsView categories={categories.map(c => c.name)} transactions={transactions} budgets={hydratedBudgets} setBudgets={setBudgets} />;
       case 'configuracion':
-        return <ConfiguracionView 
-                  categories={categories} 
-                  setCategories={setCategories}
-                  dateFilter={dateFilter}
-                  setDateFilter={setDateFilter}
-               />;
-      default:
-        return null;
+        return <ConfiguracionView egresoCats={egresoCats} ingresoCats={ingresoCats} />;
+      default: return null;
     }
   };
 
-  const FormComponent = (
-    <TransactionForm
-      isOpen={isFormOpen}
-      setIsOpen={setIsFormOpen}
-      onSubmit={handleFormSubmit}
-      transaction={editingTransaction}
-      categories={categories}
-      setCategories={setCategories}
-    />
-  );
-  
   return (
     <div className="flex h-screen w-full flex-col bg-muted/40">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
@@ -464,145 +422,196 @@ export default function OperationsPage() {
 
 // --- Sub-components for OperationsPage ---
 
-function DailyNavigator({ currentDate, setCurrentDate, dateFilter, transactions }: { currentDate: Date, setCurrentDate: (d: Date) => void, dateFilter: DateFilter, transactions: finanzas[] }) {
-  if (dateFilter !== 'month') return null;
-
-  const monthDays = eachDayOfInterval({
-    start: startOfMonth(currentDate),
-    end: endOfMonth(currentDate),
-  });
-
-  return (
-    <div className="no-scrollbar -mx-4 flex overflow-x-auto px-4 pb-2">
-      {monthDays.map(day => {
-        const dayTransactions = transactions.filter((t: finanzas) => isSameDay(new Date(t.fecha), day));
-        const dayIncome = dayTransactions.filter((t:finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum, t) => sum + t.monto, 0);
-        const dayExpense = dayTransactions.filter((t:finanzas) => t.tipo_transaccion === 'gasto').reduce((sum, t) => sum + t.monto, 0);
-
-        return (
-          <button
-            key={day.toISOString()}
-            onClick={() => setCurrentDate(day)}
-            className={cn(
-              "flex-shrink-0 rounded-lg p-3 text-center transition-colors w-20",
-              isSameDay(day, currentDate) ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-            )}
-          >
-            <p className="text-sm font-medium capitalize">{format(day, 'eee', { locale: es })}</p>
-            <p className="text-lg font-bold">{format(day, 'd')}</p>
-            <div className="mt-1 flex justify-center gap-1.5 h-1.5">
-              {dayIncome > 0 && <div className="h-1.5 w-1.5 rounded-full bg-green-500" />}
-              {dayExpense > 0 && <div className="h-1.5 w-1.5 rounded-full bg-red-500" />}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
+interface InsightsViewProps {
+    transactions: UnifiedTransaction[];
+    isLoading: boolean;
+    dateFilter: DateFilter;
+    setDateFilter: (filter: DateFilter) => void;
+    currentDate: Date;
+    setCurrentDate: (date: Date) => void;
+    companyFilter: string;
+    setCompanyFilter: (company: string) => void;
+    accountFilter: string;
+    setAccountFilter: (account: string) => void;
+    onAddTransaction: () => void;
+    onViewTransactions: () => void;
+    budgets: Budget[];
 }
 
-function InsightsView({ transactions, dailyTransactions, budgets, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, handleOpenForm, handleDeleteTransaction }: any) {
-  const { totalIncome, totalExpense, balance, expensesByCategory } = React.useMemo(() => {
-    const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
-    const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum: number, t: finanzas) => sum + (t.monto || 0), 0);
-    const bal = income - expense;
-
-    const expensesByCategoryData = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc: any, t: finanzas) => {
-        const category = t.categoria || 'Sin Categoría';
-        const existing = acc.find((item: any) => item.name === category);
-        if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
-        return acc;
-    }, [] as { name: string, value: number }[]).sort((a: any, b: any) => b.value - a.value);
-
-    return { totalIncome: income, totalExpense: expense, balance: bal, expensesByCategory: expensesByCategoryData };
+function InsightsView({ transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, companyFilter, setCompanyFilter, accountFilter, setAccountFilter, onAddTransaction, onViewTransactions, budgets }: InsightsViewProps) {
+  const { totalIncome, totalExpense, balance } = React.useMemo(() => {
+    const income = transactions.filter((t: UnifiedTransaction) => t.__flowType === 'ingreso').reduce((sum: number, t: UnifiedTransaction) => sum + (t.monto || 0), 0);
+    const expense = transactions.filter((t: UnifiedTransaction) => t.__flowType === 'egreso').reduce((sum: number, t: UnifiedTransaction) => sum + (t.monto || 0), 0);
+    return { totalIncome: income, totalExpense: expense, balance: income - expense };
   }, [transactions]);
 
-  if(isLoading) {
-    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
-  }
+  const pieData = React.useMemo(() => [
+    { name: 'Ingresos', value: totalIncome, color: '#3b82f6' },
+    { name: 'Gastos', value: totalExpense, color: '#ec4899' }
+  ], [totalIncome, totalExpense]);
 
-  const PeriodNavigator = ({ dateFilter, setDateFilter, currentDate, setCurrentDate }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void }) => {
-      const handleDateChange = (direction: 'next' | 'prev') => {
-          const amount = direction === 'prev' ? -1 : 1;
-          let newDate;
-          switch(dateFilter) {
-            case 'day': newDate = add(currentDate, { days: amount }); break;
-            case 'week': newDate = add(currentDate, { weeks: amount }); break;
-            case 'year': newDate = add(currentDate, { years: amount }); break;
-            case 'month':
-            default: newDate = add(currentDate, { months: amount }); break;
-          }
-          setCurrentDate(newDate);
-        };
-        
-        const getFormattedDate = () => {
-          switch(dateFilter) {
-            case 'day': return format(currentDate, "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-            case 'week': 
-              const start = startOfWeek(currentDate, { locale: es });
-              const end = endOfWeek(currentDate, { locale: es });
-              return `Semana del ${format(start, 'dd/MM')} al ${format(end, 'dd/MM/yyyy')}`;
-            case 'year': return format(currentDate, "yyyy");
-            case 'month':
-            default: return format(currentDate, "MMMM yyyy", { locale: es });
-          }
-        };
+  const barChartData = React.useMemo(() => {
+    let steps: Date[] = [];
+    let formatStr = 'd';
 
-      return (
-          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-              <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
-                  <SelectTrigger className="w-full md:w-auto">
-                      <SelectValue placeholder="Seleccionar periodo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="day">Diario</SelectItem>
-                      <SelectItem value="week">Semanal</SelectItem>
-                      <SelectItem value="month">Mensual</SelectItem>
-                      <SelectItem value="year">Anual</SelectItem>
-                  </SelectContent>
-              </Select>
-              <div className="flex items-center gap-2 rounded-lg border bg-background p-1">
-                  <Button variant="ghost" size="icon" onClick={() => handleDateChange('prev')}><ChevronLeft className="h-5 w-5" /></Button>
-                  <span className="w-36 text-center font-semibold capitalize md:w-56">{getFormattedDate()}</span>
-                  <Button variant="ghost" size="icon" onClick={() => handleDateChange('next')}><ChevronRight className="h-5 w-5" /></Button>
-              </div>
-          </div>
-      )
-  }
+    if (dateFilter === 'year') {
+        steps = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
+        formatStr = 'MMM';
+    } else if (dateFilter === 'week') {
+        steps = eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) });
+        formatStr = 'eee d';
+    } else if (dateFilter === 'day') {
+        steps = [currentDate];
+        formatStr = 'dd MMM';
+    } else { // month
+        steps = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+        formatStr = 'd';
+    }
+
+    return steps.map(step => {
+        const dayTransactions = transactions.filter((t: UnifiedTransaction) => isSameDay(new Date(t.fecha), step));
+        const ingresos = dayTransactions.filter((t: UnifiedTransaction) => t.__flowType === 'ingreso').reduce((sum: number, t: UnifiedTransaction) => sum + (t.monto || 0), 0);
+        const gastos = dayTransactions.filter((t: UnifiedTransaction) => t.__flowType === 'egreso').reduce((sum: number, t: UnifiedTransaction) => sum + (t.monto || 0), 0);
+        return {
+            name: format(step, formatStr, { locale: es }),
+            ingresos,
+            gastos
+        };
+    });
+  }, [transactions, dateFilter, currentDate]);
+
+  const mainBudget = budgets.find((b: Budget) => b.type === 'egreso');
+  const spentInMainBudget = transactions
+    .filter((t: UnifiedTransaction) => t.__flowType === 'egreso' && t.categoria === mainBudget?.category)
+    .reduce((sum: number, t: UnifiedTransaction) => sum + t.monto, 0);
+  const budgetProgress = mainBudget ? (spentInMainBudget / mainBudget.limit) * 100 : 0;
+
+  if(isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Resumen Financiero</h2>
-        <PeriodNavigator dateFilter={dateFilter} setDateFilter={setDateFilter} currentDate={currentDate} setCurrentDate={setCurrentDate} />
-      </div>
+    <div className="space-y-10">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div className="space-y-1">
+                <h2 className="text-3xl font-bold tracking-tight">Gastos<br/>diarios</h2>
+                <p className="text-muted-foreground text-sm">Tu resumen financiero del periodo.</p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+                <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+                    <SelectTrigger className="w-[130px] h-11 border-none bg-muted/30"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="day">Diario</SelectItem>
+                        <SelectItem value="week">Semanal</SelectItem>
+                        <SelectItem value="month">Mensual</SelectItem>
+                        <SelectItem value="year">Anual</SelectItem>
+                    </SelectContent>
+                </Select>
 
-      <DailyNavigator currentDate={currentDate} setCurrentDate={setCurrentDate} dateFilter={dateFilter} transactions={transactions} />
+                <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                    <SelectTrigger className="w-[130px] h-11 border-none bg-muted/30"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Todas">Todas</SelectItem>
+                        {companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                </Select>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos del Periodo</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-green-600">{money(totalIncome)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Gastos del Periodo</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-red-600">{money(totalExpense)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Balance del Periodo</CardTitle></CardHeader>
-          <CardContent><p className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{money(balance)}</p></CardContent>
-        </Card>
-        <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Presupuesto (Comida)</CardTitle></CardHeader>
-            <CardContent>
-                <div className="flex items-baseline gap-2">
-                    <p className="text-2xl font-bold">{money(budgets[0]?.spent || 0)}</p>
-                    <span className="text-sm text-muted-foreground">de {money(budgets[0]?.amount || 0)}</span>
+                <div className="flex items-center gap-1 bg-muted/30 rounded-md px-2 h-11 border border-transparent">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { [dateFilter === 'day' ? 'days' : dateFilter + 's']: -1 }))}>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="min-w-[120px] text-center font-semibold text-sm capitalize">
+                        {format(currentDate, dateFilter === 'day' ? 'dd MMM yyyy' : (dateFilter === 'year' ? 'yyyy' : 'MMMM yyyy'), { locale: es })}
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { [dateFilter === 'day' ? 'days' : dateFilter + 's']: 1 }))}>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
                 </div>
-                 <Progress value={(budgets[0]?.spent || 0) / (budgets[0]?.amount || 1) * 100} className="mt-2" />
-            </CardContent>
-        </Card>
-      </div>
+
+                <Button variant="outline" className="h-11 border-none bg-muted/30 gap-2 px-4" onClick={onViewTransactions}>
+                    <Eye className="h-4 w-4" /> Ver Transacciones
+                </Button>
+
+                <Button className="h-11 bg-[#2d5a4c] hover:bg-[#2d5a4c]/90 text-white gap-2 px-4" onClick={onAddTransaction}>
+                    <Plus className="h-4 w-4" /> Añadir Transacción
+                </Button>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <Card className="lg:col-span-6 border-none bg-white shadow-sm rounded-xl">
+                <CardHeader className="pb-0">
+                    <CardTitle className="text-xl font-bold">Balance del Periodo</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div className="relative w-[220px] h-[220px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie 
+                                    data={pieData} 
+                                    dataKey="value" 
+                                    innerRadius={70} 
+                                    outerRadius={95} 
+                                    paddingAngle={5} 
+                                    stroke="none"
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="space-y-6 flex-1 w-full">
+                        <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Balance</p>
+                            <p className="text-3xl font-extrabold text-[#2d5a4c]">{money(balance)}</p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-muted-foreground font-medium">Ingresos</span>
+                                    <span className="font-bold text-lg">{money(totalIncome)}</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-pink-500" />
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-muted-foreground font-medium">Gastos</span>
+                                    <span className="font-bold text-lg">{money(totalExpense)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="lg:col-span-6 flex flex-col gap-6">
+                <Card className="border-none bg-white shadow-sm rounded-xl flex-1">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xl font-bold">Ahorro Potencial</CardTitle>
+                        <CardDescription>Balance del periodo seleccionado.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                        <div className="text-4xl font-extrabold text-[#2d5a4c]">{money(balance)}</div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none bg-white shadow-sm rounded-xl flex-1">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xl font-bold">Estado del Presupuesto</CardTitle>
+                        <CardDescription>Progreso de tu presupuesto de {mainBudget?.category || 'Sin definir'}.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-4">
+                        <div className="flex justify-between text-sm font-medium">
+                            <span>{money(spentInMainBudget)} gastado</span>
+                            <span className="text-muted-foreground">de {money(mainBudget?.limit || 0)}</span>
+                        </div>
+                        <Progress value={budgetProgress} className={cn("h-3", budgetProgress > 100 ? "bg-red-100 [&>div]:bg-red-500" : "bg-muted/50")} />
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
 
        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
@@ -648,130 +657,71 @@ function InsightsView({ transactions, dailyTransactions, budgets, isLoading, dat
   )
 }
 
-function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, transactionTypeFilter, setTransactionTypeFilter, onEditTransaction, onDeleteTransaction, isMobile }: { transactions: finanzas[], dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void, transactionTypeFilter: TransactionTypeFilter, setTransactionTypeFilter: (v: TransactionTypeFilter) => void, onEditTransaction: (t: finanzas) => void, onDeleteTransaction: (id: number) => void, isMobile: boolean }) {
-    const { toast } = useToast();
-    const [transactionPage, setTransactionPage] = React.useState(1);
-    const TRANSACTION_PAGE_SIZE = 10;
-    
-    const filteredByTypeTransactions = React.useMemo(() => {
-        return transactions.filter((t: finanzas) => transactionTypeFilter === 'all' || t.tipo_transaccion === transactionTypeFilter);
-    }, [transactions, transactionTypeFilter]);
+interface ReportsViewProps {
+    transactions: UnifiedTransaction[];
+    dateFilter: DateFilter;
+    setDateFilter: (filter: DateFilter) => void;
+    currentDate: Date;
+    setCurrentDate: (date: Date) => void;
+    companyFilter: string;
+    setCompanyFilter: (company: string) => void;
+    accountFilter: string;
+    setAccountFilter: (account: string) => void;
+    onEditTransaction: (t: UnifiedTransaction) => void;
+    onDeleteTransaction: (id: number, flow: 'egreso' | 'ingreso') => void;
+}
 
-    const reportData = React.useMemo(() => {
-        const totalIncome = filteredByTypeTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((sum, t: finanzas) => sum + t.monto, 0);
-        const totalExpense = filteredByTypeTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((sum, t: finanzas) => sum + t.monto, 0);
-        const netBalance = totalIncome - totalExpense;
+function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, onEditTransaction, onDeleteTransaction, companyFilter, setCompanyFilter, accountFilter, setAccountFilter }: ReportsViewProps) {
+    const { totalIncome, totalExpense, balance, expenseByCat, incomeByCat, typeComparison } = React.useMemo(() => {
+        const incomeItems = transactions.filter((t: UnifiedTransaction) => t.__flowType === 'ingreso');
+        const expenseItems = transactions.filter((t: UnifiedTransaction) => t.__flowType === 'egreso');
 
-        const expensesByCategory = filteredByTypeTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
-            const category = t.categoria || 'Sin Categoría';
-            const existing = acc.find(item => item.name === category);
-            if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
-            return acc;
-        }, [] as { name: string, value: number }[]);
-        
-        const expensesByPaymentMethod = filteredByTypeTransactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto').reduce((acc, t: finanzas) => {
-            const method = t.metodo_pago || 'Otro';
-            const existing = acc.find(item => item.name === method);
-            if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
-            return acc;
-        }, [] as { name: string, value: number }[]);
-        
-        const incomesByCategory = filteredByTypeTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
-            const category = t.categoria || 'Sin Categoría';
-            const existing = acc.find(item => item.name === category);
-            if (existing) existing.value += t.monto; else acc.push({ name: category, value: t.monto });
-            return acc;
-        }, [] as { name: string, value: number }[]);
-        
-        const incomesByPaymentMethod = filteredByTypeTransactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso').reduce((acc, t: finanzas) => {
-            const method = t.metodo_pago || 'Otro';
-            const existing = acc.find(item => item.name === method);
-            if (existing) existing.value += t.monto; else acc.push({ name: method, value: t.monto });
-            return acc;
-        }, [] as { name: string, value: number }[]);
+        const income = incomeItems.reduce((sum: number, t: UnifiedTransaction) => sum + (t.monto || 0), 0);
+        const expense = expenseItems.reduce((sum: number, t: UnifiedTransaction) => sum + (t.monto || 0), 0);
 
-        let trendData: { name: string, Ingresos: number, Gastos: number }[] = [];
-        if (dateFilter === 'year') {
-            const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
-            trendData = months.map(month => {
-                const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(startOfMonth(new Date(t.fecha)), month)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                return { name: format(month, 'MMM', { locale: es }), Ingresos: income, Gastos: expense };
-            });
-        } else if (dateFilter !== 'day') { // For week and month
-             const days = dateFilter === 'week' 
-                ? eachDayOfInterval({ start: startOfWeek(currentDate, { locale: es }), end: endOfWeek(currentDate, { locale: es }) })
-                : eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
-            trendData = days.map(day => {
-                const income = transactions.filter((t: finanzas) => t.tipo_transaccion === 'ingreso' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                const expense = transactions.filter((t: finanzas) => t.tipo_transaccion === 'gasto' && isSameDay(new Date(t.fecha), day)).reduce((sum: number, t: finanzas) => sum + t.monto, 0);
-                return { name: format(day, dateFilter === 'week' ? 'eee d' : 'd'), Ingresos: income, Gastos: expense };
-            });
-        }
+        const expCatMap: Record<string, number> = {};
+        expenseItems.forEach((t: UnifiedTransaction) => {
+            expCatMap[t.categoria] = (expCatMap[t.categoria] || 0) + (t.monto || 0);
+        });
+        const expCatData = Object.entries(expCatMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-        return { totalIncome, totalExpense, netBalance, expensesByCategory, expensesByPaymentMethod, trendData, incomesByCategory, incomesByPaymentMethod };
-    }, [filteredByTypeTransactions, transactions, currentDate, dateFilter]);
-    
-    const PIE_COLORS = [
-      "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
-      "hsl(var(--chart-4))", "hsl(var(--chart-5))", "hsl(180, 50%, 50%)", "hsl(300, 50%, 50%)"
-    ];
+        const incCatMap: Record<string, number> = {};
+        incomeItems.forEach((t: UnifiedTransaction) => {
+            incCatMap[t.categoria] = (incCatMap[t.categoria] || 0) + (t.monto || 0);
+        });
+        const incCatData = Object.entries(incCatMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-    const hasData = filteredByTypeTransactions.length > 0;
+        const typeMap: Record<string, number> = {
+            'gasto': expenseItems.filter((t: UnifiedTransaction) => t.tipo_transaccion === 'gasto').reduce((s: number, t: UnifiedTransaction) => s + t.monto, 0),
+            'compra': expenseItems.filter((t: UnifiedTransaction) => t.tipo_transaccion === 'compra').reduce((s: number, t: UnifiedTransaction) => s + t.monto, 0),
+            'venta': incomeItems.filter((t: UnifiedTransaction) => t.tipo_transaccion === 'venta').reduce((s: number, t: UnifiedTransaction) => s + t.monto, 0),
+            'ingreso': incomeItems.filter((t: UnifiedTransaction) => t.tipo_transaccion === 'ingreso').reduce((s: number, t: UnifiedTransaction) => s + t.monto, 0),
+        };
+        const typeData = Object.entries(typeMap).map(([name, value]) => ({ name, value }));
 
-    const handleDownloadCsv = () => {
-        if (!hasData) {
-            toast({ title: 'No hay datos', description: 'No hay transacciones para exportar con el filtro actual.', variant: 'destructive' });
-            return;
-        }
+        return { 
+            totalIncome: income, 
+            totalExpense: expense, 
+            balance: income - expense,
+            expenseByCat: expCatData,
+            incomeByCat: incCatData,
+            typeComparison: typeData
+        };
+    }, [transactions]);
 
-        const worksheet = XLSX.utils.json_to_sheet(filteredByTypeTransactions.map((t: finanzas) => ({...t})));
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Transacciones");
-        XLSX.writeFile(workbook, `reporte_gastos_${new Date().toISOString().split('T')[0]}.csv`);
-        
-        toast({ title: 'Descarga Iniciada', description: 'Tu reporte CSV se está descargando.' });
-    };
-
-    const totalTransactionPages = Math.ceil(filteredByTypeTransactions.length / TRANSACTION_PAGE_SIZE);
-    const paginatedTransactions = filteredByTypeTransactions.slice(
-        (transactionPage - 1) * TRANSACTION_PAGE_SIZE,
-        transactionPage * TRANSACTION_PAGE_SIZE
-    );
-    
-    const PeriodNavigator = ({ dateFilter, setDateFilter, currentDate, setCurrentDate }: { dateFilter: DateFilter, setDateFilter: (f: DateFilter) => void, currentDate: Date, setCurrentDate: (d: Date) => void }) => {
-        const handleDateChange = (direction: 'next' | 'prev') => {
-            const amount = direction === 'prev' ? -1 : 1;
-            let newDate;
-            switch(dateFilter) {
-              case 'day': newDate = add(currentDate, { days: amount }); break;
-              case 'week': newDate = add(currentDate, { weeks: amount }); break;
-              case 'year': newDate = add(currentDate, { years: amount }); break;
-              case 'month':
-              default: newDate = add(currentDate, { months: amount }); break;
-            }
-            setCurrentDate(newDate);
-          };
-          
-          const getFormattedDate = () => {
-            switch(dateFilter) {
-              case 'day': return format(currentDate, "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-              case 'week': 
-                const start = startOfWeek(currentDate, { locale: es });
-                const end = endOfWeek(currentDate, { locale: es });
-                return `Semana del ${format(start, 'dd/MM')} al ${format(end, 'dd/MM/yyyy')}`;
-              case 'year': return format(currentDate, "yyyy");
-              case 'month':
-              default: return format(currentDate, "MMMM yyyy", { locale: es });
-            }
-          };
-
-        return (
-            <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-                <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
-                    <SelectTrigger className="w-full md:w-auto">
-                        <SelectValue placeholder="Seleccionar periodo" />
-                    </SelectTrigger>
+    return (
+        <div className="space-y-10">
+            <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl border shadow-sm">
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentDate(add(currentDate, { [dateFilter === 'day' ? 'days' : dateFilter + 's']: -1 }))}><ChevronLeft /></Button>
+                    <span className="min-w-[140px] text-center font-bold capitalize text-sm">
+                        {format(currentDate, dateFilter === 'day' ? 'dd MMM yyyy' : (dateFilter === 'year' ? 'yyyy' : 'MMMM yyyy'), { locale: es })}
+                    </span>
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentDate(add(currentDate, { [dateFilter === 'day' ? 'days' : dateFilter + 's']: 1 }))}><ChevronRight /></Button>
+                </div>
+                <Separator orientation="vertical" className="h-8 mx-2" />
+                <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+                    <SelectTrigger className="w-[120px] border-none bg-muted/30"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="day">Diario</SelectItem>
                         <SelectItem value="week">Semanal</SelectItem>
@@ -946,27 +896,19 @@ function ReportsView({ transactions, dateFilter, setDateFilter, currentDate, set
     );
 }
 
-function BudgetsView({ categories, transactions, budgets, setBudgets }: { categories: string[], transactions: finanzas[], budgets: Budget[], setBudgets: React.Dispatch<React.SetStateAction<Budget[]>> }) {
-    const { toast } = useToast();
-    const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const [editingBudget, setEditingBudget] = React.useState<Budget | null>(null);
-    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
-    const [deletingBudgetId, setDeletingBudgetId] = React.useState<number | null>(null);
+interface BudgetsViewProps {
+    budgets: Budget[];
+    setBudgets: React.Dispatch<React.SetStateAction<Budget[]>>;
+    transactions: UnifiedTransaction[];
+    egresoCats: any[];
+    ingresoCats: any[];
+}
 
-    const [budgetAmount, setBudgetAmount] = React.useState('');
-    const [budgetCategory, setBudgetCategory] = React.useState('');
-    const [budgetDateRange, setBudgetDateRange] = React.useState<DateRange | undefined>();
+function BudgetsView({ budgets, setBudgets, transactions, egresoCats, ingresoCats }: BudgetsViewProps) {
+    const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+    const [newBudgetType, setNewBudgetType] = React.useState<'egreso' | 'ingreso'>('egreso');
 
-    const hydratedBudgets = React.useMemo(() => {
-        return budgets.map(budget => {
-            const spent = transactions
-                .filter((t: finanzas) => t.tipo_transaccion === 'gasto' && t.categoria === budget.category && new Date(t.fecha) >= budget.startDate && new Date(t.fecha) <= budget.endDate)
-                .reduce((sum, t: finanzas) => sum + t.monto, 0);
-            return { ...budget, spent };
-        });
-    }, [budgets, transactions]);
-    
-    const handleAddOrEditBudget = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleAddBudget = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         if (!budgetAmount || !budgetCategory || !budgetDateRange?.from) {
@@ -1022,20 +964,34 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
     }
 
     return (
-        <>
-            <div className="space-y-6">
-                <div className="flex flex-col items-start gap-4 md:flex-row md:justify-between">
-                    <div>
-                        <h2 className="text-2xl font-bold">Presupuestos</h2>
-                        <p className="text-muted-foreground">Controla tus gastos creando presupuestos por categoría.</p>
-                    </div>
-                    <Button onClick={handleOpenNewBudgetForm}>
-                        <Plus className="mr-2 h-4 w-4" /> Crear Presupuesto
-                    </Button>
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                    <h2 className="text-3xl font-bold tracking-tight">Presupuestos</h2>
+                    <p className="text-muted-foreground text-sm">Controla tus gastos creando presupuestos por categoría.</p>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {hydratedBudgets.map(budget => {
-                        const progress = (budget.spent / budget.amount) * 100;
+                <Button className="bg-[#2d5a4c] hover:bg-[#2d5a4c]/90" onClick={() => setIsCreateOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Crear Presupuesto
+                </Button>
+            </div>
+
+            {budgets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-20 text-center space-y-4 border-2 border-dashed rounded-2xl bg-muted/10">
+                    <Target className="h-16 w-16 text-muted-foreground/20" />
+                    <h3 className="text-xl font-bold">No tienes presupuestos activos</h3>
+                    <p className="text-muted-foreground max-w-md">Define límites de gasto para tus categorías de egreso y metas para tus ingresos.</p>
+                    <Button variant="outline" onClick={() => setIsCreateOpen(true)}>Empezar ahora</Button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {budgets.map(budget => {
+                        const actual = transactions
+                            .filter((t: UnifiedTransaction) => t.__flowType === budget.type && t.categoria === budget.category)
+                            .reduce((sum: number, t: UnifiedTransaction) => sum + t.monto, 0);
+                        const progress = (actual / budget.limit) * 100;
+                        const isOver = budget.type === 'egreso' && actual > budget.limit;
+                        const isSuccess = budget.type === 'ingreso' && actual >= budget.limit;
+
                         return (
                         <Card key={budget.id}>
                             <CardHeader>
@@ -1114,279 +1070,121 @@ function BudgetsView({ categories, transactions, budgets, setBudgets }: { catego
     );
 }
 
-function ConfiguracionView({ categories, setCategories, dateFilter, setDateFilter }: { categories: Category[], setCategories: React.Dispatch<React.SetStateAction<Category[]>>, dateFilter: DateFilter, setDateFilter: React.Dispatch<React.SetStateAction<DateFilter>> }) {
-    const { toast } = useToast();
-    const [newCategoryName, setNewCategoryName] = React.useState('');
-    const [isCategoryDialogOpen, setIsCategoryDialogOpen] = React.useState(false);
-    const [editingCategory, setEditingCategory] = React.useState<Category | null>(null);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
-    const [deletingCategoryName, setDeletingCategoryName] = React.useState<string | null>(null);
-    const [categoryInputValue, setCategoryInputValue] = React.useState('');
-    
-    const [newSubcategoryName, setNewSubcategoryName] = React.useState('');
-    const [editingSubcategory, setEditingSubcategory] = React.useState<{ category: Category, subcategory: string } | null>(null);
-
-
-    const handleAddCategory = (e: React.FormEvent) => {
-        e.preventDefault();
-        const trimmed = newCategoryName.trim();
-        if (trimmed && !categories.some(c => c.name === trimmed)) {
-            setCategories(prev => [...prev, { name: trimmed, subcategories: [] }].sort((a,b) => a.name.localeCompare(b.name)));
-            setNewCategoryName('');
-            toast({ title: 'Categoría añadida', description: `"${trimmed}" se ha añadido a la lista.` });
-        } else if (!trimmed) {
-            toast({ title: 'Campo vacío', description: 'El nombre de la categoría no puede estar vacío.', variant: 'destructive' });
-        } else {
-            toast({ title: 'Categoría duplicada', description: 'Esa categoría ya existe.', variant: 'destructive' });
-        }
-    };
-    
-    const handleOpenEditDialog = (category: Category) => {
-        setEditingCategory(category);
-        setCategoryInputValue(category.name);
-        setNewSubcategoryName('');
-        setIsCategoryDialogOpen(true);
-    };
-
-    const handleUpdateCategory = () => {
-        if (!editingCategory) return;
-        const trimmed = categoryInputValue.trim();
-        if (trimmed && !categories.some(c => c.name === trimmed && c.name !== editingCategory.name)) {
-            setCategories(prev => prev.map(c => c.name === editingCategory.name ? { ...c, name: trimmed } : c)
-                                      .sort((a, b) => a.name.localeCompare(b.name)));
-            toast({ title: 'Categoría actualizada' });
-        } else {
-             toast({ title: 'Error', description: 'El nombre no puede estar vacío o ya existe.', variant: 'destructive' });
-        }
-    };
-    
-    const handleAddSubcategory = () => {
-        if (!editingCategory || !newSubcategoryName.trim()) return;
-        const trimmedSub = newSubcategoryName.trim();
-        if (editingCategory.subcategories.includes(trimmedSub)) {
-             toast({ title: 'Subcategoría duplicada', variant: 'destructive' });
-             return;
-        }
-        const updatedCategory = { ...editingCategory, subcategories: [...editingCategory.subcategories, trimmedSub].sort() };
-        setCategories(prev => prev.map(c => c.name === editingCategory.name ? updatedCategory : c));
-        setEditingCategory(updatedCategory); // update state for the open dialog
-        setNewSubcategoryName('');
-    }
-    
-    const handleDeleteSubcategory = (subcategory: string) => {
-        if (!editingCategory) return;
-        const updatedCategory = { ...editingCategory, subcategories: editingCategory.subcategories.filter(s => s !== subcategory) };
-        setCategories(prev => prev.map(c => c.name === editingCategory.name ? updatedCategory : c));
-        setEditingCategory(updatedCategory);
-    }
-
-    const handleOpenDeleteDialog = (categoryName: string) => {
-        setDeletingCategoryName(categoryName);
-        setIsDeleteDialogOpen(true);
-    };
-
-    const confirmDeleteCategory = () => {
-        if (deletingCategoryName !== null) {
-            setCategories(prev => prev.filter(c => c.name !== deletingCategoryName));
-            toast({ title: 'Categoría eliminada' });
-        }
-        setIsDeleteDialogOpen(false);
-        setDeletingCategoryName(null);
-    };
-
-    const periodLabels: Record<DateFilter, string> = { day: 'Diario', week: 'Semanal', month: 'Mensual', year: 'Anual' };
-
+function ConfiguracionView({ egresoCats, ingresoCats }: { egresoCats: any[], ingresoCats: any[] }) {
     return (
-        <>
-            <div className="space-y-8">
-                <h2 className="text-2xl font-bold">Configuración</h2>
-                
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Gestionar Categorías y Subcategorías</CardTitle>
-                        <CardDescription>Añade, edita o elimina las categorías para tus transacciones.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleAddCategory} className="flex items-center gap-2 mb-4">
-                            <Input 
-                                placeholder="Nombre de la nueva categoría" 
-                                value={newCategoryName} 
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                            />
-                            <Button type="submit"><Plus className="mr-2 h-4 w-4" />Añadir Categoría</Button>
-                        </form>
-                        <div className="space-y-2 rounded-md border p-2">
-                            {categories.map((category) => (
-                                <div key={category.name} className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50">
-                                    <div className="flex flex-col">
-                                        <span className="font-medium">{category.name}</span>
-                                        {category.subcategories.length > 0 && 
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                {category.subcategories.map(sub => <Badge key={sub} variant="secondary">{sub}</Badge>)}
-                                            </div>
-                                        }
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(category)}>
-                                            <Pencil className="h-4 w-4" />
-                                            <span className="sr-only">Editar</span>
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDeleteDialog(category.name)}>
-                                            <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">Eliminar</span>
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Preferencias de Vista</CardTitle>
-                        <CardDescription>Elige la vista por defecto para el período de tiempo.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="w-full md:w-1/2">
-                            <Label htmlFor="default-period">Período por Defecto</Label>
-                            <Select value={dateFilter} onValueChange={(val) => setDateFilter(val as DateFilter)}>
-                                <SelectTrigger id="default-period" className="mt-2">
-                                    <SelectValue placeholder="Seleccionar periodo" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(periodLabels).map(([value, label]) => (
-                                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Métodos de Pago</CardTitle>
-                        <CardDescription>Estos son los métodos de pago disponibles en el sistema.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
+        <div className="space-y-6">
+            <Card className="border-none shadow-sm rounded-xl">
+                <CardHeader><CardTitle>Gestión de Categorías</CardTitle><CardDescription>Catálogos de transacciones.</CardDescription></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        <h3 className="font-bold border-b pb-2 flex items-center gap-2 text-pink-600"><ArrowDown className="h-4 w-4"/> Egresos (Gasto / Compra)</h3>
                         <div className="flex flex-wrap gap-2">
-                            {paymentMethods.map(method => (
-                                <Badge key={method} variant="outline">{method}</Badge>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Dialog for Editing Category */}
-            <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>Editar Categoría: {editingCategory?.name}</DialogTitle>
-                        <DialogDescription>Cambia el nombre de la categoría y gestiona sus subcategorías.</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4 space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="category-name">Nombre de la Categoría</Label>
-                             <div className="flex gap-2">
-                                <Input id="category-name" value={categoryInputValue} onChange={(e) => setCategoryInputValue(e.target.value)} className="mt-1" />
-                                <Button onClick={handleUpdateCategory} variant="outline">Guardar Nombre</Button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Subcategorías</Label>
-                             <div className="flex items-center gap-2">
-                                <Input placeholder="Nueva subcategoría" value={newSubcategoryName} onChange={(e) => setNewSubcategoryName(e.target.value)} />
-                                <Button type="button" onClick={handleAddSubcategory}>Añadir</Button>
-                            </div>
-                             <div className="space-y-2 rounded-md border p-2 mt-2 max-h-40 overflow-y-auto">
-                                {editingCategory?.subcategories.length === 0 && <p className="text-xs text-center text-muted-foreground p-2">Sin subcategorías</p>}
-                                {editingCategory?.subcategories.map((sub, index) => (
-                                    <div key={index} className="flex items-center justify-between rounded-md p-1.5 hover:bg-muted/50">
-                                        <span className="text-sm">{sub}</span>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteSubcategory(sub)}>
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
+                            {egresoCats.map((c: any) => <Badge key={c.name} variant="secondary" className="bg-pink-50 text-pink-700 border-pink-100">{c.name}</Badge>)}
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button onClick={() => setIsCategoryDialogOpen(false)}>Cerrar</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Dialog for Deleting Category */}
-            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>¿Estás seguro de eliminar esta categoría?</DialogTitle>
-                        <DialogDescription>
-                            Esta acción no se puede deshacer. Se eliminará la categoría <span className="font-bold">{deletingCategoryName && `"${deletingCategoryName}"`}</span>.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                        <Button variant="destructive" onClick={confirmDeleteCategory}>Sí, eliminar</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
+                    <div className="space-y-4">
+                        <h3 className="font-bold border-b pb-2 flex items-center gap-2 text-blue-600"><ArrowUp className="h-4 w-4"/> Ingresos (Venta / Ingreso)</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {ingresoCats.map((c: any) => <Badge key={c.name} variant="outline" className="bg-blue-50 text-blue-700 border-blue-100">{c.name}</Badge>)}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 
+// --- Componentes Auxiliares ---
 
-function BottomNav({ currentView, setView }: { currentView: View, setView: (v: View) => void }) {
-  const navItems = [
-    { id: 'inicio', label: 'Inicio', icon: Home },
-    { id: 'informes', label: 'Informes', icon: BarChart },
-    { id: 'presupuestos', label: 'Presupuestos', icon: List },
-    { id: 'configuracion', label: 'Ajustes', icon: Cog },
-  ];
+function TransactionTable({ transactions, onEdit, onDelete }: { transactions: UnifiedTransaction[], onEdit: (t: UnifiedTransaction) => void, onDelete: (id: number, flow: 'egreso' | 'ingreso') => void }) {
+    if (transactions.length === 0) return <div className="text-center py-10 text-muted-foreground italic">No hay movimientos en este periodo.</div>;
 
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-t-lg md:hidden">
-      <div className="grid h-16 grid-cols-4 items-center">
-        {navItems.map(item => (
-          <Button
-            key={item.id}
-            variant="ghost"
-            className={cn(
-              "flex h-full w-full flex-col items-center justify-center rounded-none gap-1 pt-2",
-              currentView === item.id ? "text-primary bg-primary/10" : "text-muted-foreground"
-            )}
-            onClick={() => setView(item.id as View)}
-          >
-            <item.icon className="h-5 w-5" />
-            <span className="text-xs">{item.label}</span>
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow className="bg-muted/30">
+                    <TableHead className="font-bold">Fecha</TableHead>
+                    <TableHead className="font-bold">Concepto</TableHead>
+                    <TableHead className="font-bold">Cuenta</TableHead>
+                    <TableHead className="text-right font-bold">Monto</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {transactions.map(t => (
+                    <TableRow key={`${t.__flowType}-${t.id}`} className="hover:bg-muted/50 transition-colors">
+                        <TableCell className="text-xs font-medium">{format(new Date(t.fecha), 'dd/MM/yy')}</TableCell>
+                        <TableCell>
+                            <div className="font-bold text-sm">{t.categoria}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase font-medium flex items-center gap-1">
+                                <Badge variant="outline" className={cn(
+                                    "px-1 py-0 text-[9px]",
+                                    t.__flowType === 'egreso' ? "border-pink-200 text-pink-600" : "border-blue-200 text-blue-600"
+                                )}>
+                                    {t.tipo_transaccion}
+                                </Badge>
+                                • {t.descripcion || 'Sin desc.'}
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                                <Badge variant="outline" className="text-[10px] font-bold w-fit bg-background">{t.cuenta || 'N/A'}</Badge>
+                                <span className="text-[9px] text-muted-foreground font-medium">{t.banco || 'Sin banco'}</span>
+                            </div>
+                        </TableCell>
+                        <TableCell className={cn("text-right font-black", t.__flowType === 'egreso' ? "text-pink-600" : "text-blue-600")}>
+                            {t.__flowType === 'egreso' ? "-" : "+"} {money(t.monto)}
+                        </TableCell>
+                        <TableCell>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => onEdit(t)}><Pencil className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onDelete(t.id, t.__flowType)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    );
 }
 
-// --- Transaction Form Component ---
+interface TransactionFormProps {
+    transaction: UnifiedTransaction | null;
+    onSubmit: (values: TransactionFormValues) => void;
+    egresoCats: any[];
+    ingresoCats: any[];
+    onClose: () => void;
+}
 
-function TransactionForm({ isOpen, setIsOpen, onSubmit, transaction, categories, setCategories }: any) {
-  const [isAddingCategory, setIsAddingCategory] = React.useState(false);
-  const [newCategory, setNewCategory] = React.useState('');
-  const { toast } = useToast();
-
+function TransactionForm({ transaction, onSubmit, egresoCats, ingresoCats, onClose }: TransactionFormProps) {
   const form = useForm<TransactionFormValues>({
-    resolver: zodResolver(expenseFormSchema),
-    defaultValues: {
-      tipo_transaccion: 'gasto',
-      monto: undefined,
-      categoria: '',
-      subcategoria: null,
-      fecha: new Date(),
-      metodo_pago: undefined,
-      notas: '',
+    resolver: zodResolver(transactionFormSchema),
+    defaultValues: transaction ? {
+        fecha: new Date(transaction.fecha),
+        empresa: (transaction.empresa as any) || null,
+        monto: transaction.monto,
+        categoria: transaction.categoria,
+        subcategoria: transaction.subcategoria,
+        descripcion: transaction.descripcion,
+        notas: transaction.notas,
+        flow_type: transaction.__flowType,
+        tipo_transaccion: transaction.tipo_transaccion,
+        metodo_pago: (transaction.metodo_pago as any),
+        metodo_pago_especificar: transaction.metodo_pago_especificar,
+        banco: (transaction.banco as any) || null,
+        banco_especificar: transaction.banco_especificar,
+        cuenta: (transaction.cuenta as any) || null,
+        cuenta_especificar: transaction.cuenta_especificar,
+    } : {
+        fecha: new Date(),
+        flow_type: 'egreso',
+        tipo_transaccion: 'gasto',
+        metodo_pago: 'Transferencia',
+        banco: 'BBVA',
+        cuenta: 'TOLEXAL',
     },
   });
   
