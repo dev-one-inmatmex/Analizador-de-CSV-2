@@ -5,7 +5,7 @@ import {
   BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, 
   Layers, Filter, Maximize, Loader2, Info, Truck, Landmark, User, FileText
 } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, 
@@ -48,6 +48,22 @@ export default function SalesDashboardClient({
 
     React.useEffect(() => { setIsClient(true); }, []);
 
+    // Helper para formateo seguro de fechas
+    const safeFormat = (dateStr: string | null | undefined, formatStr: string = 'dd/MM/yy') => {
+        if (!dateStr) return '-';
+        try {
+            const parsed = parseISO(dateStr);
+            if (isValid(parsed)) return format(parsed, formatStr);
+            
+            const fallback = new Date(dateStr);
+            if (isValid(fallback)) return format(fallback, formatStr);
+            
+            return dateStr;
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
     const { sales, kpis, charts, paretoAnalysisData } = React.useMemo(() => {
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
@@ -57,6 +73,15 @@ export default function SalesDashboardClient({
                 if (!sale.fecha_venta) return false;
                 try {
                     const saleDate = parseISO(sale.fecha_venta);
+                    if (!isValid(saleDate)) {
+                        const fallbackDate = new Date(sale.fecha_venta);
+                        if (!isValid(fallbackDate)) return false;
+                        
+                        const fromDate = startOfDay(date.from);
+                        const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
+                        if (fallbackDate < fromDate || fallbackDate > toDate) return false;
+                        return true;
+                    }
                     const fromDate = startOfDay(date.from);
                     const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
                     if (saleDate < fromDate || saleDate > toDate) return false;
@@ -298,7 +323,7 @@ export default function SalesDashboardClient({
                                         <TableRow key={s.num_venta || idx} className="text-[10px] h-10 hover:bg-muted/30">
                                             <TableCell className="border-r font-mono text-muted-foreground">{s.id || '-'}</TableCell>
                                             <TableCell className="border-r font-bold">#{s.num_venta}</TableCell>
-                                            <TableCell className="border-r">{s.fecha_venta ? format(parseISO(s.fecha_venta), 'dd/MM/yy HH:mm') : '-'}</TableCell>
+                                            <TableCell className="border-r">{safeFormat(s.fecha_venta, 'dd/MM/yy HH:mm')}</TableCell>
                                             <TableCell className="border-r"><Badge variant="outline" className="text-[8px] uppercase px-1">{s.status}</Badge></TableCell>
                                             
                                             <TableCell className="border-r italic">{s.desc_status || '-'}</TableCell>
@@ -342,23 +367,23 @@ export default function SalesDashboardClient({
                                             <TableCell className="border-r">{s.c_postal || '-'}</TableCell>
                                             
                                             <TableCell className="border-r">{s.pais || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.f_entrega ? format(parseISO(s.f_entrega), 'dd/MM/yy') : '-'}</TableCell>
-                                            <TableCell className="border-r">{s.f_camino ? format(parseISO(s.f_camino), 'dd/MM/yy') : '-'}</TableCell>
-                                            <TableCell className="border-r font-bold text-green-600">{s.f_entregado ? format(parseISO(s.f_entregado), 'dd/MM/yy') : '-'}</TableCell>
+                                            <TableCell className="border-r">{safeFormat(s.f_entrega)}</TableCell>
+                                            <TableCell className="border-r">{safeFormat(s.f_camino)}</TableCell>
+                                            <TableCell className="border-r font-bold text-green-600">{safeFormat(s.f_entregado)}</TableCell>
                                             <TableCell className="border-r">{s.transportista || '-'}</TableCell>
                                             <TableCell className="border-r font-mono text-blue-600">{s.num_seguimiento || '-'}</TableCell>
                                             
                                             <TableCell className="border-r truncate max-w-[100px] text-[8px] text-blue-500 underline">{s.url_seguimiento || '-'}</TableCell>
                                             <TableCell className="border-r text-center">{s.unidades_2 || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.f_entrega2 ? format(parseISO(s.f_entrega2), 'dd/MM/yy') : '-'}</TableCell>
-                                            <TableCell className="border-r">{s.f_camino2 ? format(parseISO(s.f_camino2), 'dd/MM/yy') : '-'}</TableCell>
-                                            <TableCell className="border-r font-bold text-green-600">{s.f_entregado2 ? format(parseISO(s.f_entregado2), 'dd/MM/yy') : '-'}</TableCell>
+                                            <TableCell className="border-r">{safeFormat(s.f_entrega2)}</TableCell>
+                                            <TableCell className="border-r">{safeFormat(s.f_camino2)}</TableCell>
+                                            <TableCell className="border-r font-bold text-green-600">{safeFormat(s.f_entregado2)}</TableCell>
                                             <TableCell className="border-r">{s.transportista2 || '-'}</TableCell>
                                             <TableCell className="border-r font-mono text-green-600">{s.num_seguimiento2 || '-'}</TableCell>
                                             
                                             <TableCell className="border-r truncate max-w-[100px] text-[8px] text-green-500 underline">{s.url_seguimiento2 || '-'}</TableCell>
                                             <TableCell className="border-r">{s.revisado_xml || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.f_revision3 ? format(parseISO(s.f_revision3), 'dd/MM/yy') : '-'}</TableCell>
+                                            <TableCell className="border-r">{safeFormat(s.f_revision3)}</TableCell>
                                             <TableCell className="border-r">{s.d_afavor || '-'}</TableCell>
                                             <TableCell className="border-r font-bold">{s.resultado || '-'}</TableCell>
                                             <TableCell className="border-r">{s.destino || '-'}</TableCell>
@@ -376,7 +401,7 @@ export default function SalesDashboardClient({
                     <CardFooter className="flex justify-between border-t p-4 bg-muted/5">
                         <div className="text-xs text-muted-foreground">Página {currentPage} de {totalPages} • Total registros: {sales.length}</div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>Anterior</Button>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
                             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}>Siguiente</Button>
                         </div>
                     </CardFooter>
