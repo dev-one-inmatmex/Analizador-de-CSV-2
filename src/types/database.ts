@@ -179,6 +179,11 @@ export interface publi_tienda {
   created_at?: string | null;
 }
 
+export interface publi_xsku {
+  sku: string;
+  num_publicaciones: number | null;
+}
+
 export interface publicaciones_por_sku {
   sku: string;
   publicaciones: number;

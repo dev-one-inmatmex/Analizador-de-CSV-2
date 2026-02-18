@@ -16,9 +16,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
-    finanzas: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'categoria', 'subcategoria', 'monto', 'capturista', 'tipo_transaccion', 'metodo_pago', 'metodo_pago_especificar', 'banco', 'banco_especificar', 'cuenta', 'cuenta_especificar', 'descripcion', 'notas'] },
-    finanzas2: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'categoria', 'subcategoria', 'monto', 'capturista', 'tipo_transaccion', 'metodo_pago', 'metodo_pago_especificar', 'banco', 'banco_especificar', 'cuenta', 'cuenta_especificar', 'descripcion', 'notas'] },
-    ml_sales: { pk: 'num_venta', columns: ['num_venta', 'fecha_venta', 'status', 'desc_status', 'paquete_varios', 'pertenece_kit', 'unidades', 'ing_xunidad', 'cargo_venta', 'ing_xenvio', 'costo_envio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'total', 'venta_xpublicidad', 'sku', 'num_publi', 'tienda', 'tit_pub', 'variante', 'price', 'tip_publi', 'factura_a', 'datos_poe', 'tipo_ndoc', 'direccion', 't_contribuyente', 'cfdi', 't_usuario', 'r_fiscal', 'comprador', 'negocio', 'ife', 'domicilio', 'mun_alcaldia', 'estado', 'c_postal', 'pais', 'f_entrega', 'f_camino', 'f_entregado', 'transportista', 'num_seguimiento', 'url_seguimiento', 'unidades_2', 'f_entrega2', 'f_camino2', 'f_entregado2', 'transportista2', 'num_seguimiento2', 'url_seguimiento2', 'revisado_xml', 'f_revision3', 'd_afavor', 'resultado', 'destino', 'motivo_resul', 'unidades_3', 'r_abierto', 'r_cerrado', 'c_mediacion'] },
+    gastos_diarios: { 
+        pk: 'id', 
+        columns: [
+            'id', 'fecha', 'empresa', 'tipo_gasto', 'area_funcional', 
+            'categoria_especifica', 'canal_asociado', 'clasificacion_operativa', 
+            'es_fijo', 'es_recurrente', 'monto', 'responsable_id', 
+            'metodo_pago', 'metodo_pago_especificar', 'banco', 
+            'banco_especificar', 'cuenta', 'cuenta_especificar', 
+            'descripcion', 'notas'
+        ] 
+    },
+    ml_sales: { 
+        pk: 'num_venta', 
+        columns: [
+            'num_venta', 'fecha_venta', 'status', 'desc_status', 'paquete_varios', 
+            'pertenece_kit', 'unidades', 'ing_xunidad', 'cargo_venta', 'ing_xenvio', 
+            'costo_envio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'total', 
+            'venta_xpublicidad', 'sku', 'num_publi', 'tienda', 'tit_pub', 'variante', 
+            'price', 'tip_publi', 'factura_a', 'datos_poe', 'tipo_ndoc', 'direccion', 
+            't_contribuyente', 'cfdi', 't_usuario', 'r_fiscal', 'comprador', 'negocio', 
+            'ife', 'domicilio', 'mun_alcaldia', 'estado', 'c_postal', 'pais', 'f_entrega', 
+            'f_camino', 'f_entregado', 'transportista', 'num_seguimiento', 'url_seguimiento', 
+            'unidades_2', 'f_entrega2', 'f_camino2', 'f_entregado2', 'transportista2', 
+            'num_seguimiento2', 'url_seguimiento2', 'revisado_xml', 'f_revision3', 
+            'd_afavor', 'resultado', 'destino', 'motivo_resul', 'unidades_3', 
+            'r_abierto', 'r_cerrado', 'c_mediacion'
+        ] 
+    },
     sku_m: { pk: 'sku_mdr', columns: ['sku_mdr', 'cat_mdr', 'piezas_por_sku', 'sku', 'piezas_xcontenedor', 'bodega', 'bloque', 'landed_cost'] },
     sku_costos: { pk: 'id', columns: ['id', 'sku_mdr', 'landed_cost', 'fecha_desde', 'proveedor', 'piezas_xcontenedor', 'sku', 'esti_time'] },
     sku_alterno: { pk: 'sku', columns: ['sku', 'sku_mdr'] },
@@ -47,7 +72,7 @@ function parseValue(key: string, value: any): any {
 
     const booleanFields = [
         'negocio', 'venta_xpublicidad', 'paquete_varios', 'pertenece_kit', 
-        'r_abierto', 'r_cerrado', 'c_mediacion'
+        'r_abierto', 'r_cerrado', 'c_mediacion', 'es_fijo', 'es_recurrente'
     ];
     if (booleanFields.includes(key)) {
         const v = str.toLowerCase();
@@ -173,8 +198,7 @@ export default function CsvUploader() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ml_sales">Ventas (ml_sales)</SelectItem>
-                                        <SelectItem value="finanzas">Egresos (finanzas)</SelectItem>
-                                        <SelectItem value="finanzas2">Ingresos (finanzas2)</SelectItem>
+                                        <SelectItem value="gastos_diarios">Gastos Diarios</SelectItem>
                                         <SelectItem value="sku_m">SKU Maestro (sku_m)</SelectItem>
                                         <SelectItem value="sku_costos">Historial de Costos (sku_costos)</SelectItem>
                                         <SelectItem value="sku_alterno">Relación SKUs Alternos (sku_alterno)</SelectItem>

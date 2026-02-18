@@ -8,8 +8,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   BarChart as BarChartIcon, ChevronLeft, ChevronRight, Home, 
   Loader2, MoreVertical, Pencil, Plus, Trash2, Eye, CreditCard, 
-  Calendar as CalendarIcon, ArrowDown, ArrowUp, Building2, Wallet,
-  Info, Tag, Target, CheckCircle2, History
+  Calendar as CalendarIcon, Building2, Wallet,
+  Info, Tag, Target, History
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, 
@@ -37,9 +37,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -240,9 +238,9 @@ function ReportsView({
             <Card className="min-w-0 overflow-hidden">
                 <CardHeader><CardTitle>Historial Unificado de Gastos</CardTitle></CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto w-full">
+                    <div className="overflow-x-auto w-full border-t">
                         <Table>
-                            <TableHeader><TableRow>
+                            <TableHeader className="bg-muted/30"><TableRow>
                                 <TableHead>Fecha</TableHead>
                                 <TableHead>Impacto / Área</TableHead>
                                 <TableHead>Empresa / Cuenta</TableHead>
@@ -510,8 +508,6 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
     });
 
     const watchPago = form.watch('metodo_pago');
-    const watchBanco = form.watch('banco');
-    const watchCuenta = form.watch('cuenta');
 
     return (
         <Form {...form}>
@@ -539,7 +535,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
 
                     <FormField control={form.control} name="empresa" render={({ field }) => (
                         <FormItem><FormLabel className="font-bold">Empresa</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value || undefined}>
                                 <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
                             </Select>
@@ -664,4 +660,8 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
             </form>
         </Form>
     );
+}
+
+function FormLabel({ children, className }: { children: React.ReactNode, className?: string }) {
+    return <Label className={cn("text-xs font-bold uppercase tracking-wider text-muted-foreground", className)}>{children}</Label>;
 }
