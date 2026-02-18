@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Package, Layers, DollarSign, ArrowRightLeft, AlertTriangle, Loader2, Plus } from 'lucide-react';
+import { Package, Layers, DollarSign, ArrowRightLeft, AlertTriangle, Loader2, Plus, Home, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -74,7 +74,7 @@ export default function InventoryAnalysisClient({
         setIsSubmitting(false);
         if (res.error) toast({ title: 'Error', description: res.error, variant: 'destructive' });
         else {
-            toast({ title: 'Éxito', description: 'Registro guardado.' });
+            toast({ title: 'Éxito', description: 'Registro guardado correctamente.' });
             close(false);
         }
     };
@@ -86,7 +86,7 @@ export default function InventoryAnalysisClient({
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4">
                     <SidebarTrigger />
-                    <h1 className="text-xl font-bold">Gestión de SKUs & Inventario</h1>
+                    <h1 className="text-xl font-bold">Gestión de skus</h1>
                 </div>
             </header>
 
@@ -104,27 +104,29 @@ export default function InventoryAnalysisClient({
 
                         <Tabs defaultValue="maestro">
                             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-6">
-                                <TabsTrigger value="maestro" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Catálogo Maestro</TabsTrigger>
-                                <TabsTrigger value="costos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Historial Costos</TabsTrigger>
-                                <TabsTrigger value="alternos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Relaciones Alternas</TabsTrigger>
+                                <TabsTrigger value="maestro" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Catálogo Maestro (sku_m)</TabsTrigger>
+                                <TabsTrigger value="costos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Historial Costos (sku_costos)</TabsTrigger>
+                                <TabsTrigger value="alternos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Relaciones Alternas (sku_alterno)</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="maestro" className="mt-6 space-y-4">
                                 <div className="flex justify-end">
                                     <Dialog open={isSkuMDialogOpen} onOpenChange={setIsSkuMDialogOpen}>
                                         <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> Nuevo SKU Maestro</Button></DialogTrigger>
-                                        <DialogContent className="sm:max-w-xl">
+                                        <DialogContent className="sm:max-w-2xl">
                                             <form onSubmit={(e) => handleForm(e, addSkuM, setIsSkuMDialogOpen)} className="space-y-4">
-                                                <DialogHeader><DialogTitle>Añadir SKU Maestro (sku_m)</DialogTitle></DialogHeader>
+                                                <DialogHeader><DialogTitle>Añadir SKU Maestro</DialogTitle><DialogDescription>Ingresa los datos para la tabla sku_m</DialogDescription></DialogHeader>
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-2"><Label>SKU Madre (ID)</Label><Input name="sku_mdr" required /></div>
-                                                    <div className="space-y-2"><Label>Categoría Madre</Label><Input name="cat_mdr" /></div>
+                                                    <div className="space-y-2"><Label>SKU Madre (ID)</Label><Input name="sku_mdr" required placeholder="Ej: MX-100" /></div>
+                                                    <div className="space-y-2"><Label>Categoría Madre</Label><Input name="cat_mdr" placeholder="Ej: Electrónica" /></div>
                                                     <div className="space-y-2"><Label>Pzs x SKU</Label><Input name="piezas_por_sku" type="number" /></div>
                                                     <div className="space-y-2"><Label>SKU Siggo</Label><Input name="sku" /></div>
                                                     <div className="space-y-2"><Label>Landed Cost</Label><Input name="landed_cost" type="number" step="0.01" /></div>
                                                     <div className="space-y-2"><Label>Pzs x Contenedor</Label><Input name="piezas_xcontenedor" type="number" /></div>
+                                                    <div className="space-y-2"><Label>Bodega</Label><Input name="bodega" /></div>
+                                                    <div className="space-y-2"><Label>Bloque</Label><Input name="bloque" type="number" /></div>
                                                 </div>
-                                                <DialogFooter><Button type="submit" disabled={isSubmitting}>Guardar</Button></DialogFooter>
+                                                <DialogFooter><Button type="submit" disabled={isSubmitting}>Guardar SKU Maestro</Button></DialogFooter>
                                             </form>
                                         </DialogContent>
                                     </Dialog>
@@ -137,20 +139,22 @@ export default function InventoryAnalysisClient({
                                             <TableHead>Costo</TableHead>
                                             <TableHead>Siggo</TableHead>
                                             <TableHead>Ubicación</TableHead>
+                                            <TableHead>Pzs x SKU</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {skuM.slice((pageSkuM-1)*10, pageSkuM*10).map((s: sku_m) => (
+                                            {skuM.slice((pageSkuM-1)*PAGE_SIZE, pageSkuM*PAGE_SIZE).map((s: sku_m) => (
                                                 <TableRow key={s.sku_mdr}>
                                                     <TableCell className="font-mono font-bold text-primary">{s.sku_mdr}</TableCell>
                                                     <TableCell className="text-xs uppercase">{s.cat_mdr}</TableCell>
                                                     <TableCell className="font-bold text-green-600">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(s.landed_cost)}</TableCell>
                                                     <TableCell className="font-mono text-[10px]">{s.sku || '-'}</TableCell>
-                                                    <TableCell className="text-[10px]">{s.bodega} / B:{s.bloque}</TableCell>
+                                                    <TableCell className="text-[10px]">{s.bodega || 'N/A'} / B:{s.bloque || '-'}</TableCell>
+                                                    <TableCell className="text-center font-bold">{s.piezas_por_sku}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
                                     </Table>
-                                    {renderPagination(pageSkuM, Math.ceil(skuM.length/10), setPageSkuM)}
+                                    {renderPagination(pageSkuM, Math.ceil(skuM.length/PAGE_SIZE), setPageSkuM)}
                                 </Card>
                             </TabsContent>
 
@@ -158,18 +162,19 @@ export default function InventoryAnalysisClient({
                                 <div className="flex justify-end">
                                     <Dialog open={isCostoDialogOpen} onOpenChange={setIsCostoDialogOpen}>
                                         <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> Registrar Costo</Button></DialogTrigger>
-                                        <DialogContent>
+                                        <DialogContent className="sm:max-w-xl">
                                             <form onSubmit={(e) => handleForm(e, addSkuCosto, setIsCostoDialogOpen)} className="space-y-4">
-                                                <DialogHeader><DialogTitle>Historial de Landed Cost (sku_costos)</DialogTitle></DialogHeader>
-                                                <div className="space-y-4">
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div className="space-y-2"><Label>SKU Madre</Label><Input name="sku_mdr" required /></div>
-                                                        <div className="space-y-2"><Label>Landed Cost</Label><Input name="landed_cost" type="number" step="0.01" required /></div>
-                                                    </div>
+                                                <DialogHeader><DialogTitle>Historial de Landed Cost</DialogTitle><DialogDescription>Ingresa los datos para la tabla sku_costos</DialogDescription></DialogHeader>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2 col-span-2"><Label>SKU Madre</Label><Input name="sku_mdr" required /></div>
+                                                    <div className="space-y-2"><Label>Landed Cost</Label><Input name="landed_cost" type="number" step="0.01" required /></div>
                                                     <div className="space-y-2"><Label>Fecha Desde</Label><Input name="fecha_desde" type="date" required defaultValue={format(new Date(), 'yyyy-MM-dd')} /></div>
                                                     <div className="space-y-2"><Label>Proveedor</Label><Input name="proveedor" /></div>
+                                                    <div className="space-y-2"><Label>Pzs x Contenedor</Label><Input name="piezas_xcontenedor" type="number" /></div>
+                                                    <div className="space-y-2"><Label>SKU Específico</Label><Input name="sku" /></div>
+                                                    <div className="space-y-2"><Label>Esti Time (m)</Label><Input name="esti_time" type="number" /></div>
                                                 </div>
-                                                <DialogFooter><Button type="submit" disabled={isSubmitting}>Registrar</Button></DialogFooter>
+                                                <DialogFooter><Button type="submit" disabled={isSubmitting}>Registrar Historial</Button></DialogFooter>
                                             </form>
                                         </DialogContent>
                                     </Dialog>
@@ -181,21 +186,23 @@ export default function InventoryAnalysisClient({
                                             <TableHead>SKU Madre</TableHead>
                                             <TableHead>Costo</TableHead>
                                             <TableHead>Proveedor</TableHead>
+                                            <TableHead>SKU</TableHead>
                                             <TableHead>T. Prep</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {skuCostos.slice((pageCostos-1)*10, pageCostos*10).map((c: sku_costos) => (
+                                            {skuCostos.slice((pageCostos-1)*PAGE_SIZE, pageCostos*PAGE_SIZE).map((c: sku_costos) => (
                                                 <TableRow key={c.id}>
                                                     <TableCell className="text-[10px]">{c.fecha_desde ? format(parseISO(c.fecha_desde), 'dd/MM/yyyy') : '-'}</TableCell>
                                                     <TableCell className="font-mono font-bold">{c.sku_mdr}</TableCell>
                                                     <TableCell className="font-black text-primary">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(c.landed_cost)}</TableCell>
                                                     <TableCell className="text-[10px] uppercase">{c.proveedor || '-'}</TableCell>
-                                                    <TableCell className="text-xs">{c.esti_time}m</TableCell>
+                                                    <TableCell className="font-mono text-[10px]">{c.sku || '-'}</TableCell>
+                                                    <TableCell className="text-xs">{c.esti_time ? `${c.esti_time}m` : '-'}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
                                     </Table>
-                                    {renderPagination(pageCostos, Math.ceil(skuCostos.length/10), setPageCostos)}
+                                    {renderPagination(pageCostos, Math.ceil(skuCostos.length/PAGE_SIZE), setPageCostos)}
                                 </Card>
                             </TabsContent>
 
@@ -205,12 +212,12 @@ export default function InventoryAnalysisClient({
                                         <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> Vincular Alterno</Button></DialogTrigger>
                                         <DialogContent>
                                             <form onSubmit={(e) => handleForm(e, addSkuAlterno, setIsAlternoDialogOpen)} className="space-y-4">
-                                                <DialogHeader><DialogTitle>Relación SKU Alterno (sku_alterno)</DialogTitle></DialogHeader>
+                                                <DialogHeader><DialogTitle>Relación SKU Alterno</DialogTitle><DialogDescription>Vincula un SKU de publicación a un SKU Maestro</DialogDescription></DialogHeader>
                                                 <div className="space-y-4">
-                                                    <div className="space-y-2"><Label>SKU Alterno (Publicación)</Label><Input name="sku" required /></div>
-                                                    <div className="space-y-2"><Label>SKU Maestro Relacionado</Label><Input name="sku_mdr" required /></div>
+                                                    <div className="space-y-2"><Label>SKU Alterno (Publicación)</Label><Input name="sku" required placeholder="Ej: PUB-12345" /></div>
+                                                    <div className="space-y-2"><Label>SKU Maestro Relacionado</Label><Input name="sku_mdr" required placeholder="Ej: MX-100" /></div>
                                                 </div>
-                                                <DialogFooter><Button type="submit" disabled={isSubmitting}>Vincular</Button></DialogFooter>
+                                                <DialogFooter><Button type="submit" disabled={isSubmitting}>Vincular SKUs</Button></DialogFooter>
                                             </form>
                                         </DialogContent>
                                     </Dialog>
@@ -218,11 +225,11 @@ export default function InventoryAnalysisClient({
                                 <Card className="border-none shadow-sm overflow-hidden">
                                     <Table>
                                         <TableHeader className="bg-muted/50"><TableRow>
-                                            <TableHead>SKU Alterno (Key)</TableHead>
+                                            <TableHead>SKU Alterno (Publicación)</TableHead>
                                             <TableHead>SKU Maestro Vinculado</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {skusAlternos.slice((pageAlternos-1)*10, pageAlternos*10).map((a: sku_alterno) => (
+                                            {skusAlternos.slice((pageAlternos-1)*PAGE_SIZE, pageAlternos*PAGE_SIZE).map((a: sku_alterno) => (
                                                 <TableRow key={a.sku}>
                                                     <TableCell className="font-mono">{a.sku}</TableCell>
                                                     <TableCell className="font-mono font-bold text-primary">{a.sku_mdr}</TableCell>
@@ -230,7 +237,7 @@ export default function InventoryAnalysisClient({
                                             ))}
                                         </TableBody>
                                     </Table>
-                                    {renderPagination(pageAlternos, Math.ceil(skusAlternos.length/10), setPageAlternos)}
+                                    {renderPagination(pageAlternos, Math.ceil(skusAlternos.length/PAGE_SIZE), setPageAlternos)}
                                 </Card>
                             </TabsContent>
                         </Tabs>

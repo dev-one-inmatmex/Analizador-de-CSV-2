@@ -4,43 +4,54 @@ export interface Usuario {
     email: string;
 } 
 
-export interface Finanzas {
+// 1. Tipos de apoyo para mantener la integridad de los Niveles
+export type ImpactoFinanciero = 
+  | 'Costo de mercancía (COGS)' | 'Gasto Operativo' | 'Gasto Administrativo' 
+  | 'Gasto Comercial' | 'Gasto Logístico' | 'Gasto Financiero' 
+  | 'Nómina' | 'Inversión (CAPEX)' | 'Impuestos';
+
+export type AreaFuncional = 
+  | 'Ventas Ecommerce' | 'Ventas Mayoreo' | 'Logística' | 'Compras' 
+  | 'Administración' | 'Marketing' | 'Dirección' | 'Producción' 
+  | 'Sistemas' | 'Recursos Humanos';
+
+export type CanalVenta = 
+  | 'Mercado Libre' | 'Shopify' | 'Mayoreo' | 'Físico' 
+  | 'Producción malla sombra' | 'General';
+
+export type ClasificacionOperativa = 'Directo' | 'Semi-directo' | 'Compartido';
+
+// 2. Interfaz unificada de Gastos Diarios
+export interface GastoDiario {
   id: number;
   created_at?: string;
   fecha: string;
-  empresa: 'DK' | 'MTM' | 'TAL' | 'Otro' | null;
-  categoria: string;
-  subcategoria: string | null;
+  empresa: 'INMATMEX' | 'COMERTAL' | 'DK' | 'MTM' | 'TAL' | 'Otro' | null;
+  
+  tipo_gasto: ImpactoFinanciero;
+  area_funcional: AreaFuncional;
+  categoria_especifica: string;
+  
+  canal_asociado: CanalVenta;
+  clasificacion_operativa: ClasificacionOperativa;
+  
+  es_fijo: boolean; 
+  es_recurrente: boolean;
+  
   monto: number;
-  capturista: string | null;
-  tipo_transaccion: 'gasto' | 'compra';
-  descripcion: string | null;
-  metodo_pago: 'Efectivo' | 'Tarjeta' | 'Cash' | 'Transferencia' | 'Otro';
+  responsable_id: string | null;
+  comprobante_url: string | null;
+  
+  metodo_pago: 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'OTRO';
   metodo_pago_especificar: string | null;
+  
   banco: 'BBVA' | 'BANAMEX' | 'MERCADO PAGO' | 'SANTANDER' | 'BANORTE' | 'OTRO' | null;
   banco_especificar: string | null;
-  cuenta: 'TOLEXAL' | 'TAL' | 'MTM' | 'DOMESKA' | 'CAJA' | 'OTRO' | null;
+  
+  cuenta: 'FISCAL' | 'NO FISCAL' | 'CAJA CHICA' | 'OTRO' | null;
   cuenta_especificar: string | null;
-  notas: string | null;
-}
-
-export interface Finanzas2 {
-  id: number;
-  created_at?: string; 
-  fecha: string;
-  empresa: 'DK' | 'MTM' | 'TAL' | 'Otro' | null;
-  tipo_transaccion: 'venta' | 'ingreso';
+  
   descripcion: string | null;
-  categoria: string;
-  subcategoria: string | null;
-  monto: number;
-  capturista: string | null;
-  metodo_pago: 'Efectivo' | 'Tarjeta' | 'Cash' | 'Transferencia' | 'Otro';
-  metodo_pago_especificar: string | null;
-  banco: 'BBVA' | 'BANAMEX' | 'MERCADO PAGO' | 'SANTANDER' | 'BANORTE' | 'OTRO' | null;
-  banco_especificar: string | null;
-  cuenta: 'TOLEXAL' | 'TAL' | 'MTM' | 'DOMESKA' | 'CAJA' | 'OTRO' | null;
-  cuenta_especificar: string | null;
   notas: string | null;
 }
 
@@ -68,34 +79,12 @@ export interface sku_m {
   landed_cost: number;
 }
 
-export interface publi_tienda {
-  num_publi: string | null;
-  sku: string;
-  num_producto: string | null;
-  titulo: string | null;
-  status: string | null;
-  cat_mdr: string | null;
-  costo: number | null;
-  tienda: string | null;
-  created_at?: string | null;
-}
-
-export interface publi_xsku {
-  sku: string;
-  num_publicaciones: number | null;
-}
-
-export interface publicaciones_por_sku {
-  sku: string;
-  publicaciones: number;
-}
-
-export interface sku_alterno{
+export interface sku_alterno {
   sku: string;
   sku_mdr: string | null;
 }
 
-export interface sku_costos{
+export interface sku_costos {
   id: string;
   sku_mdr: string;
   landed_cost: number;
@@ -106,7 +95,7 @@ export interface sku_costos{
   esti_time: number | null;
 }
 
-export interface ml_sales{
+export interface ml_sales {
   id?: string;
   num_venta: string | null;
   fecha_venta: string | null;
@@ -178,15 +167,19 @@ export interface catalogo_madre {
   company: string | null;
 }
 
-export interface diccionario_skus {
+export interface publi_tienda {
+  num_publi: string | null;
   sku: string;
-  categoria_madre: string | null;
-  landed_cost: number | null;
-  codigo_en_siggo: string | null;
-  nombre_en_siggo: string | null;
-  rock_en_siggo: number | null;
-  piezas_totales: number | null;
-  estado_en_siggo: string | null;
-  bodega: string | null;
-  bloque: string | null;
+  num_producto: string | null;
+  titulo: string | null;
+  status: string | null;
+  cat_mdr: string | null;
+  costo: number | null;
+  tienda: string | null;
+  created_at?: string | null;
+}
+
+export interface publicaciones_por_sku {
+  sku: string;
+  publicaciones: number;
 }

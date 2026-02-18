@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { 
   UploadCloud, File as FileIcon, X, Loader2, Database, RefreshCcw, 
-  Undo2, CheckCircle, AlertTriangle 
+  CheckCircle 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -20,11 +20,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     finanzas2: { pk: 'id', columns: ['id', 'fecha', 'empresa', 'categoria', 'subcategoria', 'monto', 'capturista', 'tipo_transaccion', 'metodo_pago', 'metodo_pago_especificar', 'banco', 'banco_especificar', 'cuenta', 'cuenta_especificar', 'descripcion', 'notas'] },
     ml_sales: { pk: 'num_venta', columns: ['num_venta', 'fecha_venta', 'status', 'desc_status', 'paquete_varios', 'pertenece_kit', 'unidades', 'ing_xunidad', 'cargo_venta', 'ing_xenvio', 'costo_envio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'total', 'venta_xpublicidad', 'sku', 'num_publi', 'tienda', 'tit_pub', 'variante', 'price', 'tip_publi', 'factura_a', 'datos_poe', 'tipo_ndoc', 'direccion', 't_contribuyente', 'cfdi', 't_usuario', 'r_fiscal', 'comprador', 'negocio', 'ife', 'domicilio', 'mun_alcaldia', 'estado', 'c_postal', 'pais', 'f_entrega', 'f_camino', 'f_entregado', 'transportista', 'num_seguimiento', 'url_seguimiento', 'unidades_2', 'f_entrega2', 'f_camino2', 'f_entregado2', 'transportista2', 'num_seguimiento2', 'url_seguimiento2', 'revisado_xml', 'f_revision3', 'd_afavor', 'resultado', 'destino', 'motivo_resul', 'unidades_3', 'r_abierto', 'r_cerrado', 'c_mediacion'] },
     sku_m: { pk: 'sku_mdr', columns: ['sku_mdr', 'cat_mdr', 'piezas_por_sku', 'sku', 'piezas_xcontenedor', 'bodega', 'bloque', 'landed_cost'] },
-    diccionario_skus: { pk: 'sku', columns: ['sku', 'categoria_madre', 'landed_cost', 'codigo_en_siggo', 'nombre_en_siggo', 'rock_en_siggo', 'piezas_totales', 'estado_en_siggo', 'bodega', 'bloque'] },
-    catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
     sku_costos: { pk: 'id', columns: ['id', 'sku_mdr', 'landed_cost', 'fecha_desde', 'proveedor', 'piezas_xcontenedor', 'sku', 'esti_time'] },
     sku_alterno: { pk: 'sku', columns: ['sku', 'sku_mdr'] },
-    publi_tienda: { pk: 'num_publi', columns: ['num_publi', 'sku', 'num_producto', 'titulo', 'status', 'cat_mdr', 'costo', 'tienda', 'created_at'] },
+    catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
+    publi_tienda: { pk: 'num_publi', columns: ['num_publi', 'sku', 'num_producto', 'titulo', 'status', 'cat_mdr', 'costo', 'tienda'] },
 };
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -122,7 +121,7 @@ export default function CsvUploader() {
             const { error } = await supabase!.from(selectedTable).upsert(records, { onConflict: schema.pk });
             
             if (error) {
-                errors.push({ batch: i / BATCH_SIZE + 1, msg: error.message });
+                errors.push({ batch: Math.floor(i / BATCH_SIZE) + 1, msg: error.message });
             } else {
                 processed += records.length;
             }
@@ -170,16 +169,16 @@ export default function CsvUploader() {
                                 <Label>Tabla de Destino</Label>
                                 <Select onValueChange={handleTableSelect}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Selecciona..." />
+                                        <SelectValue placeholder="Selecciona la tabla..." />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ml_sales">Ventas (ml_sales)</SelectItem>
                                         <SelectItem value="finanzas">Egresos (finanzas)</SelectItem>
                                         <SelectItem value="finanzas2">Ingresos (finanzas2)</SelectItem>
                                         <SelectItem value="sku_m">SKU Maestro (sku_m)</SelectItem>
-                                        <SelectItem value="diccionario_skus">Diccionario SKU</SelectItem>
-                                        <SelectItem value="sku_costos">Historial de Costos</SelectItem>
-                                        <SelectItem value="sku_alterno">Relación SKUs Alternos</SelectItem>
+                                        <SelectItem value="sku_costos">Historial de Costos (sku_costos)</SelectItem>
+                                        <SelectItem value="sku_alterno">Relación SKUs Alternos (sku_alterno)</SelectItem>
+                                        <SelectItem value="catalogo_madre">Catálogo Madre</SelectItem>
                                         <SelectItem value="publi_tienda">Publicaciones de Tienda</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -194,10 +193,10 @@ export default function CsvUploader() {
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                             <CardTitle>Mapeo: {selectedTable}</CardTitle>
-                            <CardDescription>Asocia columnas de CSV con la DB.</CardDescription>
+                            <CardDescription>Asocia columnas de CSV con los campos de la base de datos.</CardDescription>
                         </div>
                         <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')}>
-                            <RefreshCcw className="mr-2 h-4 w-4" /> Cambiar
+                            <RefreshCcw className="mr-2 h-4 w-4" /> Cambiar Tabla
                         </Button>
                     </CardHeader>
                     <CardContent>
@@ -235,7 +234,7 @@ export default function CsvUploader() {
                     <CardFooter>
                         <Button onClick={handleSync} className="w-full h-12 text-lg" disabled={isLoading}>
                             {isLoading ? (
-                                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sincronizando lotes...</>
+                                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sincronizando datos...</>
                             ) : (
                                 <><Database className="mr-2 h-5 w-5" /> Sincronizar {rawRows.length} registros</>
                             )}
@@ -250,7 +249,7 @@ export default function CsvUploader() {
                         <CheckCircle className={cn("h-4 w-4", syncResult.errors.length > 0 ? "text-amber-600" : "text-green-600")} />
                         <AlertTitle className="font-bold">Proceso Finalizado</AlertTitle>
                         <AlertDescription>
-                            Se han sincronizado **{syncResult.updated}** registros en la tabla **{selectedTable}**.
+                            Se han procesado **{syncResult.updated}** registros en la tabla **{selectedTable}**.
                         </AlertDescription>
                     </Alert>
 
@@ -259,14 +258,14 @@ export default function CsvUploader() {
                             <CardHeader className="bg-destructive/5"><CardTitle className="text-destructive text-sm">Errores detectados</CardTitle></CardHeader>
                             <CardContent className="pt-4 max-h-[200px] overflow-auto">
                                 {syncResult.errors.map((e, i) => (
-                                    <div key={i} className="text-xs p-2 border-b last:border-0">Lote #{e.batch}: {e.msg}</div>
+                                    <div key={i} className="text-xs p-2 border-b last:border-0 text-destructive">Lote #{e.batch}: {e.msg}</div>
                                 ))}
                             </CardContent>
                         </Card>
                     )}
                     
                     <div className="flex gap-3">
-                        <Button variant="outline" className="flex-1" onClick={() => setCurrentStep('upload')}>Cargar otro</Button>
+                        <Button variant="outline" className="flex-1" onClick={() => setCurrentStep('upload')}>Subir otro archivo</Button>
                         <Button className="flex-1" onClick={() => window.location.reload()}>Finalizar</Button>
                     </div>
                 </div>
