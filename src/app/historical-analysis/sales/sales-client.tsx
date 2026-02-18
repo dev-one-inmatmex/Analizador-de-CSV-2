@@ -1,11 +1,16 @@
-
 'use client';
 
 import * as React from 'react';
-import { BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon, Maximize, Repeat } from 'lucide-react';
+import { 
+  BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, 
+  Layers, FileCode, Tag, ClipboardList, Loader2, Filter, Map as MapIcon, Maximize, Repeat 
+} from 'lucide-react';
 import { format, isValid, subDays, startOfDay, endOfDay, startOfMonth, subMonths, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart } from 'recharts';
+import { 
+  BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, 
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart 
+} from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { DateRange } from 'react-day-picker';
 
@@ -16,12 +21,13 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import type { Sale, ChartData, EnrichedCategoriaMadre, KpiType, ChartDataType } from './page';
+import type { Sale, ChartData, EnrichedCategoriaMadre } from './page';
 import type { skus_unicos, skuxpublicaciones } from '@/types/database';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 type InventoryData = {
     categoriasMadre: EnrichedCategoriaMadre[];
@@ -38,8 +44,7 @@ type ParetoProduct = {
     cumulativePercentage: number;
 };
 
-
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function SalesDashboardClient({ 
@@ -51,11 +56,8 @@ export default function SalesDashboardClient({
     allCompanies: string[],
     inventoryData: InventoryData,
 }) {
-    // === SALES-CLIENT STATE AND LOGIC ===
     const [currentPage, setCurrentPage] = React.useState(1);
     const [isClient, setIsClient] = React.useState(false);
-    
-    // NEW: Filter state
     const [company, setCompany] = React.useState('Todos');
     const [date, setDate] = React.useState<DateRange | undefined>({
       from: subDays(new Date(), 365),
@@ -65,49 +67,28 @@ export default function SalesDashboardClient({
     const [isParetoModalOpen, setIsParetoModalOpen] = React.useState(false);
     const [paretoPage, setParetoPage] = React.useState(1);
 
-
-    React.useEffect(() => {
-        setIsClient(true);
-    }, []);
+    React.useEffect(() => { setIsClient(true); }, []);
 
     const { sales, kpis, charts, paretoAnalysisData } = React.useMemo(() => {
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.company === company;
-            if (!companyMatch) {
-                return false;
-            }
+            if (!companyMatch) return false;
 
-            // Filter by date
             if (date?.from) {
-                if (!sale.fecha_venta) {
-                    return false;
-                }
-
+                if (!sale.fecha_venta) return false;
                 try {
                     const saleDate = parseISO(sale.fecha_venta);
-                    if (!isValid(saleDate)) {
-                        return false;
-                    }
-
                     const fromDate = startOfDay(date.from);
-                    // If no 'to' date is selected, the range is considered to be the single 'from' day.
                     const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
-
-                    if (saleDate < fromDate || saleDate > toDate) {
-                        return false;
-                    }
-                } catch (e) {
-                    return false;
-                }
+                    if (saleDate < fromDate || saleDate > toDate) return false;
+                } catch (e) { return false; }
             }
-
             return true;
         });
 
-        // --- Process KPIs ---
         const totalRevenue = filteredSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
-        const totalSales = filteredSales.length;
-        const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0;
+        const totalSalesCount = filteredSales.length;
+        const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
         
         const productRevenue: Record<string, number> = {};
         const productUnits: Record<string, number> = {};
@@ -117,713 +98,211 @@ export default function SalesDashboardClient({
             productUnits[key] = (productUnits[key] || 0) + (sale.unidades || 0);
         });
 
-        const sortedProductsByName = Object.entries(productRevenue)
-            .map(([name, revenue]) => ({
-                name,
-                revenue,
-                units: productUnits[name] || 0,
-            }))
+        const sortedProducts = Object.entries(productRevenue)
+            .map(([name, revenue]) => ({ name, revenue, units: productUnits[name] || 0 }))
             .sort((a, b) => b.revenue - a.revenue);
 
-        const topProduct = sortedProductsByName[0] || { name: 'N/A', revenue: 0 };
+        const topProduct = sortedProducts[0] || { name: 'N/A', revenue: 0 };
 
-
-        // --- Process Chart Data ---
-        let cumulativeValue = 0;
-        const topProductsChart: ChartData[] = sortedProductsByName
-            .slice(0, 10)
-            .map(product => {
-                cumulativeValue += product.revenue;
-                return { 
-                    name: product.name, 
-                    value: product.revenue,
-                    cumulative: totalRevenue > 0 ? (cumulativeValue / totalRevenue) * 100 : 0
-                };
-            });
-            
-        const companyRevenue: Record<string, number> = {};
-        filteredSales.forEach(sale => {
-            const key = sale.company || 'Compañía Desconocida';
-            companyRevenue[key] = (companyRevenue[key] || 0) + (sale.total || 0);
+        let cumValue = 0;
+        const topProductsChart = sortedProducts.slice(0, 10).map(p => {
+            cumValue += p.revenue;
+            return { name: p.name, value: p.revenue, cumulative: (cumValue / totalRevenue) * 100 };
         });
-        const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
-            .map(([name, value]) => ({ name, value }));
-            
-        const salesByMonth: Record<string, number> = {};
-        filteredSales.forEach(sale => {
-            if (sale.fecha_venta) {
-                try {
-                    const saleDate = new Date(sale.fecha_venta);
-                    if(!isValid(saleDate)) return;
-                    const monthKey = format(startOfMonth(saleDate), 'MMM yy', { locale: es });
-                    salesByMonth[monthKey] = (salesByMonth[monthKey] || 0) + (sale.total || 0);
-                } catch (e) {
-                    // ignore invalid dates
-                }
-            }
-        });
-        
-        const salesTrendChart: ChartData[] = Object.entries(salesByMonth).map(([name, value]) => ({ name, value }));
 
-        const salesByDay: Record<string, number> = {};
-        const ninetyDaysAgo = subMonths(new Date(), 3);
-        filteredSales.forEach(sale => {
-            if (sale.fecha_venta) {
-                try {
-                    const saleDate = new Date(sale.fecha_venta);
-                    if (isValid(saleDate) && saleDate >= ninetyDaysAgo) {
-                        const dayKey = format(saleDate, 'dd MMM', { locale: es });
-                        salesByDay[dayKey] = (salesByDay[dayKey] || 0) + (sale.total || 0);
-                    }
-                } catch (e) {
-                    // ignore invalid dates
-                }
-            }
-        });
-        const salesByDayChart: ChartData[] = Object.entries(salesByDay).map(([name, value]) => ({ name, value }));
-
-        const todayStart = startOfDay(new Date());
-        const todayEnd = endOfDay(new Date());
-
-        const todaySales = filteredSales.filter(sale => {
-            if (!sale.fecha_venta) return false;
-            try {
-                const saleDate = new Date(sale.fecha_venta);
-                return isValid(saleDate) && saleDate >= todayStart && saleDate <= todayEnd;
-            } catch(e) {
-                return false;
+        const salesTrend: Record<string, number> = {};
+        filteredSales.forEach(s => {
+            if (s.fecha_venta) {
+                const m = format(parseISO(s.fecha_venta), 'MMM yy', { locale: es });
+                salesTrend[m] = (salesTrend[m] || 0) + (s.total || 0);
             }
         });
 
-        const ordersByCompanyToday: Record<string, number> = {};
-        todaySales.forEach(sale => {
-            const key = sale.company || 'Compañía Desconocida';
-            ordersByCompanyToday[key] = (ordersByCompanyToday[key] || 0) + 1;
+        const companyMap: Record<string, number> = {};
+        filteredSales.forEach(s => {
+            const c = s.company || 'Otros';
+            companyMap[c] = (companyMap[c] || 0) + (s.total || 0);
         });
-        const ordersByCompanyTodayChart: ChartData[] = Object.entries(ordersByCompanyToday)
-            .map(([name, value]) => ({ name, value }));
 
-        // --- Full Pareto Analysis Data ---
-        let fullCumulativeRevenue = 0;
-        const fullParetoData: ParetoProduct[] = sortedProductsByName.map(product => {
-            fullCumulativeRevenue += product.revenue;
-            const percentageOfTotal = totalRevenue > 0 ? (product.revenue / totalRevenue) * 100 : 0;
-            const cumulativePercentage = totalRevenue > 0 ? (fullCumulativeRevenue / totalRevenue) * 100 : 0;
+        let fullCum = 0;
+        const paretoData = sortedProducts.map(p => {
+            fullCum += p.revenue;
             return {
-                name: product.name,
-                revenue: product.revenue,
-                units: product.units,
-                percentageOfTotal,
-                cumulativePercentage,
+                name: p.name, revenue: p.revenue, units: p.units,
+                percentageOfTotal: (p.revenue / totalRevenue) * 100,
+                cumulativePercentage: (fullCum / totalRevenue) * 100
             };
         });
 
         return {
             sales: filteredSales,
-            kpis: {
-                totalRevenue,
-                totalSales,
-                avgSale,
-                topProductName: topProduct.name,
-                topProductRevenue: topProduct.revenue,
-            },
-            charts: {
-                topProducts: topProductsChart,
-                salesByCompany: salesByCompanyChart,
-                salesTrend: salesTrendChart,
-                salesByDay: salesByDayChart,
-                ordersByCompanyToday: ordersByCompanyTodayChart
-            },
-            paretoAnalysisData: fullParetoData,
+            kpis: { totalRevenue, totalSales: totalSalesCount, avgSale, topProductName: topProduct.name, topProductRevenue: topProduct.revenue },
+            charts: { topProducts: topProductsChart, salesTrend: Object.entries(salesTrend).map(([name, value]) => ({ name, value })), salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })) },
+            paretoAnalysisData: paretoData
         };
-    }, [initialSales, company, date, isClient]);
+    }, [initialSales, company, date]);
 
-    
     const money = (v?: number | null) => v === null || v === undefined ? 'N/A' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
-    const formatDate = (d: string | null) => {
-        if (!d) return 'N/A';
-        try {
-            const date = new Date(d);
-            return isValid(date) ? format(date, 'dd MMM yyyy, HH:mm', { locale: es }) : 'Fecha inválida';
-        } catch (e) {
-            return 'Fecha inválida';
-        }
-    }
-    const formatBoolean = (b: boolean | string | null | undefined) => {
-        if (b === null || b === undefined) return 'N/A';
-        if (typeof b === 'boolean') return b ? 'Sí' : 'No';
-        const s = String(b).toLowerCase();
-        if (s === 'true' || s === 'si' || s === 'sí' || s === '1') return 'Sí';
-        if (s === 'false' || s === 'no' || s === '0') return 'No';
-        return String(b);
-    }
-    const formatText = (t: string | null | undefined) => t || 'N/A';
-
     const totalPages = Math.ceil(sales.length / PAGE_SIZE);
-    const paginatedSales = sales.slice(
-      (currentPage - 1) * PAGE_SIZE,
-      currentPage * PAGE_SIZE
-    );
+    const paginatedSales = sales.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-    const handleClearFilters = () => {
-        setCompany('Todos');
-        setDate({ from: subDays(new Date(), 365), to: new Date() });
-        setCurrentPage(1);
-    };
-
-    // === INVENTORY-CLIENT STATE AND LOGIC ===
-    const { toast } = useToast();
-    const { categoriasMadre, skusUnicos, skuPublicaciones } = inventoryData;
-    
-    const [pageCategorias, setPageCategorias] = React.useState(1);
-    const [pageSkus, setPageSkus] = React.useState(1);
-    const [pageSkuPub, setPageSkuPub] = React.useState(1);
-
-    const { inventoryKpis } = React.useMemo(() => {
-        const totalCategorias = categoriasMadre.length;
-        const totalSkus = skusUnicos.length;
-        const totalMapeos = skuPublicaciones.length;
-        const landedCosts = categoriasMadre.map(c => c.landed_cost).filter((c): c is number => c !== null && c !== undefined);
-        const avgLandedCost = landedCosts.length > 0 ? landedCosts.reduce((a, b) => a + b, 0) / landedCosts.length : 0;
-        
-        return {
-            inventoryKpis: { totalCategorias, totalSkus, totalMapeos, avgLandedCost },
-        };
-    }, [categoriasMadre, skusUnicos, skuPublicaciones]);
-
-    const totalPagesCategorias = Math.ceil(categoriasMadre.length / PAGE_SIZE);
-    const paginatedCategorias = categoriasMadre.slice((pageCategorias - 1) * PAGE_SIZE, pageCategorias * PAGE_SIZE);
-
-    const totalPagesSkus = Math.ceil(skusUnicos.length / PAGE_SIZE);
-    const paginatedSkus = skusUnicos.slice((pageSkus - 1) * PAGE_SIZE, pageSkus * PAGE_SIZE);
-
-    const totalPagesSkuPub = Math.ceil(skuPublicaciones.length / PAGE_SIZE);
-    const paginatedSkuPub = skuPublicaciones.slice((pageSkuPub - 1) * PAGE_SIZE, pageSkuPub * PAGE_SIZE);
-
-    const renderInventoryPagination = (currentPage: number, totalPages: number, setPage: (page: number) => void) => (
-        <CardFooter>
-        <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
-            <div>Página {currentPage} de {totalPages}</div>
-            <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>Anterior</Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
-            </div>
-        </div>
-        </CardFooter>
-    );
-
-    // --- PARETO MODAL PAGINATION ---
-    const totalParetoPages = Math.ceil(paretoAnalysisData.length / PAGE_SIZE);
-    const paginatedParetoData = paretoAnalysisData.slice(
-      (paretoPage - 1) * PAGE_SIZE,
-      paretoPage * PAGE_SIZE
-    );
+    if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <>
-            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-                <div className="flex flex-wrap items-center gap-4">
-                  <SidebarTrigger />
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-bold tracking-tight">Ventas</h1>
-                    <div className="flex items-center gap-2">
-                        <Badge variant="outline">Fuente oficial de ingresos</Badge>
-                        <Badge variant="outline">CSV histórico + diario</Badge>
-                    </div>
-                  </div>
+        <div className="flex min-h-screen flex-col bg-muted/40">
+            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
+                <div className="flex items-center gap-4">
+                    <SidebarTrigger />
+                    <h1 className="text-xl font-bold">Ventas Consolidadas</h1>
+                    <Badge variant="outline">ml_sales Sync</Badge>
                 </div>
             </header>
 
-            <main className="flex flex-1 flex-col items-center p-4 md:p-10">
-                {!isClient ? (
-                    <div className="flex h-full flex-1 items-center justify-center">
-                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    </div>
-                ) : (
-                <div className="w-full max-w-7xl space-y-4 md:space-y-8">
-                <Tabs defaultValue="dashboard">
-                    <TabsList className="grid w-full grid-cols-2 max-w-2xl mx-auto">
-                        <TabsTrigger value="dashboard">Dashboard de Ventas</TabsTrigger>
-                        <TabsTrigger value="inventory">Análisis de Inventario</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="dashboard" className="mt-6">
-                        <div className="space-y-4 md:space-y-8">
-                            <Card>
-                                <CardHeader className="flex flex-row items-center gap-4">
-                                    <Filter className="h-6 w-6 text-muted-foreground" />
-                                    <div>
-                                        <CardTitle>Filtros de Ventas</CardTitle>
-                                        <CardDescription>Analiza por compañía o periodo de tiempo.</CardDescription>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                        <div className='space-y-2'>
-                                            <Label htmlFor="date-range">Periodo</Label>
-                                            <DateRangePicker id="date-range" date={date} onSelect={setDate} />
-                                        </div>
-                                        <div className='space-y-2'>
-                                            <Label htmlFor="company-filter">Compañía</Label>
-                                            <Select value={company} onValueChange={setCompany}>
-                                                <SelectTrigger id="company-filter"><SelectValue placeholder="Seleccionar compañía" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 flex items-center justify-end gap-2">
-                                        <Button variant="outline" onClick={handleClearFilters}>Limpiar Filtros</Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {sales.length === 0 ? (
-                                <Alert variant="destructive" className="w-full">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <AlertTitle>No se Encontraron Datos</AlertTitle>
-                                    <AlertDescription>No se encontraron datos de ventas para los filtros seleccionados. Prueba con un rango de fechas más amplio o limpia los filtros.</AlertDescription>
-                                </Alert>
-                            ) : (
-                            <>
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.totalRevenue)}</div><p className="text-xs text-muted-foreground">En el periodo filtrado</p></CardContent></Card>
-                                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ventas Totales</CardTitle><ShoppingCart className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalSales?.toLocaleString('es-MX')}</div><p className="text-xs text-muted-foreground"># de transacciones</p></CardContent></Card>
-                                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Venta Promedio</CardTitle><BarChart3 className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.avgSale)}</div><p className="text-xs text-muted-foreground">Valor medio por transacción</p></CardContent></Card>
-                                    <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Producto Estrella</CardTitle><Package className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold truncate" title={kpis.topProductName}>{kpis.topProductName}</div><p className="text-xs text-muted-foreground">Ingresos: {money(kpis.topProductRevenue)}</p></CardContent></Card>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    <Card>
-                                        <CardHeader><CardTitle>Tendencia de Ventas Mensuales</CardTitle><CardDescription>Ingresos generados mes a mes en el periodo filtrado.</CardDescription></CardHeader>
-                                        <CardContent><ResponsiveContainer width="100%" height={300}><LineChart data={charts.salesTrend}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} /><Tooltip formatter={(value: number) => money(value)} /><Line type="monotone" dataKey="value" name="Ingresos" stroke="hsl(var(--primary))" /></LineChart></ResponsiveContainer></CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle>Ventas por Día</CardTitle><CardDescription>Ingresos generados día a día en el periodo filtrado.</CardDescription></CardHeader>
-                                        <CardContent>
-                                            <ResponsiveContainer width="100%" height={300}>
-                                                <AreaChart data={charts.salesByDay}>
-                                                    <defs>
-                                                        <linearGradient id="colorSalesDay" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8}/>
-                                                            <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" />
-                                                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                                                    <YAxis tickFormatter={(value) => `$${(value as number / 1000)}k`} fontSize={12} tickLine={false} axisLine={false} />
-                                                    <Tooltip formatter={(value: number) => money(value)} />
-                                                    <Area type="monotone" dataKey="value" name="Ingresos" stroke="hsl(var(--chart-2))" fillOpacity={1} fill="url(#colorSalesDay)" />
-                                                </AreaChart>
-                                            </ResponsiveContainer>
-                                        </CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle>Ingresos por Compañía</CardTitle><CardDescription>Distribución de los ingresos en el periodo filtrado.</CardDescription></CardHeader>
-                                        <CardContent>
-                                            <ResponsiveContainer width="100%" height={300}>
-                                                <PieChart>
-                                                    <Tooltip formatter={(value: number) => money(value)} />
-                                                    <Pie data={charts.salesByCompany} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label>
-                                                        {charts.salesByCompany?.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                                    </Pie>
-                                                    <Legend />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </CardContent>
-                                    </Card>
-                                    <Card>
-                                        <CardHeader><CardTitle>Pedidos del Día por Compañía</CardTitle><CardDescription>Distribución de transacciones de hoy por compañía.</CardDescription></CardHeader>
-                                        <CardContent>
-                                            {charts.ordersByCompanyToday && charts.ordersByCompanyToday.length > 0 ? (
-                                                <ResponsiveContainer width="100%" height={300}>
-                                                    <PieChart>
-                                                        <Tooltip formatter={(value: number) => `${value} pedidos`} />
-                                                        <Pie data={charts.ordersByCompanyToday} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label>
-                                                            {charts.ordersByCompanyToday.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                                        </Pie>
-                                                        <Legend/>
-                                                    </PieChart>
-                                                </ResponsiveContainer>
-                                            ) : (
-                                                <div className="flex h-[300px] items-center justify-center text-center text-muted-foreground">
-                                                    <div className="space-y-2">
-                                                        <PieChartIcon className="mx-auto h-10 w-10" />
-                                                        <p>No hay datos de pedidos para el día de hoy.</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                    <Card className="md:col-span-2">
-                                        <CardHeader>
-                                            <div className="flex items-start justify-between">
-                                                <div>
-                                                    <CardTitle>Análisis Pareto (80/20) - Productos Más Vendidos</CardTitle>
-                                                    <CardDescription>Los 10 productos con más ingresos y su contribución acumulada al total.</CardDescription>
-                                                </div>
-                                                <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)}>
-                                                    <Maximize className="mr-2 h-4 w-4" />
-                                                    Ver Detalle
-                                                </Button>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <ResponsiveContainer width="100%" height={400}>
-                                                <ComposedChart
-                                                    data={charts.topProducts}
-                                                    margin={{ top: 5, right: 30, bottom: 120, left: 30 }}
-                                                >
-                                                    <CartesianGrid strokeDasharray="3 3" />
-                                                    <XAxis dataKey="name" angle={-60} textAnchor="end" height={130} interval={0} tick={{ fontSize: 12 }} />
-                                                    <YAxis yAxisId="left" orientation="left" tickFormatter={(value) => `$${(value as number / 1000)}k`} />
-                                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${Math.round(value as number)}%`} />
-                                                    <Tooltip formatter={(value: number, name: string) => {
-                                                        if (name === 'Ingresos') return money(value);
-                                                        if (name === 'Acumulado') return `${(value as number).toFixed(1)}%`;
-                                                        return value;
-                                                    }} />
-                                                    <Legend verticalAlign="top" />
-                                                    <Bar dataKey="value" name="Ingresos" yAxisId="left" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                                    <Line type="monotone" dataKey="cumulative" name="Acumulado" yAxisId="right" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                                </ComposedChart>
-                                            </ResponsiveContainer>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-
-                                <Card>
-                                    <CardHeader><CardTitle>Historial de Ventas Detallado</CardTitle><CardDescription>Mostrando las ventas registradas en el periodo filtrado.</CardDescription></CardHeader>
-                                    <CardContent>
-                                        <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead># Venta</TableHead>
-                                                <TableHead>Fecha Venta</TableHead>
-                                                <TableHead>Estado</TableHead>
-                                                <TableHead>Desc. Estado</TableHead>
-                                                <TableHead>Es Paquete Varios</TableHead>
-                                                <TableHead>Pertenece a Kit</TableHead>
-                                                <TableHead>Unidades</TableHead>
-                                                <TableHead>Ingreso Productos</TableHead>
-                                                <TableHead>Impuestos</TableHead>
-                                                <TableHead>Ingreso Envío</TableHead>
-                                                <TableHead>Costo Envío</TableHead>
-                                                <TableHead>Costo Medidas Peso</TableHead>
-                                                <TableHead>Cargo Diferencia Peso</TableHead>
-                                                <TableHead>Anulaciones/Reembolsos</TableHead>
-                                                <TableHead>Total</TableHead>
-                                                <TableHead>Venta Publicidad</TableHead>
-                                                <TableHead>SKU</TableHead>
-                                                <TableHead>Item ID</TableHead>
-                                                <TableHead>Compañía</TableHead>
-                                                <TableHead>Título</TableHead>
-                                                <TableHead>Variante</TableHead>
-                                                <TableHead>Precio</TableHead>
-                                                <TableHead>Tipo Publicación</TableHead>
-                                                <TableHead>Factura Adjunta</TableHead>
-                                                <TableHead>Datos Empresa</TableHead>
-                                                <TableHead>Tipo Núm. Doc.</TableHead>
-                                                <TableHead>Dirección Fiscal</TableHead>
-                                                <TableHead>Tipo Contribuyente</TableHead>
-                                                <TableHead>CFDI</TableHead>
-                                                <TableHead>Tipo Usuario</TableHead>
-                                                <TableHead>Régimen Fiscal</TableHead>
-                                                <TableHead>Comprador</TableHead>
-                                                <TableHead>Negocio</TableHead>
-                                                <TableHead>IFE</TableHead>
-                                                <TableHead>Domicilio Entrega</TableHead>
-                                                <TableHead>Municipio/Alcaldía</TableHead>
-                                                <TableHead>Estado Comprador</TableHead>
-                                                <TableHead>Código Postal</TableHead>
-                                                <TableHead>País</TableHead>
-                                                <TableHead>Forma Entrega Envío</TableHead>
-                                                <TableHead>Fecha en Camino Envío</TableHead>
-                                                <TableHead>Fecha Entregado Envío</TableHead>
-                                                <TableHead>Transportista Envío</TableHead>
-                                                <TableHead># Seguimiento Envío</TableHead>
-                                                <TableHead>URL Seguimiento Envío</TableHead>
-                                                <TableHead>Unidades Envío</TableHead>
-                                                <TableHead>Forma Entrega</TableHead>
-                                                <TableHead>Fecha en Camino</TableHead>
-                                                <TableHead>Fecha Entregado</TableHead>
-                                                <TableHead>Transportista</TableHead>
-                                                <TableHead># Seguimiento</TableHead>
-                                                <TableHead>URL Seguimiento</TableHead>
-                                                <TableHead>Revisado por ML</TableHead>
-                                                <TableHead>Fecha Revisión</TableHead>
-                                                <TableHead>Dinero a Favor</TableHead>
-                                                <TableHead>Resultado</TableHead>
-                                                <TableHead>Destino</TableHead>
-                                                <TableHead>Motivo Resultado</TableHead>
-                                                <TableHead>Unidades Reclamo</TableHead>
-                                                <TableHead>Reclamo Abierto</TableHead>
-                                                <TableHead>Reclamo Cerrado</TableHead>
-                                                <TableHead>Con Mediación</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {paginatedSales.map((v) => (
-                                                <TableRow key={v.numero_venta}>
-                                                    <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.numero_venta)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatDate(v.fecha_venta)}</TableCell>
-                                                    <TableCell><Badge variant={v.estado === 'delivered' ? 'secondary' : 'outline'} className="capitalize whitespace-nowrap">{formatText(v.estado)}</Badge></TableCell>
-                                                    <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.descripcion_estado)}</TableCell>
-                                                    <TableCell>{formatText(v.es_paquete_varios)}</TableCell>
-                                                    <TableCell>{formatText(v.pertenece_kit)}</TableCell>
-                                                    <TableCell className="text-center">{v.unidades}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_productos)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.cargo_venta_impuestos)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.ingreso_envio)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.costo_envio)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.costo_medidas_peso)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.cargo_diferencia_peso)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.anulaciones_reembolsos)}</TableCell>
-                                                    <TableCell className="text-right font-bold whitespace-nowrap">{money(v.total)}</TableCell>
-                                                    <TableCell>{formatBoolean(v.venta_publicidad)}</TableCell>
-                                                    <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.sku)}</TableCell>
-                                                    <TableCell className="font-mono text-xs whitespace-nowrap">{formatText(v.item_id)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatText(v.company)}</TableCell>
-                                                    <TableCell className="max-w-[200px] truncate whitespace-nowrap" title={formatText(v.title)}>{formatText(v.title)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatText(v.variante)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.price)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatText(v.tipo_publicacion)}</TableCell>
-                                                    <TableCell>{formatText(v.factura_adjunta)}</TableCell>
-                                                    <TableCell>{formatText(v.datos_personales_empresa)}</TableCell>
-                                                    <TableCell>{formatText(v.tipo_numero_documento)}</TableCell>
-                                                    <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.direccion_fiscal)}</TableCell>
-                                                    <TableCell>{formatText(v.tipo_contribuyente)}</TableCell>
-                                                    <TableCell>{formatText(v.cfdi)}</TableCell>
-                                                    <TableCell>{formatText(v.tipo_usuario)}</TableCell>
-                                                    <TableCell>{formatText(v.regimen_fiscal)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatText(v.comprador)}</TableCell>
-                                                    <TableCell>{formatText(v.negocio)}</TableCell>
-                                                    <TableCell>{formatText(v.ife)}</TableCell>
-                                                    <TableCell className="max-w-[200px] truncate whitespace-nowrap">{formatText(v.domicilio_entrega)}</TableCell>
-                                                    <TableCell>{formatText(v.municipio_alcaldia)}</TableCell>
-                                                    <TableCell>{formatText(v.estado_comprador)}</TableCell>
-                                                    <TableCell>{formatText(v.codigo_postal)}</TableCell>
-                                                    <TableCell>{formatText(v.pais)}</TableCell>
-                                                    <TableCell>{formatText(v.forma_entrega_envio)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatDate(v.fecha_en_camino_envio)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatDate(v.fecha_entregado_envio)}</TableCell>
-                                                    <TableCell>{formatText(v.transportista_envio)}</TableCell>
-                                                    <TableCell>{formatText(v.numero_seguimiento_envio)}</TableCell>
-                                                    <TableCell className="max-w-[150px] truncate whitespace-nowrap">{formatText(v.url_seguimiento_envio)}</TableCell>
-                                                    <TableCell className="text-center">{v.unidades_envio}</TableCell>
-                                                    <TableCell>{formatText(v.forma_entrega)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatDate(v.fecha_en_camino)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatDate(v.fecha_entregado)}</TableCell>
-                                                    <TableCell>{formatText(v.transportista)}</TableCell>
-                                                    <TableCell>{formatText(v.numero_seguimiento)}</TableCell>
-                                                    <TableCell className="max-w-[150px] truncate whitespace-nowrap">{formatText(v.url_seguimiento)}</TableCell>
-                                                    <TableCell>{formatBoolean(v.revisado_por_ml)}</TableCell>
-                                                    <TableCell className="whitespace-nowrap">{formatDate(v.fecha_revision)}</TableCell>
-                                                    <TableCell className="text-right whitespace-nowrap">{money(v.dinero_a_favor)}</TableCell>
-                                                    <TableCell>{formatText(v.resultado)}</TableCell>
-                                                    <TableCell>{formatText(v.destino)}</TableCell>
-                                                    <TableCell>{formatText(v.motivo_resultado)}</TableCell>
-                                                    <TableCell className="text-center">{v.unidades_reclamo}</TableCell>
-                                                    <TableCell>{formatText(v.reclamo_abierto)}</TableCell>
-                                                    <TableCell>{formatText(v.reclamo_cerrado)}</TableCell>
-                                                    <TableCell>{formatText(v.con_mediacion)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                        </Table>
-                                    </CardContent>
-                                    {totalPages > 1 && (<CardFooter><div className="flex w-full items-center justify-between text-xs text-muted-foreground"><div>Página {currentPage} de {totalPages}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button></div></div></CardFooter>)}
-                                </Card>
-                            </>
-                            )}
+            <main className="p-4 md:p-8 space-y-8">
+                <Card>
+                    <CardHeader className="flex flex-row items-center gap-4">
+                        <Filter className="h-6 w-6 text-muted-foreground" />
+                        <div className="flex-1"><CardTitle>Filtros Avanzados</CardTitle></div>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Periodo de Análisis</Label><DateRangePicker date={date} onSelect={setDate} /></div>
+                        <div className="space-y-2"><Label>Filtrar por Tienda/Empresa</Label>
+                            <Select value={company} onValueChange={setCompany}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>{allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
                         </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="inventory" className="mt-6">
-                         <div className="w-full space-y-6">
-                            {inventoryData.error ? (
-                                <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Error al cargar datos de inventario</AlertTitle><AlertDescription>{inventoryData.error}</AlertDescription></Alert>
-                            ) : (
-                            <>
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Categorías Madre</CardTitle>
-                                    <Package className="h-4 w-4 text-muted-foreground" />
-                                    </CardHeader>
-                                    <CardContent>
-                                    <div className="text-2xl font-bold">{inventoryKpis.totalCategorias}</div>
-                                    <p className="text-xs text-muted-foreground">Total de categorías principales</p>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">SKUs Únicos</CardTitle>
-                                    <Layers className="h-4 w-4 text-muted-foreground" />
-                                    </CardHeader>
-                                    <CardContent>
-                                    <div className="text-2xl font-bold">{inventoryKpis.totalSkus}</div>
-                                    <p className="text-xs text-muted-foreground">Total de SKUs únicos registrados</p>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Mapeos SKU-Publicación</CardTitle>
-                                    <FileCode className="h-4 w-4 text-muted-foreground" />
-                                    </CardHeader>
-                                    <CardContent>
-                                    <div className="text-2xl font-bold">{inventoryKpis.totalMapeos}</div>
-                                    <p className="text-xs text-muted-foreground">Relaciones entre SKU y publicación</p>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">Costo de Aterrizaje Promedio</CardTitle>
-                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                    </CardHeader>
-                                    <CardContent>
-                                    <div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(inventoryKpis.avgLandedCost)}</div>
-                                    <p className="text-xs text-muted-foreground">Costo promedio por categoría madre</p>
-                                    </CardContent>
-                                </Card>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 gap-6">
-                                    <Tabs defaultValue="categorias" className="w-full">
-                                    <TabsList className="grid w-full grid-cols-3">
-                                        <TabsTrigger value="categorias">Categorías Madre</TabsTrigger>
-                                        <TabsTrigger value="skus_unicos">SKUs Únicos</TabsTrigger>
-                                        <TabsTrigger value="skuxpublicaciones">Mapeo SKU-Pub</TabsTrigger>
-                                    </TabsList>
-                                    <TabsContent value="categorias">
-                                        <Card>
-                                        <CardHeader><CardTitle>Categorías Madre</CardTitle><CardDescription>Información logística por categoría.</CardDescription></CardHeader>
-                                        <CardContent><Table><TableHeader><TableRow>
-                                            <TableHead>SKU</TableHead>
-                                            <TableHead>Nombre Madre</TableHead>
-                                            <TableHead>Categoría</TableHead>
-                                            <TableHead>Título Publicación</TableHead>
-                                            <TableHead className="text-right">Landed Cost</TableHead>
-                                            <TableHead className="text-center">T. Prep (días)</TableHead>
-                                            <TableHead className="text-center">Pzs/SKU</TableHead>
-                                            <TableHead className="text-center">Pzs/Cont.</TableHead>
-                                            <TableHead>Bodega</TableHead>
-                                            <TableHead>Bloque</TableHead>
-                                        </TableRow></TableHeader><TableBody>{paginatedCategorias.map((cat) => (<TableRow key={cat.sku}><TableCell className="font-mono">{cat.sku}</TableCell><TableCell>{cat.nombre_madre || 'N/A'}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.categoria_madre}>{cat.categoria_madre || 'N/A'}</TableCell><TableCell className="max-w-[200px] truncate" title={cat.title ?? undefined}>{cat.title ?? 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cat.landed_cost || 0)}</TableCell><TableCell className="text-center">{cat.tiempo_preparacion ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_sku ?? 'N/A'}</TableCell><TableCell className="text-center">{cat.piezas_por_contenedor ?? 'N/A'}</TableCell><TableCell>{cat.bodega || 'N/A'}</TableCell><TableCell>{cat.bloque || 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
-                                        {totalPagesCategorias > 1 && renderInventoryPagination(pageCategorias, totalPagesCategorias, setPageCategorias)}
-                                        </Card>
-                                    </TabsContent>
-                                    <TabsContent value="skus_unicos">
-                                        <Card>
-                                            <CardHeader><CardTitle>SKUs Únicos</CardTitle><CardDescription>Información detallada de cada SKU.</CardDescription></CardHeader>
-                                            <CardContent><Table><TableHeader><TableRow>
-                                            <TableHead>SKU</TableHead>
-                                            <TableHead>Categoría</TableHead>
-                                            <TableHead className="text-center">T. Prep (días)</TableHead>
-                                            <TableHead className="text-right">Landed Cost</TableHead>
-                                            <TableHead className="text-center">T. Recompra (días)</TableHead>
-                                            <TableHead>Proveedor</TableHead>
-                                            <TableHead className="text-center">Pzs/Cont.</TableHead>
-                                            </TableRow></TableHeader><TableBody>{paginatedSkus.map((sku) => (<TableRow key={sku.sku}><TableCell className="font-mono">{sku.sku}</TableCell><TableCell>{sku.nombre_madre || 'N/A'}</TableCell><TableCell className="text-center">{sku.tiempo_de_preparacion ?? 'N/A'}</TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(sku.landed_cost || 0)}</TableCell><TableCell className="text-center">{sku.de_recompra ?? 'N/A'}</TableCell><TableCell>{sku.proveedor || 'N/A'}</TableCell><TableCell className="text-center">{sku.piezas_por_contenedor ?? 'N/A'}</TableCell></TableRow>))}</TableBody></Table></CardContent>
-                                            {totalPagesSkus > 1 && renderInventoryPagination(pageSkus, totalPagesSkus, setPageSkus)}
-                                        </Card>
-                                    </TabsContent>
-                                    <TabsContent value="skuxpublicaciones">
-                                        <Card>
-                                            <CardHeader><CardTitle>SKUxPublicaciones</CardTitle><CardDescription>Relación entre SKUs y publicaciones.</CardDescription></CardHeader>
-                                            <CardContent><Table><TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>ID de Publicación</TableHead><TableHead>Categoría Madre</TableHead></TableRow></TableHeader><TableBody>{paginatedSkuPub.map((item, index) => (<TableRow key={`${item.sku}-${item.item_id}-${index}`}><TableCell className="font-mono">{item.sku}</TableCell><TableCell className="font-mono text-muted-foreground">{item.item_id}</TableCell><TableCell className="font-medium">{item.nombre_madre}</TableCell></TableRow>))}</TableBody></Table></CardContent>
-                                            {totalPagesSkuPub > 1 && renderInventoryPagination(pageSkuPub, totalPagesSkuPub, setPageSkuPub)}
-                                        </Card>
-                                    </TabsContent>
-                                    </Tabs>
-                                </div>
-                            </>
-                            )}
-                        </div>
-                    </TabsContent>
-                </Tabs>
+                    </CardContent>
+                </Card>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.totalRevenue)}</div></CardContent></Card>
+                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ventas Totales</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{kpis.totalSales.toLocaleString()}</div></CardContent></Card>
+                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ticket Promedio</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{money(kpis.avgSale)}</div></CardContent></Card>
+                    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Top Product</CardTitle></CardHeader><CardContent><div className="text-md font-bold truncate">{kpis.topProductName}</div></CardContent></Card>
                 </div>
-                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader><CardTitle>Pareto (80/20) - Top 10 Productos</CardTitle></CardHeader>
+                        <CardContent className="h-[400px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={charts.topProducts} margin={{ bottom: 100 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" fontSize={10} interval={0} height={100} />
+                                    <YAxis yAxisId="left" orientation="left" tickFormatter={v => `$${v/1000}k`} />
+                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+                                    <Tooltip />
+                                    <Bar yAxisId="left" dataKey="value" fill="hsl(var(--primary))" name="Ingresos" />
+                                    <Line yAxisId="right" dataKey="cumulative" stroke="hsl(var(--destructive))" name="Acumulado %" />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader><CardTitle>Distribución por Empresa</CardTitle></CardHeader>
+                        <CardContent className="h-[400px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={charts.salesByCompany} dataKey="value" nameKey="name" outerRadius={120} label>
+                                        {charts.salesByCompany.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    </Pie>
+                                    <Tooltip formatter={v => money(v as number)} />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div><CardTitle>Historial Detallado (ml_sales Sync)</CardTitle><CardDescription>Mostrando todas las columnas del esquema oficial.</CardDescription></div>
+                        <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)}><Maximize className="mr-2 h-4 w-4" /> Pareto Completo</Button>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="relative w-full overflow-auto">
+                            <Table>
+                                <TableHeader className="bg-muted/50">
+                                    <TableRow>
+                                        <TableHead className="font-bold border-r"># Venta</TableHead>
+                                        <TableHead className="font-bold border-r">Fecha</TableHead>
+                                        <TableHead className="font-bold border-r">Tienda</TableHead>
+                                        <TableHead className="font-bold border-r">SKU</TableHead>
+                                        <TableHead className="font-bold border-r text-right">Total Neto</TableHead>
+                                        <TableHead className="font-bold border-r">Comprador</TableHead>
+                                        <TableHead className="font-bold border-r">Transportista</TableHead>
+                                        <TableHead className="font-bold border-r">Seguimiento</TableHead>
+                                        <TableHead className="font-bold border-r">Estado</TableHead>
+                                        <TableHead className="font-bold border-r">CFDI</TableHead>
+                                        <TableHead className="font-bold border-r">Régimen</TableHead>
+                                        <TableHead className="font-bold">Dirección</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {paginatedSales.map((s) => (
+                                        <TableRow key={s.id}>
+                                            <TableCell className="font-mono text-xs border-r">{s.numero_venta}</TableCell>
+                                            <TableCell className="whitespace-nowrap border-r">{s.fecha_venta ? format(parseISO(s.fecha_venta), 'dd/MM/yy HH:mm') : 'N/A'}</TableCell>
+                                            <TableCell className="border-r"><Badge variant="outline">{s.company}</Badge></TableCell>
+                                            <TableCell className="font-mono text-xs border-r">{s.sku}</TableCell>
+                                            <TableCell className="text-right font-black text-primary border-r">{money(s.total)}</TableCell>
+                                            <TableCell className="max-w-[150px] truncate border-r" title={s.comprador || ''}>{s.comprador}</TableCell>
+                                            <TableCell className="border-r text-xs">{s.transportista_envio || s.transportista || 'N/A'}</TableCell>
+                                            <TableCell className="font-mono text-[10px] border-r">{s.numero_seguimiento_envio || 'N/A'}</TableCell>
+                                            <TableCell className="border-r"><Badge variant="secondary" className="text-[10px] uppercase">{s.estado}</Badge></TableCell>
+                                            <TableCell className="border-r text-xs">{s.cfdi || 'N/A'}</TableCell>
+                                            <TableCell className="border-r text-xs">{s.regimen_fiscal || 'N/A'}</TableCell>
+                                            <TableCell className="max-w-[200px] truncate text-xs" title={s.domicilio_entrega || ''}>{s.domicilio_entrega}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between border-t p-4">
+                        <div className="text-xs text-muted-foreground">Página {currentPage} de {totalPages}</div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>Anterior</Button>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}>Siguiente</Button>
+                        </div>
+                    </CardFooter>
+                </Card>
             </main>
 
             <Dialog open={isParetoModalOpen} onOpenChange={setIsParetoModalOpen}>
-                <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle>Análisis Detallado de Pareto (80/20)</DialogTitle>
-                        <DialogDescription>
-                            Listado completo de productos ordenados por ingresos. Los filtros de compañía y fecha del dashboard principal se aplican aquí.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex-1 min-h-0 overflow-y-auto">
+                <DialogContent className="max-w-5xl h-[80vh] flex flex-col">
+                    <DialogHeader><DialogTitle>Análisis Pareto Detallado</DialogTitle></DialogHeader>
+                    <div className="flex-1 overflow-auto">
                         <Table>
-                            <TableHeader className="sticky top-0 bg-background">
-                                <TableRow>
-                                    <TableHead className="w-[40%]">Producto</TableHead>
-                                    <TableHead className="text-right">Ingresos</TableHead>
-                                    <TableHead className="text-right">Piezas</TableHead>
-                                    <TableHead className="text-right">% del Total</TableHead>
-                                    <TableHead className="text-right">% Acumulado</TableHead>
-                                    <TableHead className="text-center">Clasificación</TableHead>
-                                </TableRow>
-                            </TableHeader>
+                            <TableHeader><TableRow>
+                                <TableHead>Producto</TableHead>
+                                <TableHead className="text-right">Ingresos</TableHead>
+                                <TableHead className="text-right">Piezas</TableHead>
+                                <TableHead className="text-right">% Acumulado</TableHead>
+                            </TableRow></TableHeader>
                             <TableBody>
-                                {paginatedParetoData.length > 0 ? paginatedParetoData.map((product) => (
-                                    <TableRow key={product.name}>
-                                        <TableCell className="font-medium max-w-sm truncate" title={product.name}>
-                                            {product.name}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono">{money(product.revenue)}</TableCell>
-                                        <TableCell className="text-right font-mono">{product.units.toLocaleString('es-MX')}</TableCell>
-                                        <TableCell className="text-right font-mono">{product.percentageOfTotal.toFixed(2)}%</TableCell>
-                                        <TableCell className="text-right font-mono">{product.cumulativePercentage.toFixed(2)}%</TableCell>
-                                        <TableCell className="text-center">
-                                            {product.cumulativePercentage <= 80 && (
-                                                <Badge>Top 80%</Badge>
-                                            )}
+                                {paretoAnalysisData.slice((paretoPage-1)*15, paretoPage*15).map((p, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell className="font-bold text-sm">{p.name}</TableCell>
+                                        <TableCell className="text-right">{money(p.revenue)}</TableCell>
+                                        <TableCell className="text-right">{p.units}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Badge variant={p.cumulativePercentage <= 80 ? 'default' : 'secondary'}>
+                                                {p.cumulativePercentage.toFixed(1)}%
+                                            </Badge>
                                         </TableCell>
                                     </TableRow>
-                                )) : (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
-                                            No hay datos de productos para mostrar.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
+                                ))}
                             </TableBody>
                         </Table>
                     </div>
-                    {totalParetoPages > 1 && (
-                         <DialogFooter className="pt-4 sm:justify-between">
-                            <div className="text-xs text-muted-foreground">
-                                Página {paretoPage} de {totalParetoPages}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setParetoPage(p => Math.max(1, p - 1))}
-                                    disabled={paretoPage === 1}
-                                >
-                                    Anterior
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setParetoPage(p => Math.min(totalParetoPages, p + 1))}
-                                    disabled={paretoPage === totalParetoPages}
-                                >
-                                    Siguiente
-                                </Button>
-                            </div>
-                        </DialogFooter>
-                    )}
+                    <DialogFooter className="border-t pt-4">
+                        <Button variant="outline" onClick={() => setParetoPage(p => Math.max(1, p-1))} disabled={paretoPage === 1}>Anterior</Button>
+                        <Button variant="outline" onClick={() => setParetoPage(p => p+1)}>Siguiente</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </>
+        </div>
     );
 }
-
-    
-
-    
