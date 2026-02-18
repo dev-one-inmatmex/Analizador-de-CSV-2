@@ -8,15 +8,17 @@ export type Sale = ml_sales;
 async function getSalesData() {
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
+  // Mantenemos el filtro de 12 meses por rendimiento, pero trayendo todos los campos (*)
   const twelveMonthsAgo = subMonths(new Date(), 12);
 
   const { data, error } = await supabaseAdmin
     .from('ml_sales')
     .select('*')
-    .gte('fecha_venta', twelveMonthsAgo.toISOString());
+    .gte('fecha_venta', twelveMonthsAgo.toISOString())
+    .order('fecha_venta', { ascending: false });
     
   if (error || !data) {
-    console.error('Error fetching sales data:', error);
+    console.error('Error fetching sales data from ml_sales:', error);
     return { sales: [], allCompanies: [] };
   }
 
