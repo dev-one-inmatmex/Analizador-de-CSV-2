@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Package, Layers, DollarSign, ArrowRightLeft, AlertTriangle, Loader2, Plus, Calendar, Clock } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Package, Layers, DollarSign, ArrowRightLeft, AlertTriangle, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { addSkuM, addSkuCosto, addSkuAlterno } from './actions';
 import type { InventoryData } from './page';
+import type { sku_m, sku_costos, sku_alterno } from '@/types/database';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -31,7 +31,6 @@ export default function InventoryAnalysisClient({
     const [pageCostos, setPageCostos] = React.useState(1);
     const [pageAlternos, setPageAlternos] = React.useState(1);
     
-    // Form states
     const [isSkuMDialogOpen, setIsSkuMDialogOpen] = React.useState(false);
     const [isCostoDialogOpen, setIsCostoDialogOpen] = React.useState(false);
     const [isAlternoDialogOpen, setIsAlternoDialogOpen] = React.useState(false);
@@ -45,10 +44,10 @@ export default function InventoryAnalysisClient({
 
     const { inventoryKpis } = React.useMemo(() => {
         const totalSkuM = skuM.length;
-        const totalSkus = skuM.filter(s => s.sku).length;
+        const totalSkus = skuM.filter((s: sku_m) => !!s.sku).length;
         const totalAlternos = skusAlternos.length;
-        const landedCosts = skuCostos.map(c => c.landed_cost).filter((c): c is number => c !== null && c !== undefined);
-        const avgLandedCost = landedCosts.length > 0 ? landedCosts.reduce((a, b) => a + b, 0) / landedCosts.length : 0;
+        const landedCosts = skuCostos.map((c: sku_costos) => c.landed_cost).filter((c): c is number => c !== null && c !== undefined);
+        const avgLandedCost = landedCosts.length > 0 ? landedCosts.reduce((a: number, b: number) => a + b, 0) / landedCosts.length : 0;
         return { inventoryKpis: { totalSkuM, totalSkus, totalAlternos, avgLandedCost } };
     }, [skuM, skuCostos, skusAlternos]);
 
@@ -80,7 +79,6 @@ export default function InventoryAnalysisClient({
         const data = {
             sku_mdr: formData.get('sku_mdr') as string,
             cat_mdr: formData.get('cat_mdr') as string || null,
-            esti_time: formData.get('esti_time') ? Number(formData.get('esti_time')) : null,
             piezas_por_sku: formData.get('piezas_por_sku') ? Number(formData.get('piezas_por_sku')) : null,
             sku: formData.get('sku') as string || null,
             piezas_xcontenedor: formData.get('piezas_xcontenedor') ? Number(formData.get('piezas_xcontenedor')) : null,
@@ -240,9 +238,6 @@ export default function InventoryAnalysisClient({
                                                         <div className="space-y-2"><Label htmlFor="bodega">Bodega</Label><Input id="bodega" name="bodega" /></div>
                                                         <div className="space-y-2"><Label htmlFor="bloque">Bloque</Label><Input id="bloque" name="bloque" type="number" /></div>
                                                     </div>
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div className="space-y-2"><Label htmlFor="esti_time_m">Tiempo Prep. (min)</Label><Input id="esti_time_m" name="esti_time" type="number" /></div>
-                                                    </div>
                                                     <DialogFooter><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Guardar SKU Maestro'}</Button></DialogFooter>
                                                 </form>
                                             </DialogContent>
@@ -265,11 +260,10 @@ export default function InventoryAnalysisClient({
                                                         <TableHead className="text-right">Pzs/Cont.</TableHead>
                                                         <TableHead>Bodega</TableHead>
                                                         <TableHead className="text-right">Bloque</TableHead>
-                                                        <TableHead className="text-right">T. Prep</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {paginatedSkuM.map((item) => (
+                                                    {paginatedSkuM.map((item: sku_m) => (
                                                         <TableRow key={item.sku_mdr}>
                                                             <TableCell className="font-mono font-medium text-primary">{item.sku_mdr}</TableCell>
                                                             <TableCell>{item.cat_mdr || 'N/A'}</TableCell>
@@ -280,7 +274,8 @@ export default function InventoryAnalysisClient({
                                                             <TableCell className="font-mono text-muted-foreground">{item.sku || '-'}</TableCell>
                                                             <TableCell className="text-right">{item.piezas_xcontenedor ?? '-'}</TableCell>
                                                             <TableCell>{item.bodega || '-'}</TableCell>
-                                                            <TableCell className="text-right">{item.bloque ?? '-'}</TableCell>                                                        </TableRow>
+                                                            <TableCell className="text-right">{item.bloque ?? '-'}</TableCell>
+                                                        </TableRow>
                                                     ))}
                                                 </TableBody>
                                             </Table>
@@ -334,7 +329,7 @@ export default function InventoryAnalysisClient({
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {paginatedCostos.map((costo) => (
+                                                    {paginatedCostos.map((costo: sku_costos) => (
                                                         <TableRow key={costo.id}>
                                                             <TableCell className="text-xs text-muted-foreground">#{costo.id}</TableCell>
                                                             <TableCell className="font-mono font-medium">{costo.sku_mdr}</TableCell>
@@ -381,7 +376,7 @@ export default function InventoryAnalysisClient({
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {paginatedAlternos.map((item, index) => (
+                                                    {paginatedAlternos.map((item: sku_alterno, index: number) => (
                                                         <TableRow key={`${item.sku}-${index}`}>
                                                             <TableCell className="font-mono">{item.sku}</TableCell>
                                                             <TableCell className="font-mono text-primary font-medium">{item.sku_mdr}</TableCell>
