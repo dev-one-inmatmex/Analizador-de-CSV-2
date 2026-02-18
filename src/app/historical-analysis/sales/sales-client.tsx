@@ -145,7 +145,7 @@ export default function SalesDashboardClient({
     if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="flex min-h-screen flex-col bg-muted/40">
+        <div className="flex min-h-screen flex-col bg-muted/40 min-w-0">
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4">
                     <SidebarTrigger />
@@ -154,8 +154,8 @@ export default function SalesDashboardClient({
                 </div>
             </header>
 
-            <main className="p-4 md:p-8 space-y-8">
-                <Card>
+            <main className="p-4 md:p-8 space-y-8 min-w-0 max-w-full overflow-hidden">
+                <Card className="min-w-0">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <Filter className="h-6 w-6 text-muted-foreground" />
                         <div className="flex-1"><CardTitle>Filtros de Auditoría</CardTitle></div>
@@ -178,8 +178,8 @@ export default function SalesDashboardClient({
                     <Card><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground">Producto Estrella</CardHeader><CardContent><div className="text-sm font-bold truncate" title={kpis.topProductName}>{kpis.topProductName}</div></CardContent></Card>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
+                    <Card className="min-w-0 overflow-hidden">
                         <CardHeader><CardTitle>Análisis de Pareto (Ingresos)</CardTitle></CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -195,7 +195,7 @@ export default function SalesDashboardClient({
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
-                    <Card>
+                    <Card className="min-w-0 overflow-hidden">
                         <CardHeader><CardTitle>Participación por Tienda</CardTitle></CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -211,7 +211,7 @@ export default function SalesDashboardClient({
                     </Card>
                 </div>
 
-                <Card>
+                <Card className="min-w-0 overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                             <CardTitle>Historial Detallado (ml_sales)</CardTitle>
@@ -220,7 +220,7 @@ export default function SalesDashboardClient({
                         <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)}><Maximize className="mr-2 h-4 w-4" /> Resumen Pareto</Button>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <div className="relative w-full overflow-x-auto border-t">
+                        <div className="relative w-full overflow-x-auto border-t max-w-full">
                             <Table className="min-w-[4000px]">
                                 <TableHeader className="bg-muted/50">
                                     <TableRow className="text-[10px] uppercase font-bold text-muted-foreground h-12">
@@ -381,7 +381,7 @@ export default function SalesDashboardClient({
                                             <TableCell className="border-r">{s.transportista2 || '-'}</TableCell>
                                             <TableCell className="border-r font-mono text-green-600">{s.num_seguimiento2 || '-'}</TableCell>
                                             
-                                            <TableCell className="border-r truncate max-w-[100px] text-[8px] text-green-500 underline">{s.url_seguimiento2 || '-'}</TableCell>
+                                            <TableCell className="border-r truncate max-w-[100px] text-[8px] text-blue-500 underline">{s.url_seguimiento2 || '-'}</TableCell>
                                             <TableCell className="border-r">{s.revisado_xml || '-'}</TableCell>
                                             <TableCell className="border-r">{safeFormat(s.f_revision3)}</TableCell>
                                             <TableCell className="border-r">{s.d_afavor || '-'}</TableCell>

@@ -122,15 +122,15 @@ function InsightsView({
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-10 min-w-0">
             {/* Header section matching screenshot */}
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                <div className="space-y-1">
+            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6 min-w-0">
+                <div className="space-y-1 shrink-0">
                     <h2 className="text-3xl font-bold tracking-tight">Gastos<br/>diarios</h2>
                     <p className="text-muted-foreground text-sm">Tu resumen financiero del periodo.</p>
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 min-w-0">
                     <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
                         <SelectTrigger className="w-[130px] h-11 bg-white border border-input rounded-md shadow-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -151,7 +151,7 @@ function InsightsView({
                         </SelectContent>
                     </Select>
 
-                    <div className="flex items-center gap-1 bg-white border border-input rounded-md px-2 h-11 shadow-sm">
+                    <div className="flex items-center gap-1 bg-white border border-input rounded-md px-2 h-11 shadow-sm shrink-0">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { [dateFilter === 'day' ? 'days' : dateFilter + 's']: -1 }))}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -173,11 +173,11 @@ function InsightsView({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <Card className="lg:col-span-6 border-none shadow-sm rounded-xl">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-w-0">
+                <Card className="lg:col-span-6 border-none shadow-sm rounded-xl min-w-0">
                     <CardHeader className="pb-0"><CardTitle className="text-xl font-bold">Balance del Periodo</CardTitle></CardHeader>
-                    <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-8">
-                        <div className="relative w-[220px] h-[220px]">
+                    <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-8 min-w-0">
+                        <div className="relative w-[220px] h-[220px] shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie data={pieData} dataKey="value" innerRadius={70} outerRadius={95} paddingAngle={5} stroke="none">
@@ -186,36 +186,36 @@ function InsightsView({
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="space-y-6 flex-1 w-full">
+                        <div className="space-y-6 flex-1 w-full min-w-0">
                             <div className="space-y-1">
                                 <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Balance</p>
-                                <p className={cn("text-3xl font-extrabold", balance >= 0 ? "text-green-600" : "text-destructive")}>{money(balance)}</p>
+                                <p className={cn("text-3xl font-extrabold truncate", balance >= 0 ? "text-green-600" : "text-destructive")}>{money(balance)}</p>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-1))]" />
-                                    <div className="flex flex-col"><span className="text-xs text-muted-foreground">Ingresos</span><span className="font-bold">{money(totalIncome)}</span></div>
+                                    <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-1))] shrink-0" />
+                                    <div className="flex flex-col min-w-0"><span className="text-xs text-muted-foreground">Ingresos</span><span className="font-bold truncate">{money(totalIncome)}</span></div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-3 h-3 rounded-full bg-[hsl(var(--destructive))]" />
-                                    <div className="flex flex-col"><span className="text-xs text-muted-foreground">Gastos</span><span className="font-bold">{money(totalExpense)}</span></div>
+                                    <div className="w-3 h-3 rounded-full bg-[hsl(var(--destructive))] shrink-0" />
+                                    <div className="flex flex-col min-w-0"><span className="text-xs text-muted-foreground">Gastos</span><span className="font-bold truncate">{money(totalExpense)}</span></div>
                                 </div>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <div className="lg:col-span-6 flex flex-col gap-6">
-                    <Card className="border-none shadow-sm rounded-xl flex-1 bg-green-50/50">
+                <div className="lg:col-span-6 flex flex-col gap-6 min-w-0">
+                    <Card className="border-none shadow-sm rounded-xl flex-1 bg-green-50/50 min-w-0">
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-bold uppercase tracking-wider text-green-800">Ahorro Potencial</CardTitle></CardHeader>
-                        <CardContent className="pt-4"><div className="text-4xl font-extrabold text-green-600">{money(balance)}</div></CardContent>
+                        <CardContent className="pt-4"><div className="text-4xl font-extrabold text-green-600 truncate">{money(balance)}</div></CardContent>
                     </Card>
-                    <Card className="border-none shadow-sm rounded-xl flex-1">
+                    <Card className="border-none shadow-sm rounded-xl flex-1 min-w-0">
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-bold uppercase tracking-wider">Estado del Presupuesto</CardTitle></CardHeader>
                         <CardContent className="pt-4 space-y-4">
-                            <div className="flex justify-between items-center text-sm font-medium">
-                                <span>Comida</span>
-                                <span className="text-destructive font-bold">{money(totalExpense)} / $5,000</span>
+                            <div className="flex justify-between items-center text-sm font-medium gap-2">
+                                <span className="truncate">Comida</span>
+                                <span className="text-destructive font-bold shrink-0">{money(totalExpense)} / $5,000</span>
                             </div>
                             <Progress value={Math.min((totalExpense / 5000) * 100, 100)} className="h-3" />
                             <p className="text-[10px] text-muted-foreground text-center font-medium">HAS ALCANZADO EL 100% DE TU PRESUPUESTO</p>
@@ -224,9 +224,9 @@ function InsightsView({
                 </div>
             </div>
 
-            <Card className="border-none shadow-sm rounded-xl overflow-hidden">
+            <Card className="border-none shadow-sm rounded-xl overflow-hidden min-w-0">
                 <CardHeader><CardTitle className="text-xl font-bold">Resumen de Movimientos del Periodo</CardTitle></CardHeader>
-                <CardContent className="h-[350px] pt-6">
+                <CardContent className="h-[350px] pt-6 min-w-0">
                     <ResponsiveContainer width="100%" height="100%">
                         <RechartsBarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -267,9 +267,9 @@ function ReportsView({
     const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
     return (
-        <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
+        <div className="space-y-8 min-w-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+                <Card className="min-w-0 overflow-hidden">
                     <CardHeader><CardTitle>Distribución de Egresos</CardTitle></CardHeader>
                     <CardContent className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -283,7 +283,7 @@ function ReportsView({
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="min-w-0 overflow-hidden">
                     <CardHeader><CardTitle>Distribución de Ingresos</CardTitle></CardHeader>
                     <CardContent className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
@@ -299,45 +299,47 @@ function ReportsView({
                 </Card>
             </div>
 
-            <Card>
+            <Card className="min-w-0 overflow-hidden">
                 <CardHeader><CardTitle>Historial de Movimientos</CardTitle></CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader><TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Concepto</TableHead>
-                            <TableHead>Cuenta</TableHead>
-                            <TableHead className="text-right">Monto</TableHead>
-                            <TableHead></TableHead>
-                        </TableRow></TableHeader>
-                        <TableBody>
-                            {transactions.map(t => (
-                                <TableRow key={`${t.__flowType}-${t.id}`}>
-                                    <TableCell className="text-xs font-medium">{format(new Date(t.fecha), 'dd/MM/yy')}</TableCell>
-                                    <TableCell>
-                                        <div className="font-bold text-sm">{t.categoria}</div>
-                                        <div className="text-[10px] text-muted-foreground uppercase flex gap-1">
-                                            <Badge variant="outline" className="px-1 py-0 text-[9px] h-4">{t.tipo_transaccion}</Badge>
-                                            • {t.descripcion || 'Sin desc.'}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell><Badge variant="secondary" className="text-[10px] font-mono">{t.cuenta || 'N/A'}</Badge></TableCell>
-                                    <TableCell className={cn("text-right font-black", t.__flowType === 'egreso' ? "text-destructive" : "text-primary")}>
-                                        {t.__flowType === 'egreso' ? "-" : "+"} {money(t.monto)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => onDeleteTransaction(t.id, t.__flowType)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto w-full">
+                        <Table>
+                            <TableHeader><TableRow>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Concepto</TableHead>
+                                <TableHead>Cuenta</TableHead>
+                                <TableHead className="text-right">Monto</TableHead>
+                                <TableHead></TableHead>
+                            </TableRow></TableHeader>
+                            <TableBody>
+                                {transactions.map(t => (
+                                    <TableRow key={`${t.__flowType}-${t.id}`}>
+                                        <TableCell className="text-xs font-medium">{format(new Date(t.fecha), 'dd/MM/yy')}</TableCell>
+                                        <TableCell>
+                                            <div className="font-bold text-sm truncate max-w-[150px]">{t.categoria}</div>
+                                            <div className="text-[10px] text-muted-foreground uppercase flex gap-1 truncate max-w-[200px]">
+                                                <Badge variant="outline" className="px-1 py-0 text-[9px] h-4">{t.tipo_transaccion}</Badge>
+                                                • {t.descripcion || 'Sin desc.'}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell><Badge variant="secondary" className="text-[10px] font-mono">{t.cuenta || 'N/A'}</Badge></TableCell>
+                                        <TableCell className={cn("text-right font-black whitespace-nowrap", t.__flowType === 'egreso' ? "text-destructive" : "text-primary")}>
+                                            {t.__flowType === 'egreso' ? "-" : "+"} {money(t.monto)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => onDeleteTransaction(t.id, t.__flowType)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
@@ -432,26 +434,26 @@ export default function OperationsPage() {
     };
 
     return (
-        <div className="flex h-screen flex-col bg-muted/40">
+        <div className="flex h-screen flex-col bg-muted/40 min-w-0">
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold">Análisis Pro</h1>
-                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as View)} className="hidden md:flex">
-                        <TabsList className="bg-muted/50">
-                            <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
-                            <TabsTrigger value="informes"><BarChartIcon className="mr-2 h-4 w-4" /> Informes</TabsTrigger>
-                            <TabsTrigger value="presupuestos"><Wallet className="mr-2 h-4 w-4" /> Presupuestos</TabsTrigger>
+                <div className="flex items-center gap-4 min-w-0">
+                    <h1 className="text-xl font-bold truncate shrink-0">Análisis Pro</h1>
+                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as View)} className="hidden md:flex min-w-0">
+                        <TabsList className="bg-muted/50 min-w-0 overflow-x-auto no-scrollbar">
+                            <TabsTrigger value="inicio" className="shrink-0"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
+                            <TabsTrigger value="informes" className="shrink-0"><BarChartIcon className="mr-2 h-4 w-4" /> Informes</TabsTrigger>
+                            <TabsTrigger value="presupuestos" className="shrink-0"><Wallet className="mr-2 h-4 w-4" /> Presupuestos</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setCurrentView('informes')}><Eye className="mr-2 h-4 w-4" /> Resumen</Button>
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => setCurrentView('informes')} className="hidden sm:flex"><Eye className="mr-2 h-4 w-4" /> Resumen</Button>
                     <Button size="sm" className="bg-primary text-white" onClick={() => handleOpenForm(null)}><Plus className="mr-2 h-4 w-4" /> Nueva</Button>
                 </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto p-4 md:p-8">
-                <div className="mx-auto max-w-7xl">
+            <main className="flex-1 overflow-y-auto p-4 md:p-8 min-w-0">
+                <div className="mx-auto max-w-7xl w-full min-w-0">
                     {currentView === 'inicio' && (
                         <InsightsView 
                             transactions={transactions} isLoading={isLoading} 
@@ -497,12 +499,12 @@ function BudgetsView({ transactions }: { transactions: UnifiedTransaction[] }) {
     ];
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="space-y-6 min-w-0">
+            <div className="flex justify-between items-center gap-4">
                 <h2 className="text-2xl font-bold tracking-tight">Presupuestos del Mes</h2>
-                <Button variant="outline"><Plus className="mr-2 h-4 w-4" /> Crear Meta</Button>
+                <Button variant="outline" size="sm" className="shrink-0"><Plus className="mr-2 h-4 w-4" /> Crear Meta</Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-w-0">
                 {budgets.map((b, i) => {
                     const current = transactions
                         .filter(t => t.categoria === b.category && t.__flowType === b.type)
@@ -510,25 +512,25 @@ function BudgetsView({ transactions }: { transactions: UnifiedTransaction[] }) {
                     const percent = Math.min((current / b.limit) * 100, 100);
                     
                     return (
-                        <Card key={i} className="border-none shadow-sm hover:shadow-md transition-shadow">
+                        <Card key={i} className="border-none shadow-sm hover:shadow-md transition-shadow min-w-0">
                             <CardHeader className="pb-2">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <CardTitle className="text-lg font-bold">{b.category}</CardTitle>
-                                        <CardDescription>Vigencia: {format(new Date(), 'MMMM yyyy', { locale: es })}</CardDescription>
+                                <div className="flex justify-between items-start gap-2">
+                                    <div className="min-w-0">
+                                        <CardTitle className="text-lg font-bold truncate">{b.category}</CardTitle>
+                                        <CardDescription className="text-[10px]">Vigencia: {format(new Date(), 'MMMM yyyy', { locale: es })}</CardDescription>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4"/></Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreVertical className="h-4 w-4"/></Button>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="flex justify-between items-end">
-                                    <div className="text-2xl font-black">{money(current)}</div>
-                                    <div className="text-sm text-muted-foreground">de {money(b.limit)}</div>
+                                <div className="flex justify-between items-end gap-2">
+                                    <div className="text-2xl font-black truncate">{money(current)}</div>
+                                    <div className="text-[10px] text-muted-foreground whitespace-nowrap">de {money(b.limit)}</div>
                                 </div>
                                 <Progress value={percent} className={cn("h-2.5", percent > 90 ? "bg-red-100" : "bg-muted")} />
-                                <div className="flex justify-between text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                                    <span>{percent.toFixed(0)}% Utilizado</span>
-                                    <span>Quedan {money(Math.max(b.limit - current, 0))}</span>
+                                <div className="flex justify-between text-[9px] uppercase font-bold tracking-widest text-muted-foreground gap-2">
+                                    <span className="truncate">{percent.toFixed(0)}% Utilizado</span>
+                                    <span className="shrink-0">Quedan {money(Math.max(b.limit - current, 0))}</span>
                                 </div>
                             </CardContent>
                         </Card>
