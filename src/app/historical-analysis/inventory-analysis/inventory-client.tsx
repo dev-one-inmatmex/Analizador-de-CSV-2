@@ -104,9 +104,9 @@ export default function InventoryAnalysisClient({
 
                         <Tabs defaultValue="maestro">
                             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-6">
-                                <TabsTrigger value="maestro" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2">Catálogo Maestro</TabsTrigger>
-                                <TabsTrigger value="costos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2">Historial Costos</TabsTrigger>
-                                <TabsTrigger value="alternos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2">Relaciones Alternas</TabsTrigger>
+                                <TabsTrigger value="maestro" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Catálogo Maestro</TabsTrigger>
+                                <TabsTrigger value="costos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Historial Costos</TabsTrigger>
+                                <TabsTrigger value="alternos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-2 font-bold uppercase tracking-widest text-[10px]">Relaciones Alternas</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="maestro" className="mt-6 space-y-4">
@@ -129,9 +129,9 @@ export default function InventoryAnalysisClient({
                                         </DialogContent>
                                     </Dialog>
                                 </div>
-                                <Card>
+                                <Card className="border-none shadow-sm overflow-hidden">
                                     <Table>
-                                        <TableHeader><TableRow>
+                                        <TableHeader className="bg-muted/50"><TableRow>
                                             <TableHead>SKU Madre</TableHead>
                                             <TableHead>Categoría</TableHead>
                                             <TableHead>Costo</TableHead>
@@ -142,7 +142,7 @@ export default function InventoryAnalysisClient({
                                             {skuM.slice((pageSkuM-1)*10, pageSkuM*10).map((s: sku_m) => (
                                                 <TableRow key={s.sku_mdr}>
                                                     <TableCell className="font-mono font-bold text-primary">{s.sku_mdr}</TableCell>
-                                                    <TableCell>{s.cat_mdr}</TableCell>
+                                                    <TableCell className="text-xs uppercase">{s.cat_mdr}</TableCell>
                                                     <TableCell className="font-bold text-green-600">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(s.landed_cost)}</TableCell>
                                                     <TableCell className="font-mono text-[10px]">{s.sku || '-'}</TableCell>
                                                     <TableCell className="text-[10px]">{s.bodega} / B:{s.bloque}</TableCell>
@@ -174,9 +174,9 @@ export default function InventoryAnalysisClient({
                                         </DialogContent>
                                     </Dialog>
                                 </div>
-                                <Card>
+                                <Card className="border-none shadow-sm overflow-hidden">
                                     <Table>
-                                        <TableHeader><TableRow>
+                                        <TableHeader className="bg-muted/50"><TableRow>
                                             <TableHead>Fecha</TableHead>
                                             <TableHead>SKU Madre</TableHead>
                                             <TableHead>Costo</TableHead>
@@ -189,8 +189,8 @@ export default function InventoryAnalysisClient({
                                                     <TableCell className="text-[10px]">{c.fecha_desde ? format(parseISO(c.fecha_desde), 'dd/MM/yyyy') : '-'}</TableCell>
                                                     <TableCell className="font-mono font-bold">{c.sku_mdr}</TableCell>
                                                     <TableCell className="font-black text-primary">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(c.landed_cost)}</TableCell>
-                                                    <TableCell className="text-[10px]">{c.proveedor || '-'}</TableCell>
-                                                    <TableCell>{c.esti_time}m</TableCell>
+                                                    <TableCell className="text-[10px] uppercase">{c.proveedor || '-'}</TableCell>
+                                                    <TableCell className="text-xs">{c.esti_time}m</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -215,9 +215,9 @@ export default function InventoryAnalysisClient({
                                         </DialogContent>
                                     </Dialog>
                                 </div>
-                                <Card>
+                                <Card className="border-none shadow-sm overflow-hidden">
                                     <Table>
-                                        <TableHeader><TableRow>
+                                        <TableHeader className="bg-muted/50"><TableRow>
                                             <TableHead>SKU Alterno (Key)</TableHead>
                                             <TableHead>SKU Maestro Vinculado</TableHead>
                                         </TableRow></TableHeader>
