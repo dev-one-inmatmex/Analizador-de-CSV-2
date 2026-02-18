@@ -1,6 +1,5 @@
 'use server';
 
-import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import { revalidatePath } from 'next/cache';
 import { expenseFormSchema, TransactionFormValues } from './schemas';
@@ -16,10 +15,10 @@ export async function addExpenseAction(values: TransactionFormValues) {
     return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
-  // Form values map directly to the database schema
-  const dbData = validatedFields.data;
+  const flow = values.tipo_transaccion === 'gasto' || values.tipo_transaccion === 'compra' ? 'egreso' : 'ingreso';
+  const table = flow === 'egreso' ? 'finanzas' : 'finanzas2';
 
-  const { error } = await supabaseAdmin.from('finanzas').insert([dbData]);
+  const { error } = await supabaseAdmin.from(table).insert([values]);
 
   if (error) {
     console.error('Supabase insert error:', error);
@@ -41,11 +40,12 @@ export async function updateExpenseAction(id: number, values: TransactionFormVal
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
     
-    const dbData = validatedFields.data;
+    const flow = values.tipo_transaccion === 'gasto' || values.tipo_transaccion === 'compra' ? 'egreso' : 'ingreso';
+    const table = flow === 'egreso' ? 'finanzas' : 'finanzas2';
 
     const { error } = await supabaseAdmin
-        .from('finanzas')
-        .update(dbData)
+        .from(table)
+        .update(values)
         .eq('id', id);
 
     if (error) {
@@ -57,13 +57,15 @@ export async function updateExpenseAction(id: number, values: TransactionFormVal
     return { data: "Transacción actualizada exitosamente." };
 }
 
-export async function deleteExpenseAction(id: number) {
+export async function deleteExpenseAction(id: number, flow: 'egreso' | 'ingreso') {
     if (!supabaseAdmin) {
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
 
+    const table = flow === 'egreso' ? 'finanzas' : 'finanzas2';
+
     const { error } = await supabaseAdmin
-        .from('finanzas')
+        .from(table)
         .delete()
         .eq('id', id);
 

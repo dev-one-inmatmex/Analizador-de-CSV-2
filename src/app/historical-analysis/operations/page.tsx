@@ -1,30 +1,27 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, subDays } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { 
-  AlertTriangle, ArrowDown, ArrowUp, BarChart as BarChartIcon, ChevronLeft, ChevronRight, Cog, Home, 
-  Landmark, List, Loader2, MoreVertical, Pencil, Plus, Trash2, Eye, CreditCard, Building2, Wallet, 
-  MessageSquare, StickyNote, TrendingUp, X, Receipt, PiggyBank, Target, Download, Calendar as CalendarIcon
+  BarChart as BarChartIcon, ChevronLeft, ChevronRight, Home, 
+  Loader2, MoreVertical, Pencil, Plus, Trash2, Eye, CreditCard, 
+  Calendar as CalendarIcon, ArrowDown, ArrowUp
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Line, LineChart, Area, AreaChart 
+  ResponsiveContainer, Tooltip, XAxis, YAxis 
 } from 'recharts';
 
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
-import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
-import { expenseFormSchema, TransactionFormValues, paymentMethods } from './schemas';
+import { expenseFormSchema, TransactionFormValues } from './schemas';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -32,17 +29,15 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 // --- Types ---
-type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
+type View = 'inicio' | 'informes' | 'presupuestos';
 type DateFilter = 'day' | 'week' | 'month' | 'year';
 
 interface UnifiedTransaction {
@@ -64,23 +59,13 @@ interface UnifiedTransaction {
     __flowType: 'egreso' | 'ingreso';
 }
 
-interface Budget {
-    id: number;
-    category: string;
-    limit: number;
-    type: 'egreso' | 'ingreso';
-    startDate: Date;
-    endDate: Date;
-}
-
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
 // --- Sub-components ---
 
 function InsightsView({ 
     transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, 
-    companyFilter, setCompanyFilter, accountFilter, setAccountFilter, 
-    onAddTransaction, onViewTransactions, budgets, handleOpenForm, handleDeleteTransaction
+    onAddTransaction, onViewTransactions, handleOpenForm, handleDeleteTransaction
 }: {
     transactions: UnifiedTransaction[];
     isLoading: boolean;
@@ -88,13 +73,8 @@ function InsightsView({
     setDateFilter: (f: DateFilter) => void;
     currentDate: Date;
     setCurrentDate: (d: Date) => void;
-    companyFilter: string;
-    setCompanyFilter: (c: string) => void;
-    accountFilter: string;
-    setAccountFilter: (a: string) => void;
     onAddTransaction: () => void;
     onViewTransactions: () => void;
-    budgets: Budget[];
     handleOpenForm: (t: UnifiedTransaction | null) => void;
     handleDeleteTransaction: (id: number, flow: 'egreso' | 'ingreso') => void;
 }) {
@@ -104,7 +84,10 @@ function InsightsView({
         return { totalIncome: income, totalExpense: expense, balance: income - expense };
     }, [transactions]);
 
-    const pieData = [{ name: 'Ingresos', value: totalIncome, color: '#3b82f6' }, { name: 'Gastos', value: totalExpense, color: '#ec4899' }];
+    const pieData = [
+        { name: 'Ingresos', value: totalIncome, color: 'hsl(var(--chart-1))' }, 
+        { name: 'Gastos', value: totalExpense, color: 'hsl(var(--destructive))' }
+    ];
 
     const dailyTransactions = transactions.filter(t => isSameDay(new Date(t.fecha), currentDate));
 
@@ -151,7 +134,7 @@ function InsightsView({
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <span className="min-w-[120px] text-center font-semibold text-sm capitalize">
-                            {format(currentDate, dateFilter === 'day' ? 'dd MMM yyyy' : (dateFilter === 'year' ? 'yyyy' : 'MMMM yyyy'), { locale: es })}
+                            {format(currentDate, dateFilter === 'day' ? "dd 'de' MMMM" : (dateFilter === 'year' ? 'yyyy' : 'MMMM yyyy'), { locale: es })}
                         </span>
                         <Button variant="ghost" size="icon" onClick={() => setCurrentDate(add(currentDate, { [dateFilter === 'day' ? 'days' : dateFilter + 's']: 1 }))}>
                             <ChevronRight className="h-4 w-4" />
@@ -162,14 +145,14 @@ function InsightsView({
                         <Eye className="h-4 w-4" /> Ver Transacciones
                     </Button>
 
-                    <Button className="h-11 bg-[#2d5a4c] hover:bg-[#2d5a4c]/90 text-white gap-2 px-4" onClick={onAddTransaction}>
+                    <Button className="h-11 gap-2 px-4" onClick={onAddTransaction}>
                         <Plus className="h-4 w-4" /> Añadir Transacción
                     </Button>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <Card className="lg:col-span-6 border-none bg-white shadow-sm rounded-xl">
+                <Card className="lg:col-span-6 border-none shadow-sm rounded-xl">
                     <CardHeader className="pb-0"><CardTitle className="text-xl font-bold">Balance del Periodo</CardTitle></CardHeader>
                     <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-8">
                         <div className="relative w-[220px] h-[220px]">
@@ -184,15 +167,15 @@ function InsightsView({
                         <div className="space-y-6 flex-1 w-full">
                             <div className="space-y-1">
                                 <p className="text-xs text-muted-foreground uppercase font-bold">Balance</p>
-                                <p className="text-3xl font-extrabold text-[#2d5a4c]">{money(balance)}</p>
+                                <p className={cn("text-3xl font-extrabold", balance >= 0 ? "text-green-600" : "text-destructive")}>{money(balance)}</p>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                                    <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-1))]" />
                                     <div className="flex flex-col"><span className="text-xs text-muted-foreground">Ingresos</span><span className="font-bold">{money(totalIncome)}</span></div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-3 h-3 rounded-full bg-pink-500" />
+                                    <div className="w-3 h-3 rounded-full bg-[hsl(var(--destructive))]" />
                                     <div className="flex flex-col"><span className="text-xs text-muted-foreground">Gastos</span><span className="font-bold">{money(totalExpense)}</span></div>
                                 </div>
                             </div>
@@ -201,11 +184,11 @@ function InsightsView({
                 </Card>
 
                 <div className="lg:col-span-6 flex flex-col gap-6">
-                    <Card className="border-none bg-white shadow-sm rounded-xl flex-1">
+                    <Card className="border-none shadow-sm rounded-xl flex-1">
                         <CardHeader className="pb-2"><CardTitle className="text-xl font-bold">Ahorro Potencial</CardTitle></CardHeader>
-                        <CardContent className="pt-4"><div className="text-4xl font-extrabold text-[#2d5a4c]">{money(balance)}</div></CardContent>
+                        <CardContent className="pt-4"><div className="text-4xl font-extrabold text-primary">{money(balance)}</div></CardContent>
                     </Card>
-                    <Card className="border-none bg-white shadow-sm rounded-xl flex-1">
+                    <Card className="border-none shadow-sm rounded-xl flex-1">
                         <CardHeader className="pb-2"><CardTitle className="text-xl font-bold">Resumen de Movimientos</CardTitle></CardHeader>
                         <CardContent className="h-40">
                             <ResponsiveContainer width="100%" height="100%">
@@ -213,8 +196,8 @@ function InsightsView({
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} />
                                     <Tooltip cursor={{fill: '#f9f9f9'}} />
-                                    <RechartsBar dataKey="Ingresos" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                    <RechartsBar dataKey="Gastos" fill="#ec4899" radius={[4, 4, 0, 0]} />
+                                    <RechartsBar dataKey="Ingresos" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                                    <RechartsBar dataKey="Gastos" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
                                 </RechartsBarChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -229,7 +212,7 @@ function InsightsView({
                         <div className="divide-y">
                             {dailyTransactions.map(t => (
                                 <div key={t.id} className="flex items-center py-4">
-                                    <div className={cn("p-2 rounded-full mr-4", t.__flowType === 'egreso' ? "bg-pink-100 text-pink-600" : "bg-blue-100 text-blue-600")}>
+                                    <div className={cn("p-2 rounded-full mr-4", t.__flowType === 'egreso' ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
                                         {t.__flowType === 'egreso' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
                                     </div>
                                     <div className="flex-1">
@@ -237,7 +220,7 @@ function InsightsView({
                                         <p className="text-xs text-muted-foreground uppercase">{t.tipo_transaccion} • {t.cuenta || 'Sin cuenta'}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className={cn("font-bold", t.__flowType === 'egreso' ? "text-pink-600" : "text-blue-600")}>
+                                        <p className={cn("font-bold", t.__flowType === 'egreso' ? "text-destructive" : "text-primary")}>
                                             {t.__flowType === 'egreso' ? "-" : "+"} {money(t.monto)}
                                         </p>
                                         <div className="flex gap-1 justify-end mt-1">
@@ -258,14 +241,9 @@ function InsightsView({
 }
 
 function ReportsView({ 
-    transactions, dateFilter, setDateFilter, currentDate, setCurrentDate, 
-    onEditTransaction, onDeleteTransaction 
+    transactions, onEditTransaction, onDeleteTransaction 
 }: {
     transactions: UnifiedTransaction[];
-    dateFilter: DateFilter;
-    setDateFilter: (f: DateFilter) => void;
-    currentDate: Date;
-    setCurrentDate: (d: Date) => void;
     onEditTransaction: (t: UnifiedTransaction) => void;
     onDeleteTransaction: (id: number, flow: 'egreso' | 'ingreso') => void;
 }) {
@@ -287,22 +265,22 @@ function ReportsView({
         };
     }, [transactions]);
 
-    const COLORS = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#6366f1'];
+    const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
     return (
         <div className="space-y-8">
             <div className="grid gap-4 md:grid-cols-3">
-                <Card className="bg-pink-50/50 border-pink-100">
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-bold text-pink-600 uppercase">Egresos Totales</CardTitle></CardHeader>
-                    <CardContent><div className="text-3xl font-black text-pink-700">{money(totalExpense)}</div></CardContent>
+                <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-bold text-destructive uppercase">Egresos Totales</CardTitle></CardHeader>
+                    <CardContent><div className="text-3xl font-black text-destructive">{money(totalExpense)}</div></CardContent>
                 </Card>
-                <Card className="bg-blue-50/50 border-blue-100">
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-bold text-blue-600 uppercase">Ingresos Totales</CardTitle></CardHeader>
-                    <CardContent><div className="text-3xl font-black text-blue-700">{money(totalIncome)}</div></CardContent>
+                <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-bold text-primary uppercase">Ingresos Totales</CardTitle></CardHeader>
+                    <CardContent><div className="text-3xl font-black text-primary">{money(totalIncome)}</div></CardContent>
                 </Card>
-                <Card className="bg-green-50/50 border-green-100">
-                    <CardHeader className="pb-2"><CardTitle className="text-sm font-bold text-green-600 uppercase">Balance Neto</CardTitle></CardHeader>
-                    <CardContent><div className="text-3xl font-black text-green-700">{money(balance)}</div></CardContent>
+                <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-bold uppercase">Balance Neto</CardTitle></CardHeader>
+                    <CardContent><div className={cn("text-3xl font-black", balance >= 0 ? "text-green-600" : "text-destructive")}>{money(balance)}</div></CardContent>
                 </Card>
             </div>
 
@@ -355,12 +333,12 @@ function ReportsView({
                                     <TableCell>
                                         <div className="font-bold text-sm">{t.categoria}</div>
                                         <div className="text-[10px] text-muted-foreground uppercase flex gap-1">
-                                            <Badge variant="outline" className={cn("px-1 py-0 text-[9px]", t.__flowType === 'egreso' ? "text-pink-600 border-pink-200" : "text-blue-600 border-blue-200")}>{t.tipo_transaccion}</Badge>
+                                            <Badge variant="outline" className="px-1 py-0 text-[9px]">{t.tipo_transaccion}</Badge>
                                             • {t.descripcion || 'Sin desc.'}
                                         </div>
                                     </TableCell>
                                     <TableCell><Badge variant="outline" className="text-[10px]">{t.cuenta || 'N/A'}</Badge></TableCell>
-                                    <TableCell className={cn("text-right font-black", t.__flowType === 'egreso' ? "text-pink-600" : "text-blue-600")}>
+                                    <TableCell className={cn("text-right font-black", t.__flowType === 'egreso' ? "text-destructive" : "text-primary")}>
                                         {t.__flowType === 'egreso' ? "-" : "+"} {money(t.monto)}
                                     </TableCell>
                                     <TableCell>
@@ -392,10 +370,7 @@ export default function OperationsPage() {
     const [editingTransaction, setEditingTransaction] = React.useState<UnifiedTransaction | null>(null);
     const [dateFilter, setDateFilter] = React.useState<DateFilter>('month');
     const [currentDate, setCurrentDate] = React.useState(new Date());
-    const [companyFilter, setCompanyFilter] = React.useState('Todas');
-    const [accountFilter, setAccountFilter] = React.useState('Todas');
 
-    const isMobile = useIsMobile();
     const { toast } = useToast();
 
     const fetchAllData = React.useCallback(async () => {
@@ -475,7 +450,6 @@ export default function OperationsPage() {
                         <TabsList>
                             <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
                             <TabsTrigger value="informes"><BarChartIcon className="mr-2 h-4 w-4" /> Informes</TabsTrigger>
-                            <TabsTrigger value="presupuestos"><Target className="mr-2 h-4 w-4" /> Presupuestos</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
@@ -489,11 +463,8 @@ export default function OperationsPage() {
                             transactions={transactions} isLoading={isLoading} 
                             dateFilter={dateFilter} setDateFilter={setDateFilter} 
                             currentDate={currentDate} setCurrentDate={setCurrentDate}
-                            companyFilter={companyFilter} setCompanyFilter={setCompanyFilter}
-                            accountFilter={accountFilter} setAccountFilter={setAccountFilter}
                             onAddTransaction={() => handleOpenForm(null)}
                             onViewTransactions={() => setCurrentView('informes')}
-                            budgets={[]} // Would load from DB
                             handleOpenForm={handleOpenForm}
                             handleDeleteTransaction={handleDelete}
                         />
@@ -501,8 +472,6 @@ export default function OperationsPage() {
                     {currentView === 'informes' && (
                         <ReportsView 
                             transactions={transactions} 
-                            dateFilter={dateFilter} setDateFilter={setDateFilter}
-                            currentDate={currentDate} setCurrentDate={setCurrentDate}
                             onEditTransaction={handleOpenForm}
                             onDeleteTransaction={handleDelete}
                         />
@@ -550,7 +519,6 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Unif
         }
     });
 
-    const watchType = form.watch('tipo_transaccion');
     const watchPago = form.watch('metodo_pago');
     const watchBanco = form.watch('banco');
     const watchCuenta = form.watch('cuenta');
@@ -564,7 +532,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Unif
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <DialogHeader>
                     <DialogTitle>{transaction ? 'Editar' : 'Registrar'} Movimiento</DialogTitle>
-                    <DialogDescription>Completa los detalles financieros. Los campos "Otro" requieren especificación.</DialogDescription>
+                    <DialogDescription>Completa los detalles financieros.</DialogDescription>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -574,7 +542,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Unif
                                 {['gasto', 'compra', 'venta', 'ingreso'].map(type => (
                                     <div key={type}>
                                         <RadioGroupItem value={type} id={type} className="sr-only peer" />
-                                        <Label htmlFor={type} className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 capitalize">
+                                        <Label htmlFor={type} className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 capitalize cursor-pointer">
                                             {type}
                                         </Label>
                                     </div>
