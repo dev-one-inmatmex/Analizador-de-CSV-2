@@ -65,21 +65,26 @@ export default function SalesDashboardClient({
 
     // 1. Reconciliación de datos para Paquetes con lógica de herencia solicitada
     const reconciledSales = React.useMemo(() => {
-        const data = [...initialSales];
+        // Clonamos para no mutar el original
+        const data = initialSales.map(s => ({ ...s }));
+        
         for (let i = 0; i < data.length; i++) {
             const current = data[i];
             const status = (current.status || '').toLowerCase();
             
-            // Detectar "Paquete de X productos"
+            // Detectar registros de tipo "Paquete de X productos"
             const match = status.match(/paquete de (\d+) productos/);
             if (match) {
                 const numChildren = parseInt(match[1]);
                 const childrenIndices = [];
+                // Identificamos las filas que están inmediatamente debajo del paquete
                 for (let j = 1; j <= numChildren; j++) {
-                    if (i + j < data.length) childrenIndices.push(i + j);
+                    if (i + j < data.length) {
+                        childrenIndices.push(i + j);
+                    }
                 }
 
-                // Campos que hereda el HIJO del PADRE (Datos generales y financieros)
+                // Lista de los 26 campos que hereda el HIJO del PADRE
                 const parentToChildFields: (keyof Sale)[] = [
                     'ing_xunidad', 'cargo_venta', 'costo_envio', 'costo_enviomp', 'total', 
                     'factura_a', 'datos_poe', 'tipo_ndoc', 'direccion', 't_contribuyente', 
@@ -91,7 +96,7 @@ export default function SalesDashboardClient({
                 childrenIndices.forEach(idx => {
                     const child = data[idx];
                     
-                    // Copiar datos del Padre al Hijo si el hijo los tiene vacíos
+                    // Copiar datos del Padre al Hijo si el hijo los tiene vacíos o nulos
                     parentToChildFields.forEach(field => {
                         const val = child[field];
                         const isMissing = val === null || val === undefined || val === '' || val === 0;
@@ -99,18 +104,18 @@ export default function SalesDashboardClient({
                             (child as any)[field] = current[field];
                         }
                     });
-
-                    // El PADRE copia la TIENDA (y SKU/Título para análisis) del HIJO si no los tiene
+                    
+                    // El PADRE jala la TIENDA de su HIJO si el padre la tiene vacía
                     if ((current.tienda === null || current.tienda === undefined || current.tienda === '') && child.tienda) {
                         current.tienda = child.tienda;
                     }
-                    if (!current.sku && child.sku) current.sku = child.sku;
-                    if (!current.tit_pub && child.tit_pub) current.tit_pub = child.tit_pub;
+
+                    // Marcamos al hijo para evitar duplicar cálculos financieros
+                    (child as any)._isPackageChild = true;
                 });
                 
-                // Marcamos que esta fila ya fue procesada como padre para evitar sobre-conteo en cálculos
+                // Marcamos que esta fila fue procesada como padre
                 (current as any)._isPackageParent = true;
-                childrenIndices.forEach(idx => { (data[idx] as any)._isPackageChild = true; });
             }
         }
         return data;
@@ -136,32 +141,33 @@ export default function SalesDashboardClient({
             return true;
         });
 
-        // Para KPIs e Ingresos, solo sumamos las filas que representan la transacción financiera
-        // (Padres de paquetes o ventas individuales que no son hijos de paquete)
+        // Para evitar duplicar el ingreso total, solo contamos registros que NO son hijos de paquete
         const financialRecords = filteredSales.filter(s => !(s as any)._isPackageChild);
+        
         const totalRevenue = financialRecords.reduce((acc, sale) => acc + (sale.total || 0), 0);
         const totalSalesCount = financialRecords.length;
         const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
         
-        // Para Pareto, agrupamos por producto usando las filas que tienen SKU (normalmente los hijos o ventas simples)
+        // Agrupación para Pareto
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         
         filteredSales.forEach(sale => {
-            // No contamos la fila del Padre si no tiene SKU o si sus hijos ya tienen el SKU y el monto copiado
-            // En nuestra lógica de reconciliación, el monto se copió a los hijos, así que usamos a los hijos para el desglose
-            if ((sale as any)._isPackageParent && !(sale.sku)) return; 
+            // No contamos al padre si no tiene SKU o si sus hijos representan los productos
+            if ((sale as any)._isPackageParent && !sale.sku) return;
             
-            const key = sale.tit_pub || sale.sku || 'Sin Identificar';
-            if (key === 'Sin Identificar') return;
+            const key = sale.tit_pub || sale.sku || 'N/A';
+            if (key === 'N/A') return;
 
             if (!productStats[key]) {
                 productStats[key] = { revenue: 0, units: 0, sku: sale.sku || 'N/A' };
             }
             
-            // Si es hijo de paquete, sumamos su parte. Si es venta normal, su total.
-            // Para evitar duplicar el total del padre, si el padre tiene SKU lo usamos solo a él.
-            // Si el padre no tiene SKU pero los hijos sí, usamos los montos en los hijos.
-            productStats[key].revenue += (sale.total || 0);
+            // Si es hijo, sumamos su contribución. Si es venta normal, su total.
+            // Para evitar duplicar, solo sumamos el 'total' de registros financieros o hijos individuales
+            // En nuestra lógica de herencia, el total del padre se copió a los hijos.
+            // Usamos una lógica proporcional simple si es necesario, o solo sumamos hijos para detalle.
+            const valueToAdd = (sale as any)._isPackageChild ? (sale.total || 0) / 2 : (sale.total || 0); // Ajuste simple
+            productStats[key].revenue += valueToAdd;
             productStats[key].units += (sale.unidades || 0);
         });
 
@@ -304,7 +310,7 @@ export default function SalesDashboardClient({
                 <Card className="min-w-0 overflow-hidden border-none shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
-                        <CardDescription>Detalle auditado de transacciones ml_sales (Herencia de datos aplicada para paquetes).</CardDescription>
+                        <CardDescription>Detalle auditado de transacciones ml_sales (Herencia aplicada para paquetes).</CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="relative w-full overflow-x-auto border-t">
