@@ -431,7 +431,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
                             <History className="h-6 w-6 text-primary" /> Movimientos del {selectedDayData?.day}
-                        </History>
+                        </DialogTitle>
                         <DialogDescription>Listado detallado de transacciones registradas para esta fecha.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="flex-1 mt-4">
