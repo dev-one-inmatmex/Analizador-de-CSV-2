@@ -17,8 +17,6 @@ export const CANAL_VENTA = [
   'Producción malla sombra', 'General'
 ] as const;
 
-export const CLASIFICACION_OPERATIVA = ['Directo', 'Semi-directo', 'Compartido'] as const;
-
 export const EMPRESAS = ['INMATMEX', 'COMERTAL', 'DK', 'MTM', 'TAL', 'Otro'] as const;
 
 export const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia', 'OTRO'] as const;
@@ -43,9 +41,6 @@ export const expenseFormSchema = z.object({
   categoria_especifica: z.string().min(1, "La categoría específica es obligatoria."),
   canal_asociado: z.enum(CANAL_VENTA, {
     required_error: "Debe seleccionar el canal asociado.",
-  }),
-  clasificacion_operativa: z.enum(CLASIFICACION_OPERATIVA, {
-    required_error: "Debe seleccionar la clasificación operativa.",
   }),
   es_fijo: z.boolean().default(false),
   es_recurrente: z.boolean().default(false),

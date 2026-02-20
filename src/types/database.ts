@@ -33,7 +33,6 @@ export interface GastoDiario {
   categoria_especifica: string;
   
   canal_asociado: CanalVenta;
-  clasificacion_operativa: ClasificacionOperativa;
   
   es_fijo: boolean; 
   es_recurrente: boolean;

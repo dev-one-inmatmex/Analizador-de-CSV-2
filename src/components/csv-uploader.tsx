@@ -20,7 +20,7 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         pk: 'id', 
         columns: [
             'id', 'fecha', 'empresa', 'tipo_gasto', 'area_funcional', 
-            'categoria_especifica', 'canal_asociado', 'clasificacion_operativa', 
+            'categoria_especifica', 'canal_asociado', 
             'es_fijo', 'es_recurrente', 'monto', 'responsable_id', 
             'metodo_pago', 'metodo_pago_especificar', 'banco', 
             'banco_especificar', 'cuenta', 'cuenta_especificar', 

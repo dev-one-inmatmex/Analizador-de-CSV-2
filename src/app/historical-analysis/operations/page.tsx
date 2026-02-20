@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, eachMonthOfInterval, formatISO, subDays, startOfYesterday } from 'date-fns';
+import { add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, formatISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,7 +9,7 @@ import {
   BarChart as BarChartIcon, ChevronLeft, ChevronRight, Home, 
   Loader2, MoreVertical, Pencil, Plus, Trash2, Eye, CreditCard, 
   Calendar as CalendarIcon, Building2, Wallet,
-  Info, Tag, Target, History, Settings, User, Bell, Shield, Database
+  Info, Tag, Target, Settings, User, Bell, Shield, Database, X
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, 
@@ -24,7 +24,6 @@ import {
     IMPACTO_FINANCIERO,
     AREA_FUNCIONAL,
     CANAL_VENTA,
-    CLASIFICACION_OPERATIVA,
     EMPRESAS,
     METODOS_PAGO,
     BANCOS,
@@ -74,21 +73,18 @@ interface InsightsViewProps {
 }
 
 function InsightsView({ 
-    transactions, isLoading, dateFilter, setDateFilter, currentDate, setCurrentDate, 
-    onAddTransaction, onViewTransactions, selectedAccount, setSelectedAccount
+    transactions, isLoading, currentDate, setCurrentDate 
 }: InsightsViewProps) {
     const { totalExpense, totalIncome, balance } = React.useMemo(() => {
         const expense = transactions.reduce((sum, t) => sum + (t.monto || 0), 0);
-        // Mocking some income for visualization purposes
         const income = expense * 1.5; 
         return { totalExpense: expense, totalIncome: income, balance: income - expense };
     }, [transactions]);
 
     const barChartData = React.useMemo(() => {
-        let steps: Date[] = [];
         const start = startOfMonth(currentDate);
         const end = endOfMonth(currentDate);
-        steps = eachDayOfInterval({ start, end });
+        const steps = eachDayOfInterval({ start, end });
 
         return steps.map(step => {
             const dayT = transactions.filter(t => isSameDay(new Date(t.fecha), step));
@@ -142,7 +138,7 @@ function InsightsView({
                         </div>
                         <div className="space-y-3">
                             <div>
-                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Ahorro</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Ahorro</p>
                                 <p className="text-xl font-black text-blue-600">{money(balance)}</p>
                             </div>
                             <div>
@@ -605,7 +601,6 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
             area_funcional: transaction.area_funcional as any,
             categoria_especifica: transaction.categoria_especifica,
             canal_asociado: transaction.canal_asociado as any,
-            clasificacion_operativa: transaction.clasificacion_operativa as any,
             es_fijo: transaction.es_fijo,
             es_recurrente: transaction.es_recurrente,
             monto: transaction.monto,
@@ -623,7 +618,6 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
             tipo_gasto: 'Gasto Operativo',
             area_funcional: 'Logística',
             canal_asociado: 'Mercado Libre',
-            clasificacion_operativa: 'Directo',
             es_fijo: false,
             es_recurrente: false,
             metodo_pago: 'Transferencia',
@@ -632,151 +626,67 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
         }
     });
 
-    const watchPago = form.watch('metodo_pago');
-
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
                 <DialogHeader>
-                    <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
-                        {transaction ? 'Actualizar' : 'Registrar'} Gasto Financiero
-                    </DialogTitle>
-                    <DialogDescription>Completa la información bajo el esquema de integridad unificado.</DialogDescription>
+                    <div className="flex items-center justify-between">
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
+                            {transaction ? 'Actualizar' : 'Registrar'} Movimiento
+                        </DialogTitle>
+                        <Button type="button" variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4"/></Button>
+                    </div>
                 </DialogHeader>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <FormField control={form.control} name="fecha" render={({ field }) => (
-                        <FormItem className="flex flex-col"><FormLabel className="font-bold">Fecha</FormLabel>
-                            <Popover>
-                                <PopoverTrigger asChild><Button variant="outline" className="w-full text-left font-normal h-11"><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : "Elegir fecha"}</Button></PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent>
-                            </Popover>
-                        </FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="monto" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold text-destructive">Monto ($)</FormLabel><FormControl><Input type="number" step="0.01" className="text-lg font-black h-11 border-destructive/20" placeholder="0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="empresa" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Empresa</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || undefined}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
+                    <FormField control={form.control} name="metodo_pago" render={({ field }) => (
+                        <FormItem><FormLabel>Método de Pago</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                                <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                             </Select>
                         </FormItem>
                     )} />
-                </div>
 
-                <div className="bg-primary/5 p-6 rounded-2xl space-y-6 border border-primary/10">
-                    <h4 className="text-sm font-black flex items-center gap-2 text-primary uppercase tracking-widest"><Target className="h-4 w-4"/> Clasificación Estratégica</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="tipo_gasto" render={({ field }) => (
-                            <FormItem><FormLabel className="flex items-center gap-2"><Tag className="h-3 w-3" /> Impacto Financiero</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>{IMPACTO_FINANCIERO.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
+                    <FormField control={form.control} name="banco" render={({ field }) => (
+                        <FormItem><FormLabel>Banco</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
 
-                        <FormField control={form.control} name="area_funcional" render={({ field }) => (
-                            <FormItem><FormLabel className="flex items-center gap-2"><Building2 className="h-3 w-3" /> Área Funcional</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>{AREA_FUNCIONAL.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
+                    <FormField control={form.control} name="cuenta" render={({ field }) => (
+                        <FormItem><FormLabel>Tipo de Cuenta</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
 
-                        <FormField control={form.control} name="canal_asociado" render={({ field }) => (
-                            <FormItem><FormLabel className="flex items-center gap-2"><Target className="h-3 w-3" /> Canal Asociado</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>{CANAL_VENTA.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-
-                        <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
-                            <FormItem><FormLabel className="flex items-center gap-2"><Info className="h-3 w-3" /> Clasificación Operativa</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>{CLASIFICACION_OPERATIVA.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </FormItem>
+                    <div className="md:col-span-2 border-t pt-10">
+                        <FormField control={form.control} name="categoria_especifica" render={({ field }) => (
+                            <FormItem><FormLabel>Categoría Específica</FormLabel><FormControl><Input placeholder="-" className="h-11 bg-slate-50/50" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                         )} />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6 pt-2">
-                        <FormField control={form.control} name="es_fijo" render={({ field }) => (
-                            <FormItem className="flex items-center justify-between rounded-lg border p-3 bg-white">
-                                <div className="space-y-0.5"><FormLabel className="text-xs font-bold uppercase">Gasto Fijo</FormLabel></div>
-                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            </FormItem>
+                    <div className="md:col-span-2">
+                        <FormField control={form.control} name="descripcion" render={({ field }) => (
+                            <FormItem><FormLabel>Descripción Adicional</FormLabel><FormControl><Input placeholder="Detalles rápidos..." className="h-11 bg-slate-50/50" {...field} value={field.value ?? ''} /></FormControl></FormItem>
                         )} />
-                        <FormField control={form.control} name="es_recurrente" render={({ field }) => (
-                            <FormItem className="flex items-center justify-between rounded-lg border p-3 bg-white">
-                                <div className="space-y-0.5"><FormLabel className="text-xs font-bold uppercase">Recurrente</FormLabel></div>
-                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            </FormItem>
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <FormField control={form.control} name="notas" render={({ field }) => (
+                            <FormItem><FormLabel>Observaciones (Máx 280 car.)</FormLabel><FormControl><Textarea className="min-h-[120px] resize-none bg-slate-50/50" {...field} value={field.value ?? ''} /></FormControl></FormItem>
                         )} />
                     </div>
                 </div>
 
-                <div className="bg-muted/30 p-6 rounded-2xl space-y-6 border border-muted-foreground/10">
-                    <h4 className="text-sm font-black flex items-center gap-2 text-primary uppercase tracking-widest"><CreditCard className="h-4 w-4"/> Liquidación y Cuenta</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField control={form.control} name="metodo_pago" render={({ field }) => (
-                            <FormItem><FormLabel>Método de Pago</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-                        {watchPago === 'OTRO' && (
-                            <FormField control={form.control} name="metodo_pago_especificar" render={({ field }) => (
-                                <FormItem><FormLabel>Especificar Método</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl></FormItem>
-                            )} />
-                        )}
-
-                        <FormField control={form.control} name="banco" render={({ field }) => (
-                            <FormItem><FormLabel>Banco</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || undefined}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-
-                        <FormField control={form.control} name="cuenta" render={({ field }) => (
-                            <FormItem><FormLabel>Tipo de Cuenta</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || undefined}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <FormField control={form.control} name="categoria_especifica" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Categoría Específica</FormLabel><FormControl><Input placeholder="Ej: Pago de luz, Mantenimiento montacargas..." className="h-11" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="descripcion" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Descripción Adicional</FormLabel><FormControl><Input placeholder="Detalles rápidos..." {...field} value={field.value ?? ''} /></FormControl></FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="notas" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Observaciones (Máx 280 car.)</FormLabel><FormControl><Textarea className="min-h-[100px] resize-none" {...field} value={field.value ?? ''} /></FormControl></FormItem>
-                    )} />
-                </div>
-
-                <DialogFooter className="gap-3 pt-4 border-t">
-                    <Button type="button" variant="outline" className="flex-1 h-12" onClick={onClose}>Cancelar</Button>
+                <DialogFooter className="gap-3 pt-6 border-t">
+                    <Button type="button" variant="outline" className="flex-1 h-12 text-slate-600" onClick={onClose}>Cancelar</Button>
                     <Button type="submit" className="flex-[2] h-12 text-lg font-bold bg-[#2D5A4C] hover:bg-[#24483D]" disabled={form.formState.isSubmitting}>
                         {form.formState.isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin"/>}
                         {transaction ? 'Guardar Cambios' : 'Registrar Movimiento'}
@@ -788,5 +698,5 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
 }
 
 function FormLabel({ children, className }: { children: React.ReactNode, className?: string }) {
-    return <Label className={cn("text-xs font-bold uppercase tracking-wider text-muted-foreground", className)}>{children}</Label>;
+    return <Label className={cn("text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 block", className)}>{children}</Label>;
 }
