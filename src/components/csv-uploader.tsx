@@ -19,12 +19,12 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     gastos_diarios: { 
         pk: 'id', 
         columns: [
-            'id', 'fecha', 'empresa', 'tipo_gasto', 'area_funcional', 
-            'categoria_especifica', 'canal_asociado', 
-            'es_fijo', 'es_recurrente', 'monto', 'responsable_id', 
-            'metodo_pago', 'metodo_pago_especificar', 'banco', 
-            'banco_especificar', 'cuenta', 'cuenta_especificar', 
-            'descripcion', 'notas'
+            'id', 'fecha', 'empresa', 'tipo_transaccion', 'tipo_gasto_impacto', 
+            'area_funcional', 'categoria_macro', 'subcategoria_especifica', 
+            'canal_asociado', 'clasificacion_operativa', 'es_fijo', 
+            'es_recurrente', 'monto', 'metodo_pago', 'metodo_pago_especificar', 
+            'banco', 'banco_especificar', 'cuenta', 'cuenta_especificar', 
+            'responsable', 'descripcion', 'notas'
         ] 
     },
     ml_sales: { 
@@ -52,7 +52,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 };
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
-type Step = 'upload' | 'mapping' | 'syncing' | 'results';
 
 function parseValue(key: string, value: any): any {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') return null;
@@ -84,7 +83,7 @@ function parseValue(key: string, value: any): any {
 
 export default function CsvUploader() {
     const { toast } = useToast();
-    const [currentStep, setCurrentStep] = useState<Step>('upload');
+    const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'syncing' | 'results'>('upload');
     const [file, setFile] = useState<File | null>(null);
     const [headers, setHeaders] = useState<string[]>([]);
     const [rawRows, setRawRows] = useState<string[][]>([]);
@@ -161,137 +160,40 @@ export default function CsvUploader() {
         <div className="w-full max-w-5xl mx-auto space-y-6">
             {currentStep === 'upload' && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Cargar Datos</CardTitle>
-                        <CardDescription>Sube un archivo CSV y selecciona la tabla de destino.</CardDescription>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Cargar Datos</CardTitle><CardDescription>Sube un archivo CSV y selecciona la tabla de destino.</CardDescription></CardHeader>
                     <CardContent>
-                        <div 
-                            className="border-2 border-dashed p-10 text-center rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" 
-                            onClick={() => document.getElementById('file-input')?.click()}
-                        >
-                            <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
-                            <p className="mt-2 font-medium">Haz clic para subir CSV o arrastra el archivo aquí</p>
-                            <p className="text-xs text-muted-foreground mt-1">ANSI / Windows-1252 recomendado</p>
+                        <div className="border-2 border-dashed p-10 text-center rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => document.getElementById('file-input')?.click()}>
+                            <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" /><p className="mt-2 font-medium">Sube tu archivo CSV aquí</p>
                             <input id="file-input" type="file" className="hidden" accept=".csv" onChange={e => e.target.files && processFile(e.target.files[0])} />
                         </div>
-                        
-                        {file && (
-                            <div className="mt-4 p-3 bg-primary/5 rounded-md flex items-center gap-3">
-                                <FileIcon className="h-5 w-5 text-primary" />
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium">{file.name}</p>
-                                    <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB • {rawRows.length} filas</p>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => { setFile(null); setHeaders([]); setRawRows([]); }}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        )}
-
-                        {headers.length > 0 && (
-                            <div className="mt-6 space-y-2">
-                                <Label>Tabla de Destino</Label>
-                                <Select onValueChange={handleTableSelect}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecciona la tabla..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ml_sales">Ventas (ml_sales)</SelectItem>
-                                        <SelectItem value="gastos_diarios">Gastos Diarios</SelectItem>
-                                        <SelectItem value="sku_m">SKU Maestro (sku_m)</SelectItem>
-                                        <SelectItem value="sku_costos">Historial de Costos (sku_costos)</SelectItem>
-                                        <SelectItem value="sku_alterno">Relación SKUs Alternos (sku_alterno)</SelectItem>
-                                        <SelectItem value="catalogo_madre">Catálogo Madre</SelectItem>
-                                        <SelectItem value="publi_tienda">Publicaciones de Tienda</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
+                        {file && <div className="mt-4 p-3 bg-primary/5 rounded-md flex items-center justify-between"><div className="flex items-center gap-3"><FileIcon className="h-5 w-5 text-primary" /><div><p className="text-sm font-medium">{file.name}</p><p className="text-xs text-muted-foreground">{rawRows.length} filas detectadas</p></div></div><Button variant="ghost" size="sm" onClick={() => { setFile(null); setHeaders([]); setRawRows([]); }}><X className="h-4 w-4" /></Button></div>}
+                        {headers.length > 0 && (<div className="mt-6 space-y-2"><Label>Tabla de Destino</Label><Select onValueChange={handleTableSelect}><SelectTrigger><SelectValue placeholder="Selecciona la tabla..." /></SelectTrigger><SelectContent>
+                            <SelectItem value="ml_sales">Ventas (ml_sales)</SelectItem>
+                            <SelectItem value="gastos_diarios">Gastos Diarios (Finanzas)</SelectItem>
+                            <SelectItem value="sku_m">SKU Maestro (sku_m)</SelectItem>
+                            <SelectItem value="sku_costos">Historial de Costos</SelectItem>
+                            <SelectItem value="catalogo_madre">Catálogo Madre</SelectItem>
+                            <SelectItem value="publi_tienda">Publicaciones</SelectItem>
+                        </SelectContent></Select></div>)}
                     </CardContent>
                 </Card>
             )}
-
             {currentStep === 'mapping' && (
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle>Mapeo: {selectedTable}</CardTitle>
-                            <CardDescription>Asocia columnas de CSV con los campos de la base de datos.</CardDescription>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')}>
-                            <RefreshCcw className="mr-2 h-4 w-4" /> Cambiar Tabla
-                        </Button>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="border rounded-md">
-                            <Table>
-                                <TableHeader className="bg-muted/50">
-                                    <TableRow>
-                                        <TableHead>Columna CSV</TableHead>
-                                        <TableHead>Campo DB</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {headers.map((h, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell className="font-medium text-xs">{h}</TableCell>
-                                            <TableCell>
-                                                <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
-                                                    <SelectTrigger className={cn("w-full h-8 text-[10px]", headerMap[i] === IGNORE_COLUMN_VALUE ? "text-muted-foreground opacity-60" : "text-primary font-bold")}>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value={IGNORE_COLUMN_VALUE}>-- Ignorar --</SelectItem>
-                                                        {TABLE_SCHEMAS[selectedTable].columns.map(c => (
-                                                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Button onClick={handleSync} className="w-full h-12 text-lg" disabled={isLoading}>
-                            {isLoading ? (
-                                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sincronizando datos...</>
-                            ) : (
-                                <><Database className="mr-2 h-5 w-5" /> Sincronizar {rawRows.length} registros</>
-                            )}
-                        </Button>
-                    </CardFooter>
+                    <CardHeader className="flex flex-row items-center justify-between"><div><CardTitle>Mapeo de Columnas</CardTitle><CardDescription>Tabla: {selectedTable}</CardDescription></div><Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')}>Cambiar Tabla</Button></CardHeader>
+                    <CardContent className="border rounded-md"><Table><TableHeader className="bg-muted/50"><TableRow><TableHead>Columna CSV</TableHead><TableHead>Campo en Base de Datos</TableHead></TableRow></TableHeader><TableBody>
+                        {headers.map((h, i) => (<TableRow key={i}><TableCell className="font-medium text-xs">{h}</TableCell><TableCell>
+                            <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}><SelectTrigger className={cn("h-8 text-[10px]", headerMap[i] === IGNORE_COLUMN_VALUE ? "opacity-50" : "font-bold text-primary")}><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value={IGNORE_COLUMN_VALUE}>-- Ignorar --</SelectItem>{TABLE_SCHEMAS[selectedTable].columns.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+                        </TableCell></TableRow>))}
+                    </TableBody></Table></CardContent>
+                    <CardFooter><Button onClick={handleSync} className="w-full h-12" disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin mr-2" /> : <Database className="mr-2 h-4 w-4" />} Sincronizar Datos</Button></CardFooter>
                 </Card>
             )}
-
             {currentStep === 'results' && syncResult && (
                 <div className="space-y-4">
-                    <Alert className={cn(syncResult.errors.length > 0 ? "border-amber-500 bg-amber-50" : "border-green-500 bg-green-50")}>
-                        <CheckCircle className={cn("h-4 w-4", syncResult.errors.length > 0 ? "text-amber-600" : "text-green-600")} />
-                        <AlertTitle className="font-bold">Proceso Finalizado</AlertTitle>
-                        <AlertDescription>
-                            Se han procesado **{syncResult.updated}** registros en la tabla **{selectedTable}**.
-                        </AlertDescription>
-                    </Alert>
-
-                    {syncResult.errors.length > 0 && (
-                        <Card className="border-destructive">
-                            <CardHeader className="bg-destructive/5"><CardTitle className="text-destructive text-sm">Errores detectados</CardTitle></CardHeader>
-                            <CardContent className="pt-4 max-h-[200px] overflow-auto">
-                                {syncResult.errors.map((e, i) => (
-                                    <div key={i} className="text-xs p-2 border-b last:border-0 text-destructive">Lote #{e.batch}: {e.msg}</div>
-                                ))}
-                            </CardContent>
-                        </Card>
-                    )}
-                    
-                    <div className="flex gap-3">
-                        <Button variant="outline" className="flex-1" onClick={() => setCurrentStep('upload')}>Subir otro archivo</Button>
-                        <Button className="flex-1" onClick={() => window.location.reload()}>Finalizar</Button>
-                    </div>
+                    <Alert className="bg-green-50 border-green-500"><CheckCircle className="h-4 w-4 text-green-600" /><AlertTitle>Proceso Exitoso</AlertTitle><AlertDescription>Se han actualizado {syncResult.updated} registros en la tabla {selectedTable}.</AlertDescription></Alert>
+                    <Button className="w-full" onClick={() => window.location.reload()}>Finalizar y Volver al Inicio</Button>
                 </div>
             )}
         </div>

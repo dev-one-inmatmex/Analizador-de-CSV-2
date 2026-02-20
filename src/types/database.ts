@@ -4,67 +4,95 @@ export interface Usuario {
     email: string;
 } 
 
-// 1. Tipos de apoyo para mantener la integridad de los Niveles
-export type ImpactoFinanciero = 
-  | 'Costo de mercancía (COGS)' | 'Gasto Operativo' | 'Gasto Administrativo' 
-  | 'Gasto Comercial' | 'Gasto Logístico' | 'Gasto Financiero' 
-  | 'Nómina' | 'Inversión (CAPEX)' | 'Impuestos';
+/**
+ * Definición completa de tipos para el sistema de finanzas
+ * Sincronizado con la tabla gastos_diarios
+ */
+
+// --- Catálogos (Enums) ---
+
+export type Empresa = 'MTM' | 'TAL' | 'DOMESKA' | 'OTRA';
+
+export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA' | 'AJUSTE';
+
+export type TipoGastoImpacto = 
+  | 'COSTO_MERCANCIA_COGS' 
+  | 'GASTO_OPERATIVO' 
+  | 'GASTO_ADMINISTRATIVO' 
+  | 'GASTO_COMERCIAL' 
+  | 'GASTO_LOGISTICO' 
+  | 'GASTO_FINANCIERO' 
+  | 'NOMINA' 
+  | 'INVERSION_CAPEX' 
+  | 'IMPUESTOS';
 
 export type AreaFuncional = 
-  | 'Ventas Ecommerce' | 'Ventas Mayoreo' | 'Logística' | 'Compras' 
-  | 'Administración' | 'Marketing' | 'Dirección' | 'Producción' 
-  | 'Sistemas' | 'Recursos Humanos';
+  | 'VENTAS_ECOMMERCE' 
+  | 'VENTAS_MAYOREO' 
+  | 'LOGISTICA' 
+  | 'COMPRAS' 
+  | 'ADMINISTRACION' 
+  | 'MARKETING' 
+  | 'DIRECCION' 
+  | 'PRODUCCION' 
+  | 'SISTEMAS' 
+  | 'RECURSOS_HUMANOS';
 
-export type CanalVenta = 
-  | 'Mercado Libre' | 'Shopify' | 'Mayoreo' | 'Físico' 
-  | 'Producción malla sombra' | 'General';
+export type CanalAsociado = 
+  | 'MERCADO_LIBRE' 
+  | 'SHOPIFY' 
+  | 'MAYOREO' 
+  | 'FISICO' 
+  | 'PRODUCCION_MALLA_SOMBRA' 
+  | 'GENERAL';
 
-export type ClasificacionOperativa = 'Directo' | 'Semi-directo' | 'Compartido';
+export type ClasificacionOperativa = 'DIRECTO' | 'SEMI_DIRECTO' | 'COMPARTIDO';
 
-// 2. Interfaz unificada de Gastos Diarios
+export type CategoriaMacro = 'OPERATIVO' | 'COMERCIAL' | 'ADMINISTRATIVO' | 'FINANCIERO' | 'NOMINA';
+
+export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'PAYPAL' | 'OTRO';
+
+export type Banco = 'BBVA' | 'SANTANDER' | 'BANAMEX' | 'MERCADO_PAGO' | 'OTRO';
+
+export type Cuenta = 'OPERATIVA' | 'FISCAL' | 'CAJA_CHICA' | 'OTRO';
+
+// --- Interfaz Principal ---
+
 export interface GastoDiario {
-  id: number;
-  created_at?: string;
-  fecha: string;
-  empresa: 'INMATMEX' | 'COMERTAL' | 'DK' | 'MTM' | 'TAL' | 'Otro' | null;
+  // Metadatos
+  id?: number; 
+  created_at?: string; 
+  fecha: string; // Formato YYYY-MM-DD
+  empresa: Empresa;
+  capturista?: string; // UUID del usuario
   
-  tipo_gasto: ImpactoFinanciero;
-  area_funcional: AreaFuncional;
-  categoria_especifica: string;
+  // Clasificación y Estrategia
+  tipo_transaccion: TipoTransaccion;
+  tipo_gasto_impacto: TipoGastoImpacto | null;
+  area_funcional: AreaFuncional | null;
+  categoria_macro: CategoriaMacro;
+  subcategoria_especifica: string; // El valor del dropdown dinámico
   
-  canal_asociado: CanalVenta;
-  
-  es_fijo: boolean; 
+  // Atribución de Negocio
+  canal_asociado: CanalAsociado;
+  clasificacion_operativa: ClasificacionOperativa | null;
+  es_fijo: boolean;
   es_recurrente: boolean;
   
+  // Información Financiera
   monto: number;
-  responsable_id: string | null;
-  comprobante_url: string | null;
+  metodo_pago: MetodoPago;
+  metodo_pago_especificar?: string | null;
+  banco: Banco;
+  banco_especificar?: string | null;
+  cuenta: Cuenta;
+  cuenta_especificar?: string | null;
   
-  metodo_pago: 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'OTRO';
-  metodo_pago_especificar: string | null;
-  
-  banco: 'BBVA' | 'BANAMEX' | 'MERCADO PAGO' | 'SANTANDER' | 'BANORTE' | 'OTRO' | null;
-  banco_especificar: string | null;
-  
-  cuenta: 'FISCAL' | 'NO FISCAL' | 'CAJA CHICA' | 'OTRO' | null;
-  cuenta_especificar: string | null;
-  
-  descripcion: string | null;
-  notas: string | null;
-}
-
-export interface Presupuesto {
-  id: number;
-  created_at?: string;
-  user_id?: string;
-  fecha_inicio: string; 
-  fecha_fin: string;
-  tipo: 'Ingreso' | 'Egreso';
-  categoria: string;
-  categoria_especificar: string | null;
-  monto: number;
-  notas: string | null;
+  // Soporte y Detalle
+  responsable?: string | null;
+  comprobante_url?: string | null;
+  descripcion?: string | null;
+  notas?: string | null;
 }
 
 export interface sku_m {
@@ -160,12 +188,6 @@ export interface ml_sales {
   c_mediacion: boolean;
 }
 
-export interface catalogo_madre {
-  sku: string;
-  nombre_madre: string | null;
-  company: string | null;
-}
-
 export interface publi_tienda {
   num_publi: string | null;
   sku: string;
@@ -183,7 +205,4 @@ export interface publi_xsku {
   num_publicaciones: number | null;
 }
 
-export interface publicaciones_por_sku {
-  sku: string;
-  publicaciones: number;
-}
+
