@@ -12,11 +12,11 @@ import {
   BarChart as BarChartIcon, ChevronLeft, ChevronRight,
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Bell, Search, Filter, Download, Activity,
-  Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer
+  Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line, Area, AreaChart
 } from 'recharts';
 
 import { useToast } from '@/hooks/use-toast';
@@ -105,7 +105,6 @@ export default function OperationsPage() {
                 monto: Number(values.monto)
             };
             
-            // Fase 4: Lógica de Nómina Mixta
             if (values.tipo_gasto_impacto === 'NOMINA' && values.es_nomina_mixta) {
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
@@ -201,10 +200,21 @@ export default function OperationsPage() {
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: any) {
     const stats = React.useMemo(() => {
         let expense = 0, income = 0, fixedCosts = 0;
+        let rubrosFijos = { renta: 0, nomina: 0, servicios: 0, software: 0 };
+
         transactions.forEach((t: any) => {
             if (t.tipo_transaccion === 'GASTO') {
                 expense += (t.monto || 0);
-                if (t.es_fijo) fixedCosts += (t.monto || 0);
+                if (t.es_fijo) {
+                    fixedCosts += (t.monto || 0);
+                    // Fase 7: Clasificación por rubros principales
+                    const cat = t.categoria_macro;
+                    const sub = (t.subcategoria_especifica || '').toLowerCase();
+                    if (sub.includes('renta')) rubrosFijos.renta += t.monto;
+                    else if (cat === 'NOMINA') rubrosFijos.nomina += t.monto;
+                    else if (['cfe', 'agua', 'internet'].some(s => sub.includes(s))) rubrosFijos.servicios += t.monto;
+                    else if (sub.includes('software')) rubrosFijos.software += t.monto;
+                }
             }
             else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
         });
@@ -216,8 +226,10 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
             totalExpense: expense, 
             totalIncome: income, 
             balance: income - expense,
+            fixedCosts,
             metaSupervivencia,
-            progresoSupervivencia: Math.min(100, (income / (metaSupervivencia || 1)) * 100)
+            progresoSupervivencia: Math.min(100, (income / (metaSupervivencia || 1)) * 100),
+            rubrosFijos
         };
     }, [transactions]);
 
@@ -250,44 +262,50 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Balance del Periodo</CardHeader>
-                    <CardContent className="flex items-center justify-center gap-12 py-4">
-                        <div className="h-[140px] w-[140px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={[{ name: 'Gastos', value: stats.totalExpense }, { name: 'Balance', value: Math.max(0, stats.balance) }]} innerRadius={50} outerRadius={65} paddingAngle={4} dataKey="value">
-                                        <RechartsCell fill="#f43f5e" /><RechartsCell fill="#3b82f6" />
-                                    </Pie>
-                                    <Tooltip formatter={(v: number) => money(v)} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
                         <div className="space-y-1">
-                            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Balance Neto</p>
-                            <p className="text-3xl font-black text-blue-600">{money(stats.balance)}</p>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Gasto Fijo Real (Fase 7)</p>
+                            <CardTitle className="text-2xl font-black text-[#2D5A4C]">{money(stats.fixedCosts)}</CardTitle>
+                        </div>
+                        <Target className="h-5 w-5 text-muted-foreground opacity-50" />
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3 bg-muted/5 rounded-lg border border-border/50">
+                                <p className="text-[8px] font-bold uppercase text-muted-foreground">Supervivencia (BEP)</p>
+                                <p className="text-sm font-black">{money(stats.metaSupervivencia)}</p>
+                            </div>
+                            <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
+                                <p className="text-[8px] font-bold uppercase text-primary">Ingresos Actuales</p>
+                                <p className="text-sm font-black text-primary">{money(stats.totalIncome)}</p>
+                            </div>
+                        </div>
+                        <div className="mt-6 space-y-2">
+                            <div className="flex justify-between items-center text-[10px] font-bold uppercase">
+                                <span>Progreso Punto Equilibrio</span>
+                                <span>{stats.progresoSupervivencia.toFixed(0)}%</span>
+                            </div>
+                            <Progress value={stats.progresoSupervivencia} className="h-2 bg-muted" />
                         </div>
                     </CardContent>
                 </Card>
                 
-                <Card className="border-none shadow-sm bg-white">
-                    <CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Barra de Supervivencia (BI)</CardHeader>
-                    <CardContent className="space-y-6 py-6">
-                        <div className="flex justify-between items-baseline">
-                            <p className="text-4xl font-black">{money(stats.totalIncome)} <span className="text-lg font-medium text-muted-foreground ml-1">ingresados</span></p>
-                            <div className="text-right">
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Punto de Equilibrio</p>
-                                <p className="text-sm font-bold">{money(stats.metaSupervivencia)}</p>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Progress value={stats.progresoSupervivencia} className={cn("h-3 bg-muted")} />
-                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
-                                <span className={stats.progresoSupervivencia < 100 ? "text-red-500" : "text-green-600"}>
-                                    {stats.progresoSupervivencia < 100 ? "Falta cubrir costos fijos" : "¡Punto de equilibrio superado!"}
-                                </span>
-                                <span>{stats.progresoSupervivencia.toFixed(0)}%</span>
-                            </div>
-                        </div>
+                <Card className="border-none shadow-sm bg-white overflow-hidden">
+                    <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Estructura del Gasto Fijo</p></CardHeader>
+                    <CardContent className="h-[180px] p-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={[
+                                { name: 'Nómina', value: stats.rubrosFijos.nomina },
+                                { name: 'Renta', value: stats.rubrosFijos.renta },
+                                { name: 'Servicios', value: stats.rubrosFijos.servicios },
+                                { name: 'Software', value: stats.rubrosFijos.software }
+                            ]} layout="vertical" margin={{ left: 10, right: 30 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" fontSize={9} width={60} axisLine={false} tickLine={false} />
+                                <Tooltip formatter={(v: number) => money(v)} cursor={{fill: 'transparent'}} />
+                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={15} />
+                            </BarChart>
+                        </ResponsiveContainer>
                     </CardContent>
                 </Card>
             </div>
@@ -330,10 +348,11 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
 }
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
-    const { rentabilidadData, logisticsData, productionData, chartsData } = React.useMemo(() => {
+    const { rentabilidadData, logisticsData, productionData, chartsData, breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
         const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
         const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+        const costosFijos = gastos.filter((g: any) => g.es_fijo).reduce((a, b) => a + (b.monto || 0), 0);
         
         const ingresosPorCanal: Record<string, number> = {};
         ingresos.forEach((ing: any) => {
@@ -356,8 +375,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         
         const prodPayroll = gastosProduccion.filter(g => g.tipo_gasto_impacto === 'NOMINA').reduce((a, b) => a + (b.monto || 0), 0);
         const prodMaterials = gastosProduccion.filter(g => g.tipo_gasto_impacto === 'COSTO_MERCANCIA_COGS').reduce((a, b) => a + (b.monto || 0), 0);
-        const prodOther = gastosProduccion.filter(g => g.tipo_gasto_impacto !== 'NOMINA' && g.tipo_gasto_impacto !== 'COSTO_MERCANCIA_COGS').reduce((a, b) => a + (b.monto || 0), 0);
-
+        
         const gastosCompartidosNoLogistica = gastos
             .filter((g: any) => 
                 g.clasificacion_operativa === 'COMPARTIDO' && 
@@ -369,28 +387,26 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const rentabilidad = Object.keys(ingresosPorCanal).map(canal => {
             const ingresoCanal = ingresosPorCanal[canal];
             const pesoCanal = ingresoTotal > 0 ? (ingresoCanal / ingresoTotal) : 0;
-            
-            const gastosDirectosCanal = gastos
-                .filter((g: any) => 
-                    g.canal_asociado === canal && 
-                    (g.clasificacion_operativa === 'DIRECTO' || g.clasificacion_operativa === 'SEMI_DIRECTO')
-                )
-                .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
-
+            const gastosDirectosCanal = gastos.filter((g: any) => g.canal_asociado === canal && (g.clasificacion_operativa === 'DIRECTO' || g.clasificacion_operativa === 'SEMI_DIRECTO')).reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
             const costoAsignadoNoLog = gastosCompartidosNoLogistica * pesoCanal;
             const costoLogAsignado = bolsaLogisticaCompartida * pesoCanal;
-            
             const utilidadReal = ingresoCanal - gastosDirectosCanal - costoAsignadoNoLog - costoLogAsignado;
 
+            return { canal: canal.replace(/_/g, ' '), ingresos: ingresoCanal, peso: (pesoCanal * 100).toFixed(1), logistica: costoLogAsignado, asignados: costoAsignadoNoLog, utilidad: utilidadReal, margen: ingresoCanal > 0 ? ((utilidadReal / ingresoCanal) * 100).toFixed(1) : '0' };
+        });
+
+        // Gráfico Fase 7: Break-even Projection
+        const steps = 10;
+        const maxSales = Math.max(ingresoTotal * 1.5, 200000);
+        const chartBEP = Array.from({ length: steps + 1 }, (_, i) => {
+            const sales = (maxSales / steps) * i;
+            const margin = 0.40;
+            const varCosts = sales * (1 - margin);
             return {
-                canal: canal.replace(/_/g, ' '),
-                ingresos: ingresoCanal,
-                peso: (pesoCanal * 100).toFixed(1),
-                directos: gastosDirectosCanal,
-                logistica: costoLogAsignado,
-                asignados: costoAsignadoNoLog,
-                utilidad: utilidadReal,
-                margen: ingresoCanal > 0 ? ((utilidadReal / ingresoCanal) * 100).toFixed(1) : '0'
+                name: `$${Math.round(sales/1000)}k`,
+                Ventas: sales,
+                CostosTotales: costosFijos + varCosts,
+                CostosFijos: costosFijos
             };
         });
 
@@ -398,36 +414,14 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             rentabilidadData: rentabilidad,
             logisticsData: {
                 total: gastosLogistica.reduce((a, b) => a + (b.monto || 0), 0),
-                breakdown: Object.entries(
-                    gastosLogistica.reduce((acc: any, g: any) => {
-                        const cat = g.subcategoria_especifica || 'Otros';
-                        acc[cat] = (acc[cat] || 0) + (g.monto || 0);
-                        return acc;
-                    }, {})
-                ).map(([name, value]) => ({ name, value }))
+                breakdown: Object.entries(gastosLogistica.reduce((acc: any, g: any) => { const cat = g.subcategoria_especifica || 'Otros'; acc[cat] = (acc[cat] || 0) + (g.monto || 0); return acc; }, {})).map(([name, value]) => ({ name, value }))
             },
-            productionData: {
-                ingresos: ingresosProduccion,
-                nomina: prodPayroll,
-                materiales: prodMaterials,
-                otros: prodOther,
-                totalGastos: prodPayroll + prodMaterials + prodOther,
-                utilidad: ingresosProduccion - (prodPayroll + prodMaterials + prodOther)
-            },
+            productionData: { ingresos: ingresosProduccion, nomina: prodPayroll, materiales: prodMaterials, utilidad: ingresosProduccion - (prodPayroll + prodMaterials) },
             chartsData: {
-                categories: Object.entries(
-                    gastos.reduce((acc: any, t: any) => {
-                        acc[t.categoria_macro] = (acc[t.categoria_macro] || 0) + (t.monto || 0);
-                        return acc;
-                    }, {})
-                ).map(([name, value]) => ({ name, value })),
-                areas: Object.entries(
-                    gastos.reduce((acc: any, t: any) => {
-                        acc[t.area_funcional] = (acc[t.area_funcional] || 0) + (t.monto || 0);
-                        return acc;
-                    }, {})
-                ).map(([name, value]) => ({ name: (name as string).replace(/_/g, ' '), value })),
-            }
+                categories: Object.entries(gastos.reduce((acc: any, t: any) => { acc[t.categoria_macro] = (acc[t.categoria_macro] || 0) + (t.monto || 0); return acc; }, {})).map(([name, value]) => ({ name, value })),
+                areas: Object.entries(gastos.reduce((acc: any, t: any) => { acc[t.area_funcional] = (acc[t.area_funcional] || 0) + (t.monto || 0); return acc; }, {})).map(([name, value]) => ({ name: (name as string).replace(/_/g, ' '), value })),
+            },
+            breakevenChart: chartBEP
         };
     }, [transactions]);
 
@@ -435,7 +429,32 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-8">
-            {/* FASE 6: Mini Unidad Independiente Malla Sombra */}
+            {/* FASE 7: Gráfico de Punto de Equilibrio */}
+            <Card className="border-none shadow-sm bg-white overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between pb-4">
+                    <div className="space-y-1">
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-primary" /> Análisis de Supervivencia (Fase 7)
+                        </CardTitle>
+                        <CardDescription>Gráfico de Punto de Equilibrio: Intersección entre Ventas y Costos Totales.</CardDescription>
+                    </div>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={breakevenChart}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                            <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} />
+                            <YAxis fontSize={9} axisLine={false} tickLine={false} tickFormatter={v => `$${v/1000}k`} />
+                            <Tooltip formatter={(v: number) => money(v)} />
+                            <Legend verticalAlign="top" align="right" height={36} iconType="line" />
+                            <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.1} stroke="#3b82f6" strokeWidth={2} name="Línea de Ingresos" />
+                            <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={false} name="Costos Totales (Fijos + Var)" />
+                            <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeDasharray="5 5" dot={false} name="Base de Gasto Fijo" />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 border-none shadow-sm bg-white">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -462,7 +481,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     <CardHeader className="pb-2"><CardTitle className="text-[10px] font-bold uppercase tracking-widest opacity-80">Eficiencia de Fabricación</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-between items-baseline"><p className="text-3xl font-black">{productionData.ingresos > 0 ? ((productionData.utilidad / productionData.ingresos) * 100).toFixed(1) : 0}%</p><p className="text-xs font-medium opacity-70">Margen Taller</p></div>
-                        <Progress value={productionData.ingresos > 0 ? (productionData.totalGastos / productionData.ingresos) * 100 : 0} className="h-2 bg-white/20" />
+                        <Progress value={productionData.ingresos > 0 ? ((productionData.nomina + productionData.materiales) / productionData.ingresos) * 100 : 0} className="h-2 bg-white/20" />
                         <p className="text-[9px] font-bold uppercase opacity-70">Consumo de recursos sobre ventas</p>
                     </CardContent>
                 </Card>
@@ -472,7 +491,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad por Canal (Fases 3, 4 & 5)
+                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad por Canal (Fases 2 & 3)
                         </CardTitle>
                         <CardDescription>Cálculo Integral: Ingresos - (Directos + Nómina + Logística Prorrateada).</CardDescription>
                     </div>
@@ -598,7 +617,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-32">
-                                                    <DropdownMenuItem onClick={() => handleEdit(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => onDeleteTransaction(t.id!)} className="text-destructive"><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -617,20 +636,27 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 }
 
 function BudgetsView({ transactions }: any) {
+    const fixedAnalysis = React.useMemo(() => {
+        const fixed = transactions.filter((t: any) => t.es_fijo && t.tipo_transaccion === 'GASTO');
+        const categories = [...new Set(fixed.map((t: any) => t.categoria_macro))];
+        return categories.map((cat: any) => {
+            const current = fixed.filter((t: any) => t.categoria_macro === cat).reduce((s: number, t: any) => s + (t.monto || 0), 0);
+            return { cat, current, limit: 25000 }; // Límite ejemplo
+        });
+    }, [transactions]);
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {CATEGORIAS_MACRO.map((cat: string) => {
-                const current = transactions.filter((t: any) => t.categoria_macro === cat && t.tipo_transaccion === 'GASTO').reduce((s: number, t: any) => s + (t.monto || 0), 0);
-                const limit = 20000;
-                const percentage = Math.min(100, (current / limit) * 100);
+            {fixedAnalysis.map((item: any) => {
+                const percentage = Math.min(100, (item.current / item.limit) * 100);
                 return (
-                    <Card key={cat} className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                    <Card key={item.cat} className="border-none shadow-sm bg-white hover:shadow-md transition-all">
                         <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                            <CardTitle className="text-[10px] font-black uppercase tracking-widest">{cat}</CardTitle>
+                            <CardTitle className="text-[10px] font-black uppercase tracking-widest">{item.cat}</CardTitle>
                             <Badge variant={percentage > 90 ? "destructive" : "secondary"} className="text-[9px]">{percentage.toFixed(0)}%</Badge>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex justify-between items-end"><span className="text-2xl font-black">{money(current)}</span><span className="text-[10px] font-bold text-muted-foreground uppercase">Meta: {money(limit)}</span></div>
+                            <div className="flex justify-between items-end"><span className="text-2xl font-black">{money(item.current)}</span><span className="text-[10px] font-bold text-muted-foreground uppercase">Promedio: {money(item.limit)}</span></div>
                             <Progress value={percentage} className={cn("h-2", percentage > 90 ? "bg-red-100" : "bg-muted")} />
                         </CardContent>
                     </Card>
@@ -643,12 +669,12 @@ function BudgetsView({ transactions }: any) {
 function SettingsView() {
     return (
         <div className="max-w-4xl mx-auto"><Card className="border-none shadow-sm bg-white">
-            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fases 1-6)</CardTitle><CardDescription>Gestión de prorrateos, logística y plantillas de nómina.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fases 1-7)</CardTitle><CardDescription>Gestión de prorrateos, logística, nómina y punto de equilibrio.</CardDescription></CardHeader>
             <CardContent className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Margen de Contribución Promedio</Label><p className="text-xs text-muted-foreground">Valor actual: 40% (Utilizado para Punto de Equilibrio).</p></div><Button variant="outline" size="sm">Ajustar</Button></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta</Label><p className="text-xs text-muted-foreground">Reparto: 60% ML, 30% Mayoreo, 10% Físico.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Regla de Reparto Logístico</Label><p className="text-xs text-muted-foreground">Método: % de Ventas (Prorrateo de Bolsa Compartida).</p></div><Button variant="outline" size="sm">Cambiar Regla</Button></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Unidad Independiente Malla Sombra</Label><p className="text-xs text-muted-foreground">Estado: Activa. Monitoreando nómina y materiales por separado.</p></div><Button variant="outline" size="sm">Configurar Taller</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Margen de Contribución Promedio</Label><p className="text-xs text-muted-foreground">Valor actual: 40% (Utilizado para Punto de Equilibrio de la Fase 7).</p></div><Button variant="outline" size="sm">Ajustar</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Auditoría 6 Meses (Fase 7)</Label><p className="text-xs text-muted-foreground">Estado: Recopilando datos históricos para promedio real de Renta/Servicios.</p></div><Button variant="outline" size="sm">Ver Histórico</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta (Fase 4)</Label><p className="text-xs text-muted-foreground">Reparto: 60% ML, 30% Mayoreo, 10% Físico.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Unidad Independiente Malla Sombra (Fase 6)</Label><p className="text-xs text-muted-foreground">Estado: Activa. Monitoreando rentabilidad de fabricación separada.</p></div><Button variant="outline" size="sm">Configurar Taller</Button></div>
             </CardContent></Card>
         </div>
     );
@@ -768,7 +794,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
                 <FormField control={form.control} name="es_fijo" render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
-                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo</FormLabel><FormDescription className="text-[8px]">Esencial para operar</FormDescription></div>
+                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo (Fase 7)</FormLabel><FormDescription className="text-[8px]">Esencial para operar el mes</FormDescription></div>
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     </FormItem>
                 )} />
