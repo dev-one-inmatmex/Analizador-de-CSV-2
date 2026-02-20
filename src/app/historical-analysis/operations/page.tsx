@@ -12,7 +12,7 @@ import {
   BarChart as BarChartIcon, ChevronLeft, ChevronRight,
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Bell, Search, Filter, Download, Activity,
-  Wallet, PieChart as PieChartIcon, Truck, Package, Info
+  Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -105,6 +105,7 @@ export default function OperationsPage() {
                 monto: Number(values.monto)
             };
             
+            // Fase 4: Lógica de Nómina Mixta
             if (values.tipo_gasto_impacto === 'NOMINA' && values.es_nomina_mixta) {
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
@@ -329,7 +330,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
 }
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
-    const { rentabilidadData, logisticsData, chartsData } = React.useMemo(() => {
+    const { rentabilidadData, logisticsData, productionData, chartsData } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
         const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
         const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
@@ -340,7 +341,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             ingresosPorCanal[canal] = (ingresosPorCanal[canal] || 0) + (ing.monto || 0);
         });
 
-        // --- FASE 5: Lógica de Logística Integral ---
+        // --- FASE 5: Logística ---
         const gastosLogistica = gastos.filter((g: any) => 
             g.area_funcional === 'LOGISTICA' || g.tipo_gasto_impacto === 'GASTO_LOGISTICO'
         );
@@ -348,6 +349,14 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const bolsaLogisticaCompartida = gastosLogistica
             .filter((g: any) => g.canal_asociado === 'GENERAL' || g.clasificacion_operativa === 'COMPARTIDO')
             .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+
+        // --- FASE 6: Malla Sombra ---
+        const gastosProduccion = gastos.filter((g: any) => g.canal_asociado === 'PRODUCCION_MALLA_SOMBRA');
+        const ingresosProduccion = ingresos.filter((i: any) => i.canal_asociado === 'PRODUCCION_MALLA_SOMBRA').reduce((a, b) => a + (b.monto || 0), 0);
+        
+        const prodPayroll = gastosProduccion.filter(g => g.tipo_gasto_impacto === 'NOMINA').reduce((a, b) => a + (b.monto || 0), 0);
+        const prodMaterials = gastosProduccion.filter(g => g.tipo_gasto_impacto === 'COSTO_MERCANCIA_COGS').reduce((a, b) => a + (b.monto || 0), 0);
+        const prodOther = gastosProduccion.filter(g => g.tipo_gasto_impacto !== 'NOMINA' && g.tipo_gasto_impacto !== 'COSTO_MERCANCIA_COGS').reduce((a, b) => a + (b.monto || 0), 0);
 
         const gastosCompartidosNoLogistica = gastos
             .filter((g: any) => 
@@ -374,7 +383,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             const utilidadReal = ingresoCanal - gastosDirectosCanal - costoAsignadoNoLog - costoLogAsignado;
 
             return {
-                canal: canal.replace('_', ' '),
+                canal: canal.replace(/_/g, ' '),
                 ingresos: ingresoCanal,
                 peso: (pesoCanal * 100).toFixed(1),
                 directos: gastosDirectosCanal,
@@ -385,18 +394,25 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             };
         });
 
-        // Data para vista Logística
-        const logMap: Record<string, number> = {};
-        gastosLogistica.forEach(g => {
-            const cat = g.subcategoria_especifica || 'Otros';
-            logMap[cat] = (logMap[cat] || 0) + (g.monto || 0);
-        });
-
         return {
             rentabilidadData: rentabilidad,
             logisticsData: {
                 total: gastosLogistica.reduce((a, b) => a + (b.monto || 0), 0),
-                breakdown: Object.entries(logMap).map(([name, value]) => ({ name, value }))
+                breakdown: Object.entries(
+                    gastosLogistica.reduce((acc: any, g: any) => {
+                        const cat = g.subcategoria_especifica || 'Otros';
+                        acc[cat] = (acc[cat] || 0) + (g.monto || 0);
+                        return acc;
+                    }, {})
+                ).map(([name, value]) => ({ name, value }))
+            },
+            productionData: {
+                ingresos: ingresosProduccion,
+                nomina: prodPayroll,
+                materiales: prodMaterials,
+                otros: prodOther,
+                totalGastos: prodPayroll + prodMaterials + prodOther,
+                utilidad: ingresosProduccion - (prodPayroll + prodMaterials + prodOther)
             },
             chartsData: {
                 categories: Object.entries(
@@ -410,7 +426,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         acc[t.area_funcional] = (acc[t.area_funcional] || 0) + (t.monto || 0);
                         return acc;
                     }, {})
-                ).map(([name, value]) => ({ name: (name as string).replace('_', ' '), value })),
+                ).map(([name, value]) => ({ name: (name as string).replace(/_/g, ' '), value })),
             }
         };
     }, [transactions]);
@@ -419,13 +435,46 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-8">
+            {/* FASE 6: Mini Unidad Independiente Malla Sombra */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <div className="space-y-1">
+                            <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                <Hammer className="h-5 w-5 text-amber-600" /> Unidad Producción: Malla Sombra (Fase 6)
+                            </CardTitle>
+                            <CardDescription>Análisis independiente de rentabilidad de fabricación.</CardDescription>
+                        </div>
+                        <Badge variant={productionData.utilidad >= 0 ? "default" : "destructive"}>
+                            {productionData.utilidad >= 0 ? "Rentable" : "Pérdida"}
+                        </Badge>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Ventas taller</p><p className="text-lg font-black">{money(productionData.ingresos)}</p></div>
+                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Nómina taller</p><p className="text-lg font-black text-blue-600">{money(productionData.nomina)}</p></div>
+                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Materiales</p><p className="text-lg font-black text-orange-600">{money(productionData.materiales)}</p></div>
+                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Utilidad taller</p><p className={cn("text-lg font-black", productionData.utilidad >= 0 ? "text-primary" : "text-destructive")}>{money(productionData.utilidad)}</p></div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-[#2D5A4C] text-white">
+                    <CardHeader className="pb-2"><CardTitle className="text-[10px] font-bold uppercase tracking-widest opacity-80">Eficiencia de Fabricación</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex justify-between items-baseline"><p className="text-3xl font-black">{productionData.ingresos > 0 ? ((productionData.utilidad / productionData.ingresos) * 100).toFixed(1) : 0}%</p><p className="text-xs font-medium opacity-70">Margen Taller</p></div>
+                        <Progress value={productionData.ingresos > 0 ? (productionData.totalGastos / productionData.ingresos) * 100 : 0} className="h-2 bg-white/20" />
+                        <p className="text-[9px] font-bold uppercase opacity-70">Consumo de recursos sobre ventas</p>
+                    </CardContent>
+                </Card>
+            </div>
+
             <Card className="border-none shadow-sm bg-white overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad Neta por Canal (Fases 3, 4 & 5)
+                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad por Canal (Fases 3, 4 & 5)
                         </CardTitle>
-                        <CardDescription>Cálculo Integral: Ingresos - (Directos + Nómina Mixta + Logística Prorrateada).</CardDescription>
+                        <CardDescription>Cálculo Integral: Ingresos - (Directos + Nómina + Logística Prorrateada).</CardDescription>
                     </div>
                 </CardHeader>
                 <div className="overflow-x-auto">
@@ -444,7 +493,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <TableBody>
                             {rentabilidadData.map((r, i) => (
                                 <TableRow key={i} className="hover:bg-muted/5 h-12">
-                                    <TableCell className="font-bold text-xs">{r.canal}</TableCell>
+                                    <TableCell className="font-bold text-xs uppercase">{r.canal}</TableCell>
                                     <TableCell className="text-right text-xs font-medium">{money(r.ingresos)}</TableCell>
                                     <TableCell className="text-center text-[10px] font-black text-muted-foreground">{r.peso}%</TableCell>
                                     <TableCell className="text-right text-xs text-amber-600 font-medium">{money(r.logistica)}</TableCell>
@@ -470,7 +519,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             <CardDescription className="text-[10px]">Desglose de la "Bolsa de Logística" mensual.</CardDescription>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Total Invertido</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Inversión Logística</p>
                             <p className="text-lg font-black text-primary">{money(logisticsData.total)}</p>
                         </div>
                     </CardHeader>
@@ -507,7 +556,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div>
                         <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground mt-1">Auditoría completa de ingresos y gastos.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground mt-1">Auditoría completa de ingresos y gastos del periodo.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="h-9 px-4 text-xs font-medium border-slate-200"><Filter className="mr-2 h-4 w-4" /> Filtrar</Button>
@@ -534,10 +583,10 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
                                         <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{t.empresa}</Badge></TableCell>
                                         <TableCell>
-                                            <div className="font-bold text-[11px] text-[#1e293b]">{t.tipo_gasto_impacto?.replace('_', ' ')}</div>
+                                            <div className="font-bold text-[11px] text-[#1e293b]">{t.tipo_gasto_impacto?.replace(/_/g, ' ')}</div>
                                             <div className="text-[10px] text-slate-400 font-medium">{t.subcategoria_especifica}</div>
                                         </TableCell>
-                                        <TableCell className="text-[10px] font-semibold text-slate-500 uppercase">{t.canal_asociado?.replace('_', ' ')}</TableCell>
+                                        <TableCell className="text-[10px] font-semibold text-slate-500 uppercase">{t.canal_asociado?.replace(/_/g, ' ')}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1">
                                                 <Badge variant={t.tipo_transaccion === 'INGRESO' ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase w-fit">{t.tipo_transaccion}</Badge>
@@ -594,11 +643,12 @@ function BudgetsView({ transactions }: any) {
 function SettingsView() {
     return (
         <div className="max-w-4xl mx-auto"><Card className="border-none shadow-sm bg-white">
-            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fases 1-5)</CardTitle><CardDescription>Gestión de prorrateos, logística y plantillas de nómina.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fases 1-6)</CardTitle><CardDescription>Gestión de prorrateos, logística y plantillas de nómina.</CardDescription></CardHeader>
             <CardContent className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Margen de Contribución Promedio</Label><p className="text-xs text-muted-foreground">Valor actual: 40% (Utilizado para Punto de Equilibrio).</p></div><Button variant="outline" size="sm">Ajustar</Button></div>
                 <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta</Label><p className="text-xs text-muted-foreground">Reparto: 60% ML, 30% Mayoreo, 10% Físico.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
                 <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Regla de Reparto Logístico</Label><p className="text-xs text-muted-foreground">Método: % de Ventas (Prorrateo de Bolsa Compartida).</p></div><Button variant="outline" size="sm">Cambiar Regla</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Unidad Independiente Malla Sombra</Label><p className="text-xs text-muted-foreground">Estado: Activa. Monitoreando nómina y materiales por separado.</p></div><Button variant="outline" size="sm">Configurar Taller</Button></div>
             </CardContent></Card>
         </div>
     );
