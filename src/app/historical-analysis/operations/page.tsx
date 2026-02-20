@@ -50,6 +50,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { GastoDiario } from '@/types/database';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 // --- Types ---
 type View = 'inicio' | 'informes' | 'presupuestos' | 'configuracion';
@@ -488,6 +489,7 @@ export default function OperationsPage() {
         <div className="flex h-screen flex-col bg-muted/40 min-w-0">
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4 min-w-0">
+                    <SidebarTrigger />
                     <h1 className="text-xl font-bold truncate shrink-0">Gastos Financieros</h1>
                     <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as View)} className="hidden md:flex min-w-0">
                         <TabsList className="bg-muted/50 min-w-0 overflow-x-auto no-scrollbar">
