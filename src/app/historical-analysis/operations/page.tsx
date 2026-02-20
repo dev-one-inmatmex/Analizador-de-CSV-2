@@ -13,7 +13,8 @@ import {
   BarChart as BarChartIcon, ChevronLeft, ChevronRight,
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Bell, Search, Filter, Download, Activity,
-  Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target
+  Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
+  Settings2, Eye, Calendar as CalendarIcon, History
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -42,7 +43,7 @@ import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './ac
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel, FormDescription } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -164,7 +165,7 @@ export default function OperationsPage() {
                 <div className="flex items-center gap-4 min-w-0">
                     <SidebarTrigger />
                     <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">Gastos Financieros</h1>
-                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4">
+                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4 hidden md:block">
                         <TabsList className="bg-muted/40 h-9 p-1 border">
                             <TabsTrigger value="inicio" className="text-xs font-bold uppercase tracking-tighter">Inicio</TabsTrigger>
                             <TabsTrigger value="informes" className="text-xs font-bold uppercase tracking-tighter">Informes</TabsTrigger>
@@ -197,6 +198,8 @@ export default function OperationsPage() {
 }
 
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: any) {
+    const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[] } | null>(null);
+
     const stats = React.useMemo(() => {
         let expense = 0, income = 0, fixedCosts = 0;
         let rubrosFijos = { nomina: 0, renta: 0, servicios: 0, software: 0 };
@@ -250,13 +253,25 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                 if (t.tipo_transaccion === 'GASTO') expense += (t.monto || 0);
                 else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
             });
-            return { name: format(step, 'd'), Ingresos: income, Gastos: expense };
+            return { 
+                name: format(step, 'd'), 
+                fullDate: step,
+                Ingresos: income, 
+                Gastos: expense,
+                records: dayT
+            };
         });
     }, [transactions, currentDate]);
 
-    const daysInMonth = React.useMemo(() => {
-        return eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
-    }, [currentDate]);
+    const handleChartClick = (data: any) => {
+        if (data && data.activePayload && data.activePayload.length > 0) {
+            const dayInfo = data.activePayload[0].payload;
+            setSelectedDayData({
+                day: format(dayInfo.fullDate, 'eeee d \'de\' MMMM', { locale: es }),
+                records: dayInfo.records
+            });
+        }
+    };
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -296,11 +311,11 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                     <CardContent className="pt-2">
                         <div className="grid grid-cols-2 gap-2">
                             <div className="p-2 bg-muted/5 rounded-lg border border-border/50">
-                                <p className="text-[8px] font-bold uppercase text-muted-foreground">Supervivencia</p>
+                                <p className="text-[8px] font-bold uppercase text-muted-foreground">Meta Supervivencia</p>
                                 <p className="text-xs font-black">{money(stats.metaSupervivencia)}</p>
                             </div>
                             <div className="p-2 bg-primary/5 rounded-lg border border-primary/10">
-                                <p className="text-[8px] font-bold uppercase text-primary">Ingresos</p>
+                                <p className="text-[8px] font-bold uppercase text-primary">Ingresos Actuales</p>
                                 <p className="text-xs font-black text-primary">{money(stats.totalIncome)}</p>
                             </div>
                         </div>
@@ -339,7 +354,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                     <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}><ChevronLeft className="h-5 w-5" /></Button>
                     <ScrollArea className="flex-1">
                         <div className="flex gap-2 px-2 pb-2">
-                            {daysInMonth.map((day, i) => (
+                            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i) => (
                                 <button key={i} onClick={() => setCurrentDate(day)} className={cn("flex flex-col items-center justify-center min-w-[54px] h-16 rounded-xl transition-all", isSameDay(day, currentDate) ? "bg-[#2D5A4C] text-white shadow-lg" : "hover:bg-muted text-muted-foreground")}>
                                     <span className="text-[10px] uppercase font-bold tracking-tighter opacity-80">{format(day, 'eee', { locale: es }).substring(0, 2)}</span>
                                     <span className="text-lg font-black">{format(day, 'd')}</span>
@@ -353,9 +368,17 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
             </Card>
 
             <Card className="border-none shadow-sm p-6 bg-white overflow-hidden">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-primary" /> Flujo de Caja Diario
+                        </CardTitle>
+                        <CardDescription>Visualiza ingresos y gastos día a día. Haz clic en una barra para ver el detalle.</CardDescription>
+                    </div>
+                </div>
                 <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <RechartsBarChart data={barChartData}>
+                        <RechartsBarChart data={barChartData} onClick={handleChartClick} style={{ cursor: 'pointer' }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                             <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
@@ -367,56 +390,61 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                     </ResponsiveContainer>
                 </div>
             </Card>
+
+            <Dialog open={!!selectedDayData} onOpenChange={(open) => !open && setSelectedDayData(null)}>
+                <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
+                            <History className="h-6 w-6 text-primary" /> Movimientos del {selectedDayData?.day}
+                        </DialogTitle>
+                        <DialogDescription>Listado detallado de transacciones registradas para esta fecha.</DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="flex-1 mt-4">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead className="font-bold text-[10px] uppercase">Categoría</TableHead>
+                                    <TableHead className="font-bold text-[10px] uppercase">Canal</TableHead>
+                                    <TableHead className="font-bold text-[10px] uppercase">Tipo</TableHead>
+                                    <TableHead className="text-right font-bold text-[10px] uppercase">Monto</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {selectedDayData?.records.length ? (
+                                    selectedDayData.records.map((r: any) => (
+                                        <TableRow key={r.id}>
+                                            <TableCell>
+                                                <div className="font-bold text-xs">{r.tipo_gasto_impacto?.replace(/_/g, ' ')}</div>
+                                                <div className="text-[10px] text-muted-foreground">{r.subcategoria_especifica}</div>
+                                            </TableCell>
+                                            <TableCell className="text-[10px] font-medium uppercase">{r.canal_asociado?.replace(/_/g, ' ')}</TableCell>
+                                            <TableCell><Badge variant={r.tipo_transaccion === 'INGRESO' ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase">{r.tipo_transaccion}</Badge></TableCell>
+                                            <TableCell className={cn("text-right font-bold text-xs", r.tipo_transaccion === 'GASTO' ? "text-slate-900" : "text-primary")}>{money(r.monto)}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">Sin registros este día.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
-    const { rentabilidadData, logisticsData, productionData, chartsData, breakevenChart } = React.useMemo(() => {
+    const { logisticsData, chartsData, breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
         const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
         const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
         const costosFijos = gastos.filter((g: any) => g.es_fijo).reduce((a, b) => a + (b.monto || 0), 0);
         
-        const ingresosPorCanal: Record<string, number> = {};
-        ingresos.forEach((ing: any) => {
-            const canal = ing.canal_asociado || 'GENERAL';
-            ingresosPorCanal[canal] = (ingresosPorCanal[canal] || 0) + (ing.monto || 0);
-        });
-
         const gastosLogistica = gastos.filter((g: any) => 
             g.area_funcional === 'LOGISTICA' || g.tipo_gasto_impacto === 'GASTO_LOGISTICO'
         );
         
-        const bolsaLogisticaCompartida = gastosLogistica
-            .filter((g: any) => g.canal_asociado === 'GENERAL' || g.clasificacion_operativa === 'COMPARTIDO')
-            .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
-
-        const gastosProduccion = gastos.filter((g: any) => g.canal_asociado === 'PRODUCCION_MALLA_SOMBRA');
-        const ingresosProduccion = ingresos.filter((i: any) => i.canal_asociado === 'PRODUCCION_MALLA_SOMBRA').reduce((a, b) => a + (b.monto || 0), 0);
-        
-        const prodPayroll = gastosProduccion.filter(g => g.tipo_gasto_impacto === 'NOMINA').reduce((a, b) => a + (b.monto || 0), 0);
-        const prodMaterials = gastosProduccion.filter(g => g.tipo_gasto_impacto === 'COSTO_MERCANCIA_COGS').reduce((a, b) => a + (b.monto || 0), 0);
-        
-        const gastosCompartidosNoLogistica = gastos
-            .filter((g: any) => 
-                g.clasificacion_operativa === 'COMPARTIDO' && 
-                g.area_funcional !== 'LOGISTICA' && 
-                g.tipo_gasto_impacto !== 'GASTO_LOGISTICO'
-            )
-            .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
-
-        const rentabilidad = Object.keys(ingresosPorCanal).map(canal => {
-            const ingresoCanal = ingresosPorCanal[canal];
-            const pesoCanal = ingresoTotal > 0 ? (ingresoCanal / ingresoTotal) : 0;
-            const gastosDirectosCanal = gastos.filter((g: any) => g.canal_asociado === canal && (g.clasificacion_operativa === 'DIRECTO' || g.clasificacion_operativa === 'SEMI_DIRECTO')).reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
-            const costoAsignadoNoLog = gastosCompartidosNoLogistica * pesoCanal;
-            const costoLogAsignado = bolsaLogisticaCompartida * pesoCanal;
-            const utilidadReal = ingresoCanal - gastosDirectosCanal - costoAsignadoNoLog - costoLogAsignado;
-
-            return { canal: canal.replace(/_/g, ' '), ingresos: ingresoCanal, peso: (pesoCanal * 100).toFixed(1), logistica: costoLogAsignado, asignados: costoAsignadoNoLog, utilidad: utilidadReal, margen: ingresoCanal > 0 ? ((utilidadReal / ingresoCanal) * 100).toFixed(1) : '0' };
-        });
-
         const maxSales = Math.max(ingresoTotal * 1.5, 200000);
         const chartBEP = Array.from({ length: 11 }, (_, i) => {
             const sales = (maxSales / 10) * i;
@@ -431,14 +459,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         });
 
         return {
-            rentabilidadData: rentabilidad,
             logisticsData: {
                 total: gastosLogistica.reduce((a, b) => a + (b.monto || 0), 0),
                 breakdown: Object.entries(gastosLogistica.reduce((acc: any, g: any) => { const cat = g.subcategoria_especifica || 'Otros'; acc[cat] = (acc[cat] || 0) + (g.monto || 0); return acc; }, {})).map(([name, value]) => ({ name, value }))
             },
-            productionData: { ingresos: ingresosProduccion, nomina: prodPayroll, materiales: prodMaterials, utilidad: ingresosProduccion - (prodPayroll + prodMaterials) },
             chartsData: {
-                categories: Object.entries(gastos.reduce((acc: any, t: any) => { acc[t.categoria_macro] = (acc[t.categoria_macro] || 0) + (t.monto || 0); return acc; }, {})).map(([name, value]) => ({ name, value })),
                 areas: Object.entries(gastos.reduce((acc: any, t: any) => { acc[t.area_funcional] = (acc[t.area_funcional] || 0) + (t.monto || 0); return acc; }, {})).map(([name, value]) => ({ name: (name as string).replace(/_/g, ' '), value })),
             },
             breakevenChart: chartBEP
@@ -453,9 +478,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" /> Análisis de Supervivencia (Fase 7)
+                            <TrendingUp className="h-5 w-5 text-primary" /> Punto de Equilibrio (Fase 7)
                         </CardTitle>
-                        <CardDescription>Gráfico de Punto de Equilibrio: Intersección entre Ventas y Costos Totales.</CardDescription>
+                        <CardDescription>Cruce entre Ingresos y Costos Totales basado en Gasto Fijo Actual.</CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent className="h-[300px]">
@@ -466,9 +491,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             <YAxis fontSize={9} axisLine={false} tickLine={false} tickFormatter={v => `$${v/1000}k`} />
                             <Tooltip formatter={(v: number) => money(v)} />
                             <Legend verticalAlign="top" align="right" height={36} iconType="line" />
-                            <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.1} stroke="#3b82f6" strokeWidth={2} name="Línea de Ingresos" />
-                            <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={false} name="Costos Totales (Fijos + Var)" />
-                            <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeDasharray="5 5" dot={false} name="Base de Gasto Fijo" />
+                            <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.1} stroke="#3b82f6" strokeWidth={2} name="Ingresos" />
+                            <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={false} name="Costos Totales" />
+                            <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeDasharray="5 5" dot={false} name="Base Fija" />
                         </ComposedChart>
                     </ResponsiveContainer>
                 </CardContent>
@@ -481,10 +506,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             <CardTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
                                 <Truck className="h-4 w-4 text-primary" /> Eficiencia Logística (Fase 5)
                             </CardTitle>
-                            <CardDescription className="text-[10px]">Desglose de la "Bolsa de Logística" mensual.</CardDescription>
+                            <CardDescription className="text-[10px]">Inversión operativa de movimiento mensual.</CardDescription>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Inversión Logística</p>
                             <p className="text-lg font-black text-primary">{money(logisticsData.total)}</p>
                         </div>
                     </CardHeader>
@@ -502,7 +526,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 </Card>
 
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gastos por Área Funcional</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Distribución por Área</CardTitle></CardHeader>
                     <CardContent className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -582,46 +606,198 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 }
 
 function BudgetsView({ transactions }: any) {
-    const fixedAnalysis = React.useMemo(() => {
-        const fixed = transactions.filter((t: any) => t.es_fijo && t.tipo_transaccion === 'GASTO');
-        const categories = [...new Set(fixed.map((t: any) => t.categoria_macro))];
-        return categories.map((cat: any) => {
-            const current = fixed.filter((t: any) => t.categoria_macro === cat).reduce((s: number, t: any) => s + (t.monto || 0), 0);
-            return { cat, current, limit: 25000 }; 
+    const budgetAnalysis = React.useMemo(() => {
+        const categories = [...CATEGORIAS_MACRO];
+        return categories.map(cat => {
+            const current = transactions
+                .filter((t: any) => t.categoria_macro === cat && t.tipo_transaccion === 'GASTO')
+                .reduce((s: number, t: any) => s + (t.monto || 0), 0);
+            
+            // Metas de presupuesto por categoría (definidas idealmente en configuración)
+            const budgets: Record<string, number> = {
+                'OPERATIVO': 45000,
+                'NOMINA': 120000,
+                'ADMINISTRATIVO': 30000,
+                'COMERCIAL': 25000,
+                'FINANCIERO': 15000
+            };
+
+            return { cat, current, limit: budgets[cat] || 20000 }; 
         });
     }, [transactions]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {fixedAnalysis.map((item: any) => {
-                const percentage = Math.min(100, (item.current / item.limit) * 100);
-                return (
-                    <Card key={item.cat} className="border-none shadow-sm bg-white hover:shadow-md transition-all">
-                        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                            <CardTitle className="text-[10px] font-black uppercase tracking-widest">{item.cat}</CardTitle>
-                            <Badge variant={percentage > 90 ? "destructive" : "secondary"} className="text-[9px]">{percentage.toFixed(0)}%</Badge>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex justify-between items-end"><span className="text-2xl font-black">{money(item.current)}</span><span className="text-[10px] font-bold text-muted-foreground uppercase">Promedio: {money(item.limit)}</span></div>
-                            <Progress value={percentage} className={cn("h-2", percentage > 90 ? "bg-red-100" : "bg-muted")} />
-                        </CardContent>
-                    </Card>
-                );
-            })}
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {budgetAnalysis.map((item: any) => {
+                    const percentage = Math.min(100, (item.current / item.limit) * 100);
+                    const isOver = percentage >= 90;
+                    return (
+                        <Card key={item.cat} className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                                <div className="space-y-1">
+                                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{item.cat}</CardTitle>
+                                    <div className="text-2xl font-black">{money(item.current)}</div>
+                                </div>
+                                <Badge variant={isOver ? "destructive" : "secondary"} className="text-[9px] font-black">
+                                    {percentage.toFixed(0)}%
+                                </Badge>
+                            </CardHeader>
+                            <CardContent className="space-y-4 pt-2">
+                                <div className="flex justify-between items-end text-[10px] font-bold text-muted-foreground uppercase">
+                                    <span>Consumo</span>
+                                    <span>Meta: {money(item.limit)}</span>
+                                </div>
+                                <Progress value={percentage} className={cn("h-2.5", isOver ? "bg-red-100 [&>div]:bg-destructive" : "bg-muted [&>div]:bg-[#2D5A4C]")} />
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+            </div>
+            
+            <Card className="border-none shadow-sm bg-white overflow-hidden">
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <Wallet className="h-5 w-5 text-primary" /> Auditoría de Presupuestos
+                    </CardTitle>
+                    <CardDescription>Resumen de metas mensuales por categoría macro financiera.</CardDescription>
+                </CardHeader>
+                <div className="p-0 border-t">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-muted/30">
+                                <TableHead className="font-bold uppercase text-[10px]">Categoría</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-right">Presupuesto</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-right">Ejecutado</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-right">Disponible</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-center">Estado</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {budgetAnalysis.map(item => (
+                                <TableRow key={item.cat}>
+                                    <TableCell className="font-bold text-xs">{item.cat}</TableCell>
+                                    <TableCell className="text-right font-medium">{money(item.limit)}</TableCell>
+                                    <TableCell className="text-right font-black">{money(item.current)}</TableCell>
+                                    <TableCell className={cn("text-right font-bold", (item.limit - item.current) < 0 ? "text-destructive" : "text-primary")}>
+                                        {money(item.limit - item.current)}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Badge variant={item.current > item.limit ? "destructive" : "outline"} className="text-[8px] uppercase">
+                                            {item.current > item.limit ? "Excedido" : "En Meta"}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </Card>
         </div>
     );
 }
 
 function SettingsView() {
     return (
-        <div className="max-w-4xl mx-auto"><Card className="border-none shadow-sm bg-white">
-            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fases 1-7)</CardTitle><CardDescription>Gestión de prorrateos, logística, nómina y punto de equilibrio.</CardDescription></CardHeader>
-            <CardContent className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Margen de Contribución Promedio</Label><p className="text-xs text-muted-foreground">Valor actual: 40% (Utilizado para Punto de Equilibrio de la Fase 7).</p></div><Button variant="outline" size="sm">Ajustar</Button></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Auditoría 6 Meses (Fase 7)</Label><p className="text-xs text-muted-foreground">Estado: Recopilando datos históricos para promedio real de Renta/Servicios.</p></div><Button variant="outline" size="sm">Ver Histórico</Button></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta (Fase 4)</Label><p className="text-xs text-muted-foreground">Reparto: 60% ML, 30% Mayoreo, 10% Físico.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Unidad Independiente Malla Sombra (Fase 6)</Label><p className="text-xs text-muted-foreground">Estado: Activa. Monitoreando rentabilidad de fabricación separada.</p></div><Button variant="outline" size="sm">Configurar Taller</Button></div>
-            </CardContent></Card>
+        <div className="max-w-5xl mx-auto space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-2 border-none shadow-sm bg-white">
+                    <CardHeader className="flex flex-row items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Settings2 className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-lg font-bold">Parámetros BI (Fases 1-7)</CardTitle>
+                            <CardDescription>Configura los valores clave para el motor de inteligencia financiera.</CardDescription>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-4">
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-bold">Margen de Contribución Promedio (Fase 7)</Label>
+                                <p className="text-xs text-muted-foreground">Valor utilizado para calcular el Punto de Equilibrio mensual.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input type="number" defaultValue="40" className="w-20 font-black h-9 text-right" />
+                                <span className="font-bold text-sm">%</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-bold">Días de Auditoría Histórica</Label>
+                                <p className="text-xs text-muted-foreground">Periodo de datos para el cálculo de promedios de gasto fijo.</p>
+                            </div>
+                            <Select defaultValue="180">
+                                <SelectTrigger className="w-32 h-9 font-bold"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="90">90 Días</SelectItem>
+                                    <SelectItem value="180">180 Días</SelectItem>
+                                    <SelectItem value="365">1 Año</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-bold">Unidad Independiente Malla Sombra (Fase 6)</Label>
+                                <p className="text-xs text-muted-foreground">Aislar financieramente el taller de producción.</p>
+                            </div>
+                            <Switch defaultChecked />
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-bold">Notificaciones de Presupuesto</Label>
+                                <p className="text-xs text-muted-foreground">Alertar cuando una categoría supere el 90% del límite.</p>
+                            </div>
+                            <Switch defaultChecked />
+                        </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-end border-t bg-muted/5 py-3">
+                        <Button className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-bold">Guardar Configuración</Button>
+                    </CardFooter>
+                </Card>
+
+                <div className="space-y-6">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                        <CardHeader className="bg-primary/5 pb-4">
+                            <div className="flex items-center gap-2">
+                                <Hammer className="h-4 w-4 text-primary" />
+                                <CardTitle className="text-[10px] font-black uppercase tracking-widest">Nómina Mixta (Fase 4)</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 pt-4">
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase">Reparto Actual de Esfuerzo:</p>
+                            <div className="space-y-3">
+                                {[
+                                    { name: 'Mercado Libre', val: 60, color: '#2D5A4C' },
+                                    { name: 'Mayoreo', val: 30, color: '#3b82f6' },
+                                    { name: 'Físico', val: 10, color: '#f43f5e' }
+                                ].map(i => (
+                                    <div key={i.name} className="space-y-1">
+                                        <div className="flex justify-between text-[10px] font-bold uppercase">
+                                            <span>{i.name}</span>
+                                            <span>{i.val}%</span>
+                                        </div>
+                                        <Progress value={i.val} className="h-1 bg-muted [&>div]:bg-current" style={{ color: i.color }} />
+                                    </div>
+                                ))}
+                            </div>
+                            <Button variant="outline" size="sm" className="w-full text-[10px] font-bold h-8 border-slate-200">Editar Plantilla</Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-sm bg-primary text-primary-foreground">
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Estado de Salud BI</p>
+                            <CardTitle className="text-xl font-black">Optimizada</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-[10px] leading-relaxed opacity-90">
+                                Tu arquitectura financiera está operando en Fase 7. Los cálculos de rentabilidad y supervivencia son 100% automáticos basados en tus registros.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 }
