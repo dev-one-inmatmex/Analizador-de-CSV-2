@@ -12,11 +12,11 @@ import {
   BarChart as BarChartIcon, ChevronLeft, ChevronRight,
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Bell, Search, Filter, Download, Activity,
-  Wallet, PieChart as PieChartIcon
+  Wallet, PieChart as PieChartIcon, Truck, Package, Info
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line
 } from 'recharts';
 
 import { useToast } from '@/hooks/use-toast';
@@ -105,7 +105,6 @@ export default function OperationsPage() {
                 monto: Number(values.monto)
             };
             
-            // --- FASE 4: Lógica de Nómina Mixta (Fragmentación Automática) ---
             if (values.tipo_gasto_impacto === 'NOMINA' && values.es_nomina_mixta) {
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
@@ -119,7 +118,7 @@ export default function OperationsPage() {
                     canal_asociado: dest.canal,
                     clasificacion_operativa: 'SEMI_DIRECTO',
                     notas: `${values.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
-                    es_nomina_mixta: false // Se guarda como registro final
+                    es_nomina_mixta: false 
                 }));
 
                 const { error } = await supabase.from('gastos_diarios').insert(inserts as any);
@@ -209,7 +208,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
             else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
         });
         
-        const margenPromedio = 0.40; // Margen de contribución estimado
+        const margenPromedio = 0.40; 
         const metaSupervivencia = fixedCosts / (margenPromedio || 1);
         
         return { 
@@ -330,8 +329,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
 }
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
-    const { rentabilidadData, chartsData } = React.useMemo(() => {
-        // --- FASE 3: Lógica de Rentabilidad Limpia por Canal ---
+    const { rentabilidadData, logisticsData, chartsData } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
         const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
         const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
@@ -342,8 +340,21 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             ingresosPorCanal[canal] = (ingresosPorCanal[canal] || 0) + (ing.monto || 0);
         });
 
-        const gastosCompartidos = gastos
-            .filter((g: any) => g.clasificacion_operativa === 'COMPARTIDO')
+        // --- FASE 5: Lógica de Logística Integral ---
+        const gastosLogistica = gastos.filter((g: any) => 
+            g.area_funcional === 'LOGISTICA' || g.tipo_gasto_impacto === 'GASTO_LOGISTICO'
+        );
+        
+        const bolsaLogisticaCompartida = gastosLogistica
+            .filter((g: any) => g.canal_asociado === 'GENERAL' || g.clasificacion_operativa === 'COMPARTIDO')
+            .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+
+        const gastosCompartidosNoLogistica = gastos
+            .filter((g: any) => 
+                g.clasificacion_operativa === 'COMPARTIDO' && 
+                g.area_funcional !== 'LOGISTICA' && 
+                g.tipo_gasto_impacto !== 'GASTO_LOGISTICO'
+            )
             .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
 
         const rentabilidad = Object.keys(ingresosPorCanal).map(canal => {
@@ -357,37 +368,49 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 )
                 .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
 
-            const costoAsignado = gastosCompartidos * pesoCanal;
-            const utilidadReal = ingresoCanal - gastosDirectosCanal - costoAsignado;
+            const costoAsignadoNoLog = gastosCompartidosNoLogistica * pesoCanal;
+            const costoLogAsignado = bolsaLogisticaCompartida * pesoCanal;
+            
+            const utilidadReal = ingresoCanal - gastosDirectosCanal - costoAsignadoNoLog - costoLogAsignado;
 
             return {
                 canal: canal.replace('_', ' '),
                 ingresos: ingresoCanal,
                 peso: (pesoCanal * 100).toFixed(1),
                 directos: gastosDirectosCanal,
-                asignados: costoAsignado,
+                logistica: costoLogAsignado,
+                asignados: costoAsignadoNoLog,
                 utilidad: utilidadReal,
                 margen: ingresoCanal > 0 ? ((utilidadReal / ingresoCanal) * 100).toFixed(1) : '0'
             };
         });
 
-        // Charts desglosados
-        const catMap: Record<string, number> = {};
-        const areaMap: Record<string, number> = {};
-        const companyMap: Record<string, number> = {};
-
-        gastos.forEach((t: GastoDiario) => {
-            catMap[t.categoria_macro] = (catMap[t.categoria_macro] || 0) + (t.monto || 0);
-            companyMap[t.empresa] = (companyMap[t.empresa] || 0) + (t.monto || 0);
-            if (t.area_funcional) areaMap[t.area_funcional] = (areaMap[t.area_funcional] || 0) + (t.monto || 0);
+        // Data para vista Logística
+        const logMap: Record<string, number> = {};
+        gastosLogistica.forEach(g => {
+            const cat = g.subcategoria_especifica || 'Otros';
+            logMap[cat] = (logMap[cat] || 0) + (g.monto || 0);
         });
 
         return {
             rentabilidadData: rentabilidad,
+            logisticsData: {
+                total: gastosLogistica.reduce((a, b) => a + (b.monto || 0), 0),
+                breakdown: Object.entries(logMap).map(([name, value]) => ({ name, value }))
+            },
             chartsData: {
-                categories: Object.entries(catMap).map(([name, value]) => ({ name, value })),
-                areas: Object.entries(areaMap).map(([name, value]) => ({ name: name.replace('_', ' '), value })),
-                companies: Object.entries(companyMap).map(([name, value]) => ({ name, value }))
+                categories: Object.entries(
+                    gastos.reduce((acc: any, t: any) => {
+                        acc[t.categoria_macro] = (acc[t.categoria_macro] || 0) + (t.monto || 0);
+                        return acc;
+                    }, {})
+                ).map(([name, value]) => ({ name, value })),
+                areas: Object.entries(
+                    gastos.reduce((acc: any, t: any) => {
+                        acc[t.area_funcional] = (acc[t.area_funcional] || 0) + (t.monto || 0);
+                        return acc;
+                    }, {})
+                ).map(([name, value]) => ({ name: (name as string).replace('_', ' '), value })),
             }
         };
     }, [transactions]);
@@ -400,9 +423,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad por Canal (BI Fase 3 & 4)
+                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad Neta por Canal (Fases 3, 4 & 5)
                         </CardTitle>
-                        <CardDescription>Cálculo Exacto: Ingresos - (Directos + Nómina Mixta) - Prorrateo Compartido.</CardDescription>
+                        <CardDescription>Cálculo Integral: Ingresos - (Directos + Nómina Mixta + Logística Prorrateada).</CardDescription>
                     </div>
                 </CardHeader>
                 <div className="overflow-x-auto">
@@ -412,68 +435,65 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 <TableHead className="text-[10px] font-bold uppercase tracking-widest">Canal</TableHead>
                                 <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">Ingresos</TableHead>
                                 <TableHead className="text-center text-[10px] font-bold uppercase tracking-widest">Peso %</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Directos</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Asignado</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest bg-primary/5 text-primary">Utilidad Real</TableHead>
+                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Logística</TableHead>
+                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Estructura</TableHead>
+                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest bg-primary/5 text-primary">Utilidad Neta</TableHead>
                                 <TableHead className="text-center text-[10px] font-bold uppercase tracking-widest">Margen</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {rentabilidadData.length > 0 ? rentabilidadData.map((r, i) => (
-                                <TableRow key={i} className="hover:bg-muted/5">
+                            {rentabilidadData.map((r, i) => (
+                                <TableRow key={i} className="hover:bg-muted/5 h-12">
                                     <TableCell className="font-bold text-xs">{r.canal}</TableCell>
                                     <TableCell className="text-right text-xs font-medium">{money(r.ingresos)}</TableCell>
                                     <TableCell className="text-center text-[10px] font-black text-muted-foreground">{r.peso}%</TableCell>
-                                    <TableCell className="text-right text-xs text-destructive">{money(r.directos)}</TableCell>
-                                    <TableCell className="text-right text-xs text-amber-600">{money(r.asignados)}</TableCell>
+                                    <TableCell className="text-right text-xs text-amber-600 font-medium">{money(r.logistica)}</TableCell>
+                                    <TableCell className="text-right text-xs text-slate-500">{money(r.asignados)}</TableCell>
                                     <TableCell className="text-right text-xs font-black bg-primary/5 text-primary">{money(r.utilidad)}</TableCell>
                                     <TableCell className="text-center">
                                         <Badge variant={Number(r.margen) > 20 ? "default" : "secondary"} className="text-[9px] font-bold">{r.margen}%</Badge>
                                     </TableCell>
                                 </TableRow>
-                            )) : (
-                                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground italic text-xs">Sin datos para rentabilidad.</TableCell></TableRow>
-                            )}
+                            ))}
                         </TableBody>
                     </Table>
                 </div>
             </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gastos por Categoría</CardTitle></CardHeader>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div className="space-y-1">
+                            <CardTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                <Truck className="h-4 w-4 text-primary" /> Eficiencia Logística (Fase 5)
+                            </CardTitle>
+                            <CardDescription className="text-[10px]">Desglose de la "Bolsa de Logística" mensual.</CardDescription>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Total Invertido</p>
+                            <p className="text-lg font-black text-primary">{money(logisticsData.total)}</p>
+                        </div>
+                    </CardHeader>
                     <CardContent className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={chartsData.categories} dataKey="value" nameKey="name" innerRadius={50} outerRadius={70} paddingAngle={5}>
-                                    {chartsData.categories.map((_, i) => <RechartsCell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                </Pie>
-                                <Tooltip formatter={(v: number) => money(v)} />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '9px'}} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                <Card className="border-none shadow-sm bg-white">
-                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gastos por Área Funcional</CardTitle></CardHeader>
-                    <CardContent className="h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <RechartsBarChart data={chartsData.areas} layout="vertical">
+                            <RechartsBarChart data={logisticsData.breakdown} layout="vertical">
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
                                 <XAxis type="number" hide />
-                                <YAxis type="category" dataKey="name" fontSize={8} width={80} axisLine={false} tickLine={false} />
+                                <YAxis type="category" dataKey="name" fontSize={9} width={90} axisLine={false} tickLine={false} />
                                 <Tooltip formatter={(v: number) => money(v)} />
-                                <RechartsBar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={15} />
+                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={15} />
                             </RechartsBarChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
+
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gasto por Empresa</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gastos por Área Funcional</CardTitle></CardHeader>
                     <CardContent className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
-                                <Pie data={chartsData.companies} dataKey="value" nameKey="name" innerRadius={50} outerRadius={70} paddingAngle={5}>
-                                    {chartsData.companies.map((_, i) => <RechartsCell key={i} fill={COLORS[(i + 2) % COLORS.length]} />)}
+                                <Pie data={chartsData.areas} dataKey="value" nameKey="name" innerRadius={50} outerRadius={70} paddingAngle={5}>
+                                    {chartsData.areas.map((_, i) => <RechartsCell key={i} fill={COLORS[i % COLORS.length]} />)}
                                 </Pie>
                                 <Tooltip formatter={(v: number) => money(v)} />
                                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '9px'}} />
@@ -514,7 +534,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
                                         <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{t.empresa}</Badge></TableCell>
                                         <TableCell>
-                                            <div className="font-bold text-[11px] text-[#1e293b]">{t.categoria_macro}</div>
+                                            <div className="font-bold text-[11px] text-[#1e293b]">{t.tipo_gasto_impacto?.replace('_', ' ')}</div>
                                             <div className="text-[10px] text-slate-400 font-medium">{t.subcategoria_especifica}</div>
                                         </TableCell>
                                         <TableCell className="text-[10px] font-semibold text-slate-500 uppercase">{t.canal_asociado?.replace('_', ' ')}</TableCell>
@@ -574,10 +594,11 @@ function BudgetsView({ transactions }: any) {
 function SettingsView() {
     return (
         <div className="max-w-4xl mx-auto"><Card className="border-none shadow-sm bg-white">
-            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fase 2, 3 & 4)</CardTitle><CardDescription>Gestión de prorrateos y plantillas de nómina mixta.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fases 1-5)</CardTitle><CardDescription>Gestión de prorrateos, logística y plantillas de nómina.</CardDescription></CardHeader>
             <CardContent className="space-y-6">
                 <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Margen de Contribución Promedio</Label><p className="text-xs text-muted-foreground">Valor actual: 40% (Utilizado para Punto de Equilibrio).</p></div><Button variant="outline" size="sm">Ajustar</Button></div>
                 <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta</Label><p className="text-xs text-muted-foreground">Reparto: 60% ML, 30% Mayoreo, 10% Físico.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Regla de Reparto Logístico</Label><p className="text-xs text-muted-foreground">Método: % de Ventas (Prorrateo de Bolsa Compartida).</p></div><Button variant="outline" size="sm">Cambiar Regla</Button></div>
             </CardContent></Card>
         </div>
     );
