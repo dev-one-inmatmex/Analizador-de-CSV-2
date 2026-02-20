@@ -69,9 +69,14 @@ export default function OperationsPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingTransaction, setEditingTransaction] = React.useState<GastoDiario | null>(null);
-    const [currentDate, setCurrentDate] = React.useState(startOfDay(new Date()));
+    const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
 
-    // Estados dinámicos para configuración (Fase 1-7 expandible)
+    // Asegurar fecha actual en cliente para evitar hydration mismatch
+    React.useEffect(() => {
+        setCurrentDate(startOfDay(new Date()));
+    }, []);
+
+    // Estados dinámicos para configuración
     const [macroCategories, setMacroCategories] = React.useState<string[]>(CATEGORIAS_MACRO);
     const [impacts, setImpacts] = React.useState<string[]>(TIPO_GASTO_IMPACTO_LIST);
     const [subcategoriesMap, setSubcategoriesMap] = React.useState<Record<string, string[]>>(SUBCATEGORIAS_NIVEL_3_DEFAULT);
@@ -234,6 +239,17 @@ export default function OperationsPage() {
 
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: any) {
     const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[] } | null>(null);
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    // Centrar automáticamente el día seleccionado
+    React.useEffect(() => {
+        if (scrollContainerRef.current) {
+            const selectedElement = scrollContainerRef.current.querySelector('[data-selected="true"]');
+            if (selectedElement) {
+                selectedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    }, [currentDate]);
 
     const stats = React.useMemo(() => {
         let expense = 0, income = 0, fixedCosts = 0;
@@ -387,10 +403,18 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
             <Card className="border-none shadow-sm overflow-hidden bg-white">
                 <div className="flex items-center px-2 py-4 border-b">
                     <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}><ChevronLeft className="h-5 w-5" /></Button>
-                    <ScrollArea className="flex-1">
-                        <div className="flex gap-2 px-2 pb-2">
+                    <ScrollArea className="flex-1" viewportRef={scrollContainerRef}>
+                        <div className="flex gap-2 px-4 pb-2">
                             {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i) => (
-                                <button key={i} onClick={() => setCurrentDate(day)} className={cn("flex flex-col items-center justify-center min-w-[54px] h-16 rounded-xl transition-all", isSameDay(day, currentDate) ? "bg-[#2D5A4C] text-white shadow-lg" : "hover:bg-muted text-muted-foreground")}>
+                                <button 
+                                    key={i} 
+                                    onClick={() => setCurrentDate(day)} 
+                                    data-selected={isSameDay(day, currentDate)}
+                                    className={cn(
+                                        "flex flex-col items-center justify-center min-w-[54px] h-16 rounded-xl transition-all duration-300", 
+                                        isSameDay(day, currentDate) ? "bg-[#2D5A4C] text-white shadow-lg scale-105" : "hover:bg-muted text-muted-foreground"
+                                    )}
+                                >
                                     <span className="text-[10px] uppercase font-bold tracking-tighter opacity-80">{format(day, 'eee', { locale: es }).substring(0, 2)}</span>
                                     <span className="text-lg font-black">{format(day, 'd')}</span>
                                 </button>
@@ -427,7 +451,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
             </Card>
 
             <Dialog open={!!selectedDayData} onOpenChange={(open) => !open && setSelectedDayData(null)}>
-                <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
                             <History className="h-6 w-6 text-primary" /> Movimientos del {selectedDayData?.day}
