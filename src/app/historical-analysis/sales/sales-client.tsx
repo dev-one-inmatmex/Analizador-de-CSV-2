@@ -63,8 +63,60 @@ export default function SalesDashboardClient({
 
     const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
-    const { sales, kpis, charts, paretoAnalysisData } = React.useMemo(() => {
-        const filteredSales = initialSales.filter(sale => {
+    // 1. Reconciliación de datos para Paquetes
+    const reconciledSales = React.useMemo(() => {
+        const data = [...initialSales];
+        for (let i = 0; i < data.length; i++) {
+            const current = data[i];
+            const status = (current.status || '').toLowerCase();
+            
+            // Detect "Paquete de X productos"
+            const match = status.match(/paquete de (\d+) productos/);
+            if (match) {
+                const numChildren = parseInt(match[1]);
+                const childrenIndices = [];
+                for (let j = 1; j <= numChildren; j++) {
+                    if (i + j < data.length) childrenIndices.push(i + j);
+                }
+
+                // Campos que hereda el hijo del padre (Datos generales de venta)
+                const parentToChildFields: (keyof Sale)[] = [
+                    'num_venta', 'fecha_venta', 'comprador', 'tienda', 'status', 
+                    'desc_status', 'total', 'direccion', 't_contribuyente', 'cfdi',
+                    'estado', 'c_postal', 'pais', 'transportista', 'num_seguimiento'
+                ];
+
+                // Campos que hereda el padre del hijo (Datos específicos del producto)
+                const childToParentFields: (keyof Sale)[] = [
+                    'sku', 'tit_pub', 'variante', 'price'
+                ];
+
+                childrenIndices.forEach(idx => {
+                    const child = data[idx];
+                    parentToChildFields.forEach(field => {
+                        if ((child[field] === null || child[field] === undefined || child[field] === '') && current[field]) {
+                            (child as any)[field] = current[field];
+                        }
+                    });
+                });
+
+                // Si el padre no tiene SKU/Título, jalarlo del primer hijo
+                if (childrenIndices.length > 0) {
+                    const firstChild = data[childrenIndices[0]];
+                    childToParentFields.forEach(field => {
+                        if ((current[field] === null || current[field] === undefined || current[field] === '') && firstChild[field]) {
+                            (current as any)[field] = firstChild[field];
+                        }
+                    });
+                }
+            }
+        }
+        return data;
+    }, [initialSales]);
+
+    // 2. Filtrado y KPIs basados en datos reconciliados
+    const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
+        const filteredSales = reconciledSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
 
@@ -128,13 +180,16 @@ export default function SalesDashboardClient({
             };
         });
 
+        const detectedCompanies = Array.from(new Set(reconciledSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
+
         return {
             sales: filteredSales,
             kpis: { totalRevenue, totalSales: totalSalesCount, avgSale, topProductName: topProduct.name, topProductRevenue: topProduct.revenue },
             charts: { topProducts: topProductsChart, salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })) },
-            paretoAnalysisData: paretoData
+            paretoAnalysisData: paretoData,
+            dynamicCompanies: detectedCompanies
         };
-    }, [initialSales, company, date]);
+    }, [reconciledSales, company, date]);
 
     const totalPages = Math.ceil(sales.length / PAGE_SIZE);
     const paginatedSales = sales.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -171,7 +226,7 @@ export default function SalesDashboardClient({
                                 <SelectTrigger className="bg-white"><SelectValue placeholder="Todas las tiendas" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Todos">Todas las tiendas</SelectItem>
-                                    {allCompanies.map(c => (
+                                    {dynamicCompanies.map(c => (
                                         <SelectItem key={c} value={c}>{c}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -233,7 +288,7 @@ export default function SalesDashboardClient({
                 <Card className="min-w-0 overflow-hidden border-none shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
-                        <CardDescription>Detalle auditado de transacciones ml_sales.</CardDescription>
+                        <CardDescription>Detalle auditado de transacciones ml_sales (Datos reconciliados para paquetes).</CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="relative w-full overflow-x-auto border-t">
@@ -243,9 +298,9 @@ export default function SalesDashboardClient({
                                         <TableHead className="border-r border-muted text-center bg-muted/10" colSpan={3}>Identificación</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-blue-50/20" colSpan={3}>Estado Venta</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-green-50/20" colSpan={9}>Finanzas ($)</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-orange-50/20" colSpan={7}>Producto / Publicación</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-purple-50/20" colSpan={9}>Facturación y CFDI</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-yellow-50/20" colSpan={7}>Comprador</TableHead>
+                                        <TableHead className="border-r border-muted text-center bg-orange-50/20" colSpan={8}>Producto / Publicación</TableHead>
+                                        <TableHead className="border-r border-muted text-center bg-purple-50/20" colSpan={8}>Facturación y CFDI</TableHead>
+                                        <TableHead className="border-r border-muted text-center bg-yellow-50/20" colSpan={8}>Comprador</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-indigo-50/20" colSpan={6}>Logística S1</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-cyan-50/20" colSpan={7}>Logística S2</TableHead>
                                         <TableHead className="bg-red-50/20 text-center" colSpan={10}>Auditoría Final</TableHead>
@@ -390,7 +445,7 @@ export default function SalesDashboardClient({
                         <div className="text-xs text-muted-foreground font-medium">Página {currentPage} de {totalPages} • <span className="text-primary font-black">{sales.length}</span> registros auditados</div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
-                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages}>Siguiente</Button>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
                         </div>
                     </CardFooter>
                 </Card>
