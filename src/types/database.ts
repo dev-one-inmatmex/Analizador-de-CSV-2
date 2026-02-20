@@ -6,7 +6,7 @@ export interface Usuario {
 
 /**
  * Definición completa de tipos para el sistema de finanzas
- * Sincronizado con la tabla gastos_diarios
+ * Sincronizado con la tabla gastos_diarios (Fase 1)
  */
 
 // --- Catálogos (Enums) ---
@@ -66,12 +66,12 @@ export interface GastoDiario {
   empresa: Empresa;
   capturista?: string; // UUID del usuario
   
-  // Clasificación y Estrategia
+  // Clasificación y Estrategia (Fase 1)
   tipo_transaccion: TipoTransaccion;
   tipo_gasto_impacto: TipoGastoImpacto | null;
   area_funcional: AreaFuncional | null;
   categoria_macro: CategoriaMacro;
-  subcategoria_especifica: string; // El valor del dropdown dinámico
+  subcategoria_especifica: string; // El valor del dropdown dinámico del Nivel 3
   
   // Atribución de Negocio
   canal_asociado: CanalAsociado;
@@ -205,4 +205,32 @@ export interface publi_xsku {
   num_publicaciones: number | null;
 }
 
+export interface catalogo_madre {
+  sku: string;
+  nombre_madre: string | null;
+  company: string | null;
+}
 
+export interface diccionario_skus {
+  sku: string;
+  categoria_madre: string | null;
+  landed_cost: number | null;
+  codigo_en_siggo: string | null;
+  nombre_en_siggo: string | null;
+  rock_en_siggo: number | null;
+  piezas_totales: number | null;
+  estado_en_siggo: string | null;
+  bodega: string | null;
+  bloque: string | null;
+}
+
+export interface skuxpublicaciones {
+  sku: string;
+  item_id: string;
+  nombre_madre: string | null;
+}
+
+export interface publicaciones_por_sku {
+  sku: string;
+  publicaciones: number | null;
+}

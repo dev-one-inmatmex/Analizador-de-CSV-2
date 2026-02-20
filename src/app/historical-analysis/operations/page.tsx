@@ -1,22 +1,20 @@
-
 'use client';
 
 import * as React from 'react';
 import { 
   add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, 
-  startOfDay, endOfDay, startOfWeek, endOfWeek, startOfYear, endOfYear, 
-  formatISO, parseISO 
+  startOfDay, endOfDay, parseISO 
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { 
-  BarChart as BarChartIcon, ChevronLeft, ChevronRight, Home, 
+  BarChart as BarChartIcon, ChevronLeft, ChevronRight,
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
-  Settings, Bell, Search, Info, Filter, Download
+  Bell, Search, Filter, Download
 } from 'lucide-react';
 import { 
-  Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Cell, Legend, Pie, PieChart, 
+  Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell
 } from 'recharts';
 
@@ -31,12 +29,16 @@ import {
     CATEGORIAS_MACRO,
     METODOS_PAGO,
     BANCOS,
-    CUENTAS
+    CUENTAS,
+    TIPO_GASTO_IMPACTO_LIST,
+    AREAS_FUNCIONALES,
+    CLASIFICACIONES_OPERATIVAS,
+    SUBCATEGORIAS_NIVEL_3
 } from './schemas';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -45,12 +47,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { GastoDiario } from '@/types/database';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Label } from '@/components/ui/label';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
@@ -200,7 +201,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader className="pb-2"><CardTitle className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Balance del Periodo</CardTitle></CardHeader>
+                    <CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Balance del Periodo</CardHeader>
                     <CardContent className="flex items-center justify-center gap-12 py-4">
                         <div className="h-[140px] w-[140px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -219,7 +220,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                     </CardContent>
                 </Card>
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader className="pb-2"><CardTitle className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Estado del Presupuesto</CardTitle></CardHeader>
+                    <CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Estado del Presupuesto</CardHeader>
                     <CardContent className="space-y-6 py-6">
                         <div className="flex justify-between items-baseline">
                             <p className="text-4xl font-black">{money(stats.totalExpense)} <span className="text-lg font-medium text-muted-foreground ml-1">gastado</span></p>
@@ -332,7 +333,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             {transactions.length > 0 ? (
                                 transactions.map((t: GastoDiario) => (
                                     <TableRow key={t.id} className="hover:bg-muted/5 h-14">
-                                        <TableCell className="text-[11px] font-medium text-slate-600">{format(parseISO(t.fecha), 'dd/MM/yyyy')}</TableCell>
+                                        <TableCell className="text-[11px] font-medium text-slate-600">{(t.fecha)}</TableCell>
                                         <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200 bg-slate-50">{t.empresa}</Badge></TableCell>
                                         <TableCell>
                                             <div className="font-bold text-[11px] text-[#1e293b]">{t.categoria_macro}</div>
@@ -402,14 +403,38 @@ function SettingsView() {
 function TransactionForm({ transaction, onSubmit, onClose }: any) {
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(expenseFormSchema),
-        defaultValues: transaction ? { ...transaction, fecha: new Date(transaction.fecha) } : {
-            fecha: new Date(), empresa: 'MTM', tipo_transaccion: 'GASTO', categoria_macro: 'OPERATIVO', canal_asociado: 'GENERAL', es_fijo: false, es_recurrente: false, metodo_pago: 'TRANSFERENCIA', banco: 'BBVA', cuenta: 'OPERATIVA'
+        defaultValues: transaction ? { ...transaction, fecha: parseISO(transaction.fecha) } : {
+            fecha: new Date(), 
+            empresa: 'MTM', 
+            tipo_transaccion: 'GASTO', 
+            categoria_macro: 'OPERATIVO', 
+            canal_asociado: 'GENERAL', 
+            clasificacion_operativa: 'COMPARTIDO',
+            es_fijo: false, 
+            es_recurrente: false, 
+            metodo_pago: 'TRANSFERENCIA', 
+            banco: 'BBVA', 
+            cuenta: 'OPERATIVA',
+            responsable: ''
         }
     });
+
+    const watchedImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
+    const watchedChannel = useWatch({ control: form.control, name: 'canal_asociado' });
+
+    // Lógica Fase 1: Atribución automática para Canal General
+    React.useEffect(() => {
+        if (watchedChannel === 'GENERAL') {
+            form.setValue('clasificacion_operativa', 'COMPARTIDO');
+        }
+    }, [watchedChannel, form]);
+
+    const subcategorias = watchedImpact ? (SUBCATEGORIAS_NIVEL_3[watchedImpact] || []) : [];
 
     return (
         <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8">
             <DialogHeader><DialogTitle className="text-2xl font-black uppercase tracking-tighter text-primary">{transaction ? 'Editar' : 'Registrar'} Movimiento</DialogTitle></DialogHeader>
+            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="metodo_pago" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Método Pago</Label>
@@ -418,16 +443,17 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
                 )} />
                 <FormField control={form.control} name="banco" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Banco</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="cuenta" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo de Cuenta</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <FormField control={form.control} name="empresa" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa</Label>
                         <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
@@ -441,24 +467,50 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
                 <FormField control={form.control} name="monto" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label><FormControl><Input type="number" step="0.01" className="h-10 font-black text-lg" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
+                <FormField control={form.control} name="responsable" render={({ field }) => (
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Responsable</Label><FormControl><Input className="h-10 text-xs font-bold" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                )} />
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 1: Tipo Gasto</Label>
+                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPO_GASTO_IMPACTO_LIST.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="area_funcional" render={({ field }) => (
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 2: Área Funcional</Label>
+                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 3: Subcategoría</Label>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue placeholder="Primero elija Nivel 1" /></SelectTrigger></FormControl><SelectContent>{subcategorias.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                    </FormItem>
+                )} />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="categoria_macro" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro</Label>
                         <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CATEGORIAS_MACRO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
-                <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Concepto / Subcategoría</Label><FormControl><Input className="h-10 text-xs font-bold" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
-                )} />
                 <FormField control={form.control} name="canal_asociado" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Canal</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace('_', ' ')}</SelectItem>)}</SelectContent></Select>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución: Canal</Label>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución: Clasificación</Label>
+                        <Select onValueChange={field.onChange} value={field.value || ''} disabled={watchedChannel === 'GENERAL'}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
             </div>
+
             <DialogFooter className="gap-3 pt-6 border-t"><Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px]">Cancelar</Button><Button type="submit" className="bg-[#2D5A4C] font-black uppercase text-[10px] px-8">{transaction ? 'Guardar Cambios' : 'Registrar Movimiento'}</Button></DialogFooter>
         </form></Form>
     );
 }
 
+import { Switch } from '@/components/ui/switch';
