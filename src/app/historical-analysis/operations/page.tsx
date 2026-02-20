@@ -630,12 +630,9 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
                 <DialogHeader>
-                    <div className="flex items-center justify-between">
-                        <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
-                            {transaction ? 'Actualizar' : 'Registrar'} Movimiento
-                        </DialogTitle>
-                        <Button type="button" variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4"/></Button>
-                    </div>
+                    <DialogTitle className="text-2xl font-black uppercase tracking-tighter">
+                        {transaction ? 'Actualizar' : 'Registrar'} Movimiento
+                    </DialogTitle>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">

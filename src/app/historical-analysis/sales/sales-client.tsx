@@ -163,9 +163,6 @@ export default function SalesDashboardClient({
             }
             
             // Si es hijo, sumamos su contribución. Si es venta normal, su total.
-            // Para evitar duplicar, solo sumamos el 'total' de registros financieros o hijos individuales
-            // En nuestra lógica de herencia, el total del padre se copió a los hijos.
-            // Usamos una lógica proporcional simple si es necesario, o solo sumamos hijos para detalle.
             const valueToAdd = (sale as any)._isPackageChild ? (sale.total || 0) / 2 : (sale.total || 0); // Ajuste simple
             productStats[key].revenue += valueToAdd;
             productStats[key].units += (sale.unidades || 0);
@@ -475,13 +472,12 @@ export default function SalesDashboardClient({
 
             <Dialog open={isParetoModalOpen} onOpenChange={setIsParetoModalOpen}>
                 <DialogContent className="max-w-5xl h-[85vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/30">
+                    <div className="px-6 py-4 border-b bg-muted/30">
                         <DialogHeader>
                             <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
                                 <BarChart3 className="h-6 w-6 text-primary" /> Auditoría Pareto (Impacto 80/20)
                             </DialogTitle>
                         </DialogHeader>
-                        <Button variant="ghost" size="icon" onClick={() => setIsParetoModalOpen(false)} className="rounded-full"><X className="h-5 w-5" /></Button>
                     </div>
                     
                     <div className="flex-1 overflow-auto p-6">
