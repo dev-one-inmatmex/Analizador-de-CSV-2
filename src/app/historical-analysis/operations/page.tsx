@@ -37,6 +37,8 @@ import {
     SUBCATEGORIAS_NIVEL_3
 } from './schemas';
 
+import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -98,42 +100,40 @@ export default function OperationsPage() {
 
     const handleSave = async (values: TransactionFormValues) => {
         try {
-            if (!supabase) return;
-            const dataToSave = { 
-                ...values, 
-                fecha: format(values.fecha, 'yyyy-MM-dd'),
-                monto: Number(values.monto)
-            };
+            let result;
             
             if (values.tipo_gasto_impacto === 'NOMINA' && values.es_nomina_mixta) {
+                // Lógica de Nómina Mixta (Fase 4): Fragmentar en el momento del registro
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
                     { canal: 'MAYOREO', porcentaje: 0.30 },
                     { canal: 'FISICO', porcentaje: 0.10 }
                 ];
 
-                const inserts = distribucion.map(dest => ({
-                    ...dataToSave,
-                    monto: Number(values.monto) * dest.porcentaje,
-                    canal_asociado: dest.canal,
-                    clasificacion_operativa: 'SEMI_DIRECTO',
-                    notas: `${values.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
-                    es_nomina_mixta: false 
-                }));
-
-                const { error } = await supabase.from('gastos_diarios').insert(inserts as any);
-                if (error) throw error;
-            } else {
-                let res;
-                if (editingTransaction) {
-                    res = await supabase.from('gastos_diarios').update(dataToSave as any).eq('id', editingTransaction.id);
-                } else {
-                    res = await supabase.from('gastos_diarios').insert([dataToSave] as any);
+                for (const dest of distribucion) {
+                    const fraccionado = {
+                        ...values,
+                        monto: Number(values.monto) * dest.porcentaje,
+                        canal_asociado: dest.canal as any,
+                        clasificacion_operativa: 'SEMI_DIRECTO' as any,
+                        notas: `${values.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
+                        es_nomina_mixta: false 
+                    };
+                    const res = await addExpenseAction(fraccionado);
+                    if (res.error) throw new Error(res.error);
                 }
-                if (res.error) throw res.error;
+                result = { data: "Nómina mixta registrada exitosamente en múltiples canales." };
+            } else {
+                if (editingTransaction && editingTransaction.id) {
+                    result = await updateExpenseAction(editingTransaction.id, values);
+                } else {
+                    result = await addExpenseAction(values);
+                }
             }
 
-            toast({ title: "Éxito", description: "Movimiento registrado correctamente." });
+            if (result.error) throw new Error(result.error);
+
+            toast({ title: "Éxito", description: result.data || "Movimiento registrado correctamente." });
             setIsFormOpen(false);
             setEditingTransaction(null);
             fetchAllData();
@@ -144,10 +144,9 @@ export default function OperationsPage() {
 
     const handleDelete = React.useCallback(async (id: number) => {
         try {
-            if (!supabase) return;
-            const { error } = await supabase.from('gastos_diarios').delete().eq('id', id);
-            if (error) throw error;
-            toast({ title: "Eliminado", description: "Registro borrado." });
+            const result = await deleteExpenseAction(id);
+            if (result.error) throw new Error(result.error);
+            toast({ title: "Eliminado", description: "Registro borrado correctamente." });
             fetchAllData();
         } catch (e: any) {
             toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -208,10 +207,9 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                 if (t.es_fijo) {
                     fixedCosts += (t.monto || 0);
                     // Fase 7: Clasificación por rubros principales
-                    const cat = t.categoria_macro;
                     const sub = (t.subcategoria_especifica || '').toLowerCase();
                     if (sub.includes('renta')) rubrosFijos.renta += t.monto;
-                    else if (cat === 'NOMINA') rubrosFijos.nomina += t.monto;
+                    else if (t.tipo_gasto_impacto === 'NOMINA') rubrosFijos.nomina += t.monto;
                     else if (['cfe', 'agua', 'internet'].some(s => sub.includes(s))) rubrosFijos.servicios += t.monto;
                     else if (sub.includes('software')) rubrosFijos.software += t.monto;
                 }
@@ -294,7 +292,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                     <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Estructura del Gasto Fijo</p></CardHeader>
                     <CardContent className="h-[180px] p-0">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={[
+                            <RechartsBarChart data={[
                                 { name: 'Nómina', value: stats.rubrosFijos.nomina },
                                 { name: 'Renta', value: stats.rubrosFijos.renta },
                                 { name: 'Servicios', value: stats.rubrosFijos.servicios },
@@ -304,7 +302,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                                 <YAxis dataKey="name" type="category" fontSize={9} width={60} axisLine={false} tickLine={false} />
                                 <Tooltip formatter={(v: number) => money(v)} cursor={{fill: 'transparent'}} />
                                 <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={15} />
-                            </BarChart>
+                            </RechartsBarChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
@@ -429,7 +427,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-8">
-            {/* FASE 7: Gráfico de Punto de Equilibrio */}
             <Card className="border-none shadow-sm bg-white overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
@@ -641,7 +638,7 @@ function BudgetsView({ transactions }: any) {
         const categories = [...new Set(fixed.map((t: any) => t.categoria_macro))];
         return categories.map((cat: any) => {
             const current = fixed.filter((t: any) => t.categoria_macro === cat).reduce((s: number, t: any) => s + (t.monto || 0), 0);
-            return { cat, current, limit: 25000 }; // Límite ejemplo
+            return { cat, current, limit: 25000 }; 
         });
     }, [transactions]);
 
