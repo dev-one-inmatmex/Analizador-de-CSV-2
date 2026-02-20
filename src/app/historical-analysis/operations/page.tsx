@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { 
   add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, 
-  startOfDay, endOfDay, parseISO, isValid
+  startOfDay, endOfDay, parseISO, isValid, isToday
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm, useWatch } from 'react-hook-form';
@@ -70,9 +70,11 @@ export default function OperationsPage() {
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingTransaction, setEditingTransaction] = React.useState<GastoDiario | null>(null);
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
+    const [isClient, setIsClient] = React.useState(false);
 
     // Asegurar fecha actual en cliente para evitar hydration mismatch
     React.useEffect(() => {
+        setIsClient(true);
         setCurrentDate(startOfDay(new Date()));
     }, []);
 
@@ -115,8 +117,8 @@ export default function OperationsPage() {
     }, [currentDate, toast]);
 
     React.useEffect(() => { 
-        fetchAllData(); 
-    }, [fetchAllData]);
+        if (isClient) fetchAllData(); 
+    }, [fetchAllData, isClient]);
 
     const handleSave = async (values: TransactionFormValues) => {
         try {
@@ -176,6 +178,14 @@ export default function OperationsPage() {
         setEditingTransaction(t);
         setIsFormOpen(true);
     }, []);
+
+    if (!isClient) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen flex-col bg-muted/20 min-w-0">
@@ -241,14 +251,17 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
     const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[] } | null>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-    // Centrar automáticamente el día seleccionado
+    // Centrar automáticamente el día seleccionado con un pequeño retraso para asegurar render
     React.useEffect(() => {
-        if (scrollContainerRef.current) {
-            const selectedElement = scrollContainerRef.current.querySelector('[data-selected="true"]');
-            if (selectedElement) {
-                selectedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        const timeoutId = setTimeout(() => {
+            if (scrollContainerRef.current) {
+                const selectedElement = scrollContainerRef.current.querySelector('[data-selected="true"]');
+                if (selectedElement) {
+                    selectedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
             }
-        }
+        }, 100);
+        return () => clearTimeout(timeoutId);
     }, [currentDate]);
 
     const stats = React.useMemo(() => {
@@ -401,28 +414,48 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
             </div>
 
             <Card className="border-none shadow-sm overflow-hidden bg-white">
-                <div className="flex items-center px-2 py-4 border-b">
-                    <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}><ChevronLeft className="h-5 w-5" /></Button>
+                <div className="flex items-center justify-between px-6 py-3 border-b">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] uppercase font-black text-[#2D5A4C] tracking-widest">Periodo de Auditoría</span>
+                        <span className="text-sm font-black uppercase">{format(currentDate, 'MMMM yyyy', { locale: es })}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
+                        <div className="flex items-center">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}><ChevronLeft className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: 1 }))}><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center px-2 py-4">
                     <ScrollArea className="flex-1" viewportRef={scrollContainerRef}>
                         <div className="flex gap-2 px-4 pb-2">
-                            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i) => (
-                                <button 
-                                    key={i} 
-                                    onClick={() => setCurrentDate(day)} 
-                                    data-selected={isSameDay(day, currentDate)}
-                                    className={cn(
-                                        "flex flex-col items-center justify-center min-w-[54px] h-16 rounded-xl transition-all duration-300", 
-                                        isSameDay(day, currentDate) ? "bg-[#2D5A4C] text-white shadow-lg scale-105" : "hover:bg-muted text-muted-foreground"
-                                    )}
-                                >
-                                    <span className="text-[10px] uppercase font-bold tracking-tighter opacity-80">{format(day, 'eee', { locale: es }).substring(0, 2)}</span>
-                                    <span className="text-lg font-black">{format(day, 'd')}</span>
-                                </button>
-                            ))}
+                            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i) => {
+                                const isSelected = isSameDay(day, currentDate);
+                                const isDayToday = isToday(day);
+                                return (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => setCurrentDate(day)} 
+                                        data-selected={isSelected}
+                                        className={cn(
+                                            "flex flex-col items-center justify-center min-w-[54px] h-16 rounded-xl transition-all duration-300 relative", 
+                                            isSelected ? "bg-[#2D5A4C] text-white shadow-lg scale-105" : "hover:bg-muted text-muted-foreground"
+                                        )}
+                                    >
+                                        <span className={cn("text-[10px] uppercase font-bold tracking-tighter opacity-80", isSelected ? "text-white/80" : "text-slate-400")}>
+                                            {format(day, 'eee', { locale: es }).substring(0, 2)}
+                                        </span>
+                                        <span className="text-lg font-black">{format(day, 'd')}</span>
+                                        {isDayToday && !isSelected && (
+                                            <div className="absolute bottom-2 h-1 w-1 rounded-full bg-primary" />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                         <ScrollBar orientation="horizontal" className="invisible" />
                     </ScrollArea>
-                    <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setCurrentDate(add(currentDate, { months: 1 }))}><ChevronRight className="h-5 w-5" /></Button>
                 </div>
             </Card>
 
@@ -430,7 +463,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Flujo de Caja Diario
+                            <Activity className="h-5 w-5 text-primary" /> Flujo de Caja Diario (Ingresos vs Gastos)
                         </CardTitle>
                         <CardDescription>Visualiza ingresos y gastos día a día. Haz clic en una barra para ver el detalle.</CardDescription>
                     </div>
