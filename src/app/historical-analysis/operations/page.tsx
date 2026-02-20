@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -198,7 +199,7 @@ export default function OperationsPage() {
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: any) {
     const stats = React.useMemo(() => {
         let expense = 0, income = 0, fixedCosts = 0;
-        let rubrosFijos = { renta: 0, nomina: 0, servicios: 0, software: 0 };
+        let rubrosFijos = { nomina: 0, renta: 0, servicios: 0, software: 0 };
 
         transactions.forEach((t: any) => {
             if (t.tipo_transaccion === 'GASTO') {
@@ -229,6 +230,11 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
         };
     }, [transactions]);
 
+    const pieData = React.useMemo(() => [
+        { name: 'Ingresos', value: stats.totalIncome, color: '#3b82f6' },
+        { name: 'Gastos', value: stats.totalExpense, color: '#f43f5e' }
+    ], [stats]);
+
     const barChartData = React.useMemo(() => {
         const start = startOfMonth(currentDate);
         const end = endOfMonth(currentDate);
@@ -256,7 +262,29 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card className="border-none shadow-sm bg-white">
+                    <CardHeader className="pb-2">
+                        <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Balance del Periodo</p>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-between pt-2">
+                        <div className="h-[120px] w-[120px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={pieData} innerRadius={35} outerRadius={50} paddingAngle={5} dataKey="value">
+                                        {pieData.map((entry, index) => <RechartsCell key={`cell-${index}`} fill={entry.color} />)}
+                                    </Pie>
+                                    <Tooltip formatter={(v: number) => money(v)} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="text-right space-y-1">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase">Balance Neto</p>
+                            <p className={cn("text-2xl font-black", stats.balance >= 0 ? "text-primary" : "text-destructive")}>{money(stats.balance)}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card className="border-none shadow-sm bg-white">
                     <CardHeader className="pb-2 flex flex-row items-center justify-between">
                         <div className="space-y-1">
@@ -265,41 +293,41 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                         </div>
                         <Target className="h-5 w-5 text-muted-foreground opacity-50" />
                     </CardHeader>
-                    <CardContent className="pt-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-3 bg-muted/5 rounded-lg border border-border/50">
-                                <p className="text-[8px] font-bold uppercase text-muted-foreground">Supervivencia (BEP)</p>
-                                <p className="text-sm font-black">{money(stats.metaSupervivencia)}</p>
+                    <CardContent className="pt-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 bg-muted/5 rounded-lg border border-border/50">
+                                <p className="text-[8px] font-bold uppercase text-muted-foreground">Supervivencia</p>
+                                <p className="text-xs font-black">{money(stats.metaSupervivencia)}</p>
                             </div>
-                            <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
-                                <p className="text-[8px] font-bold uppercase text-primary">Ingresos Actuales</p>
-                                <p className="text-sm font-black text-primary">{money(stats.totalIncome)}</p>
+                            <div className="p-2 bg-primary/5 rounded-lg border border-primary/10">
+                                <p className="text-[8px] font-bold uppercase text-primary">Ingresos</p>
+                                <p className="text-xs font-black text-primary">{money(stats.totalIncome)}</p>
                             </div>
                         </div>
-                        <div className="mt-6 space-y-2">
-                            <div className="flex justify-between items-center text-[10px] font-bold uppercase">
+                        <div className="mt-4 space-y-1.5">
+                            <div className="flex justify-between items-center text-[9px] font-bold uppercase">
                                 <span>Progreso Punto Equilibrio</span>
                                 <span>{stats.progresoSupervivencia.toFixed(0)}%</span>
                             </div>
-                            <Progress value={stats.progresoSupervivencia} className="h-2 bg-muted" />
+                            <Progress value={stats.progresoSupervivencia} className="h-1.5 bg-muted" />
                         </div>
                     </CardContent>
                 </Card>
                 
                 <Card className="border-none shadow-sm bg-white overflow-hidden">
                     <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Estructura del Gasto Fijo</p></CardHeader>
-                    <CardContent className="h-[180px] p-0">
+                    <CardContent className="h-[150px] p-0">
                         <ResponsiveContainer width="100%" height="100%">
                             <RechartsBarChart data={[
                                 { name: 'Nómina', value: stats.rubrosFijos.nomina },
                                 { name: 'Renta', value: stats.rubrosFijos.renta },
                                 { name: 'Servicios', value: stats.rubrosFijos.servicios },
                                 { name: 'Software', value: stats.rubrosFijos.software }
-                            ]} layout="vertical" margin={{ left: 10, right: 30 }}>
+                            ]} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" fontSize={9} width={60} axisLine={false} tickLine={false} />
                                 <Tooltip formatter={(v: number) => money(v)} cursor={{fill: 'transparent'}} />
-                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={15} />
+                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={12} />
                             </RechartsBarChart>
                         </ResponsiveContainer>
                     </CardContent>
