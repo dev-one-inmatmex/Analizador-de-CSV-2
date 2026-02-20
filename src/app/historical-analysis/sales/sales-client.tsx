@@ -202,8 +202,8 @@ export default function SalesDashboardClient({
                                     <YAxis yAxisId="left" orientation="left" tickFormatter={v => `$${v/1000}k`} tick={{fill: '#666'}} />
                                     <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{fill: '#666'}} />
                                     <Tooltip formatter={(v, name) => [name === 'Ingresos' ? money(Number(v)) : `${Number(v).toFixed(1)}%`, name]} />
-                                    <Bar yAxisId="left" dataKey="value" fill="hsl(var(--primary))" name="Ingresos" radius={[4, 4, 0, 0]} />
-                                    <Line yAxisId="right" dataKey="cumulative" stroke="hsl(var(--destructive))" name="Acumulado %" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--destructive))' }} />
+                                    <Bar yAxisId="left" dataKey="value" fill="#2D5A4C" name="Ingresos" radius={[4, 4, 0, 0]} />
+                                    <Line yAxisId="right" dataKey="cumulative" stroke="#f43f5e" name="Acumulado %" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e' }} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -231,7 +231,7 @@ export default function SalesDashboardClient({
                             <CardDescription>Detalle auditado de transacciones ml_sales.</CardDescription>
                         </div>
                         <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)} className="gap-2 font-bold bg-primary/5 border-primary/20 hover:bg-primary/10">
-                            <BarChart3 className="h-4 w-4" /> Despliegue Pareto
+                            <BarChart3 className="h-4 w-4" /> Auditoría Pareto (Impacto 80/20)
                         </Button>
                     </CardHeader>
                     <CardContent className="p-0">
@@ -297,9 +297,9 @@ export default function SalesDashboardClient({
                                         <TableHead className="border-r">Seguimiento</TableHead>
                                         <TableHead className="border-r">URL Seg.</TableHead>
                                         <TableHead className="border-r text-center">Unid 2</TableHead>
-                                        <TableHead className="border-r">F. Entrega 2</TableHead>
-                                        <TableHead className="border-r">F. Camino 2</TableHead>
-                                        <TableHead className="border-r">F. Entregado 2</TableHead>
+                                        <TableHead className="border-r">{`F. Entrega 2`}</TableHead>
+                                        <TableHead className="border-r">{`F. Camino 2`}</TableHead>
+                                        <TableHead className="border-r">{`F. Entregado 2`}</TableHead>
                                         <TableHead className="border-r">Transp. 2</TableHead>
                                         <TableHead className="border-r">Seg. 2</TableHead>
                                         <TableHead className="border-r">URL Seg 2</TableHead>
@@ -420,23 +420,25 @@ export default function SalesDashboardClient({
                                 <TableHeader className="bg-muted/50">
                                     <TableRow className="h-12">
                                         <TableHead className="font-bold">Producto / Publicación</TableHead>
-                                        <TableHead className="text-right font-bold">Ingresos Acum.</TableHead>
-                                        <TableHead className="text-right font-bold">Volumen</TableHead>
+                                        <TableHead className="text-right font-bold">Ingresos ($)</TableHead>
+                                        <TableHead className="text-right font-bold">Piezas (unid)</TableHead>
                                         <TableHead className="text-right font-bold">% Acumulado</TableHead>
+                                        <TableHead className="text-center font-bold">Zona</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {paretoAnalysisData.slice((paretoPage-1)*15, paretoPage*15).map((p, i) => (
-                                        <TableRow key={i} className="h-12 hover:bg-muted/30 transition-colors">
+                                    {paretoAnalysisData.slice((paretoPage-1)*20, paretoPage*20).map((p, i) => (
+                                        <TableRow key={i} className={cn("h-12 hover:bg-muted/30 transition-colors", p.cumulativePercentage <= 80 ? "bg-primary/5" : "")}>
                                             <TableCell className="max-w-md">
                                                 <div className="font-bold text-xs truncate" title={p.name}>{p.name}</div>
                                                 <div className="text-[10px] text-muted-foreground font-mono">{p.sku}</div>
                                             </TableCell>
                                             <TableCell className="text-right font-black text-primary">{money(p.revenue)}</TableCell>
                                             <TableCell className="text-right font-medium">{p.units.toLocaleString()}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Badge variant={p.cumulativePercentage <= 80 ? 'default' : 'secondary'} className={cn("font-black", p.cumulativePercentage <= 80 ? "bg-green-600" : "")}>
-                                                    {p.cumulativePercentage.toFixed(1)}%
+                                            <TableCell className="text-right font-bold">{p.cumulativePercentage.toFixed(1)}%</TableCell>
+                                            <TableCell className="text-center">
+                                                <Badge variant={p.cumulativePercentage <= 80 ? 'default' : 'outline'} className={cn(p.cumulativePercentage <= 80 ? "bg-[#2D5A4C]" : "")}>
+                                                    {p.cumulativePercentage <= 80 ? 'Impacto A' : 'B/C'}
                                                 </Badge>
                                             </TableCell>
                                         </TableRow>
@@ -447,10 +449,10 @@ export default function SalesDashboardClient({
                     </div>
                     
                     <div className="px-6 py-4 border-t bg-muted/10 flex items-center justify-between">
-                        <div className="text-xs text-muted-foreground font-medium">Página {paretoPage} de {Math.ceil(paretoAnalysisData.length / 15)}</div>
+                        <div className="text-xs text-muted-foreground font-medium">Página {paretoPage} de {Math.ceil(paretoAnalysisData.length / 20)}</div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={() => setParetoPage(p => Math.max(1, p - 1))} disabled={paretoPage === 1}>Anterior</Button>
-                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)} disabled={paretoPage * 15 >= paretoAnalysisData.length}>Siguiente</Button>
+                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)} disabled={paretoPage * 20 >= paretoAnalysisData.length}>Siguiente</Button>
                         </div>
                     </div>
                 </DialogContent>
