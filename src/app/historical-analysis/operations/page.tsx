@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { 
   add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, 
-  startOfDay, endOfDay, parseISO, isValid, isToday
+  startOfDay, endOfDay, parseISO, isValid, isToday, subMonths, startOfYear, endOfYear
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm, useWatch } from 'react-hook-form';
@@ -14,7 +14,7 @@ import {
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
   Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
-  PlusCircle, Edit2, Save, HelpCircle
+  PlusCircle, Edit2, Save, HelpCircle, CalendarDays
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -72,6 +72,12 @@ export default function OperationsPage() {
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
     const [isClient, setIsClient] = React.useState(false);
 
+    // Filtros avanzados
+    const [periodType, setPeriodType] = React.useState<'month' | 'six_months' | 'year' | 'custom'>('month');
+    const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
+    const [filterArea, setFilterArea] = React.useState<string>('TODAS');
+    const [filterImpact, setFilterImpact] = React.useState<string>('TODOS');
+
     React.useEffect(() => {
         setIsClient(true);
         setCurrentDate(startOfDay(new Date()));
@@ -94,15 +100,35 @@ export default function OperationsPage() {
         if (!supabase) return;
         setIsLoading(true);
         try {
-            const start = startOfMonth(currentDate);
-            const end = endOfMonth(currentDate);
+            let start, end;
 
-            const { data, error } = await supabase
+            switch (periodType) {
+                case 'six_months':
+                    start = startOfMonth(subMonths(currentDate, 5));
+                    end = endOfMonth(currentDate);
+                    break;
+                case 'year':
+                    start = startOfYear(currentDate);
+                    end = endOfYear(currentDate);
+                    break;
+                case 'month':
+                default:
+                    start = startOfMonth(currentDate);
+                    end = endOfMonth(currentDate);
+                    break;
+            }
+
+            let query = supabase
                 .from('gastos_diarios')
                 .select('*')
                 .gte('fecha', format(start, 'yyyy-MM-dd'))
-                .lte('fecha', format(end, 'yyyy-MM-dd'))
-                .order('fecha', { ascending: false });
+                .lte('fecha', format(end, 'yyyy-MM-dd'));
+
+            if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
+            if (filterArea !== 'TODAS') query = query.eq('area_funcional', filterArea);
+            if (filterImpact !== 'TODOS') query = query.eq('tipo_gasto_impacto', filterImpact);
+
+            const { data, error } = await query.order('fecha', { ascending: false });
 
             if (error) throw error;
             setTransactions(data || []);
@@ -112,7 +138,7 @@ export default function OperationsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [currentDate, toast]);
+    }, [currentDate, periodType, filterCompany, filterArea, filterImpact, toast]);
 
     React.useEffect(() => { 
         if (isClient) fetchAllData(); 
@@ -207,8 +233,62 @@ export default function OperationsPage() {
                 </div>
             </header>
 
+            {/* Barra de Filtros Avanzados */}
+            <div className="bg-white border-b px-4 py-3 sm:px-6">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                        <Select value={periodType} onValueChange={(v: any) => setPeriodType(v)}>
+                            <SelectTrigger className="h-8 w-[160px] text-xs font-bold uppercase">
+                                <SelectValue placeholder="Periodo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="month" className="text-xs font-bold uppercase">Mes Actual</SelectItem>
+                                <SelectItem value="six_months" className="text-xs font-bold uppercase">Últimos 6 Meses (Fase 7)</SelectItem>
+                                <SelectItem value="year" className="text-xs font-bold uppercase">Año Actual</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="h-4 w-px bg-border hidden sm:block" />
+
+                    <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-muted-foreground" />
+                        <Select value={filterCompany} onValueChange={setFilterCompany}>
+                            <SelectTrigger className="h-8 w-[130px] text-xs font-bold uppercase">
+                                <SelectValue placeholder="Empresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TODAS" className="text-xs font-bold uppercase">Todas las Empresas</SelectItem>
+                                {EMPRESAS.map(e => <SelectItem key={e} value={e} className="text-xs font-bold uppercase">{e}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={filterArea} onValueChange={setFilterArea}>
+                            <SelectTrigger className="h-8 w-[150px] text-xs font-bold uppercase">
+                                <SelectValue placeholder="Área" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TODAS" className="text-xs font-bold uppercase">Todas las Áreas</SelectItem>
+                                {AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a} className="text-xs font-bold uppercase">{a.replace(/_/g, ' ')}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={filterImpact} onValueChange={setFilterImpact}>
+                            <SelectTrigger className="h-8 w-[150px] text-xs font-bold uppercase">
+                                <SelectValue placeholder="Impacto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TODOS" className="text-xs font-bold uppercase">Todos los Impactos</SelectItem>
+                                {impacts.map(i => <SelectItem key={i} value={i} className="text-xs font-bold uppercase">{i.replace(/_/g, ' ')}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </div>
+
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
-                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} />}
+                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} />}
                 {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={handleEdit} onDeleteTransaction={handleDelete} />}
                 {currentView === 'presupuestos' && (
                     <BudgetsView 
@@ -245,7 +325,7 @@ export default function OperationsPage() {
     );
 }
 
-function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: any) {
+function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, periodType }: any) {
     const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[] } | null>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -300,13 +380,28 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
     ], [stats]);
 
     const barChartData = React.useMemo(() => {
-        const start = startOfMonth(currentDate);
-        const end = endOfMonth(currentDate);
+        let start, end;
+        if (periodType === 'month') {
+            start = startOfMonth(currentDate);
+            end = endOfMonth(currentDate);
+        } else if (periodType === 'six_months') {
+            start = startOfMonth(subMonths(currentDate, 5));
+            end = endOfMonth(currentDate);
+        } else {
+            start = startOfYear(currentDate);
+            end = endOfYear(currentDate);
+        }
+
         const steps = eachDayOfInterval({ start, end });
-        return steps.map(step => {
+        // Si el periodo es muy largo, agrupamos por semana o mes para no saturar la gráfica
+        const limit = periodType === 'month' ? 31 : (periodType === 'six_months' ? 180 : 365);
+        
+        return steps.filter((_, i) => periodType === 'month' || i % (periodType === 'six_months' ? 7 : 30) === 0).map(step => {
             const dayT = transactions.filter((t: any) => {
                 try {
-                    return isSameDay(parseISO(t.fecha), step);
+                    const tDate = parseISO(t.fecha);
+                    if (periodType === 'month') return isSameDay(tDate, step);
+                    return tDate >= startOfDay(step) && tDate <= (periodType === 'six_months' ? endOfDay(add(step, { days: 6 })) : endOfMonth(step));
                 } catch (e) { return false; }
             });
             let expense = 0, income = 0;
@@ -315,20 +410,20 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                 else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
             });
             return { 
-                name: format(step, 'd'), 
+                name: format(step, periodType === 'month' ? 'd' : 'MMM', { locale: es }), 
                 fullDate: step,
                 Ingresos: income, 
                 Gastos: expense,
                 records: dayT
             };
         });
-    }, [transactions, currentDate]);
+    }, [transactions, currentDate, periodType]);
 
     const handleChartClick = (data: any) => {
         if (data && data.activePayload && data.activePayload.length > 0) {
             const dayInfo = data.activePayload[0].payload;
             setSelectedDayData({
-                day: format(dayInfo.fullDate, 'eeee d \'de\' MMMM', { locale: es }),
+                day: format(dayInfo.fullDate, periodType === 'month' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
                 records: dayInfo.records
             });
         }
@@ -410,59 +505,61 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                 </Card>
             </div>
 
-            <Card className="border-none shadow-sm overflow-hidden bg-white">
-                <div className="flex items-center justify-between px-6 py-3 border-b">
-                    <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-black text-[#2D5A4C] tracking-widest">Periodo de Auditoría</span>
-                        <span className="text-sm font-black uppercase">{format(currentDate, 'MMMM yyyy', { locale: es })}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
-                        <div className="flex items-center">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}><ChevronLeft className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: 1 }))}><ChevronRight className="h-4 w-4" /></Button>
+            {periodType === 'month' && (
+                <Card className="border-none shadow-sm overflow-hidden bg-white">
+                    <div className="flex items-center justify-between px-6 py-3 border-b">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-black text-[#2D5A4C] tracking-widest">Periodo de Auditoría</span>
+                            <span className="text-sm font-black uppercase">{format(currentDate, 'MMMM yyyy', { locale: es })}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
+                            <div className="flex items-center">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}><ChevronLeft className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: 1 }))}><ChevronRight className="h-4 w-4" /></Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="flex items-center px-2 py-4">
-                    <ScrollArea className="flex-1" viewportRef={scrollContainerRef}>
-                        <div className="flex gap-2 px-4 pb-2">
-                            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i) => {
-                                const isSelected = isSameDay(day, currentDate);
-                                const isDayToday = isToday(day);
-                                return (
-                                    <button 
-                                        key={i} 
-                                        onClick={() => setCurrentDate(day)} 
-                                        data-selected={isSelected}
-                                        className={cn(
-                                            "flex flex-col items-center justify-center min-w-[54px] h-16 rounded-xl transition-all duration-300 relative", 
-                                            isSelected ? "bg-[#2D5A4C] text-white shadow-lg scale-105" : "hover:bg-muted text-muted-foreground"
-                                        )}
-                                    >
-                                        <span className={cn("text-[10px] uppercase font-bold tracking-tighter opacity-80", isSelected ? "text-white/80" : "text-slate-400")}>
-                                            {format(day, 'eee', { locale: es }).substring(0, 2)}
-                                        </span>
-                                        <span className="text-lg font-black">{format(day, 'd')}</span>
-                                        {isDayToday && !isSelected && (
-                                            <div className="absolute bottom-2 h-1 w-1 rounded-full bg-primary" />
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <ScrollBar orientation="horizontal" className="invisible" />
-                    </ScrollArea>
-                </div>
-            </Card>
+                    <div className="flex items-center px-2 py-4">
+                        <ScrollArea className="flex-1" viewportRef={scrollContainerRef}>
+                            <div className="flex gap-2 px-4 pb-2">
+                                {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i) => {
+                                    const isSelected = isSameDay(day, currentDate);
+                                    const isDayToday = isToday(day);
+                                    return (
+                                        <button 
+                                            key={i} 
+                                            onClick={() => setCurrentDate(day)} 
+                                            data-selected={isSelected}
+                                            className={cn(
+                                                "flex flex-col items-center justify-center min-w-[54px] h-16 rounded-xl transition-all duration-300 relative", 
+                                                isSelected ? "bg-[#2D5A4C] text-white shadow-lg scale-105" : "hover:bg-muted text-muted-foreground"
+                                            )}
+                                        >
+                                            <span className={cn("text-[10px] uppercase font-bold tracking-tighter opacity-80", isSelected ? "text-white/80" : "text-slate-400")}>
+                                                {format(day, 'eee', { locale: es }).substring(0, 2)}
+                                            </span>
+                                            <span className="text-lg font-black">{format(day, 'd')}</span>
+                                            {isDayToday && !isSelected && (
+                                                <div className="absolute bottom-2 h-1 w-1 rounded-full bg-primary" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <ScrollBar orientation="horizontal" className="invisible" />
+                        </ScrollArea>
+                    </div>
+                </Card>
+            )}
 
             <Card className="border-none shadow-sm p-6 bg-white overflow-hidden">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Flujo de Caja Diario (Ingresos vs Gastos)
+                            <Activity className="h-5 w-5 text-primary" /> Flujo de Caja (Ingresos vs Gastos)
                         </CardTitle>
-                        <CardDescription>Visualiza ingresos y gastos día a día. Haz clic en una barra para ver el detalle.</CardDescription>
+                        <CardDescription>Visualiza el flujo de dinero en el periodo seleccionado.</CardDescription>
                     </div>
                 </div>
                 <div className="h-[300px] w-full">
@@ -484,9 +581,9 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                 <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
-                            <History className="h-6 w-6 text-primary" /> Movimientos del {selectedDayData?.day}
+                            <History className="h-6 w-6 text-primary" /> Detalles del Periodo: {selectedDayData?.day}
                         </DialogTitle>
-                        <DialogDescription>Listado detallado de transacciones registradas para esta fecha.</DialogDescription>
+                        <DialogDescription>Listado detallado de transacciones registradas.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="flex-1 mt-4">
                         <Table>
