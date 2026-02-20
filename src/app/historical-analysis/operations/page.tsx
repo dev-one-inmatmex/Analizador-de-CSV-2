@@ -11,12 +11,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   BarChart as BarChartIcon, ChevronLeft, ChevronRight,
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
-  Bell, Search, Filter, Download, TrendingUp, Target, Users, Landmark,
-  Wallet, PieChart as PieChartIcon, Activity
+  Bell, Search, Filter, Download, Activity,
+  Wallet, PieChart as PieChartIcon
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell
 } from 'recharts';
 
 import { useToast } from '@/hooks/use-toast';
@@ -105,11 +105,11 @@ export default function OperationsPage() {
                 monto: Number(values.monto)
             };
             
-            // --- FASE 2: Lógica de Nómina Mixta ---
-            if (values.tipo_gasto_impacto === 'NOMINA' && (values as any).es_nomina_mixta) {
+            // --- FASE 4: Lógica de Nómina Mixta (Fragmentación Automática) ---
+            if (values.tipo_gasto_impacto === 'NOMINA' && values.es_nomina_mixta) {
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
-                    { canal: 'SHOPIFY', porcentaje: 0.30 },
+                    { canal: 'MAYOREO', porcentaje: 0.30 },
                     { canal: 'FISICO', porcentaje: 0.10 }
                 ];
 
@@ -118,7 +118,8 @@ export default function OperationsPage() {
                     monto: Number(values.monto) * dest.porcentaje,
                     canal_asociado: dest.canal,
                     clasificacion_operativa: 'SEMI_DIRECTO',
-                    notas: `${values.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim()
+                    notas: `${values.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
+                    es_nomina_mixta: false // Se guarda como registro final
                 }));
 
                 const { error } = await supabase.from('gastos_diarios').insert(inserts as any);
@@ -133,7 +134,7 @@ export default function OperationsPage() {
                 if (res.error) throw res.error;
             }
 
-            toast({ title: "Éxito", description: "Movimiento guardado." });
+            toast({ title: "Éxito", description: "Movimiento registrado correctamente." });
             setIsFormOpen(false);
             setEditingTransaction(null);
             fetchAllData();
@@ -208,7 +209,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
             else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
         });
         
-        const margenPromedio = 0.40;
+        const margenPromedio = 0.40; // Margen de contribución estimado
         const metaSupervivencia = fixedCosts / (margenPromedio || 1);
         
         return { 
@@ -282,7 +283,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                             <Progress value={stats.progresoSupervivencia} className={cn("h-3 bg-muted")} />
                             <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
                                 <span className={stats.progresoSupervivencia < 100 ? "text-red-500" : "text-green-600"}>
-                                    {stats.progresoSupervivencia < 100 ? "Falta ventas para cubrir costos fijos" : "¡Punto de equilibrio superado! Generando riqueza"}
+                                    {stats.progresoSupervivencia < 100 ? "Falta cubrir costos fijos" : "¡Punto de equilibrio superado!"}
                                 </span>
                                 <span>{stats.progresoSupervivencia.toFixed(0)}%</span>
                             </div>
@@ -330,7 +331,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
     const { rentabilidadData, chartsData } = React.useMemo(() => {
-        // --- FASE 3: Lógica de Rentabilidad por Canal ---
+        // --- FASE 3: Lógica de Rentabilidad Limpia por Canal ---
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
         const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
         const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
@@ -395,14 +396,13 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-8">
-            {/* FASE 3: TABLA DE RENTABILIDAD LIMPIA */}
             <Card className="border-none shadow-sm bg-white overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Reporte de Rentabilidad por Canal (Fase 3 BI)
+                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad por Canal (BI Fase 3 & 4)
                         </CardTitle>
-                        <CardDescription>Cálculo exacto: Ingresos - Gastos Directos - Prorrateo de Compartidos.</CardDescription>
+                        <CardDescription>Cálculo Exacto: Ingresos - (Directos + Nómina Mixta) - Prorrateo Compartido.</CardDescription>
                     </div>
                 </CardHeader>
                 <div className="overflow-x-auto">
@@ -412,8 +412,8 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 <TableHead className="text-[10px] font-bold uppercase tracking-widest">Canal</TableHead>
                                 <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">Ingresos</TableHead>
                                 <TableHead className="text-center text-[10px] font-bold uppercase tracking-widest">Peso %</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">Costos Directos</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">Costo Asignado</TableHead>
+                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Directos</TableHead>
+                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Asignado</TableHead>
                                 <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest bg-primary/5 text-primary">Utilidad Real</TableHead>
                                 <TableHead className="text-center text-[10px] font-bold uppercase tracking-widest">Margen</TableHead>
                             </TableRow>
@@ -432,7 +432,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableCell>
                                 </TableRow>
                             )) : (
-                                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground italic text-xs">Sin datos suficientes para calcular rentabilidad.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground italic text-xs">Sin datos para rentabilidad.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -441,7 +441,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gastos por Categoría Macro</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gastos por Categoría</CardTitle></CardHeader>
                     <CardContent className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -449,7 +449,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     {chartsData.categories.map((_, i) => <RechartsCell key={i} fill={COLORS[i % COLORS.length]} />)}
                                 </Pie>
                                 <Tooltip formatter={(v: number) => money(v)} />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '9px', fontWeight: 'bold'}} />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '9px'}} />
                             </PieChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -468,7 +468,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     </CardContent>
                 </Card>
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Distribución por Empresa</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Gasto por Empresa</CardTitle></CardHeader>
                     <CardContent className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -476,7 +476,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     {chartsData.companies.map((_, i) => <RechartsCell key={i} fill={COLORS[(i + 2) % COLORS.length]} />)}
                                 </Pie>
                                 <Tooltip formatter={(v: number) => money(v)} />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '9px', fontWeight: 'bold'}} />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '9px'}} />
                             </PieChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -487,7 +487,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div>
                         <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground mt-1">Auditoría detallada de ingresos y egresos.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground mt-1">Auditoría completa de ingresos y gastos.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="h-9 px-4 text-xs font-medium border-slate-200"><Filter className="mr-2 h-4 w-4" /> Filtrar</Button>
@@ -502,7 +502,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Empresa</TableHead>
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Categoría / Subcategoría</TableHead>
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Canal</TableHead>
-                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Tipo / Atribución</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Atribución</TableHead>
                                 <TableHead className="text-right font-bold uppercase text-[10px] text-slate-500 tracking-wider">Monto</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
@@ -511,8 +511,8 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             {transactions.length > 0 ? (
                                 transactions.map((t: GastoDiario) => (
                                     <TableRow key={t.id} className="hover:bg-muted/5 h-14">
-                                        <TableCell className="text-[11px] font-medium text-slate-600">{(t.fecha)}</TableCell>
-                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200 bg-slate-50">{t.empresa}</Badge></TableCell>
+                                        <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
+                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{t.empresa}</Badge></TableCell>
                                         <TableCell>
                                             <div className="font-bold text-[11px] text-[#1e293b]">{t.categoria_macro}</div>
                                             <div className="text-[10px] text-slate-400 font-medium">{t.subcategoria_especifica}</div>
@@ -529,7 +529,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-32">
-                                                    <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleEdit(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => onDeleteTransaction(t.id!)} className="text-destructive"><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -537,7 +537,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={7} className="text-center py-16 text-[11px] font-bold uppercase tracking-widest text-slate-400">0 Registros Encontrados</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={7} className="text-center py-16 text-[11px] font-bold uppercase tracking-widest text-slate-400">0 Registros</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -561,7 +561,7 @@ function BudgetsView({ transactions }: any) {
                             <Badge variant={percentage > 90 ? "destructive" : "secondary"} className="text-[9px]">{percentage.toFixed(0)}%</Badge>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex justify-between items-end"><span className="text-2xl font-black">{money(current)}</span><span className="text-[10px] font-bold text-muted-foreground uppercase">Límite: {money(limit)}</span></div>
+                            <div className="flex justify-between items-end"><span className="text-2xl font-black">{money(current)}</span><span className="text-[10px] font-bold text-muted-foreground uppercase">Meta: {money(limit)}</span></div>
                             <Progress value={percentage} className={cn("h-2", percentage > 90 ? "bg-red-100" : "bg-muted")} />
                         </CardContent>
                     </Card>
@@ -574,10 +574,10 @@ function BudgetsView({ transactions }: any) {
 function SettingsView() {
     return (
         <div className="max-w-4xl mx-auto"><Card className="border-none shadow-sm bg-white">
-            <CardHeader><CardTitle className="text-lg font-bold">Configuración Financiera (Fase 2 & 3 BI)</CardTitle><CardDescription>Gestión de repartos y nóminas mixtas.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="text-lg font-bold">Configuración BI (Fase 2, 3 & 4)</CardTitle><CardDescription>Gestión de prorrateos y plantillas de nómina mixta.</CardDescription></CardHeader>
             <CardContent className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Cálculo de Punto de Equilibrio</Label><p className="text-xs text-muted-foreground">Margen de contribución actual: 40%.</p></div><Button variant="outline" size="sm">Ajustar Margen</Button></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta</Label><p className="text-xs text-muted-foreground">Distribución predefinida: ML 60%, Shopify 30%, Físico 10%.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Margen de Contribución Promedio</Label><p className="text-xs text-muted-foreground">Valor actual: 40% (Utilizado para Punto de Equilibrio).</p></div><Button variant="outline" size="sm">Ajustar</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta</Label><p className="text-xs text-muted-foreground">Reparto: 60% ML, 30% Mayoreo, 10% Físico.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
             </CardContent></Card>
         </div>
     );
@@ -605,13 +605,12 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
 
     const watchedImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
     const watchedChannel = useWatch({ control: form.control, name: 'canal_asociado' });
-    const watchedIsNominaMixta = useWatch({ control: form.control, name: 'es_nomina_mixta' as any });
+    const watchedIsNominaMixta = useWatch({ control: form.control, name: 'es_nomina_mixta' });
 
     React.useEffect(() => {
         if (watchedChannel === 'GENERAL') {
             form.setValue('clasificacion_operativa', 'COMPARTIDO');
-        }
-        if (watchedIsNominaMixta) {
+        } else if (watchedIsNominaMixta) {
             form.setValue('clasificacion_operativa', 'SEMI_DIRECTO');
         }
     }, [watchedChannel, watchedIsNominaMixta, form]);
@@ -647,7 +646,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo Transacción</Label>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo</Label>
                         <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPOS_TRANSACCION.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
@@ -661,17 +660,17 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 1: Tipo Gasto (Impacto)</Label>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Impacto (Nivel 1)</Label>
                         <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPO_GASTO_IMPACTO_LIST.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="area_funcional" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 2: Área Funcional</Label>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Área (Nivel 2)</Label>
                         <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 3: Subcategoría</Label>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Subcategoría (Nivel 3)</Label>
                         <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue placeholder="Primero elija Nivel 1" /></SelectTrigger></FormControl><SelectContent>{subcategorias.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
@@ -679,17 +678,17 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="categoria_macro" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro (Resumen)</Label>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro</Label>
                         <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CATEGORIAS_MACRO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="canal_asociado" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución: Canal</Label>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Canal Asociado</Label>
                         <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución: Clasificación</Label>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución Rentabilidad</Label>
                         <Select onValueChange={field.onChange} value={field.value || ''} disabled={watchedChannel === 'GENERAL' || watchedIsNominaMixta}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
@@ -711,7 +710,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
                 {watchedImpact === 'NOMINA' && (
                     <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-3 bg-primary/5">
-                            <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</FormLabel><FormDescription className="text-[8px]">Dividir entre canales</FormDescription></div>
+                            <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta (Fase 4)</FormLabel><FormDescription className="text-[8px]">Repartir 60/30/10 entre canales</FormDescription></div>
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         </FormItem>
                     )} />

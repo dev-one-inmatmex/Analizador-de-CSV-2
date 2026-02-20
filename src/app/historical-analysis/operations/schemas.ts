@@ -38,7 +38,6 @@ export const METODOS_PAGO: MetodoPago[] = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA
 export const BANCOS: Banco[] = ['BBVA', 'SANTANDER', 'BANAMEX', 'MERCADO_PAGO', 'OTRO'];
 export const CUENTAS: Cuenta[] = ['OPERATIVA', 'FISCAL', 'CAJA_CHICA', 'OTRO'];
 
-// --- Mapeo de Subcategorías Dinámicas (Nivel 3) ---
 export const SUBCATEGORIAS_NIVEL_3: Record<string, string[]> = {
   "GASTO_OPERATIVO": [
     "Gasolina",
@@ -91,54 +90,38 @@ export const SUBCATEGORIAS_NIVEL_3: Record<string, string[]> = {
   "IMPUESTOS": ["IVA", "ISR", "Retenciones"]
 };
 
-/**
- * Esquema de Validación con Zod (Fase 1)
- */
 export const expenseFormSchema = z.object({
-  // 1. Datos Básicos Obligatorios
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   empresa: z.enum(['MTM', 'TAL', 'DOMESKA', 'OTRA'], { required_error: "Seleccione una empresa." }),
-  tipo_transaccion: z.enum(['INGRESO', 'GASTO', 'TRANSFERENCIA', 'AJUSTE'], { required_error: "Seleccione tipo de transacción." }),
+  tipo_transaccion: z.enum(['INGRESO', 'GASTO', 'TRANSFERENCIA', 'AJUSTE'], { required_error: "Seleccione tipo." }),
   monto: z.coerce.number().positive("El monto debe ser mayor a 0"),
-
-  // 2. Clasificación de 3 Niveles
   tipo_gasto_impacto: z.enum([
     'COSTO_MERCANCIA_COGS', 'GASTO_OPERATIVO', 'GASTO_ADMINISTRATIVO', 
     'GASTO_COMERCIAL', 'GASTO_LOGISTICO', 'GASTO_FINANCIERO', 
     'NOMINA', 'INVERSION_CAPEX', 'IMPUESTOS'
-  ], { required_error: "Seleccione el tipo de gasto (Nivel 1)." }),
-  
+  ], { required_error: "Seleccione Impacto (Nivel 1)." }),
   area_funcional: z.enum([
     'VENTAS_ECOMMERCE', 'VENTAS_MAYOREO', 'LOGISTICA', 'COMPRAS', 
     'ADMINISTRACION', 'MARKETING', 'DIRECCION', 'PRODUCCION', 
     'SISTEMAS', 'RECURSOS_HUMANOS'
-  ], { required_error: "Seleccione el área funcional (Nivel 2)." }),
-  
-  subcategoria_especifica: z.string().min(1, "Debe seleccionar una categoría específica (Nivel 3)."),
-  categoria_macro: z.enum(['OPERATIVO', 'COMERCIAL', 'ADMINISTRATIVO', 'FINANCIERO', 'NOMINA'], { required_error: "Seleccione categoría macro." }),
-
-  // 3. Atribución por Canal (Objetivo Estratégico)
+  ], { required_error: "Seleccione Área (Nivel 2)." }),
+  subcategoria_especifica: z.string().min(1, "Seleccione Subcategoría (Nivel 3)."),
+  categoria_macro: z.enum(['OPERATIVO', 'COMERCIAL', 'ADMINISTRATIVO', 'FINANCIERO', 'NOMINA'], { required_error: "Seleccione macro." }),
   canal_asociado: z.enum([
     'MERCADO_LIBRE', 'SHOPIFY', 'MAYOREO', 'FISICO', 
     'PRODUCCION_MALLA_SOMBRA', 'GENERAL'
-  ], { required_error: "Seleccione el canal asociado." }),
-  
-  clasificacion_operativa: z.enum(['DIRECTO', 'SEMI_DIRECTO', 'COMPARTIDO'], { required_error: "Seleccione clasificación operativa." }),
-
-  // 4. Naturaleza del Gasto
+  ], { required_error: "Seleccione canal." }),
+  clasificacion_operativa: z.enum(['DIRECTO', 'SEMI_DIRECTO', 'COMPARTIDO']).nullable().optional(),
   es_fijo: z.boolean().default(false),
   es_recurrente: z.boolean().default(false),
-
-  // 5. Soporte y Pago
-  metodo_pago: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA_DEBITO', 'TARJETA_CREDITO', 'PAYPAL', 'OTRO'], { required_error: "Seleccione método de pago." }),
+  metodo_pago: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA_DEBITO', 'TARJETA_CREDITO', 'PAYPAL', 'OTRO'], { required_error: "Seleccione pago." }),
   banco: z.enum(['BBVA', 'SANTANDER', 'BANAMEX', 'MERCADO_PAGO', 'OTRO'], { required_error: "Seleccione banco." }),
   cuenta: z.enum(['OPERATIVA', 'FISCAL', 'CAJA_CHICA', 'OTRO'], { required_error: "Seleccione cuenta." }),
-  responsable: z.string().min(1, "El responsable es obligatorio."),
-  
-  // Opcionales
+  responsable: z.string().min(1, "Responsable es obligatorio."),
   descripcion: z.string().nullable().optional(),
   notas: z.string().max(280, "Máximo 280 caracteres.").nullable().optional(),
-  comprobante_url: z.string().url("Debe ser una URL válida").optional().or(z.literal('')),
+  comprobante_url: z.string().url("URL inválida").optional().or(z.literal('')),
+  es_nomina_mixta: z.boolean().default(false).optional(),
 });
 
 export type TransactionFormValues = z.infer<typeof expenseFormSchema>;
