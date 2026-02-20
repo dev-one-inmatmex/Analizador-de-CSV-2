@@ -78,7 +78,7 @@ function InsightsView({
 }: InsightsViewProps) {
     const { totalExpense, totalIncome, balance } = React.useMemo(() => {
         const expense = transactions.reduce((sum, t) => sum + (t.monto || 0), 0);
-        // Mocking some income for visualization purposes based on the user image
+        // Mocking some income for visualization purposes
         const income = expense * 1.5; 
         return { totalExpense: expense, totalIncome: income, balance: income - expense };
     }, [transactions]);
@@ -92,7 +92,6 @@ function InsightsView({
         return steps.map(step => {
             const dayT = transactions.filter(t => isSameDay(new Date(t.fecha), step));
             const expense = dayT.reduce((s, t) => s + (t.monto || 0), 0);
-            // Simulating income for chart consistency with the requested image
             const income = expense > 0 ? expense * 1.2 : (Math.random() > 0.7 ? Math.random() * 2000 : 0);
             return {
                 name: format(step, 'd'),
@@ -116,7 +115,6 @@ function InsightsView({
 
     return (
         <div className="space-y-6 min-w-0">
-            {/* Top Row: Balance & Budget Status */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="border-none shadow-sm">
                     <CardHeader className="pb-2">
@@ -173,7 +171,6 @@ function InsightsView({
                 </Card>
             </div>
 
-            {/* Horizontal Date Strip */}
             <Card className="border-none shadow-sm overflow-hidden">
                 <div className="flex items-center px-4 py-3 bg-background border-b">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}>
@@ -212,7 +209,6 @@ function InsightsView({
                 </div>
             </Card>
 
-            {/* Main Bar Chart */}
             <Card className="border-none shadow-sm rounded-xl overflow-hidden min-w-0">
                 <CardHeader className="pb-0">
                     <CardTitle className="text-lg font-bold">Resumen de Movimientos del Periodo</CardTitle>
@@ -347,7 +343,7 @@ function ReportsView({
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => onDeleteTransaction(t.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDelete(t.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Eliminar</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -657,7 +653,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
                     )} />
 
                     <FormField control={form.control} name="monto" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold text-destructive">Monto ($)</FormLabel><FormControl><Input type="number" step="0.01" className="text-lg font-black h-11 border-destructive/20" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="font-bold text-destructive">Monto ($)</FormLabel><FormControl><Input type="number" step="0.01" className="text-lg font-black h-11 border-destructive/20" placeholder="0.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
 
                     <FormField control={form.control} name="empresa" render={({ field }) => (
@@ -739,7 +735,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
                         )} />
                         {watchPago === 'OTRO' && (
                             <FormField control={form.control} name="metodo_pago_especificar" render={({ field }) => (
-                                <FormItem><FormLabel>Especificar Método</FormLabel><FormControl><Input {...field} value={field.value || ''} /></FormControl></FormItem>
+                                <FormItem><FormLabel>Especificar Método</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl></FormItem>
                             )} />
                         )}
 
@@ -765,15 +761,15 @@ function TransactionForm({ transaction, onSubmit, onClose }: { transaction: Gast
 
                 <div className="space-y-4">
                     <FormField control={form.control} name="categoria_especifica" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Categoría Específica</FormLabel><FormControl><Input placeholder="Ej: Pago de luz, Mantenimiento montacargas..." className="h-11" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="font-bold">Categoría Específica</FormLabel><FormControl><Input placeholder="Ej: Pago de luz, Mantenimiento montacargas..." className="h-11" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
 
                     <FormField control={form.control} name="descripcion" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Descripción Adicional</FormLabel><FormControl><Input placeholder="Detalles rápidos..." {...field} value={field.value || ''} /></FormControl></FormItem>
+                        <FormItem><FormLabel className="font-bold">Descripción Adicional</FormLabel><FormControl><Input placeholder="Detalles rápidos..." {...field} value={field.value ?? ''} /></FormControl></FormItem>
                     )} />
 
                     <FormField control={form.control} name="notas" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">Observaciones (Máx 280 car.)</FormLabel><FormControl><Textarea className="min-h-[100px] resize-none" {...field} value={field.value || ''} /></FormControl></FormItem>
+                        <FormItem><FormLabel className="font-bold">Observaciones (Máx 280 car.)</FormLabel><FormControl><Textarea className="min-h-[100px] resize-none" {...field} value={field.value ?? ''} /></FormControl></FormItem>
                     )} />
                 </div>
 

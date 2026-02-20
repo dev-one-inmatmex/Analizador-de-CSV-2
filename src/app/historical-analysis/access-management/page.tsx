@@ -95,9 +95,9 @@ export default function AccessManagementPage() {
 
     const handleEditUserClick = (user: User) => {
         setSelectedUser(user);
-        setNewName(user.name);
-        setNewEmail(user.email);
-        setNewRole(user.role);
+        setNewName(user.name ?? '');
+        setNewEmail(user.email ?? '');
+        setNewRole(user.role ?? '');
         setIsEditDialogOpen(true);
     };
 
