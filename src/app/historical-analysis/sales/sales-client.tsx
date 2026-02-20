@@ -1,9 +1,11 @@
+
 'use client';
 
 import * as React from 'react';
 import { 
   BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, 
-  Layers, Filter, Maximize, Loader2, Info, Truck, Landmark, User, FileText, CheckCircle2, AlertCircle, X
+  Layers, Filter, Maximize, Loader2, Info, Truck, Landmark, User, FileText, CheckCircle2, AlertCircle, X,
+  HelpCircle
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -22,10 +24,12 @@ import type { Sale } from './page';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 15;
+const PARETO_PAGE_SIZE = 15;
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
 export default function SalesDashboardClient({ 
@@ -63,28 +67,24 @@ export default function SalesDashboardClient({
 
     const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
-    // 1. Reconciliación de datos para Paquetes con lógica de herencia solicitada
+    // 1. Reconciliación de datos para Paquetes
     const reconciledSales = React.useMemo(() => {
-        // Clonamos para no mutar el original
         const data = initialSales.map(s => ({ ...s }));
         
         for (let i = 0; i < data.length; i++) {
             const current = data[i];
             const status = (current.status || '').toLowerCase();
             
-            // Detectar registros de tipo "Paquete de X productos"
             const match = status.match(/paquete de (\d+) productos/);
             if (match) {
                 const numChildren = parseInt(match[1]);
                 const childrenIndices = [];
-                // Identificamos las filas que están inmediatamente debajo del paquete
                 for (let j = 1; j <= numChildren; j++) {
                     if (i + j < data.length) {
                         childrenIndices.push(i + j);
                     }
                 }
 
-                // Lista de los 26 campos que hereda el HIJO del PADRE
                 const parentToChildFields: (keyof Sale)[] = [
                     'ing_xunidad', 'cargo_venta', 'costo_envio', 'costo_enviomp', 'total', 
                     'factura_a', 'datos_poe', 'tipo_ndoc', 'direccion', 't_contribuyente', 
@@ -95,8 +95,10 @@ export default function SalesDashboardClient({
 
                 childrenIndices.forEach(idx => {
                     const child = data[idx];
-                    
-                    // Copiar datos del Padre al Hijo si el hijo los tiene vacíos o nulos
+                    (child as any)._isPackageChild = true;
+                    (child as any)._parentIndex = i;
+                    (child as any)._packageSize = numChildren;
+
                     parentToChildFields.forEach(field => {
                         const val = child[field];
                         const isMissing = val === null || val === undefined || val === '' || val === 0;
@@ -105,23 +107,19 @@ export default function SalesDashboardClient({
                         }
                     });
                     
-                    // El PADRE jala la TIENDA de su HIJO si el padre la tiene vacía
                     if ((current.tienda === null || current.tienda === undefined || current.tienda === '') && child.tienda) {
                         current.tienda = child.tienda;
                     }
-
-                    // Marcamos al hijo para evitar duplicar cálculos financieros
-                    (child as any)._isPackageChild = true;
                 });
                 
-                // Marcamos que esta fila fue procesada como padre
                 (current as any)._isPackageParent = true;
+                (current as any)._packageSize = numChildren;
             }
         }
         return data;
     }, [initialSales]);
 
-    // 2. Filtrado y KPIs basados en datos reconciliados
+    // 2. Filtrado y KPIs
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
         const filteredSales = reconciledSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
@@ -141,9 +139,8 @@ export default function SalesDashboardClient({
             return true;
         });
 
-        // Para evitar duplicar el ingreso total, solo contamos registros que NO son hijos de paquete
+        // Ingreso Total Real (sin duplicados)
         const financialRecords = filteredSales.filter(s => !(s as any)._isPackageChild);
-        
         const totalRevenue = financialRecords.reduce((acc, sale) => acc + (sale.total || 0), 0);
         const totalSalesCount = financialRecords.length;
         const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
@@ -152,7 +149,7 @@ export default function SalesDashboardClient({
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         
         filteredSales.forEach(sale => {
-            // No contamos al padre si no tiene SKU o si sus hijos representan los productos
+            // Evitamos contar al padre que no tiene producto (solo contenedor)
             if ((sale as any)._isPackageParent && !sale.sku) return;
             
             const key = sale.tit_pub || sale.sku || 'N/A';
@@ -162,8 +159,12 @@ export default function SalesDashboardClient({
                 productStats[key] = { revenue: 0, units: 0, sku: sale.sku || 'N/A' };
             }
             
-            // Si es hijo, sumamos su contribución. Si es venta normal, su total.
-            const valueToAdd = (sale as any)._isPackageChild ? (sale.total || 0) / 2 : (sale.total || 0); // Ajuste simple
+            // Para que la suma de Pareto coincida con el Total Revenue:
+            // Dividimos el total del paquete entre sus hijos.
+            const valueToAdd = (sale as any)._isPackageChild 
+                ? (sale.total || 0) / ((sale as any)._packageSize || 1) 
+                : (sale.total || 0);
+
             productStats[key].revenue += valueToAdd;
             productStats[key].units += (sale.unidades || 0);
         });
@@ -172,13 +173,31 @@ export default function SalesDashboardClient({
             .map(([name, stats]) => ({ name, revenue: stats.revenue, units: stats.units, sku: stats.sku }))
             .sort((a, b) => b.revenue - a.revenue);
 
-        const topProduct = sortedProducts[0] || { name: 'N/A', revenue: 0 };
-
         let cumValue = 0;
-        const topProductsChart = sortedProducts.slice(0, 10).map(p => {
+        const paretoData = sortedProducts.map(p => {
             cumValue += p.revenue;
-            return { name: p.name, value: p.revenue, cumulative: (cumValue / (totalRevenue || 1)) * 100 };
+            const cumPercent = (cumValue / (totalRevenue || 1)) * 100;
+            
+            let zona = 'Impacto C';
+            if (cumPercent <= 80.1) zona = 'Impacto A';
+            else if (cumPercent <= 95.1) zona = 'Impacto B';
+
+            return {
+                name: p.name, 
+                sku: p.sku,
+                revenue: p.revenue, 
+                units: p.units,
+                percentageOfTotal: (p.revenue / (totalRevenue || 1)) * 100,
+                cumulativePercentage: cumPercent,
+                zona
+            };
         });
+
+        const topProductsChart = paretoData.slice(0, 10).map(p => ({
+            name: p.name,
+            value: p.revenue,
+            cumulative: p.cumulativePercentage
+        }));
 
         const companyMap: Record<string, number> = {};
         financialRecords.forEach(s => {
@@ -186,24 +205,11 @@ export default function SalesDashboardClient({
             companyMap[c] = (companyMap[c] || 0) + (s.total || 0);
         });
 
-        let fullCum = 0;
-        const paretoData = sortedProducts.map(p => {
-            fullCum += p.revenue;
-            return {
-                name: p.name, 
-                sku: p.sku,
-                revenue: p.revenue, 
-                units: p.units,
-                percentageOfTotal: (p.revenue / (totalRevenue || 1)) * 100,
-                cumulativePercentage: (fullCum / (totalRevenue || 1)) * 100
-            };
-        });
-
         const detectedCompanies = Array.from(new Set(reconciledSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
 
         return {
             sales: filteredSales,
-            kpis: { totalRevenue, totalSales: totalSalesCount, avgSale, topProductName: topProduct.name, topProductRevenue: topProduct.revenue },
+            kpis: { totalRevenue, totalSales: totalSalesCount, avgSale, topProductName: sortedProducts[0]?.name || 'N/A' },
             charts: { topProducts: topProductsChart, salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })) },
             paretoAnalysisData: paretoData,
             dynamicCompanies: detectedCompanies
@@ -314,7 +320,7 @@ export default function SalesDashboardClient({
                             <Table className="min-w-[5000px]">
                                 <TableHeader className="bg-muted/30">
                                     <TableRow className="text-[10px] uppercase font-bold text-muted-foreground h-12">
-                                        <TableHead className="border-r border-muted text-center bg-muted/10" colSpan={3}>Identificación</TableHead>
+                                        <TableHead className="border-r border-muted text-center bg-muted/10" colSpan={2}>Identificación</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-blue-50/20" colSpan={3}>Estado Venta</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-green-50/20" colSpan={9}>Finanzas ($)</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-orange-50/20" colSpan={8}>Producto / Publicación</TableHead>
@@ -477,14 +483,35 @@ export default function SalesDashboardClient({
                             <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
                                 <BarChart3 className="h-6 w-6 text-primary" /> Auditoría Pareto (Impacto 80/20)
                             </DialogTitle>
+                            <DialogDescription>Listado exhaustivo de productos ordenados por impacto financiero.</DialogDescription>
                         </DialogHeader>
                     </div>
                     
                     <div className="flex-1 overflow-auto p-6">
                         <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card className="bg-primary/5 border-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Ingreso Total</div><div className="text-xl font-black">{money(kpis.totalRevenue)}</div></CardContent></Card>
-                            <Card className="bg-primary/5 border-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Productos Analizados</div><div className="text-xl font-black">{paretoAnalysisData.length}</div></CardContent></Card>
-                            <Card className="bg-primary/5 border-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Zona Crítica (80%)</div><div className="text-xl font-black">{paretoAnalysisData.filter(p => p.cumulativePercentage <= 80).length} SKU</div></CardContent></Card>
+                            <Card className="bg-primary/5 border-none shadow-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Ingreso Total Filtrado</div><div className="text-xl font-black">{money(kpis.totalRevenue)}</div></CardContent></Card>
+                            <Card className="bg-primary/5 border-none shadow-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Productos Analizados</div><div className="text-xl font-black">{paretoAnalysisData.length} SKU</div></CardContent></Card>
+                            <Card className="bg-[#2D5A4C]/10 border-none shadow-none">
+                              <CardContent className="pt-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-[10px] font-bold uppercase text-muted-foreground">Zona Crítica (80%)</div>
+                                  <TooltipProvider>
+                                    <UITooltip>
+                                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                      <TooltipContent className="max-w-xs p-4">
+                                        <div className="space-y-2">
+                                          <p className="font-bold border-b pb-1">Metodología ABC:</p>
+                                          <p><strong>Impacto A (80%):</strong> Los productos estrella que generan la mayor parte del ingreso.</p>
+                                          <p><strong>Impacto B (15%):</strong> Productos con rotación y aporte medio.</p>
+                                          <p><strong>Impacto C (5%):</strong> La cola larga de productos con bajo aporte individual.</p>
+                                        </div>
+                                      </TooltipContent>
+                                    </UITooltip>
+                                  </TooltipProvider>
+                                </div>
+                                <div className="text-xl font-black text-[#2D5A4C]">{paretoAnalysisData.filter(p => p.zona === 'Impacto A').length} SKU</div>
+                              </CardContent>
+                            </Card>
                         </div>
 
                         <div className="border rounded-xl overflow-hidden shadow-sm">
@@ -499,18 +526,24 @@ export default function SalesDashboardClient({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {paretoAnalysisData.slice((paretoPage-1)*20, paretoPage*20).map((p, i) => (
-                                        <TableRow key={i} className={cn("h-12 hover:bg-muted/30 transition-colors", p.cumulativePercentage <= 80 ? "bg-primary/5" : "")}>
+                                    {paretoAnalysisData.slice((paretoPage-1)*PARETO_PAGE_SIZE, paretoPage*PARETO_PAGE_SIZE).map((p, i) => (
+                                        <TableRow key={i} className={cn("h-14 hover:bg-muted/30 transition-colors", p.zona === 'Impacto A' ? "bg-[#2D5A4C]/5" : "")}>
                                             <TableCell className="max-w-md">
                                                 <div className="font-bold text-xs truncate" title={p.name}>{p.name}</div>
                                                 <div className="text-[10px] text-muted-foreground font-mono">{p.sku}</div>
                                             </TableCell>
-                                            <TableCell className="text-right font-black text-primary">{money(p.revenue)}</TableCell>
+                                            <TableCell className="text-right font-black text-[#2D5A4C]">{money(p.revenue)}</TableCell>
                                             <TableCell className="text-right font-medium">{p.units.toLocaleString()}</TableCell>
                                             <TableCell className="text-right font-bold">{p.cumulativePercentage.toFixed(1)}%</TableCell>
                                             <TableCell className="text-center">
-                                                <Badge variant={p.cumulativePercentage <= 80 ? 'default' : 'outline'} className={cn(p.cumulativePercentage <= 80 ? "bg-[#2D5A4C]" : "")}>
-                                                    {p.cumulativePercentage <= 80 ? 'Impacto A' : 'B/C'}
+                                                <Badge 
+                                                  variant={p.zona === 'Impacto A' ? 'default' : 'outline'} 
+                                                  className={cn(
+                                                    p.zona === 'Impacto A' ? "bg-[#2D5A4C]" : 
+                                                    p.zona === 'Impacto B' ? "border-amber-500 text-amber-600" : ""
+                                                  )}
+                                                >
+                                                    {p.zona}
                                                 </Badge>
                                             </TableCell>
                                         </TableRow>
@@ -521,10 +554,10 @@ export default function SalesDashboardClient({
                     </div>
                     
                     <div className="px-6 py-4 border-t bg-muted/10 flex items-center justify-between">
-                        <div className="text-xs text-muted-foreground font-medium">Página {paretoPage} de {Math.ceil(paretoAnalysisData.length / 20)}</div>
+                        <div className="text-xs text-muted-foreground font-medium">Página {paretoPage} de {Math.ceil(paretoAnalysisData.length / PARETO_PAGE_SIZE)}</div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={() => setParetoPage(p => Math.max(1, p - 1))} disabled={paretoPage === 1}>Anterior</Button>
-                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)} disabled={paretoPage * 20 >= paretoAnalysisData.length}>Siguiente</Button>
+                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)} disabled={paretoPage * PARETO_PAGE_SIZE >= paretoAnalysisData.length}>Siguiente</Button>
                         </div>
                     </div>
                 </DialogContent>
