@@ -20,9 +20,12 @@ export async function addExpenseAction(values: TransactionFormValues) {
     return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
-  // Convertimos la fecha de objeto Date a string YYYY-MM-DD para la DB
+  // Extraemos solo los campos que existen en la base de datos
+  // es_nomina_mixta es un campo del formulario, no de la DB
+  const { es_nomina_mixta, ...dbFields } = validatedFields.data;
+
   const dataToInsert = {
-    ...validatedFields.data,
+    ...dbFields,
     fecha: format(validatedFields.data.fecha, 'yyyy-MM-dd'),
     monto: Number(validatedFields.data.monto)
   };
@@ -52,8 +55,10 @@ export async function updateExpenseAction(id: number, values: TransactionFormVal
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
 
+    const { es_nomina_mixta, ...dbFields } = validatedFields.data;
+
     const dataToUpdate = {
-        ...validatedFields.data,
+        ...dbFields,
         fecha: format(validatedFields.data.fecha, 'yyyy-MM-dd'),
         monto: Number(validatedFields.data.monto)
     };

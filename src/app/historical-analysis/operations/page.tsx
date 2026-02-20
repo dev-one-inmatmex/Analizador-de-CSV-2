@@ -103,7 +103,6 @@ export default function OperationsPage() {
             let result;
             
             if (values.tipo_gasto_impacto === 'NOMINA' && values.es_nomina_mixta) {
-                // Lógica de Nómina Mixta (Fase 4): Fragmentar en el momento del registro
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
                     { canal: 'MAYOREO', porcentaje: 0.30 },
@@ -122,7 +121,7 @@ export default function OperationsPage() {
                     const res = await addExpenseAction(fraccionado);
                     if (res.error) throw new Error(res.error);
                 }
-                result = { data: "Nómina mixta registrada exitosamente en múltiples canales." };
+                result = { data: "Nómina mixta registrada exitosamente." };
             } else {
                 if (editingTransaction && editingTransaction.id) {
                     result = await updateExpenseAction(editingTransaction.id, values);
@@ -188,7 +187,7 @@ export default function OperationsPage() {
             </main>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
+                <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl">
                     <TransactionForm transaction={editingTransaction} onSubmit={handleSave} onClose={() => setIsFormOpen(false)} />
                 </DialogContent>
             </Dialog>
@@ -206,7 +205,6 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                 expense += (t.monto || 0);
                 if (t.es_fijo) {
                     fixedCosts += (t.monto || 0);
-                    // Fase 7: Clasificación por rubros principales
                     const sub = (t.subcategoria_especifica || '').toLowerCase();
                     if (sub.includes('renta')) rubrosFijos.renta += t.monto;
                     else if (t.tipo_gasto_impacto === 'NOMINA') rubrosFijos.nomina += t.monto;
@@ -358,7 +356,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             ingresosPorCanal[canal] = (ingresosPorCanal[canal] || 0) + (ing.monto || 0);
         });
 
-        // --- FASE 5: Logística ---
         const gastosLogistica = gastos.filter((g: any) => 
             g.area_funcional === 'LOGISTICA' || g.tipo_gasto_impacto === 'GASTO_LOGISTICO'
         );
@@ -367,7 +364,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             .filter((g: any) => g.canal_asociado === 'GENERAL' || g.clasificacion_operativa === 'COMPARTIDO')
             .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
 
-        // --- FASE 6: Malla Sombra ---
         const gastosProduccion = gastos.filter((g: any) => g.canal_asociado === 'PRODUCCION_MALLA_SOMBRA');
         const ingresosProduccion = ingresos.filter((i: any) => i.canal_asociado === 'PRODUCCION_MALLA_SOMBRA').reduce((a, b) => a + (b.monto || 0), 0);
         
@@ -393,11 +389,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             return { canal: canal.replace(/_/g, ' '), ingresos: ingresoCanal, peso: (pesoCanal * 100).toFixed(1), logistica: costoLogAsignado, asignados: costoAsignadoNoLog, utilidad: utilidadReal, margen: ingresoCanal > 0 ? ((utilidadReal / ingresoCanal) * 100).toFixed(1) : '0' };
         });
 
-        // Gráfico Fase 7: Break-even Projection
-        const steps = 10;
         const maxSales = Math.max(ingresoTotal * 1.5, 200000);
-        const chartBEP = Array.from({ length: steps + 1 }, (_, i) => {
-            const sales = (maxSales / steps) * i;
+        const chartBEP = Array.from({ length: 11 }, (_, i) => {
+            const sales = (maxSales / 10) * i;
             const margin = 0.40;
             const varCosts = sales * (1 - margin);
             return {
@@ -450,79 +444,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         </ComposedChart>
                     </ResponsiveContainer>
                 </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border-none shadow-sm bg-white">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <div className="space-y-1">
-                            <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                <Hammer className="h-5 w-5 text-amber-600" /> Unidad Producción: Malla Sombra (Fase 6)
-                            </CardTitle>
-                            <CardDescription>Análisis independiente de rentabilidad de fabricación.</CardDescription>
-                        </div>
-                        <Badge variant={productionData.utilidad >= 0 ? "default" : "destructive"}>
-                            {productionData.utilidad >= 0 ? "Rentable" : "Pérdida"}
-                        </Badge>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Ventas taller</p><p className="text-lg font-black">{money(productionData.ingresos)}</p></div>
-                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Nómina taller</p><p className="text-lg font-black text-blue-600">{money(productionData.nomina)}</p></div>
-                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Materiales</p><p className="text-lg font-black text-orange-600">{money(productionData.materiales)}</p></div>
-                            <div className="space-y-1"><p className="text-[10px] font-bold text-muted-foreground uppercase">Utilidad taller</p><p className={cn("text-lg font-black", productionData.utilidad >= 0 ? "text-primary" : "text-destructive")}>{money(productionData.utilidad)}</p></div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-none shadow-sm bg-[#2D5A4C] text-white">
-                    <CardHeader className="pb-2"><CardTitle className="text-[10px] font-bold uppercase tracking-widest opacity-80">Eficiencia de Fabricación</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex justify-between items-baseline"><p className="text-3xl font-black">{productionData.ingresos > 0 ? ((productionData.utilidad / productionData.ingresos) * 100).toFixed(1) : 0}%</p><p className="text-xs font-medium opacity-70">Margen Taller</p></div>
-                        <Progress value={productionData.ingresos > 0 ? ((productionData.nomina + productionData.materiales) / productionData.ingresos) * 100 : 0} className="h-2 bg-white/20" />
-                        <p className="text-[9px] font-bold uppercase opacity-70">Consumo de recursos sobre ventas</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card className="border-none shadow-sm bg-white overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between pb-4">
-                    <div className="space-y-1">
-                        <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Rentabilidad por Canal (Fases 2 & 3)
-                        </CardTitle>
-                        <CardDescription>Cálculo Integral: Ingresos - (Directos + Nómina + Logística Prorrateada).</CardDescription>
-                    </div>
-                </CardHeader>
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader className="bg-muted/10">
-                            <TableRow className="h-10">
-                                <TableHead className="text-[10px] font-bold uppercase tracking-widest">Canal</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">Ingresos</TableHead>
-                                <TableHead className="text-center text-[10px] font-bold uppercase tracking-widest">Peso %</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Logística</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest">C. Estructura</TableHead>
-                                <TableHead className="text-right text-[10px] font-bold uppercase tracking-widest bg-primary/5 text-primary">Utilidad Neta</TableHead>
-                                <TableHead className="text-center text-[10px] font-bold uppercase tracking-widest">Margen</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rentabilidadData.map((r, i) => (
-                                <TableRow key={i} className="hover:bg-muted/5 h-12">
-                                    <TableCell className="font-bold text-xs uppercase">{r.canal}</TableCell>
-                                    <TableCell className="text-right text-xs font-medium">{money(r.ingresos)}</TableCell>
-                                    <TableCell className="text-center text-[10px] font-black text-muted-foreground">{r.peso}%</TableCell>
-                                    <TableCell className="text-right text-xs text-amber-600 font-medium">{money(r.logistica)}</TableCell>
-                                    <TableCell className="text-right text-xs text-slate-500">{money(r.asignados)}</TableCell>
-                                    <TableCell className="text-right text-xs font-black bg-primary/5 text-primary">{money(r.utilidad)}</TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge variant={Number(r.margen) > 20 ? "default" : "secondary"} className="text-[9px] font-bold">{r.margen}%</Badge>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
             </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -713,7 +634,9 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
 
     return (
         <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white rounded-lg">
-            <DialogHeader><DialogTitle className="text-2xl font-black uppercase tracking-tighter text-[#2D5A4C]">{transaction ? 'Editar' : 'Registrar'} Movimiento</DialogTitle></DialogHeader>
+            <div className="flex items-center justify-between mb-2">
+                <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-[#2D5A4C]">{transaction ? 'Editar' : 'Registrar'} Movimiento</DialogTitle>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="metodo_pago" render={({ field }) => (
@@ -745,7 +668,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="monto" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label><FormControl><Input type="number" step="0.01" className="h-10 font-black text-lg border-slate-200" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label><FormControl><Input type="number" step="0.01" className="h-10 font-bold border-slate-200" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="responsable" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Responsable</Label><FormControl><Input className="h-10 text-xs font-bold border-slate-200" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
@@ -788,30 +711,36 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
                 )} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                 <FormField control={form.control} name="es_fijo" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
                         <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo (Fase 7)</FormLabel><FormDescription className="text-[8px]">Esencial para operar el mes</FormDescription></div>
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="es_recurrente" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
                         <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Recurrente</FormLabel><FormDescription className="text-[8px]">Se repite mensualmente</FormDescription></div>
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     </FormItem>
                 )} />
-                {watchedImpact === 'NOMINA' && (
+            </div>
+
+            {watchedImpact === 'NOMINA' && (
+                <div className="pt-4">
                     <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-3 bg-primary/5">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-primary/5">
                             <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta (Fase 4)</FormLabel><FormDescription className="text-[8px]">Repartir 60/30/10 entre canales</FormDescription></div>
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         </FormItem>
                     )} />
-                )}
-            </div>
+                </div>
+            )}
 
-            <DialogFooter className="gap-3 pt-6 border-t"><Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px] border-slate-200">Cancelar</Button><Button type="submit" className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-12 h-11">{transaction ? 'Guardar Cambios' : 'Registrar Movimiento'}</Button></DialogFooter>
+            <div className="flex justify-end gap-3 pt-6 border-t">
+                <Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px] border-slate-200">Cancelar</Button>
+                <Button type="submit" className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-12 h-11">Registrar Movimiento</Button>
+            </div>
         </form></Form>
     );
 }
