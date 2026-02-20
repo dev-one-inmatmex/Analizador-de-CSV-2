@@ -193,7 +193,17 @@ export default function SalesDashboardClient({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm">
-                        <CardHeader><CardTitle className="text-lg font-bold">Curva Pareto (80/20)</CardTitle></CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-lg font-bold">Curva Pareto (80/20)</CardTitle>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setIsParetoModalOpen(true)} 
+                              className="gap-2 font-bold bg-primary/5 border-primary/20 hover:bg-primary/10"
+                            >
+                                <BarChart3 className="h-4 w-4" /> Auditoría Pareto (Impacto 80/20)
+                            </Button>
+                        </CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={charts.topProducts} margin={{ bottom: 100 }}>
@@ -225,14 +235,9 @@ export default function SalesDashboardClient({
                 </div>
 
                 <Card className="min-w-0 overflow-hidden border-none shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
-                            <CardDescription>Detalle auditado de transacciones ml_sales.</CardDescription>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => setIsParetoModalOpen(true)} className="gap-2 font-bold bg-primary/5 border-primary/20 hover:bg-primary/10">
-                            <BarChart3 className="h-4 w-4" /> Auditoría Pareto (Impacto 80/20)
-                        </Button>
+                    <CardHeader>
+                        <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
+                        <CardDescription>Detalle auditado de transacciones ml_sales.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="relative w-full overflow-x-auto border-t">
