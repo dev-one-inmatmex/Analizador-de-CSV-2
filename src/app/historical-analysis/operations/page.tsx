@@ -14,12 +14,13 @@ import {
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
-  Settings2, Eye, Calendar as CalendarIcon, History
+  Settings2, Eye, Calendar as CalendarIcon, History, X
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line, Area, AreaChart
 } from 'recharts';
+import * as XLSX from 'xlsx';
 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -435,6 +436,9 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
 }
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const [showFilter, setShowFilter] = React.useState(false);
+
     const { logisticsData, chartsData, breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
         const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
@@ -469,6 +473,40 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             breakevenChart: chartBEP
         };
     }, [transactions]);
+
+    const filteredTransactions = React.useMemo(() => {
+        if (!searchQuery) return transactions;
+        const q = searchQuery.toLowerCase();
+        return transactions.filter((t: any) => 
+            (t.responsable?.toLowerCase() || '').includes(q) ||
+            (t.notas?.toLowerCase() || '').includes(q) ||
+            (t.subcategoria_especifica?.toLowerCase() || '').includes(q) ||
+            (t.canal_asociado?.toLowerCase() || '').includes(q) ||
+            (t.empresa?.toLowerCase() || '').includes(q)
+        );
+    }, [transactions, searchQuery]);
+
+    const handleExport = () => {
+        const ws = XLSX.utils.json_to_sheet(filteredTransactions.map((t: any) => ({
+            Fecha: t.fecha,
+            Empresa: t.empresa,
+            'Tipo Transacción': t.tipo_transaccion,
+            Monto: t.monto,
+            'Tipo Gasto': t.tipo_gasto_impacto,
+            'Área Funcional': t.area_funcional,
+            'Subcategoría': t.subcategoria_especifica,
+            'Categoría Macro': t.categoria_macro,
+            'Canal': t.canal_asociado,
+            'Atribución': t.clasificacion_operativa,
+            Fijo: t.es_fijo ? 'SÍ' : 'NO',
+            Recurrente: t.es_recurrente ? 'SÍ' : 'NO',
+            Responsable: t.responsable,
+            Notas: t.notas
+        })));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Historial Movimientos");
+        XLSX.writeFile(wb, `historial_movimientos_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
+    };
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -543,13 +581,45 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
             <Card className="border-none shadow-sm overflow-hidden bg-white">
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
-                    <div>
+                    <div className="space-y-1">
                         <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground mt-1">Auditoría completa de ingresos y gastos del periodo.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground">Auditoría completa de ingresos y gastos del periodo.</CardDescription>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" className="h-9 px-4 text-xs font-medium border-slate-200"><Filter className="mr-2 h-4 w-4" /> Filtrar</Button>
-                        <Button variant="outline" size="sm" className="h-9 px-4 text-xs font-medium border-slate-200"><Download className="mr-2 h-4 w-4" /> Exportar</Button>
+                        <div className="flex items-center gap-2">
+                            {showFilter && (
+                                <div className="relative animate-in fade-in slide-in-from-right-2">
+                                    <Input 
+                                        placeholder="Buscar..." 
+                                        className="h-9 w-[200px] text-xs pr-8" 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        autoFocus
+                                    />
+                                    {searchQuery && (
+                                        <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            <Button 
+                                variant={showFilter ? "secondary" : "outline"} 
+                                size="sm" 
+                                className="h-9 px-4 text-xs font-medium border-slate-200"
+                                onClick={() => setShowFilter(!showFilter)}
+                            >
+                                <Filter className="mr-2 h-4 w-4" /> Filtrar
+                            </Button>
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-9 px-4 text-xs font-medium border-slate-200"
+                            onClick={handleExport}
+                        >
+                            <Download className="mr-2 h-4 w-4" /> Exportar
+                        </Button>
                     </div>
                 </CardHeader>
                 <div className="overflow-x-auto">
@@ -566,8 +636,8 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {transactions.length > 0 ? (
-                                transactions.map((t: GastoDiario) => (
+                            {filteredTransactions.length > 0 ? (
+                                filteredTransactions.map((t: GastoDiario) => (
                                     <TableRow key={t.id} className="hover:bg-muted/5 h-14">
                                         <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
                                         <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{t.empresa}</Badge></TableCell>
