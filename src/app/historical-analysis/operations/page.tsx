@@ -14,7 +14,7 @@ import {
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
   Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
-  PlusCircle, Edit2, Save
+  PlusCircle, Edit2, Save, HelpCircle
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -72,13 +72,11 @@ export default function OperationsPage() {
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
     const [isClient, setIsClient] = React.useState(false);
 
-    // Asegurar fecha actual en cliente para evitar hydration mismatch
     React.useEffect(() => {
         setIsClient(true);
         setCurrentDate(startOfDay(new Date()));
     }, []);
 
-    // Estados dinámicos para configuración
     const [macroCategories, setMacroCategories] = React.useState<string[]>(CATEGORIAS_MACRO);
     const [impacts, setImpacts] = React.useState<string[]>(TIPO_GASTO_IMPACTO_LIST);
     const [subcategoriesMap, setSubcategoriesMap] = React.useState<Record<string, string[]>>(SUBCATEGORIAS_NIVEL_3_DEFAULT);
@@ -251,7 +249,6 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
     const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[] } | null>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-    // Centrar automáticamente el día seleccionado con un pequeño retraso para asegurar render
     React.useEffect(() => {
         const timeoutId = setTimeout(() => {
             if (scrollContainerRef.current) {
@@ -612,19 +609,62 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <CardDescription>Cruce entre Ingresos y Costos Totales basado en Gasto Fijo Actual.</CardDescription>
                     </div>
                 </CardHeader>
-                <CardContent className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={breakevenChart}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                            <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} />
-                            <YAxis fontSize={9} axisLine={false} tickLine={false} tickFormatter={v => `$${v/1000}k`} />
-                            <Tooltip formatter={(v: number) => money(v)} />
-                            <Legend verticalAlign="top" align="right" height={36} iconType="line" />
-                            <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.1} stroke="#3b82f6" strokeWidth={2} name="Ingresos" />
-                            <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={false} name="Costos Totales" />
-                            <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeDasharray="5 5" dot={false} name="Base Fija" />
-                        </ComposedChart>
-                    </ResponsiveContainer>
+                <CardContent className="space-y-8">
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={breakevenChart}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} />
+                                <YAxis fontSize={9} axisLine={false} tickLine={false} tickFormatter={v => `$${v/1000}k`} />
+                                <Tooltip formatter={(v: number) => money(v)} />
+                                <Legend verticalAlign="top" align="right" height={36} iconType="line" />
+                                <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.1} stroke="#3b82f6" strokeWidth={2} name="Ingresos" />
+                                <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={false} name="Costos Totales" />
+                                <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeDasharray="5 5" dot={false} name="Base Fija" />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                            <TableHeader className="bg-muted/30">
+                                <TableRow className="h-10">
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest w-1/4">Concepto</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Significado Estratégico (Fase 1-7)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow className="h-12">
+                                    <TableCell className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-[#94a3b8]" />
+                                        <span className="text-[10px] font-bold uppercase">Base Fija</span>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">Representa el <strong>Costo de Supervivencia</strong>: Renta, Nómina base, Servicios y Software. Lo que pagas aunque no vendas nada.</TableCell>
+                                </TableRow>
+                                <TableRow className="h-12">
+                                    <TableCell className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-[#f43f5e]" />
+                                        <span className="text-[10px] font-bold uppercase">Costos Totales</span>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">La suma de la Base Fija más los <strong>Costos Variables</strong> (Materiales, Comisiones, Logística). Sube conforme aumenta el volumen de operación.</TableCell>
+                                </TableRow>
+                                <TableRow className="h-12">
+                                    <TableCell className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-[#3b82f6]" />
+                                        <span className="text-[10px] font-bold uppercase">Ingresos</span>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">El flujo bruto de dinero que entra a la empresa por todos los canales de venta auditados.</TableCell>
+                                </TableRow>
+                                <TableRow className="h-12 bg-primary/5">
+                                    <TableCell className="flex items-center gap-2">
+                                        <HelpCircle className="h-3 w-3 text-primary" />
+                                        <span className="text-[10px] font-black uppercase text-primary">Punto de Equilibrio</span>
+                                    </TableCell>
+                                    <TableCell className="text-xs font-medium text-primary">El momento exacto donde la línea azul cruza la roja. A partir de este punto, cada peso adicional es <strong>Utilidad Neta</strong>.</TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -954,7 +994,6 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
     return (
         <div className="max-w-7xl mx-auto space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Panel Izquierdo: Parámetros BI */}
                 <Card className="md:col-span-2 border-none shadow-sm bg-white">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1010,7 +1049,6 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                     </CardFooter>
                 </Card>
 
-                {/* Panel Derecho: Nómina y Salud */}
                 <div className="space-y-6">
                     <Card className="border-none shadow-sm bg-white overflow-hidden">
                         <CardHeader className="bg-primary/5 pb-4">
@@ -1054,7 +1092,6 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                 </div>
             </div>
 
-            {/* Nueva Sección: Gestión de Estructura Financiera */}
             <Card className="border-none shadow-sm bg-white">
                 <CardHeader>
                     <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -1063,7 +1100,6 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                     <CardDescription>Añade o modifica la estructura de clasificación de tus gastos.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Gestión Nivel 1 */}
                     <div className="space-y-4">
                         <Label className="text-[10px] font-bold uppercase tracking-widest">Impacto (Nivel 1)</Label>
                         <div className="flex gap-2">
@@ -1082,7 +1118,6 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         </ScrollArea>
                     </div>
 
-                    {/* Gestión Nivel 3 */}
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label className="text-[10px] font-bold uppercase tracking-widest">Subcategorías para:</Label>
