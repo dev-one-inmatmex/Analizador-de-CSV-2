@@ -240,7 +240,7 @@ export default function SalesDashboardClient({
                             <Table className="min-w-[5000px]">
                                 <TableHeader className="bg-muted/30">
                                     <TableRow className="text-[10px] uppercase font-bold text-muted-foreground h-12">
-                                        <TableHead className="border-r border-muted text-center bg-muted/10" colSpan={4}>Identificación</TableHead>
+                                        <TableHead className="border-r border-muted text-center bg-muted/10" colSpan={3}>Identificación</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-blue-50/20" colSpan={3}>Estado Venta</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-green-50/20" colSpan={9}>Finanzas ($)</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-orange-50/20" colSpan={7}>Producto / Publicación</TableHead>
@@ -251,7 +251,6 @@ export default function SalesDashboardClient({
                                         <TableHead className="bg-red-50/20 text-center" colSpan={10}>Auditoría Final</TableHead>
                                     </TableRow>
                                     <TableRow className="text-[9px] uppercase font-medium bg-muted/10 h-10">
-                                        <TableHead className="border-r">ID</TableHead>
                                         <TableHead className="border-r"># Venta</TableHead>
                                         <TableHead className="border-r">Fecha</TableHead>
                                         <TableHead className="border-r">Status</TableHead>
@@ -319,7 +318,6 @@ export default function SalesDashboardClient({
                                 <TableBody>
                                     {paginatedSales.map((s, idx) => (
                                         <TableRow key={s.num_venta || idx} className="text-[10px] h-11 hover:bg-primary/5 transition-colors">
-                                            <TableCell className="border-r font-mono text-muted-foreground">{s.id || '-'}</TableCell>
                                             <TableCell className="border-r font-bold text-primary">#{s.num_venta}</TableCell>
                                             <TableCell className="border-r whitespace-nowrap">{safeFormat(s.fecha_venta, 'dd/MM/yy HH:mm')}</TableCell>
                                             <TableCell className="border-r"><Badge variant="outline" className="text-[8px] uppercase font-black">{s.status}</Badge></TableCell>
