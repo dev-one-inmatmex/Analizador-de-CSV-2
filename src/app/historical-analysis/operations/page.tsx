@@ -11,11 +11,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   BarChart as BarChartIcon, ChevronLeft, ChevronRight,
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
-  Bell, Search, Filter, Download
+  Bell, Search, Filter, Download, TrendingUp, Target, Users
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line
 } from 'recharts';
 
 import { useToast } from '@/hooks/use-toast';
@@ -39,7 +39,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel, FormDescription } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,6 +48,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { GastoDiario } from '@/types/database';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -97,15 +98,40 @@ export default function OperationsPage() {
     const handleSave = async (values: TransactionFormValues) => {
         try {
             if (!supabase) return;
-            const dataToSave = { ...values, fecha: format(values.fecha, 'yyyy-MM-dd') };
-            let res;
-            if (editingTransaction) {
-                res = await supabase.from('gastos_diarios').update(dataToSave as any).eq('id', editingTransaction.id);
-            } else {
-                res = await supabase.from('gastos_diarios').insert(dataToSave as any);
-            }
+            const dataToSave = { 
+                ...values, 
+                fecha: format(values.fecha, 'yyyy-MM-dd'),
+                monto: Number(values.monto)
+            };
+            
+            // --- FASE 2: Lógica de Nómina Mixta ---
+            // Si es un gasto de Nómina y tiene marcada la distribución mixta
+            if (values.tipo_gasto_impacto === 'NOMINA' && (values as any).es_nomina_mixta) {
+                const distribucion = [
+                    { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
+                    { canal: 'SHOPIFY', porcentaje: 0.30 },
+                    { canal: 'FISICO', porcentaje: 0.10 }
+                ];
 
-            if (res.error) throw res.error;
+                const inserts = distribucion.map(dest => ({
+                    ...dataToSave,
+                    monto: Number(values.monto) * dest.porcentaje,
+                    canal_asociado: dest.canal,
+                    clasificacion_operativa: 'SEMI_DIRECTO',
+                    notas: `${values.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim()
+                }));
+
+                const { error } = await supabase.from('gastos_diarios').insert(inserts as any);
+                if (error) throw error;
+            } else {
+                let res;
+                if (editingTransaction) {
+                    res = await supabase.from('gastos_diarios').update(dataToSave as any).eq('id', editingTransaction.id);
+                } else {
+                    res = await supabase.from('gastos_diarios').insert([dataToSave] as any);
+                }
+                if (res.error) throw res.error;
+            }
 
             toast({ title: "Éxito", description: "Movimiento guardado." });
             setIsFormOpen(false);
@@ -136,10 +162,10 @@ export default function OperationsPage() {
                     <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">Gastos Financieros</h1>
                     <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4">
                         <TabsList className="bg-muted/40 h-9 p-1 border">
-                            <TabsTrigger value="inicio" className="text-xs">Inicio</TabsTrigger>
-                            <TabsTrigger value="informes" className="text-xs">Informes</TabsTrigger>
-                            <TabsTrigger value="presupuestos" className="text-xs">Presupuestos</TabsTrigger>
-                            <TabsTrigger value="configuracion" className="text-xs">Configuración</TabsTrigger>
+                            <TabsTrigger value="inicio" className="text-xs font-bold uppercase tracking-tighter">Inicio</TabsTrigger>
+                            <TabsTrigger value="informes" className="text-xs font-bold uppercase tracking-tighter">Informes</TabsTrigger>
+                            <TabsTrigger value="presupuestos" className="text-xs font-bold uppercase tracking-tighter">Presupuestos</TabsTrigger>
+                            <TabsTrigger value="configuracion" className="text-xs font-bold uppercase tracking-tighter">Configuración</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
@@ -158,7 +184,7 @@ export default function OperationsPage() {
             </main>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
                     <TransactionForm transaction={editingTransaction} onSubmit={handleSave} onClose={() => setIsFormOpen(false)} />
                 </DialogContent>
             </Dialog>
@@ -168,12 +194,26 @@ export default function OperationsPage() {
 
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: any) {
     const stats = React.useMemo(() => {
-        let expense = 0, income = 0;
+        let expense = 0, income = 0, fixedCosts = 0;
         transactions.forEach((t: any) => {
-            if (t.tipo_transaccion === 'GASTO') expense += (t.monto || 0);
+            if (t.tipo_transaccion === 'GASTO') {
+                expense += (t.monto || 0);
+                if (t.es_fijo) fixedCosts += (t.monto || 0);
+            }
             else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
         });
-        return { totalExpense: expense, totalIncome: income, balance: income - expense };
+        
+        // FASE 2: Punto de Equilibrio Proyectado
+        const margenPromedio = 0.40; // 40% según arquitectura
+        const metaSupervivencia = fixedCosts / (margenPromedio || 1);
+        
+        return { 
+            totalExpense: expense, 
+            totalIncome: income, 
+            balance: income - expense,
+            metaSupervivencia,
+            progresoSupervivencia: Math.min(100, (income / (metaSupervivencia || 1)) * 100)
+        };
     }, [transactions]);
 
     const barChartData = React.useMemo(() => {
@@ -219,14 +259,27 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                         </div>
                     </CardContent>
                 </Card>
+                
+                {/* FASE 2: BARRA DE SUPERVIVENCIA (PUNTO DE EQUILIBRIO) */}
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Estado del Presupuesto</CardHeader>
+                    <CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Barra de Supervivencia (BI)</CardHeader>
                     <CardContent className="space-y-6 py-6">
                         <div className="flex justify-between items-baseline">
-                            <p className="text-4xl font-black">{money(stats.totalExpense)} <span className="text-lg font-medium text-muted-foreground ml-1">gastado</span></p>
-                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Meta: {money(50000)}</p>
+                            <p className="text-4xl font-black">{money(stats.totalIncome)} <span className="text-lg font-medium text-muted-foreground ml-1">ingresados</span></p>
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Punto de Equilibrio</p>
+                                <p className="text-sm font-bold">{money(stats.metaSupervivencia)}</p>
+                            </div>
                         </div>
-                        <Progress value={Math.min(100, (stats.totalExpense / 50000) * 100)} className="h-3 bg-muted" />
+                        <div className="space-y-2">
+                            <Progress value={stats.progresoSupervivencia} className={cn("h-3 bg-muted", stats.progresoSupervivencia < 100 ? "bg-red-50" : "bg-green-50")} />
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
+                                <span className={stats.progresoSupervivencia < 100 ? "text-red-500" : "text-green-600"}>
+                                    {stats.progresoSupervivencia < 100 ? "Falta ventas para cubrir costos fijos" : "¡Punto de equilibrio superado! Generando riqueza"}
+                                </span>
+                                <span>{stats.progresoSupervivencia.toFixed(0)}%</span>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -269,10 +322,47 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
 }
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
-    const chartsData = React.useMemo(() => {
+    const { chartsData, rentabilidadData } = React.useMemo(() => {
         const catMap: Record<string, number> = {};
         const companyMap: Record<string, number> = {};
         const areaMap: Record<string, number> = {};
+        
+        // FASE 2: Lógica de Rentabilidad Limpia por Canal
+        const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
+        const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
+        const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+        
+        const ingresosPorCanal: Record<string, number> = {};
+        ingresos.forEach((ing: any) => {
+            const canal = ing.canal_asociado || 'GENERAL';
+            ingresosPorCanal[canal] = (ingresosPorCanal[canal] || 0) + (ing.monto || 0);
+        });
+
+        const gastosCompartidos = gastos
+            .filter((g: any) => g.clasificacion_operativa === 'COMPARTIDO')
+            .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+
+        const rentabilidad = Object.keys(ingresosPorCanal).map(canal => {
+            const ingresoCanal = ingresosPorCanal[canal];
+            const pesoCanal = ingresoTotal > 0 ? (ingresoCanal / ingresoTotal) : 0;
+            
+            const gastosDirectosCanal = gastos
+                .filter((g: any) => 
+                    g.canal_asociado === canal && 
+                    (g.clasificacion_operativa === 'DIRECTO' || g.clasificacion_operativa === 'SEMI_DIRECTO')
+                )
+                .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+
+            const gastoCompartidoAsignado = gastosCompartidos * pesoCanal;
+            const utilidadReal = ingresoCanal - gastosDirectosCanal - gastoCompartidoAsignado;
+
+            return {
+                name: canal.replace('_', ' '),
+                ingresos: ingresoCanal,
+                utilidad: utilidadReal,
+                gastos: gastosDirectosCanal + gastoCompartidoAsignado
+            };
+        });
 
         transactions.forEach((t: GastoDiario) => {
             if (t.tipo_transaccion === 'GASTO') {
@@ -283,9 +373,12 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         });
 
         return {
-            categories: Object.entries(catMap).map(([name, value]) => ({ name, value })),
-            companies: Object.entries(companyMap).map(([name, value]) => ({ name, value })),
-            areas: Object.entries(areaMap).map(([name, value]) => ({ name: name.replace('_', ' '), value }))
+            chartsData: {
+                categories: Object.entries(catMap).map(([name, value]) => ({ name, value })),
+                companies: Object.entries(companyMap).map(([name, value]) => ({ name, value })),
+                areas: Object.entries(areaMap).map(([name, value]) => ({ name: name.replace('_', ' '), value }))
+            },
+            rentabilidadData: rentabilidad
         };
     }, [transactions]);
 
@@ -293,15 +386,36 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="border-none shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-sm font-bold">Gasto por Categoría</CardTitle></CardHeader>
-                    <CardContent className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={chartsData.categories} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={5}>{chartsData.categories.map((_, i) => <RechartsCell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip formatter={(v: number) => money(v)} /><Legend iconType="circle" /></PieChart></ResponsiveContainer></CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="border-none shadow-sm bg-white">
+                    <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest">Rentabilidad por Canal (FASE 2 BI)</CardTitle><CardDescription>Utilidad real tras restar gastos directos y prorrateo de compartidos.</CardDescription></CardHeader>
+                    <CardContent className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RechartsBarChart data={rentabilidadData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                                <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                                <Tooltip formatter={(v: number) => money(v)} />
+                                <Legend iconType="circle" />
+                                <RechartsBar dataKey="ingresos" name="Ingresos" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                                <RechartsBar dataKey="utilidad" name="Utilidad Neta" fill="#2D5A4C" radius={[4, 4, 0, 0]} barSize={20} />
+                            </RechartsBarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
                 </Card>
-                <Card className="border-none shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-sm font-bold">Gasto por Empresa</CardTitle></CardHeader>
-                    <CardContent className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={chartsData.companies} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={5}>{chartsData.companies.map((_, i) => <RechartsCell key={i} fill={COLORS[(i+2) % COLORS.length]} />)}</Pie><Tooltip formatter={(v: number) => money(v)} /><Legend iconType="circle" /></PieChart></ResponsiveContainer></CardContent>
-                </Card>
-                <Card className="border-none shadow-sm"><CardHeader className="pb-2"><CardTitle className="text-sm font-bold">Área Funcional</CardTitle></CardHeader>
-                    <CardContent className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><RechartsBarChart data={chartsData.areas} layout="vertical"><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" /><XAxis type="number" hide /><YAxis type="category" dataKey="name" fontSize={9} width={80} axisLine={false} tickLine={false} /><Tooltip formatter={(v: number) => money(v)} /><RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={15} /></RechartsBarChart></ResponsiveContainer></CardContent>
+                <Card className="border-none shadow-sm bg-white">
+                    <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest">Gastos por Categoría Macro</CardTitle></CardHeader>
+                    <CardContent className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={chartsData.categories} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} paddingAngle={5}>
+                                    {chartsData.categories.map((_, i) => <RechartsCell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                </Pie>
+                                <Tooltip formatter={(v: number) => money(v)} />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
                 </Card>
             </div>
 
@@ -309,7 +423,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div>
                         <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground mt-1">Visualización de todas las transacciones del periodo.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground mt-1">Auditoría detallada de ingresos y egresos.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="h-9 px-4 text-xs font-medium border-slate-200"><Filter className="mr-2 h-4 w-4" /> Filtrar</Button>
@@ -324,7 +438,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Empresa</TableHead>
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Categoría / Subcategoría</TableHead>
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Canal</TableHead>
-                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Tipo</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Tipo / Atribución</TableHead>
                                 <TableHead className="text-right font-bold uppercase text-[10px] text-slate-500 tracking-wider">Monto</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
@@ -340,7 +454,12 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                             <div className="text-[10px] text-slate-400 font-medium">{t.subcategoria_especifica}</div>
                                         </TableCell>
                                         <TableCell className="text-[10px] font-semibold text-slate-500 uppercase">{t.canal_asociado?.replace('_', ' ')}</TableCell>
-                                        <TableCell><Badge variant={t.tipo_transaccion === 'INGRESO' ? 'default' : 'secondary'} className="text-[9px] font-bold uppercase">{t.tipo_transaccion}</Badge></TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1">
+                                                <Badge variant={t.tipo_transaccion === 'INGRESO' ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase w-fit">{t.tipo_transaccion}</Badge>
+                                                {t.clasificacion_operativa && <span className="text-[8px] font-black text-muted-foreground uppercase">{t.clasificacion_operativa}</span>}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className={cn("text-right font-bold text-sm", t.tipo_transaccion === 'GASTO' ? "text-slate-900" : "text-primary")}>{money(t.monto)}</TableCell>
                                         <TableCell>
                                             <DropdownMenu>
@@ -359,7 +478,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         </TableBody>
                     </Table>
                 </div>
-                <CardFooter className="bg-muted/5 p-4 border-t text-[10px] font-bold text-slate-400 uppercase tracking-widest">{transactions.length} registros auditados</CardFooter>
             </Card>
         </div>
     );
@@ -391,10 +509,11 @@ function BudgetsView({ transactions }: any) {
 
 function SettingsView() {
     return (
-        <div className="max-w-4xl mx-auto"><Card className="border-none shadow-sm"><CardHeader><CardTitle className="text-lg font-bold">Configuración Financiera</CardTitle></CardHeader>
+        <div className="max-w-4xl mx-auto"><Card className="border-none shadow-sm bg-white">
+            <CardHeader><CardTitle className="text-lg font-bold">Configuración Financiera (Fase 2 BI)</CardTitle><CardDescription>Gestión de repartos y nóminas mixtas.</CardDescription></CardHeader>
             <CardContent className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Alertas de Presupuesto</Label><p className="text-xs text-muted-foreground">Notificar al superar el 85% de un límite.</p></div><Switch defaultChecked /></div>
-                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Consolidación Bancaria</Label><p className="text-xs text-muted-foreground">Sincronizar saldos de BBVA y Mercado Pago.</p></div><Switch defaultChecked /></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Cálculo de Punto de Equilibrio</Label><p className="text-xs text-muted-foreground">Margen de contribución actual: 40%.</p></div><Button variant="outline" size="sm">Ajustar Margen</Button></div>
+                <div className="flex items-center justify-between border-b pb-4"><div className="space-y-1"><Label className="text-sm font-bold">Plantilla Nómina Mixta</Label><p className="text-xs text-muted-foreground">Distribución predefinida: ML 60%, Shopify 30%, Físico 10%.</p></div><Button variant="outline" size="sm">Editar Plantilla</Button></div>
             </CardContent></Card>
         </div>
     );
@@ -415,40 +534,45 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
             metodo_pago: 'TRANSFERENCIA', 
             banco: 'BBVA', 
             cuenta: 'OPERATIVA',
-            responsable: ''
+            responsable: '',
+            es_nomina_mixta: false
         }
     });
 
     const watchedImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
     const watchedChannel = useWatch({ control: form.control, name: 'canal_asociado' });
+    const watchedIsNominaMixta = useWatch({ control: form.control, name: 'es_nomina_mixta' as any });
 
-    // Lógica Fase 1: Atribución automática para Canal General
+    // Lógica Fase 1 & 2: Atribución automática
     React.useEffect(() => {
         if (watchedChannel === 'GENERAL') {
             form.setValue('clasificacion_operativa', 'COMPARTIDO');
         }
-    }, [watchedChannel, form]);
+        if (watchedIsNominaMixta) {
+            form.setValue('clasificacion_operativa', 'SEMI_DIRECTO');
+        }
+    }, [watchedChannel, watchedIsNominaMixta, form]);
 
     const subcategorias = watchedImpact ? (SUBCATEGORIAS_NIVEL_3[watchedImpact] || []) : [];
 
     return (
-        <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8">
-            <DialogHeader><DialogTitle className="text-2xl font-black uppercase tracking-tighter text-primary">{transaction ? 'Editar' : 'Registrar'} Movimiento</DialogTitle></DialogHeader>
+        <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white rounded-lg">
+            <DialogHeader><DialogTitle className="text-2xl font-black uppercase tracking-tighter text-[#2D5A4C]">{transaction ? 'Editar' : 'Registrar'} Movimiento</DialogTitle></DialogHeader>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="metodo_pago" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Método Pago</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{METODOS_PAGO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{METODOS_PAGO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="banco" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Banco</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="cuenta" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo de Cuenta</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
             </div>
@@ -456,61 +580,83 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <FormField control={form.control} name="empresa" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo Transacción</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPOS_TRANSACCION.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPOS_TRANSACCION.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="monto" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label><FormControl><Input type="number" step="0.01" className="h-10 font-black text-lg" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label><FormControl><Input type="number" step="0.01" className="h-10 font-black text-lg border-slate-200" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="responsable" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Responsable</Label><FormControl><Input className="h-10 text-xs font-bold" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Responsable</Label><FormControl><Input className="h-10 text-xs font-bold border-slate-200" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                 )} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 1: Tipo Gasto</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPO_GASTO_IMPACTO_LIST.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 1: Tipo Gasto (Impacto)</Label>
+                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPO_GASTO_IMPACTO_LIST.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="area_funcional" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 2: Área Funcional</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nivel 3: Subcategoría</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue placeholder="Primero elija Nivel 1" /></SelectTrigger></FormControl><SelectContent>{subcategorias.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue placeholder="Primero elija Nivel 1" /></SelectTrigger></FormControl><SelectContent>{subcategorias.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="categoria_macro" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CATEGORIAS_MACRO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro (Resumen)</Label>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CATEGORIAS_MACRO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="canal_asociado" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución: Canal</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución: Clasificación</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''} disabled={watchedChannel === 'GENERAL'}><FormControl><SelectTrigger className="h-10 text-xs font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value || ''} disabled={watchedChannel === 'GENERAL' || watchedIsNominaMixta}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
             </div>
 
-            <DialogFooter className="gap-3 pt-6 border-t"><Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px]">Cancelar</Button><Button type="submit" className="bg-[#2D5A4C] font-black uppercase text-[10px] px-8">{transaction ? 'Guardar Cambios' : 'Registrar Movimiento'}</Button></DialogFooter>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
+                <FormField control={form.control} name="es_fijo" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
+                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo</FormLabel><FormDescription className="text-[8px]">Esencial para operar</FormDescription></div>
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="es_recurrente" render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
+                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Recurrente</FormLabel><FormDescription className="text-[8px]">Se repite mensualmente</FormDescription></div>
+                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                    </FormItem>
+                )} />
+                {watchedImpact === 'NOMINA' && (
+                    <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-3 bg-primary/5">
+                            <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</FormLabel><FormDescription className="text-[8px]">Dividir entre canales</FormDescription></div>
+                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        </FormItem>
+                    )} />
+                )}
+            </div>
+
+            <DialogFooter className="gap-3 pt-6 border-t"><Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px] border-slate-200">Cancelar</Button><Button type="submit" className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-12 h-11">{transaction ? 'Guardar Cambios' : 'Registrar Movimiento'}</Button></DialogFooter>
         </form></Form>
     );
 }
 
-import { Switch } from '@/components/ui/switch';
