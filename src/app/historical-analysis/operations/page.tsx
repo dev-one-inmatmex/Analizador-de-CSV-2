@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -14,7 +13,8 @@ import {
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
-  Settings2, Eye, Calendar as CalendarIcon, History, X
+  Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
+  PlusCircle, Edit2, Save
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -37,7 +37,7 @@ import {
     TIPO_GASTO_IMPACTO_LIST,
     AREAS_FUNCIONALES,
     CLASIFICACIONES_OPERATIVAS,
-    SUBCATEGORIAS_NIVEL_3
+    SUBCATEGORIAS_NIVEL_3_DEFAULT
 } from './schemas';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
@@ -70,6 +70,18 @@ export default function OperationsPage() {
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingTransaction, setEditingTransaction] = React.useState<GastoDiario | null>(null);
     const [currentDate, setCurrentDate] = React.useState(startOfDay(new Date()));
+
+    // Estados dinámicos para configuración (Fase 1-7 expandible)
+    const [macroCategories, setMacroCategories] = React.useState<string[]>(CATEGORIAS_MACRO);
+    const [impacts, setImpacts] = React.useState<string[]>(TIPO_GASTO_IMPACTO_LIST);
+    const [subcategoriesMap, setSubcategoriesMap] = React.useState<Record<string, string[]>>(SUBCATEGORIAS_NIVEL_3_DEFAULT);
+    const [budgetsMap, setBudgetsMap] = React.useState<Record<string, number>>({
+        'OPERATIVO': 45000,
+        'NOMINA': 120000,
+        'ADMINISTRATIVO': 30000,
+        'COMERCIAL': 25000,
+        'FINANCIERO': 15000
+    });
 
     const { toast } = useToast();
 
@@ -185,13 +197,35 @@ export default function OperationsPage() {
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} />}
                 {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={handleEdit} onDeleteTransaction={handleDelete} />}
-                {currentView === 'presupuestos' && <BudgetsView transactions={transactions} />}
-                {currentView === 'configuracion' && <SettingsView />}
+                {currentView === 'presupuestos' && (
+                    <BudgetsView 
+                        transactions={transactions} 
+                        categories={macroCategories} 
+                        budgets={budgetsMap} 
+                        setBudgets={setBudgetsMap} 
+                        setCategories={setMacroCategories}
+                    />
+                )}
+                {currentView === 'configuracion' && (
+                    <SettingsView 
+                        impacts={impacts} 
+                        setImpacts={setImpacts}
+                        subcategories={subcategoriesMap}
+                        setSubcategories={setSubcategoriesMap}
+                    />
+                )}
             </main>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl">
-                    <TransactionForm transaction={editingTransaction} onSubmit={handleSave} onClose={() => setIsFormOpen(false)} />
+                    <TransactionForm 
+                        transaction={editingTransaction} 
+                        onSubmit={handleSave} 
+                        onClose={() => setIsFormOpen(false)}
+                        dynamicImpacts={impacts}
+                        dynamicSubcategories={subcategoriesMap}
+                        dynamicMacro={macroCategories}
+                    />
                 </DialogContent>
             </Dialog>
         </div>
@@ -397,7 +431,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate }: 
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
                             <History className="h-6 w-6 text-primary" /> Movimientos del {selectedDayData?.day}
-                        </DialogTitle>
+                        </History>
                         <DialogDescription>Listado detallado de transacciones registradas para esta fecha.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="flex-1 mt-4">
@@ -675,43 +709,62 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     );
 }
 
-function BudgetsView({ transactions }: any) {
+function BudgetsView({ transactions, categories, budgets, setBudgets, setCategories }: any) {
+    const [editingCat, setEditingCat] = React.useState<string | null>(null);
+    const [isNewBudgetOpen, setIsNewBudgetOpen] = React.useState(false);
+
     const budgetAnalysis = React.useMemo(() => {
-        const categories = [...CATEGORIAS_MACRO];
-        return categories.map(cat => {
+        return categories.map((cat: string) => {
             const current = transactions
                 .filter((t: any) => t.categoria_macro === cat && t.tipo_transaccion === 'GASTO')
                 .reduce((s: number, t: any) => s + (t.monto || 0), 0);
             
-            // Metas de presupuesto por categoría (definidas idealmente en configuración)
-            const budgets: Record<string, number> = {
-                'OPERATIVO': 45000,
-                'NOMINA': 120000,
-                'ADMINISTRATIVO': 30000,
-                'COMERCIAL': 25000,
-                'FINANCIERO': 15000
-            };
-
-            return { cat, current, limit: budgets[cat] || 20000 }; 
+            return { cat, current, limit: budgets[cat] || 0 }; 
         });
-    }, [transactions]);
+    }, [transactions, categories, budgets]);
+
+    const handleUpdateLimit = (cat: string, limit: number) => {
+        setBudgets({ ...budgets, [cat]: limit });
+        setEditingCat(null);
+    };
+
+    const handleAddBudget = (name: string, limit: number) => {
+        const upperName = name.toUpperCase().replace(/\s/g, '_');
+        if (!categories.includes(upperName)) {
+            setCategories([...categories, upperName]);
+        }
+        setBudgets({ ...budgets, [upperName]: limit });
+        setIsNewBudgetOpen(false);
+    };
 
     return (
         <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold uppercase tracking-tight">Metas Presupuestarias</h2>
+                <Button size="sm" className="bg-[#2D5A4C] font-bold" onClick={() => setIsNewBudgetOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Presupuesto
+                </Button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {budgetAnalysis.map((item: any) => {
-                    const percentage = Math.min(100, (item.current / item.limit) * 100);
+                    const percentage = item.limit > 0 ? Math.min(100, (item.current / item.limit) * 100) : 0;
                     const isOver = percentage >= 90;
                     return (
-                        <Card key={item.cat} className="border-none shadow-sm bg-white hover:shadow-md transition-all">
+                        <Card key={item.cat} className="border-none shadow-sm bg-white hover:shadow-md transition-all relative group">
                             <CardHeader className="pb-2 flex flex-row items-center justify-between">
                                 <div className="space-y-1">
                                     <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{item.cat}</CardTitle>
                                     <div className="text-2xl font-black">{money(item.current)}</div>
                                 </div>
-                                <Badge variant={isOver ? "destructive" : "secondary"} className="text-[9px] font-black">
-                                    {percentage.toFixed(0)}%
-                                </Badge>
+                                <div className="flex flex-col items-end gap-2">
+                                    <Badge variant={isOver ? "destructive" : "secondary"} className="text-[9px] font-black">
+                                        {percentage.toFixed(0)}%
+                                    </Badge>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setEditingCat(item.cat)}>
+                                        <Edit2 className="h-3 w-3" />
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4 pt-2">
                                 <div className="flex justify-between items-end text-[10px] font-bold text-muted-foreground uppercase">
@@ -763,14 +816,88 @@ function BudgetsView({ transactions }: any) {
                     </Table>
                 </div>
             </Card>
+
+            <Dialog open={!!editingCat} onOpenChange={() => setEditingCat(null)}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Editar Meta: {editingCat}</DialogTitle></DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Nuevo Límite Mensual ($)</Label>
+                            <Input 
+                                type="number" 
+                                defaultValue={editingCat ? budgets[editingCat] : 0}
+                                id="edit-limit-input"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditingCat(null)}>Cancelar</Button>
+                        <Button onClick={() => {
+                            const val = (document.getElementById('edit-limit-input') as HTMLInputElement).value;
+                            handleUpdateLimit(editingCat!, Number(val));
+                        }}>Guardar Cambios</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isNewBudgetOpen} onOpenChange={setIsNewBudgetOpen}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Nuevo Presupuesto Macro</DialogTitle></DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Nombre de Categoría</Label>
+                            <Input placeholder="Ej: MARKETING_DIGITAL" id="new-cat-name" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Límite Inicial ($)</Label>
+                            <Input type="number" placeholder="0.00" id="new-cat-limit" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNewBudgetOpen(false)}>Cancelar</Button>
+                        <Button onClick={() => {
+                            const name = (document.getElementById('new-cat-name') as HTMLInputElement).value;
+                            const limit = (document.getElementById('new-cat-limit') as HTMLInputElement).value;
+                            handleAddBudget(name, Number(limit));
+                        }}>Crear Categoría</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
 
-function SettingsView() {
+function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: any) {
+    const [newImpact, setNewImpact] = React.useState('');
+    const [selectedImpactForSubs, setSelectedImpactForSubs] = React.useState(impacts[0]);
+    const [newSub, setNewSub] = React.useState('');
+
+    const handleAddImpact = () => {
+        if (!newImpact) return;
+        const upper = newImpact.toUpperCase().replace(/\s/g, '_');
+        if (!impacts.includes(upper)) {
+            setImpacts([...impacts, upper]);
+            setSubcategories({ ...subcategories, [upper]: [] });
+        }
+        setNewImpact('');
+    };
+
+    const handleAddSub = () => {
+        if (!newSub || !selectedImpactForSubs) return;
+        const currentSubs = subcategories[selectedImpactForSubs] || [];
+        if (!currentSubs.includes(newSub)) {
+            setSubcategories({
+                ...subcategories,
+                [selectedImpactForSubs]: [...currentSubs, newSub]
+            });
+        }
+        setNewSub('');
+    };
+
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="max-w-7xl mx-auto space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {/* Panel Izquierdo: Parámetros BI */}
                 <Card className="md:col-span-2 border-none shadow-sm bg-white">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -826,6 +953,7 @@ function SettingsView() {
                     </CardFooter>
                 </Card>
 
+                {/* Panel Derecho: Nómina y Salud */}
                 <div className="space-y-6">
                     <Card className="border-none shadow-sm bg-white overflow-hidden">
                         <CardHeader className="bg-primary/5 pb-4">
@@ -855,7 +983,7 @@ function SettingsView() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-none shadow-sm bg-primary text-primary-foreground">
+                    <Card className="border-none shadow-sm bg-[#2D5A4C] text-primary-foreground">
                         <CardHeader className="pb-2">
                             <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Estado de Salud BI</p>
                             <CardTitle className="text-xl font-black">Optimizada</CardTitle>
@@ -868,11 +996,68 @@ function SettingsView() {
                     </Card>
                 </div>
             </div>
+
+            {/* Nueva Sección: Gestión de Estructura Financiera */}
+            <Card className="border-none shadow-sm bg-white">
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <SettingsIcon className="h-5 w-5 text-primary" /> Gestión de Categorías e Impactos (Nivel 1 y 3)
+                    </CardTitle>
+                    <CardDescription>Añade o modifica la estructura de clasificación de tus gastos.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Gestión Nivel 1 */}
+                    <div className="space-y-4">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest">Impacto (Nivel 1)</Label>
+                        <div className="flex gap-2">
+                            <Input placeholder="Nuevo Impacto..." value={newImpact} onChange={e => setNewImpact(e.target.value)} className="h-9 text-xs" />
+                            <Button size="sm" onClick={handleAddImpact}><Plus className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="h-[200px] border rounded-md p-2 bg-muted/5">
+                            <div className="space-y-1">
+                                {impacts.map((imp: string) => (
+                                    <div key={imp} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md group">
+                                        <span className="text-[10px] font-bold text-slate-600">{imp.replace(/_/g, ' ')}</span>
+                                        <Badge variant="outline" className="text-[8px] opacity-0 group-hover:opacity-100">Activo</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </div>
+
+                    {/* Gestión Nivel 3 */}
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-widest">Subcategorías para:</Label>
+                            <Select value={selectedImpactForSubs} onValueChange={setSelectedImpactForSubs}>
+                                <SelectTrigger className="h-9 text-xs font-bold"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {impacts.map((imp: string) => <SelectItem key={imp} value={imp}>{imp.replace(/_/g, ' ')}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex gap-2">
+                            <Input placeholder="Nueva Subcategoría..." value={newSub} onChange={e => setNewSub(e.target.value)} className="h-9 text-xs" />
+                            <Button size="sm" onClick={handleAddSub}><Plus className="h-4 w-4" /></Button>
+                        </div>
+                        <ScrollArea className="h-[155px] border rounded-md p-2 bg-muted/5">
+                            <div className="space-y-1">
+                                {(subcategories[selectedImpactForSubs] || []).map((sub: string) => (
+                                    <div key={sub} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
+                                        <span className="text-[10px] font-medium text-slate-500">{sub}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6"><Trash2 className="h-3 w-3 text-destructive" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
 
-function TransactionForm({ transaction, onSubmit, onClose }: any) {
+function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynamicSubcategories, dynamicMacro }: any) {
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(expenseFormSchema),
         defaultValues: transaction ? { ...transaction, fecha: parseISO(transaction.fecha) } : {
@@ -904,7 +1089,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
         }
     }, [watchedChannel, watchedIsNominaMixta, form]);
 
-    const subcategorias = watchedImpact ? (SUBCATEGORIAS_NIVEL_3[watchedImpact] || []) : [];
+    const subcategorias = watchedImpact ? (dynamicSubcategories[watchedImpact] || []) : [];
 
     return (
         <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white rounded-lg">
@@ -952,7 +1137,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Impacto (Nivel 1)</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPO_GASTO_IMPACTO_LIST.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{dynamicImpacts.map((v: string) => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="area_funcional" render={({ field }) => (
@@ -962,7 +1147,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
                 )} />
                 <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Subcategoría (Nivel 3)</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue placeholder="Primero elija Nivel 1" /></SelectTrigger></FormControl><SelectContent>{subcategorias.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue placeholder="Primero elija Nivel 1" /></SelectTrigger></FormControl><SelectContent>{subcategorias.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
             </div>
@@ -970,7 +1155,7 @@ function TransactionForm({ transaction, onSubmit, onClose }: any) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="categoria_macro" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CATEGORIAS_MACRO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{dynamicMacro.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="canal_asociado" render={({ field }) => (

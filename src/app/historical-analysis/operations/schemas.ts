@@ -38,7 +38,7 @@ export const METODOS_PAGO: MetodoPago[] = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA
 export const BANCOS: Banco[] = ['BBVA', 'SANTANDER', 'BANAMEX', 'MERCADO_PAGO', 'OTRO'];
 export const CUENTAS: Cuenta[] = ['OPERATIVA', 'FISCAL', 'CAJA_CHICA', 'OTRO'];
 
-export const SUBCATEGORIAS_NIVEL_3: Record<string, string[]> = {
+export const SUBCATEGORIAS_NIVEL_3_DEFAULT: Record<string, string[]> = {
   "GASTO_OPERATIVO": [
     "Gasolina",
     "Mantenimiento vehículos",
@@ -92,31 +92,20 @@ export const SUBCATEGORIAS_NIVEL_3: Record<string, string[]> = {
 
 export const expenseFormSchema = z.object({
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  empresa: z.enum(['MTM', 'TAL', 'DOMESKA', 'OTRA'], { required_error: "Seleccione una empresa." }),
-  tipo_transaccion: z.enum(['INGRESO', 'GASTO', 'TRANSFERENCIA', 'AJUSTE'], { required_error: "Seleccione tipo." }),
+  empresa: z.string({ required_error: "Seleccione una empresa." }),
+  tipo_transaccion: z.string({ required_error: "Seleccione tipo." }),
   monto: z.coerce.number().positive("El monto debe ser mayor a 0"),
-  tipo_gasto_impacto: z.enum([
-    'COSTO_MERCANCIA_COGS', 'GASTO_OPERATIVO', 'GASTO_ADMINISTRATIVO', 
-    'GASTO_COMERCIAL', 'GASTO_LOGISTICO', 'GASTO_FINANCIERO', 
-    'NOMINA', 'INVERSION_CAPEX', 'IMPUESTOS'
-  ], { required_error: "Seleccione Impacto (Nivel 1)." }),
-  area_funcional: z.enum([
-    'VENTAS_ECOMMERCE', 'VENTAS_MAYOREO', 'LOGISTICA', 'COMPRAS', 
-    'ADMINISTRACION', 'MARKETING', 'DIRECCION', 'PRODUCCION', 
-    'SISTEMAS', 'RECURSOS_HUMANOS'
-  ], { required_error: "Seleccione Área (Nivel 2)." }),
+  tipo_gasto_impacto: z.string({ required_error: "Seleccione Impacto (Nivel 1)." }),
+  area_funcional: z.string({ required_error: "Seleccione Área (Nivel 2)." }),
   subcategoria_especifica: z.string().min(1, "Seleccione Subcategoría (Nivel 3)."),
-  categoria_macro: z.enum(['OPERATIVO', 'COMERCIAL', 'ADMINISTRATIVO', 'FINANCIERO', 'NOMINA'], { required_error: "Seleccione macro." }),
-  canal_asociado: z.enum([
-    'MERCADO_LIBRE', 'SHOPIFY', 'MAYOREO', 'FISICO', 
-    'PRODUCCION_MALLA_SOMBRA', 'GENERAL'
-  ], { required_error: "Seleccione canal." }),
-  clasificacion_operativa: z.enum(['DIRECTO', 'SEMI_DIRECTO', 'COMPARTIDO']).nullable().optional(),
+  categoria_macro: z.string({ required_error: "Seleccione macro." }),
+  canal_asociado: z.string({ required_error: "Seleccione canal." }),
+  clasificacion_operativa: z.string().nullable().optional(),
   es_fijo: z.boolean().default(false),
   es_recurrente: z.boolean().default(false),
-  metodo_pago: z.enum(['EFECTIVO', 'TRANSFERENCIA', 'TARJETA_DEBITO', 'TARJETA_CREDITO', 'PAYPAL', 'OTRO'], { required_error: "Seleccione pago." }),
-  banco: z.enum(['BBVA', 'SANTANDER', 'BANAMEX', 'MERCADO_PAGO', 'OTRO'], { required_error: "Seleccione banco." }),
-  cuenta: z.enum(['OPERATIVA', 'FISCAL', 'CAJA_CHICA', 'OTRO'], { required_error: "Seleccione cuenta." }),
+  metodo_pago: z.string({ required_error: "Seleccione pago." }),
+  banco: z.string({ required_error: "Seleccione banco." }),
+  cuenta: z.string({ required_error: "Seleccione cuenta." }),
   responsable: z.string().min(1, "Responsable es obligatorio."),
   descripcion: z.string().nullable().optional(),
   notas: z.string().max(280, "Máximo 280 caracteres.").nullable().optional(),
