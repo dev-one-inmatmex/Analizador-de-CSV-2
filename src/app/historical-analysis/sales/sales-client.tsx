@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -172,10 +171,7 @@ export default function SalesDashboardClient({
                                 <SelectTrigger className="bg-white"><SelectValue placeholder="Todas las tiendas" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Todos">Todas las tiendas</SelectItem>
-                                    <SelectItem value="DOMESKA">DOMESKA</SelectItem>
-                                    <SelectItem value="TAL">TAL</SelectItem>
-                                    <SelectItem value="MTM">MTM</SelectItem>
-                                    {allCompanies.filter(c => !['DOMESKA', 'TAL', 'MTM', 'Todos'].includes(c)).map(c => (
+                                    {allCompanies.map(c => (
                                         <SelectItem key={c} value={c}>{c}</SelectItem>
                                     ))}
                                 </SelectContent>

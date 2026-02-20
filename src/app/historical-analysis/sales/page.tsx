@@ -8,7 +8,6 @@ export type Sale = ml_sales;
 async function getSalesData() {
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
-  // Mantenemos el filtro de 12 meses por rendimiento, pero trayendo todos los campos (*)
   const twelveMonthsAgo = subMonths(new Date(), 12);
 
   const { data, error } = await supabaseAdmin
@@ -23,7 +22,9 @@ async function getSalesData() {
   }
 
   const sales: Sale[] = data;
-  const allCompanies = ['Todos', ...Array.from(new Set(sales.map(s => s.tienda).filter(Boolean) as string[]))];
+  
+  // Extraemos las tiendas únicas directamente de los registros
+  const allCompanies = Array.from(new Set(sales.map(s => s.tienda).filter(Boolean) as string[])).sort();
   
   return {
     sales,
