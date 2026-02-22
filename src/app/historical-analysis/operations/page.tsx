@@ -557,7 +557,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-primary" /> Flujo de Caja (Ingresos vs Gastos)
+                            <Activity className="h-5 w-5 text-primary" /> Flujo de Caja Diario (Ingresos vs Gastos)
                         </CardTitle>
                         <CardDescription>Visualiza el flujo de dinero en el periodo seleccionado.</CardDescription>
                     </div>
@@ -628,7 +628,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
         const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
         const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
-        const costosFijos = gastos.filter((g: any) => g.es_fijo).reduce((a, b) => a + (b.monto || 0), 0);
+        const costosFijos = gastos.filter((g: any) => g.es_fijo).reduce((a: number, b: any) => a + (b.monto || 0), 0);
         
         const gastosLogistica = gastos.filter((g: any) => 
             g.area_funcional === 'LOGISTICA' || g.tipo_gasto_impacto === 'GASTO_LOGISTICO'
@@ -649,7 +649,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
         return {
             logisticsData: {
-                total: gastosLogistica.reduce((a, b) => a + (b.monto || 0), 0),
+                total: gastosLogistica.reduce((a: number, b: any) => a + (b.monto || 0), 0),
                 breakdown: Object.entries(gastosLogistica.reduce((acc: any, g: any) => { const cat = g.subcategoria_especifica || 'Otros'; acc[cat] = (acc[cat] || 0) + (g.monto || 0); return acc; }, {})).map(([name, value]) => ({ name, value }))
             },
             chartsData: {
@@ -797,7 +797,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie data={chartsData.areas} dataKey="value" nameKey="name" innerRadius={50} outerRadius={70} paddingAngle={5}>
-                                    {chartsData.areas.map((_, i) => <RechartsCell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    {chartsData.areas.map((_: any, i: number) => <RechartsCell key={i} fill={COLORS[i % COLORS.length]} />)}
                                 </Pie>
                                 <Tooltip formatter={(v: number) => money(v)} />
                                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '9px'}} />
@@ -991,7 +991,7 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {budgetAnalysis.map(item => (
+                            {budgetAnalysis.map((item: any) => (
                                 <TableRow key={item.cat}>
                                     <TableCell className="font-bold text-xs">{item.cat}</TableCell>
                                     <TableCell className="text-right font-medium">{money(item.limit)}</TableCell>
