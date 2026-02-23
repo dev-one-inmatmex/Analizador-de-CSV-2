@@ -1461,7 +1461,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         ))}
                     </div>
                 </CardContent>
-            </div>
+            </Card>
         </div>
     );
 }
