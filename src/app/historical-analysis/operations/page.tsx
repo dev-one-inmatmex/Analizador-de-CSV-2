@@ -72,7 +72,6 @@ export default function OperationsPage() {
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
     const [isClient, setIsClient] = React.useState(false);
 
-    // Filtros avanzados
     const [periodType, setPeriodType] = React.useState<'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
     const [filterArea, setFilterArea] = React.useState<string>('TODAS');
@@ -233,7 +232,6 @@ export default function OperationsPage() {
                 </div>
             </header>
 
-            {/* Barra de Filtros Avanzados */}
             <div className="bg-white border-b px-4 py-3 sm:px-6">
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -244,7 +242,7 @@ export default function OperationsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="month" className="text-xs font-bold uppercase">Mes Actual</SelectItem>
-                                <SelectItem value="six_months" className="text-xs font-bold uppercase">Últimos 6 Meses (Fase 7)</SelectItem>
+                                <SelectItem value="six_months" className="text-xs font-bold uppercase">Últimos 6 Meses</SelectItem>
                                 <SelectItem value="year" className="text-xs font-bold uppercase">Año Actual</SelectItem>
                             </SelectContent>
                         </Select>
@@ -393,7 +391,6 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
         }
 
         const steps = eachDayOfInterval({ start, end });
-        // Si el periodo es muy largo, agrupamos por semana o mes para no saturar la gráfica
         const limit = periodType === 'month' ? 31 : (periodType === 'six_months' ? 180 : 365);
         
         return steps.filter((_, i) => periodType === 'month' || i % (periodType === 'six_months' ? 7 : 30) === 0).map(step => {
@@ -459,7 +456,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <Card className="border-none shadow-sm bg-white">
                     <CardHeader className="pb-2 flex flex-row items-center justify-between">
                         <div className="space-y-1">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Gasto Fijo Real (Fase 7)</p>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Gasto Fijo Real</p>
                             <CardTitle className="text-2xl font-black text-[#2D5A4C]">{money(stats.fixedCosts)}</CardTitle>
                         </div>
                         <Target className="h-5 w-5 text-muted-foreground opacity-50" />
@@ -509,7 +506,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <Card className="border-none shadow-sm overflow-hidden bg-white">
                     <div className="flex items-center justify-between px-6 py-3 border-b">
                         <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-black text-[#2D5A4C] tracking-widest">Periodo de Auditoría</span>
+                            <span className="text-[10px] uppercase font-black text-[#2D5A4C] tracking-widest">Periodo de Análisis</span>
                             <span className="text-sm font-black uppercase">{format(currentDate, 'MMMM yyyy', { locale: es })}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -701,7 +698,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" /> Punto de Equilibrio (Fase 7)
+                            <TrendingUp className="h-5 w-5 text-primary" /> Punto de Equilibrio
                         </CardTitle>
                         <CardDescription>Cruce entre Ingresos y Costos Totales basado en Gasto Fijo Actual.</CardDescription>
                     </div>
@@ -727,7 +724,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             <TableHeader className="bg-muted/30">
                                 <TableRow className="h-10">
                                     <TableHead className="text-[10px] font-black uppercase tracking-widest w-1/4">Concepto</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Significado Estratégico (Fase 1-7)</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest">Significado Estratégico</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -750,7 +747,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <div className="h-2 w-2 rounded-full bg-[#3b82f6]" />
                                         <span className="text-[10px] font-bold uppercase">Ingresos</span>
                                     </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">El flujo bruto de dinero que entra a la empresa por todos los canales de venta auditados.</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">El flujo bruto de dinero que entra a la empresa por todos los canales de venta analizados.</TableCell>
                                 </TableRow>
                                 <TableRow className="h-12 bg-primary/5">
                                     <TableCell className="flex items-center gap-2">
@@ -770,7 +767,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="space-y-1">
                             <CardTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                <Truck className="h-4 w-4 text-primary" /> Eficiencia Logística (Fase 5)
+                                <Truck className="h-4 w-4 text-primary" /> Eficiencia Logística
                             </CardTitle>
                             <CardDescription className="text-[10px]">Inversión operativa de movimiento mensual.</CardDescription>
                         </div>
@@ -811,7 +808,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div className="space-y-1">
                         <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground">Auditoría completa de ingresos y gastos del periodo.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground">Resumen completo de ingresos y gastos del periodo.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <div className="flex items-center gap-2">
@@ -975,7 +972,7 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
             <Card className="border-none shadow-sm bg-white overflow-hidden">
                 <CardHeader>
                     <CardTitle className="text-lg font-bold flex items-center gap-2">
-                        <Wallet className="h-5 w-5 text-primary" /> Auditoría de Presupuestos
+                        <Wallet className="h-5 w-5 text-primary" /> Seguimiento de Presupuestos
                     </CardTitle>
                     <CardDescription>Resumen de metas mensuales por categoría macro financiera.</CardDescription>
                 </CardHeader>
@@ -1097,14 +1094,14 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                             <Settings2 className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                            <CardTitle className="text-lg font-bold">Parámetros BI (Fases 1-7)</CardTitle>
+                            <CardTitle className="text-lg font-bold">Parámetros BI</CardTitle>
                             <CardDescription>Configura los valores clave para el motor de inteligencia financiera.</CardDescription>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-6 pt-4">
                         <div className="flex items-center justify-between border-b pb-4">
                             <div className="space-y-1">
-                                <Label className="text-sm font-bold">Margen de Contribución Promedio (Fase 7)</Label>
+                                <Label className="text-sm font-bold">Margen de Contribución Promedio</Label>
                                 <p className="text-xs text-muted-foreground">Valor utilizado para calcular el Punto de Equilibrio mensual.</p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1114,7 +1111,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         </div>
                         <div className="flex items-center justify-between border-b pb-4">
                             <div className="space-y-1">
-                                <Label className="text-sm font-bold">Días de Auditoría Histórica</Label>
+                                <Label className="text-sm font-bold">Días de Historial de Datos</Label>
                                 <p className="text-xs text-muted-foreground">Periodo de datos para el cálculo de promedios de gasto fijo.</p>
                             </div>
                             <Select defaultValue="180">
@@ -1128,7 +1125,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         </div>
                         <div className="flex items-center justify-between border-b pb-4">
                             <div className="space-y-1">
-                                <Label className="text-sm font-bold">Unidad Independiente Malla Sombra (Fase 6)</Label>
+                                <Label className="text-sm font-bold">Unidad Independiente Malla Sombra</Label>
                                 <p className="text-xs text-muted-foreground">Aislar financieramente el taller de producción.</p>
                             </div>
                             <Switch defaultChecked />
@@ -1151,7 +1148,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         <CardHeader className="bg-primary/5 pb-4">
                             <div className="flex items-center gap-2">
                                 <Hammer className="h-4 w-4 text-primary" />
-                                <CardTitle className="text-[10px] font-black uppercase tracking-widest">Nómina Mixta (Fase 4)</CardTitle>
+                                <CardTitle className="text-[10px] font-black uppercase tracking-widest">Nómina Mixta</CardTitle>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-4">
@@ -1182,7 +1179,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         </CardHeader>
                         <CardContent>
                             <p className="text-[10px] leading-relaxed opacity-90">
-                                Tu arquitectura financiera está operando en Fase 7. Los cálculos de rentabilidad y supervivencia son 100% automáticos basados en tus registros.
+                                Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros.
                             </p>
                         </CardContent>
                     </Card>
@@ -1192,7 +1189,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
             <Card className="border-none shadow-sm bg-white">
                 <CardHeader>
                     <CardTitle className="text-lg font-bold flex items-center gap-2">
-                        <SettingsIcon className="h-5 w-5 text-primary" /> Gestión de Categorías e Impactos (Nivel 1 y 3)
+                        <SettingsIcon className="h-5 w-5 text-primary" /> Gestión de Categorías e Impactos
                     </CardTitle>
                     <CardDescription>Añade o modifica la estructura de clasificación de tus gastos.</CardDescription>
                 </CardHeader>
@@ -1362,7 +1359,7 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                 <FormField control={form.control} name="es_fijo" render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
-                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo (Fase 7)</FormLabel><FormDescription className="text-[8px]">Esencial para operar el mes</FormDescription></div>
+                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo</FormLabel><FormDescription className="text-[8px]">Esencial para operar el mes</FormDescription></div>
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     </FormItem>
                 )} />
@@ -1378,7 +1375,7 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                 <div className="pt-4">
                     <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-primary/5">
-                            <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta (Fase 4)</FormLabel><FormDescription className="text-[8px]">Repartir 60/30/10 entre canales</FormDescription></div>
+                            <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</FormLabel><FormDescription className="text-[8px]">Repartir 60/30/10 entre canales</FormDescription></div>
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         </FormItem>
                     )} />

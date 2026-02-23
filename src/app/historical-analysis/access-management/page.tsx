@@ -49,7 +49,7 @@ export default function AccessManagementPage() {
         { id: 'sales', label: 'Análisis de Ventas', description: 'Acceso completo al dashboard de ventas.' },
         { id: 'inventory', label: 'Análisis de Inventario', description: 'Ver y gestionar el inventario.' },
         { id: 'operations', label: 'Rendimiento Operativo', description: 'Monitorizar la eficiencia operativa.' },
-        { id: 'products', label: 'Análisis de Productos', description: 'Analizar el ciclo de vida de productos.' },
+        { id: 'products', label: 'Análisis de Publicaciones', description: 'Analizar el ciclo de vida de productos.' },
         { id: 'trends', label: 'Predicción de Tendencias', description: 'Acceder a las predicciones de la IA.' },
         { id: 'major-minor', label: 'Ventas por Mayor y Menor', description: 'Segmentar y analizar ventas por volumen.' },
         { id: 'access-management', label: 'Gestión de Accesos', description: 'Administrar usuarios y roles (solo admin).' },
@@ -126,7 +126,7 @@ export default function AccessManagementPage() {
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-bold tracking-tight">Auditoría</h1>
+          <h1 className="text-xl font-bold tracking-tight">Gestión de Accesos</h1>
         </div>
         <div className="flex items-center gap-4">
             <Link href="/historical-analysis/access-management/new-user" passHref>

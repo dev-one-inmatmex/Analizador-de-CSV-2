@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -284,14 +283,13 @@ export default function CsvUploader() {
             
             if (selectedFile.name.toLowerCase().endsWith('.csv')) {
                 const csvText = new TextDecoder().decode(data);
-                let estadoCount = 0; // Contador para diferenciar "Estado"
+                let estadoCount = 0; 
                 
                 Papa.parse(csvText, {
                     header: true,
                     skipEmptyLines: true,
                     transformHeader: (header) => {
                         const trimmedHeader = header.trim();
-                        // Interceptamos y renombramos si la tabla es ml_sales
                         if (table === 'ml_sales' && trimmedHeader === 'Estado') {
                             estadoCount++;
                             if (estadoCount === 1) return 'Estado Venta';
@@ -326,10 +324,9 @@ export default function CsvUploader() {
                 const validRows = json.filter(row => row.some(cell => cell !== null && cell !== ''));
                 
                 if (validRows.length > 0) {
-                    let estadoCountExcel = 0; // Contador para diferenciar "Estado" en Excel
+                    let estadoCountExcel = 0; 
                     const h = validRows[0].map(val => {
                         const headerName = String(val || '').trim();
-                        // Interceptamos y renombramos si la tabla es ml_sales
                         if (table === 'ml_sales' && headerName === 'Estado') {
                             estadoCountExcel++;
                             if (estadoCountExcel === 1) return 'Estado Venta';
@@ -558,10 +555,10 @@ export default function CsvUploader() {
                 <Card className="border-none shadow-2xl bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden">
                     <CardHeader className="bg-primary/5 pb-8">
                         <CardTitle className="text-3xl font-black uppercase tracking-tight text-primary flex items-center gap-3">
-                            <UploadCloud className="h-8 w-8" /> Iniciar Procesamiento
+                            <UploadCloud className="h-8 w-8" /> Sube tu archivo
                         </CardTitle>
                         <CardDescription className="text-lg font-medium text-slate-500">
-                            Sube un archivo .csv o .xlsx para realizar una auditoría diferencial y sincronizar con la base de datos.
+                            Sube un archivo .csv o .xlsx.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="p-10">
@@ -632,7 +629,7 @@ export default function CsvUploader() {
                         {isLoading ? (
                             <div className="text-center space-y-4">
                                 <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-                                <p className="font-black text-[10px] uppercase tracking-widest text-slate-400">Preparando motor de mapeo...</p>
+                                <p className="font-black text-[10px] uppercase tracking-widest text-slate-400">Preparando motor de procesamiento...</p>
                             </div>
                         ) : (
                             <div className="space-y-6">
@@ -717,7 +714,7 @@ export default function CsvUploader() {
                     </CardContent>
                     <CardFooter className="p-8 border-t bg-slate-50/80">
                         <Button onClick={performAnalysis} className="w-full h-16 font-black uppercase text-sm shadow-xl rounded-2xl bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]">
-                            <Eye className="mr-3 h-5 w-5" /> Iniciar Auditoría Diferencial
+                            <Eye className="mr-3 h-5 w-5" /> Iniciar Análisis Diferencial
                         </Button>
                     </CardFooter>
                 </Card>
@@ -729,7 +726,7 @@ export default function CsvUploader() {
                         <Loader2 className="h-24 w-24 animate-spin text-primary" />
                         <Layers className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-primary/40 animate-pulse" />
                     </div>
-                    <h3 className="text-3xl font-black uppercase tracking-tight text-slate-800">Auditoría en Curso</h3>
+                    <h3 className="text-3xl font-black uppercase tracking-tight text-slate-800">Análisis en Curso</h3>
                     <p className="text-slate-500 font-medium max-w-sm mx-auto mt-2">Comparando el archivo contra el 100% de los registros en la base de datos...</p>
                 </Card>
             )}
@@ -742,7 +739,7 @@ export default function CsvUploader() {
                                 <CheckCircle className="h-5 w-5" />
                             </div>
                             <div>
-                                <CardTitle className="text-xl font-black uppercase tracking-tight">Auditoría de Resultados</CardTitle>
+                                <CardTitle className="text-xl font-black uppercase tracking-tight">Resultado del Análisis</CardTitle>
                                 <CardDescription className="font-medium text-slate-500">Revisa los cambios detectados antes de confirmar la sincronización.</CardDescription>
                             </div>
                         </div>
@@ -756,7 +753,7 @@ export default function CsvUploader() {
                                         Nuevos <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary border-none">{categorizedData.new.length}</Badge>
                                     </TabsTrigger>
                                     <TabsTrigger value="actualizar" className="font-black uppercase text-[11px] data-[state=active]:text-amber-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 rounded-none px-0 h-16">
-                                        A Actualizar <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 border-none">{categorizedData.update.length}</Badge>
+                                        Con Cambios <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 border-none">{categorizedData.update.length}</Badge>
                                     </TabsTrigger>
                                     <TabsTrigger value="sin-cambios" className="font-black uppercase text-[11px] data-[state=active]:text-slate-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-slate-400 rounded-none px-0 h-16">
                                         Sin Cambios <Badge variant="secondary" className="ml-2 bg-slate-100 text-slate-500 border-none">{categorizedData.unchanged.length}</Badge>
@@ -883,7 +880,7 @@ export default function CsvUploader() {
                             {syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12" /> : <CheckCircle className="h-12 w-12" />}
                         </div>
                         <h2 className="text-4xl font-black uppercase tracking-tighter leading-none mb-3">
-                            {syncResult.errors.length > 0 ? 'Auditoría Finalizada con Anomalías' : '¡Sincronización Exitosa!'}
+                            {syncResult.errors.length > 0 ? 'Proceso Finalizado con Anomalías' : '¡Sincronización Exitosa!'}
                         </h2>
                         <p className="text-white/70 font-medium text-lg uppercase tracking-widest text-[10px]">REPORTE TÉCNICO DE EJECUCIÓN</p>
                     </div>
@@ -931,7 +928,7 @@ export default function CsvUploader() {
                                 <RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo
                             </Button>
                             <Button className="h-16 font-black uppercase text-xs rounded-2xl bg-slate-900 hover:bg-black transition-all shadow-xl active:scale-[0.98]" onClick={() => window.location.reload()}>
-                                <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Auditoría
+                                <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Proceso
                             </Button>
                         </div>
                     </CardContent>

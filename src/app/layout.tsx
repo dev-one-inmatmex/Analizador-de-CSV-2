@@ -42,7 +42,7 @@ const menuLinks = [
   { href: '/historical-analysis/inventory-analysis', label: 'Gestión de skus', icon: BookType },
   { href: '/historical-analysis/mapping-reconciliation', label: 'Mapeo y conciliación', icon: Puzzle },
   { href: '/historical-analysis/alerts', label: 'Alertas', icon: AlertTriangle },
-  { href: '/historical-analysis/access-management', label: 'Auditoría', icon: Users },
+  { href: '/historical-analysis/access-management', label: 'Gestión de Accesos', icon: Users },
   { href: '/historical-analysis/financial-close', label: 'Cierre financiero', icon: Landmark },
   { href: '/historical-analysis/operations?tab=configuracion', label: 'Configuración', icon: Settings },
 ];

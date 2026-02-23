@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -67,7 +66,6 @@ export default function SalesDashboardClient({
 
     const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
-    // 1. Reconciliación de datos para Paquetes
     const reconciledSales = React.useMemo(() => {
         const data = initialSales.map(s => ({ ...s }));
         
@@ -119,7 +117,6 @@ export default function SalesDashboardClient({
         return data;
     }, [initialSales]);
 
-    // 2. Filtrado y KPIs
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
         const filteredSales = reconciledSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
@@ -139,17 +136,14 @@ export default function SalesDashboardClient({
             return true;
         });
 
-        // Ingreso Total Real (sin duplicados)
         const financialRecords = filteredSales.filter(s => !(s as any)._isPackageChild);
         const totalRevenue = financialRecords.reduce((acc, sale) => acc + (sale.total || 0), 0);
         const totalSalesCount = financialRecords.length;
         const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
         
-        // Agrupación para Pareto
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         
         filteredSales.forEach(sale => {
-            // Evitamos contar al padre que no tiene producto (solo contenedor)
             if ((sale as any)._isPackageParent && !sale.sku) return;
             
             const key = sale.tit_pub || sale.sku || 'N/A';
@@ -159,8 +153,6 @@ export default function SalesDashboardClient({
                 productStats[key] = { revenue: 0, units: 0, sku: sale.sku || 'N/A' };
             }
             
-            // Para que la suma de Pareto coincida con el Total Revenue:
-            // Dividimos el total del paquete entre sus hijos.
             const valueToAdd = (sale as any)._isPackageChild 
                 ? (sale.total || 0) / ((sale as any)._packageSize || 1) 
                 : (sale.total || 0);
@@ -227,7 +219,7 @@ export default function SalesDashboardClient({
                 <div className="flex items-center gap-4">
                     <SidebarTrigger />
                     <h1 className="text-xl font-bold">Ventas Consolidadas</h1>
-                    <Badge variant="outline" className="hidden sm:flex">Auditoría ml_sales</Badge>
+                    <Badge variant="outline" className="hidden sm:flex">Registro ml_sales</Badge>
                 </div>
             </header>
 
@@ -237,7 +229,7 @@ export default function SalesDashboardClient({
                         <Filter className="h-6 w-6 text-primary" />
                         <div className="flex-1">
                             <CardTitle>Filtros Maestros</CardTitle>
-                            <CardDescription>Segmenta ingresos y auditoría por periodo y tienda.</CardDescription>
+                            <CardDescription>Segmenta ingresos y registros por periodo y tienda.</CardDescription>
                         </div>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -277,7 +269,7 @@ export default function SalesDashboardClient({
                               onClick={() => setIsParetoModalOpen(true)} 
                               className="gap-2 font-bold bg-primary/5 border-primary/20 hover:bg-primary/10"
                             >
-                                <BarChart3 className="h-4 w-4" /> Auditoría Pareto (Impacto 80/20)
+                                <BarChart3 className="h-4 w-4" /> Análisis Pareto (Impacto 80/20)
                             </Button>
                         </CardHeader>
                         <CardContent className="h-[400px]">
@@ -313,7 +305,7 @@ export default function SalesDashboardClient({
                 <Card className="min-w-0 overflow-hidden border-none shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
-                        <CardDescription>Detalle auditado de transacciones ml_sales (Herencia aplicada para paquetes).</CardDescription>
+                        <CardDescription>Detalle de transacciones ml_sales (Herencia aplicada para paquetes).</CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="relative w-full overflow-x-auto border-t">
@@ -328,7 +320,7 @@ export default function SalesDashboardClient({
                                         <TableHead className="border-r border-muted text-center bg-yellow-50/20" colSpan={8}>Comprador</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-indigo-50/20" colSpan={6}>Logística S1</TableHead>
                                         <TableHead className="border-r border-muted text-center bg-cyan-50/20" colSpan={7}>Logística S2</TableHead>
-                                        <TableHead className="bg-red-50/20 text-center" colSpan={10}>Auditoría Final</TableHead>
+                                        <TableHead className="bg-red-50/20 text-center" colSpan={10}>Resultados Finales</TableHead>
                                     </TableRow>
                                     <TableRow className="text-[9px] uppercase font-medium bg-muted/10 h-10">
                                         <TableHead className="border-r"># Venta</TableHead>
@@ -467,7 +459,7 @@ export default function SalesDashboardClient({
                         </div>
                     </CardContent>
                     <CardFooter className="flex justify-between border-t p-4 bg-muted/5">
-                        <div className="text-xs text-muted-foreground font-medium">Página {currentPage} de {totalPages} • <span className="text-primary font-black">{sales.length}</span> registros auditados</div>
+                        <div className="text-xs text-muted-foreground font-medium">Página {currentPage} de {totalPages} • <span className="text-primary font-black">{sales.length}</span> registros procesados</div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
                             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
@@ -481,7 +473,7 @@ export default function SalesDashboardClient({
                     <div className="px-6 py-4 border-b bg-muted/30">
                         <DialogHeader>
                             <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
-                                <BarChart3 className="h-6 w-6 text-primary" /> Auditoría Pareto (Impacto 80/20)
+                                <BarChart3 className="h-6 w-6 text-primary" /> Análisis Pareto (Impacto 80/20)
                             </DialogTitle>
                             <DialogDescription>Listado exhaustivo de productos ordenados por impacto financiero.</DialogDescription>
                         </DialogHeader>
