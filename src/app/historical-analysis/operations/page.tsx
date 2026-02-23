@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -192,10 +191,10 @@ export default function OperationsPage() {
         try {
             const finalValues = { ...values };
             
-            if (values.empresa === 'OTRA' && values.especificar_empresa) finalValues.empresa = values.especificar_empresa;
-            if (values.metodo_pago === 'OTRO' && values.especificar_metodo_pago) finalValues.metodo_pago = values.especificar_metodo_pago;
-            if (values.banco === 'OTRO' && values.especificar_banco) finalValues.banco = values.especificar_banco;
-            if (values.cuenta === 'OTRO' && values.especificar_cuenta) finalValues.cuenta = values.especificar_cuenta;
+            if (values.empresa === 'OTRA' && values.especificar_empresa) finalValues.empresa = values.especificar_empresa as any;
+            if (values.metodo_pago === 'OTRO' && values.especificar_metodo_pago) finalValues.metodo_pago = values.especificar_metodo_pago as any;
+            if (values.banco === 'OTRO' && values.especificar_banco) finalValues.banco = values.especificar_banco as any;
+            if (values.cuenta === 'OTRO' && values.especificar_cuenta) finalValues.cuenta = values.especificar_cuenta as any;
 
             let result;
             
@@ -690,6 +689,15 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
     );
 }
 
+function DetailItem({ label, value }: { label: string, value: any }) {
+    return (
+        <div className="space-y-1">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+            <p className="text-xs font-bold text-slate-700 truncate">{value || '-'}</p>
+        </div>
+    );
+}
+
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [showFilter, setSearchShowFilter] = React.useState(false);
@@ -1024,7 +1032,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 filteredTransactions.map((t: GastoDiario) => (
                                     <TableRow key={t.id} className="hover:bg-muted/5 h-14 border-b">
                                         <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
-                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{getEnhancedValue(t.empresa, t.notes, 'Empresa')}</Badge></TableCell>
+                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{getEnhancedValue(t.empresa, t.notas, 'Empresa')}</Badge></TableCell>
                                         <TableCell>
                                             <Badge variant={['INGRESO', 'VENTA'].includes(t.tipo_transaccion) ? 'default' : t.tipo_transaccion === 'COMPRA' ? 'secondary' : 'outline'} className="text-[8px] font-black uppercase whitespace-nowrap">
                                                 {t.tipo_transaccion}
@@ -1038,9 +1046,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="text-[9px] font-black text-muted-foreground uppercase">{t.clasificacion_operativa || '-'}</TableCell>
                                         <TableCell className="text-center">{t.es_fijo ? <Badge className="bg-blue-100 text-blue-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
                                         <TableCell className="text-center">{t.es_recurrente ? <Badge className="bg-purple-100 text-purple-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.metodo_pago, t.notes, 'Método')}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.banco, t.notes, 'Banco')}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.cuenta, t.notes, 'Cuenta')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.metodo_pago, t.notas, 'Método')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.banco, t.notas, 'Banco')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.cuenta, t.notas, 'Cuenta')}</TableCell>
                                         <TableCell className="text-[10px] text-slate-700 font-bold whitespace-nowrap">{t.responsable || '-'}</TableCell>
                                         <TableCell className={cn(
                                             "text-right font-bold text-sm sticky right-0 bg-white/95 backdrop-blur-sm shadow-[-4px_0_10px_rgba(0,0,0,0.05)] px-6", 
@@ -1194,6 +1202,559 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+}
+
+function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynamicSubcategories, dynamicMacro }: any) {
+    const form = useForm<TransactionFormValues>({
+        resolver: zodResolver(expenseFormSchema),
+        defaultValues: transaction ? {
+            ...transaction,
+            fecha: parseISO(transaction.fecha),
+            monto: Number(transaction.monto),
+            empresa: EMPRESAS.includes(transaction.empresa) ? transaction.empresa : 'OTRA',
+            especificar_empresa: getEnhancedValue(transaction.empresa, transaction.notas, 'Empresa'),
+            metodo_pago: METODOS_PAGO.includes(transaction.metodo_pago) ? transaction.metodo_pago : 'OTRO',
+            especificar_metodo_pago: getEnhancedValue(transaction.metodo_pago, transaction.notas, 'Método'),
+            banco: BANCOS.includes(transaction.banco) ? transaction.banco : 'OTRO',
+            especificar_banco: getEnhancedValue(transaction.banco, transaction.notas, 'Banco'),
+            cuenta: CUENTAS.includes(transaction.cuenta) ? transaction.cuenta : 'OTRO',
+            especificar_cuenta: getEnhancedValue(transaction.cuenta, transaction.notas, 'Cuenta'),
+            descripcion: transaction.descripcion || '',
+            notas: cleanNotes(transaction.notas),
+            es_nomina_mixta: false
+        } : {
+            fecha: new Date(),
+            empresa: '',
+            tipo_transaccion: 'GASTO',
+            monto: 0,
+            tipo_gasto_impacto: '',
+            area_funcional: '',
+            subcategoria_especifica: '',
+            categoria_macro: '',
+            canal_asociado: 'GENERAL',
+            clasificacion_operativa: 'DIRECTO',
+            es_fijo: false,
+            es_recurrente: false,
+            metodo_pago: '',
+            banco: '',
+            cuenta: '',
+            responsable: '',
+            descripcion: '',
+            notas: '',
+            comprobante_url: '',
+            es_nomina_mixta: false
+        }
+    });
+
+    const currentImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
+    const currentEmpresa = useWatch({ control: form.control, name: 'empresa' });
+    const currentMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
+    const currentBanco = useWatch({ control: form.control, name: 'banco' });
+    const currentCuenta = useWatch({ control: form.control, name: 'cuenta' });
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
+                <div className="bg-[#2D5A4C] p-8 text-white">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                                <Edit2 className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-2xl font-black uppercase tracking-tight">
+                                    {transaction ? 'Editar Registro' : 'Nuevo Movimiento'}
+                                </DialogTitle>
+                                <DialogDescription className="text-white/60 text-[10px] font-bold uppercase tracking-widest">
+                                    Clasificación financiera en 7 fases
+                                </DialogDescription>
+                            </div>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/10 rounded-full">
+                            <X className="h-6 w-6" />
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="p-8 space-y-10 bg-white">
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 1. Identificación y Tiempo
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <FormField control={form.control} name="fecha" render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-[10px] font-bold uppercase">Fecha de Operación</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("pl-3 text-left font-normal h-12 rounded-xl", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccionar</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="empresa" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Empresa / Entidad</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentEmpresa === 'OTRA' && (
+                                <FormField control={form.control} name="especificar_empresa" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Empresa</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre de la empresa" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+
+                            <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Tipo de Transacción</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-black"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </section>
+
+                    <Separator className="bg-slate-100" />
+
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 2. Clasificación de Negocio
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <FormField control={form.control} name="monto" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Monto Total ($)</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
+                                            <Input {...field} type="number" step="0.01" className="h-14 pl-8 rounded-xl text-xl font-black bg-slate-50 border-none shadow-inner" placeholder="0.00" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 1: Impacto</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{dynamicImpacts.map((i: string) => <SelectItem key={i} value={i}>{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="area_funcional" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 2: Área Funcional</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a}>{a.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 3: Subcategoría</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {(dynamicSubcategories[currentImpact] || []).map((s: string) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                            <SelectItem value="OTRA">-- OTRA SUB --</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="categoria_macro" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Categoría Macro</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{dynamicMacro.map((m: string) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="canal_asociado" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Canal de Atribución</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </section>
+
+                    <section className="p-6 bg-slate-50 rounded-3xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <FormField control={form.control} name="es_fijo" render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
+                                <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase">¿Es Gasto Fijo?</FormLabel><FormDescription className="text-[9px]">Renta, Sueldos base, etc.</FormDescription></div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="es_recurrente" render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
+                                <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase">¿Es Recurrente?</FormLabel><FormDescription className="text-[9px]">Suscripciones, software, etc.</FormDescription></div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                        {currentImpact === 'NOMINA' && (
+                            <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
+                                <FormItem className="flex items-center justify-between rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 shadow-sm animate-in zoom-in-95">
+                                    <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase text-primary">¿Nómina Mixta?</FormLabel><FormDescription className="text-[9px]">Fraccionar 60/30/10%</FormDescription></div>
+                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                            )} />
+                        )}
+                    </section>
+
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 3. Tesorería y Pago
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <FormField control={form.control} name="metodo_pago" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Método de Pago</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentMetodo === 'OTRO' && (
+                                <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Método</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Ej: Pago en especie" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+
+                            <FormField control={form.control} name="banco" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Banco Origen</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentBanco === 'OTRO' && (
+                                <FormField control={form.control} name="especificar_banco" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Banco</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre del banco" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+
+                            <FormField control={form.control} name="cuenta" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Cuenta Destino</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentCuenta === 'OTRO' && (
+                                <FormField control={form.control} name="especificar_cuenta" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Cuenta</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Tipo de cuenta" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 4. Detalles y Contexto
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField control={form.control} name="responsable" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Responsable de Registro</FormLabel>
+                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="Nombre de usuario" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="comprobante_url" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">URL del Comprobante (Opcional)</FormLabel>
+                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="https://..." /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="descripcion" render={({ field }) => (
+                                <FormItem className="col-span-full">
+                                    <FormLabel className="text-[10px] font-bold uppercase">Descripción Detallada</FormLabel>
+                                    <FormControl><Textarea {...field} className="min-h-[100px] rounded-2xl resize-none p-4" placeholder="Describe el motivo o desglose del gasto..." /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="notas" render={({ field }) => (
+                                <FormItem className="col-span-full">
+                                    <FormLabel className="text-[10px] font-bold uppercase">Notas de Auditoría (Privadas)</FormLabel>
+                                    <FormControl><Textarea {...field} className="min-h-[80px] rounded-2xl resize-none p-4 border-dashed" placeholder="Anotaciones internas para revisión financiera..." /></FormControl>
+                                    <FormDescription className="text-[9px]">Máximo 280 caracteres.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </section>
+                </div>
+
+                <DialogFooter className="p-8 border-t bg-slate-50 sticky bottom-0 z-10">
+                    <Button type="button" variant="outline" onClick={onClose} className="h-14 px-8 rounded-2xl font-bold uppercase text-xs border-slate-200">Cancelar</Button>
+                    <Button type="submit" className="h-14 px-12 rounded-2xl font-black uppercase text-xs shadow-xl bg-[#2D5A4C] hover:bg-[#1f3e34]">
+                        <Save className="mr-2 h-4 w-4" /> {transaction ? 'Guardar Cambios' : 'Confirmar Registro'}
+                    </Button>
+                </DialogFooter>
+            </form>
+        </Form>
+    );
+}
+
+function BudgetsView({ transactions, categories, budgets, setBudgets, setCategories }: any) {
+    const [isBudgetDialogOpen, setIsBudgetDialogOpen] = React.useState(false);
+    
+    const budgetStats = React.useMemo(() => {
+        return categories.map((cat: string) => {
+            const spent = transactions
+                .filter((t: any) => t.categoria_macro === cat && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
+                .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+            const budget = budgets[cat] || 0;
+            const percent = budget > 0 ? (spent / budget) * 100 : 0;
+            return { name: cat, spent, budget, percent };
+        });
+    }, [transactions, categories, budgets]);
+
+    return (
+        <div className="space-y-8">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight">Control Presupuestario</h2>
+                    <p className="text-muted-foreground">Seguimiento de techos financieros por categoría macro.</p>
+                </div>
+                <Button onClick={() => setIsBudgetDialogOpen(true)} className="bg-primary hover:bg-primary/90 font-bold h-10 px-6 rounded-xl shadow-lg">
+                    <Settings2 className="mr-2 h-4 w-4" /> Ajustar Techos
+                </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {budgetStats.map((item: any) => (
+                    <Card key={item.name} className="border-none shadow-sm overflow-hidden bg-white group hover:shadow-md transition-all">
+                        <CardHeader className="pb-4">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-1">
+                                    <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase py-1 px-3 border-primary/20 text-primary">
+                                        {item.name}
+                                    </Badge>
+                                    <p className="text-xs font-bold text-muted-foreground pt-2">Presupuesto Asignado: {money(item.budget)}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className={cn("text-2xl font-black", item.spent > item.budget ? "text-destructive" : "text-slate-900")}>
+                                        {money(item.spent)}
+                                    </p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Consumido Real</p>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-[10px] font-black uppercase">
+                                    <span>Ejecución del Gasto</span>
+                                    <span className={cn(item.percent > 100 ? "text-destructive" : "text-primary")}>
+                                        {item.percent.toFixed(1)}%
+                                    </span>
+                                </div>
+                                <Progress value={item.percent} className={cn("h-2 bg-slate-100", item.percent > 90 ? "[&>div]:bg-destructive" : "[&>div]:bg-primary")} />
+                            </div>
+                            {item.spent > item.budget && (
+                                <div className="p-3 bg-destructive/5 rounded-xl border border-destructive/10 flex items-center gap-3 animate-pulse">
+                                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                                    <p className="text-[10px] font-bold text-destructive uppercase">Alerta: Excedente de {money(item.spent - item.budget)}</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+
+            <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
+                <DialogContent className="max-w-2xl border-none shadow-2xl p-0 overflow-hidden rounded-[24px]">
+                    <div className="bg-[#2D5A4C] p-8 text-white">
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tight">Configurar Techos Presupuestarios</DialogTitle>
+                        <DialogDescription className="text-white/60 text-xs mt-1">Define los límites mensuales para cada categoría macro.</DialogDescription>
+                    </div>
+                    <div className="p-8 space-y-6 bg-white max-h-[60vh] overflow-y-auto">
+                        {categories.map((cat: string) => (
+                            <div key={cat} className="flex items-center justify-between p-4 rounded-2xl border bg-slate-50">
+                                <div className="space-y-1">
+                                    <span className="text-xs font-black uppercase tracking-tight text-slate-700">{cat}</span>
+                                    <p className="text-[9px] font-bold text-slate-400">MONTO MÁXIMO PERMITIDO</p>
+                                </div>
+                                <div className="w-48 relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">$</span>
+                                    <Input 
+                                        type="number" 
+                                        defaultValue={budgets[cat]} 
+                                        onChange={(e) => setBudgets({ ...budgets, [cat]: Number(e.target.value) })}
+                                        className="pl-6 h-10 font-bold rounded-xl border-slate-200"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter className="p-6 bg-slate-50 border-t">
+                        <Button onClick={() => setIsBudgetDialogOpen(false)} className="w-full bg-[#2D5A4C] hover:bg-[#1f3e34] h-12 rounded-xl font-black uppercase text-xs">Guardar Configuración</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: any) {
+    const [newImpact, setNewImpact] = React.useState('');
+    const [newSub, setNewSub] = React.useState('');
+    const [selectedImpact, setSelectedImpact] = React.useState(impacts[0] || '');
+
+    const addImpact = () => {
+        if (!newImpact) return;
+        const formatted = newImpact.toUpperCase().replace(/\s+/g, '_');
+        if (!impacts.includes(formatted)) {
+            setImpacts([...impacts, formatted]);
+            setSubcategories({ ...subcategories, [formatted]: [] });
+            setNewImpact('');
+        }
+    };
+
+    const addSub = () => {
+        if (!newSub || !selectedImpact) return;
+        const currentSubs = subcategories[selectedImpact] || [];
+        if (!currentSubs.includes(newSub)) {
+            setSubcategories({ ...subcategories, [selectedImpact]: [...currentSubs, newSub] });
+            setNewSub('');
+        }
+    };
+
+    const removeImpact = (impact: string) => {
+        setImpacts(impacts.filter((i: string) => i !== impact));
+        const { [impact]: _, ...rest } = subcategories;
+        setSubcategories(rest);
+    };
+
+    const removeSub = (impact: string, sub: string) => {
+        setSubcategories({ ...subcategories, [impact]: subcategories[impact].filter((s: string) => s !== sub) });
+    };
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
+                    <CardHeader className="bg-primary/5 pb-6">
+                        <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                            <SettingsIcon className="h-5 w-5 text-primary" /> Estructura de Impactos (Nivel 1)
+                        </CardTitle>
+                        <CardDescription>Define las categorías maestras de la operación.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                        <div className="flex gap-2">
+                            <Input placeholder="NUEVO IMPACTO..." value={newImpact} onChange={(e) => setNewImpact(e.target.value)} className="h-12 rounded-xl font-bold uppercase text-xs" />
+                            <Button onClick={addImpact} className="h-12 w-12 rounded-xl p-0"><Plus className="h-5 w-5" /></Button>
+                        </div>
+                        <ScrollArea className="h-[300px] pr-4">
+                            <div className="space-y-2">
+                                {impacts.map((i: string) => (
+                                    <div key={i} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 group hover:border-primary/30 transition-all">
+                                        <span className="text-xs font-black text-slate-700 uppercase">{i.replace(/_/g, ' ')}</span>
+                                        <Button variant="ghost" size="icon" onClick={() => removeImpact(i)} className="h-8 w-8 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white rounded-3xl overflow-hidden">
+                    <CardHeader className="bg-primary/5 pb-6">
+                        <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                            <PlusCircle className="h-5 w-5 text-primary" /> Subcategorías (Nivel 3)
+                        </CardTitle>
+                        <CardDescription>Asocia conceptos específicos a cada impacto.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                        <div className="space-y-4">
+                            <Select value={selectedImpact} onValueChange={setSelectedImpact}>
+                                <SelectTrigger className="h-12 rounded-xl font-black uppercase text-[10px]"><SelectValue placeholder="SELECCIONAR IMPACTO" /></SelectTrigger>
+                                <SelectContent>{impacts.map((i: string) => <SelectItem key={i} value={i} className="font-bold text-[10px] uppercase">{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                            </Select>
+                            <div className="flex gap-2">
+                                <Input placeholder="NUEVA SUBCATEGORÍA..." value={newSub} onChange={(e) => setNewSub(e.target.value)} className="h-12 rounded-xl font-bold uppercase text-xs" />
+                                <Button onClick={addSub} className="h-12 w-12 rounded-xl p-0"><Plus className="h-5 w-5" /></Button>
+                            </div>
+                        </div>
+                        <ScrollArea className="h-[230px] pr-4">
+                            <div className="space-y-2">
+                                {(subcategories[selectedImpact] || []).map((s: string) => (
+                                    <div key={s} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 group hover:border-primary/30 transition-all">
+                                        <span className="text-xs font-bold text-slate-600">{s}</span>
+                                        <Button variant="ghost" size="icon" onClick={() => removeSub(selectedImpact, s)} className="h-8 w-8 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
