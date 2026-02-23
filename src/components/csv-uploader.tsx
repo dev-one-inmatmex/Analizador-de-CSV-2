@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     ml_sales: { 
@@ -270,10 +271,10 @@ export default function CsvUploader() {
         inserted: any[], 
         updated: { record: any, original: any }[], 
         unchanged: any[],
-        errors: { batch: number, msg: string }[]
+        errors: { batch: number, msg: string }[],
+        syncTime?: string
     } | null>(null);
 
-    // Paginación para resultados para evitar trabar el navegador
     const [resultPageInjected, setResultPageInjected] = useState(1);
     const [resultPageUpdated, setResultPageUpdated] = useState(1);
 
@@ -514,7 +515,17 @@ export default function CsvUploader() {
             }
         }
 
-        setSyncResult({ inserted, updated, unchanged, errors });
+        const syncTime = new Date().toLocaleString('es-MX', { 
+            day: 'numeric', 
+            month: 'numeric', 
+            year: 'numeric', 
+            hour: 'numeric', 
+            minute: 'numeric', 
+            second: 'numeric', 
+            hour12: true 
+        }).toLowerCase().replace(/ p\.? m\.?/g, ' p.m.').replace(/ a\.? m\.?/g, ' a.m.');
+
+        setSyncResult({ inserted, updated, unchanged, errors, syncTime });
         setCurrentStep('results');
         setIsLoading(false);
     };
@@ -884,28 +895,40 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'results' && syncResult && (
-                <Card className="border-none shadow-2xl overflow-hidden rounded-[40px] relative animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-                    <div className={cn("p-16 text-center relative", syncResult.errors.length > 0 ? "bg-amber-600 text-white" : "bg-white text-slate-800")}>
+                <Card className="border-none shadow-2xl overflow-hidden rounded-[40px] relative animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 bg-white">
+                    <div className="p-16 relative">
                         <Button variant="ghost" size="icon" onClick={reset} className="absolute top-8 right-8 text-slate-400 hover:bg-slate-100 rounded-full"><X className="h-6 w-6" /></Button>
+                        
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                            <div className="p-8 rounded-3xl bg-emerald-50 border border-emerald-100/50 shadow-sm text-center space-y-3">
-                                <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Inyectados</p>
-                                <p className="text-6xl font-black text-emerald-800 leading-none">{syncResult.inserted.length}</p>
+                            <div className="p-10 rounded-[32px] bg-[#F0FDF4] border border-[#DCFCE7] text-center space-y-4">
+                                <p className="text-[11px] font-black uppercase text-[#166534] tracking-widest">Inyectados</p>
+                                <p className="text-7xl font-black text-[#14532D] tabular-nums">{syncResult.inserted.length}</p>
                             </div>
-                            <div className="p-8 rounded-3xl bg-blue-50 border border-blue-100/50 shadow-sm text-center space-y-3">
-                                <p className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Sobrescritos</p>
-                                <p className="text-6xl font-black text-blue-800 leading-none">{syncResult.updated.length}</p>
+                            <div className="p-10 rounded-[32px] bg-[#EFF6FF] border border-[#DBEAFE] text-center space-y-4">
+                                <p className="text-[11px] font-black uppercase text-[#1E40AF] tracking-widest">Sobrescritos</p>
+                                <p className="text-7xl font-black text-[#1E3A8A] tabular-nums">{syncResult.updated.length}</p>
                             </div>
-                            <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100/50 shadow-sm text-center space-y-3">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sin Cambios</p>
-                                <p className="text-6xl font-black text-slate-600 leading-none">{syncResult.unchanged.length}</p>
+                            <div className="p-10 rounded-[32px] bg-[#F8FAFC] border border-[#F1F5F9] text-center space-y-4">
+                                <p className="text-[11px] font-black uppercase text-[#64748B] tracking-widest">Sin Cambios</p>
+                                <p className="text-7xl font-black text-[#334155] tabular-nums">{syncResult.unchanged.length}</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-12 space-y-3 max-w-5xl mx-auto">
+                            <h4 className="text-sm font-black text-slate-900">Registro de Cambios:</h4>
+                            <div className="bg-[#F8FAFC] border border-[#F1F5F9] px-4 py-3 rounded-xl">
+                                <p className="text-[11px] font-medium text-slate-500">
+                                    Sincronización completada el {syncResult.syncTime || new Date().toLocaleString('es-MX')}. Nuevos: {syncResult.inserted.length}, Actualizados: {syncResult.updated.length}, Errores: {syncResult.errors.length}.
+                                </p>
                             </div>
                         </div>
                     </div>
                     
-                    <CardContent className="p-12 bg-white space-y-12">
+                    <Separator className="mx-16 w-auto bg-slate-100" />
+                    
+                    <CardContent className="p-12 space-y-12">
                         {syncResult.errors.length > 0 && (
-                            <div className="space-y-6">
+                            <div className="space-y-6 max-w-5xl mx-auto">
                                 <h3 className="text-base font-black uppercase text-slate-800 tracking-tight flex items-center gap-2">
                                     <AlertCircle className="h-5 w-5 text-amber-600" /> DETALLE DE ANOMALÍAS:
                                 </h3>
@@ -926,7 +949,7 @@ export default function CsvUploader() {
                             </div>
                         )}
 
-                        <div className="space-y-8 border-t pt-12">
+                        <div className="space-y-8 max-w-5xl mx-auto pt-4">
                             <div className="flex items-center gap-3">
                                 <Database className="h-6 w-6 text-slate-800" />
                                 <h3 className="text-lg font-black uppercase text-slate-800 tracking-tighter">Visor de Registros Procesados:</h3>
@@ -1027,7 +1050,7 @@ export default function CsvUploader() {
                             </Tabs>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-6 pt-12 border-t">
+                        <div className="grid grid-cols-2 gap-6 pt-12 border-t max-w-5xl mx-auto">
                             <Button variant="outline" className="h-16 font-black uppercase text-xs rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm" onClick={reset}>
                                 <RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo
                             </Button>
