@@ -169,9 +169,19 @@ export default function OperationsPage() {
 
     const handleSave = async (values: TransactionFormValues) => {
         try {
+            // Unir valores de 'OTRO' si existen
+            const finalValues = { ...values };
+            if (values.empresa === 'OTRA' && values.especificar_empresa) finalValues.empresa = values.especificar_empresa;
+            if (values.metodo_pago === 'OTRO' && values.especificar_metodo_pago) finalValues.metodo_pago = values.especificar_metodo_pago;
+            if (values.banco === 'OTRO' && values.especificar_banco) finalValues.banco = values.especificar_banco;
+            if (values.cuenta === 'OTRO' && values.especificar_cuenta) finalValues.cuenta = values.especificar_cuenta;
+
+            // Limpiar campos temporales
+            const { especificar_empresa, especificar_metodo_pago, especificar_banco, especificar_cuenta, ...dataToSave } = finalValues;
+
             let result;
             
-            if (values.tipo_gasto_impacto === 'NOMINA' && values.es_nomina_mixta) {
+            if (dataToSave.tipo_gasto_impacto === 'NOMINA' && dataToSave.es_nomina_mixta) {
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
                     { canal: 'MAYOREO', porcentaje: 0.30 },
@@ -180,11 +190,11 @@ export default function OperationsPage() {
 
                 for (const dest of distribucion) {
                     const fraccionado = {
-                        ...values,
-                        monto: Number(values.monto) * dest.porcentaje,
+                        ...(dataToSave as any),
+                        monto: Number(dataToSave.monto) * dest.porcentaje,
                         canal_asociado: dest.canal as any,
                         clasificacion_operativa: 'SEMI_DIRECTO' as any,
-                        notas: `${values.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
+                        notas: `${dataToSave.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
                         es_nomina_mixta: false 
                     };
                     const res = await addExpenseAction(fraccionado);
@@ -193,9 +203,9 @@ export default function OperationsPage() {
                 result = { data: "Nómina mixta registrada exitosamente." };
             } else {
                 if (editingTransaction && editingTransaction.id) {
-                    result = await updateExpenseAction(editingTransaction.id, values);
+                    result = await updateExpenseAction(editingTransaction.id, dataToSave as any);
                 } else {
-                    result = await addExpenseAction(values);
+                    result = await addExpenseAction(dataToSave as any);
                 }
             }
 
@@ -1290,9 +1300,8 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
 }
 
 function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynamicSubcategories, dynamicMacro }: any) {
-    const form = useForm<TransactionFormValues>({
-        resolver: zodResolver(expenseFormSchema),
-        defaultValues: transaction ? { ...transaction, fecha: parseISO(transaction.fecha) } : {
+    const defaultValues = React.useMemo(() => {
+        const base = transaction ? { ...transaction, fecha: parseISO(transaction.fecha) } : {
             fecha: new Date(), 
             empresa: 'MTM', 
             tipo_transaccion: 'GASTO', 
@@ -1308,13 +1317,38 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
             responsable: '',
             descripcion: '',
             notas: '',
-            es_nomina_mixta: false
+            es_nomina_mixta: false,
+            especificar_empresa: '',
+            especificar_metodo_pago: '',
+            especificar_banco: '',
+            especificar_cuenta: ''
+        };
+
+        // Preprocesar para detectar valores 'OTRO' en modo edición
+        if (transaction) {
+            if (!EMPRESAS.includes(base.empresa)) { base.especificar_empresa = base.empresa; base.empresa = 'OTRA'; }
+            if (!METODOS_PAGO.includes(base.metodo_pago)) { base.especificar_metodo_pago = base.metodo_pago; base.metodo_pago = 'OTRO'; }
+            if (!BANCOS.includes(base.banco)) { base.especificar_banco = base.banco; base.banco = 'OTRO'; }
+            if (!CUENTAS.includes(base.cuenta)) { base.especificar_cuenta = base.cuenta; base.cuenta = 'OTRO'; }
         }
+
+        return base;
+    }, [transaction]);
+
+    const form = useForm<TransactionFormValues>({
+        resolver: zodResolver(expenseFormSchema),
+        defaultValues
     });
 
     const watchedImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
     const watchedChannel = useWatch({ control: form.control, name: 'canal_asociado' });
     const watchedIsNominaMixta = useWatch({ control: form.control, name: 'es_nomina_mixta' });
+    
+    // Watches para campos 'OTRO'
+    const watchedEmpresa = useWatch({ control: form.control, name: 'empresa' });
+    const watchedMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
+    const watchedBanco = useWatch({ control: form.control, name: 'banco' });
+    const watchedCuenta = useWatch({ control: form.control, name: 'cuenta' });
 
     React.useEffect(() => {
         if (watchedChannel === 'GENERAL') {
@@ -1336,69 +1370,119 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <FormField control={form.control} name="metodo_pago" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Método Pago</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {METODOS_PAGO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="banco" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Banco</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="cuenta" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo de Cuenta</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
+                    <div className="space-y-4">
+                        <FormField control={form.control} name="metodo_pago" render={({ field }) => (
+                            <FormItem>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Método Pago</Label>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {METODOS_PAGO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        {watchedMetodo === 'OTRO' && (
+                            <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
+                                <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                    <FormControl>
+                                        <Input placeholder="Especifique método..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        )}
+                    </div>
+
+                    <div className="space-y-4">
+                        <FormField control={form.control} name="banco" render={({ field }) => (
+                            <FormItem>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Banco</Label>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        {watchedBanco === 'OTRO' && (
+                            <FormField control={form.control} name="especificar_banco" render={({ field }) => (
+                                <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                    <FormControl>
+                                        <Input placeholder="Especifique banco..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        )}
+                    </div>
+
+                    <div className="space-y-4">
+                        <FormField control={form.control} name="cuenta" render={({ field }) => (
+                            <FormItem>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo de Cuenta</Label>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        {watchedCuenta === 'OTRO' && (
+                            <FormField control={form.control} name="especificar_cuenta" render={({ field }) => (
+                                <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                    <FormControl>
+                                        <Input placeholder="Especifique cuenta..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <FormField control={form.control} name="empresa" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
+                    <div className="space-y-4">
+                        <FormField control={form.control} name="empresa" render={({ field }) => (
+                            <FormItem>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa</Label>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        {watchedEmpresa === 'OTRA' && (
+                            <FormField control={form.control} name="especificar_empresa" render={({ field }) => (
+                                <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                    <FormControl>
+                                        <Input placeholder="Especifique empresa..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        )}
+                    </div>
                     <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
                         <FormItem>
                             <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo</Label>
