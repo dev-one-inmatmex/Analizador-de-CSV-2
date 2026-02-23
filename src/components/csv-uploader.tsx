@@ -214,7 +214,10 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[selectedTable];
         
         try {
-            const allRecords = rawRows.map(row => {
+            // Requisito: Usar un Map para registros únicos y tipados antes de convertir a arreglo tradicional
+            const uniqueRecordsMap = new Map<string, any>();
+
+            rawRows.forEach(row => {
                 const obj: any = {};
                 headers.forEach((_, headerIndex) => {
                     const colName = headerMap[headerIndex];
@@ -222,10 +225,17 @@ export default function CsvUploader() {
                         obj[colName] = parseValue(colName, row[headerIndex]);
                     }
                 });
-                return obj;
-            }).filter(r => !!r[schema.pk]);
+                
+                const pkValue = String(obj[schema.pk] || '');
+                if (pkValue) {
+                    uniqueRecordsMap.set(pkValue, obj);
+                }
+            });
 
-            const pks = allRecords.map(r => r[schema.pk]).filter(Boolean);
+            // Convertir el Map a un arreglo tradicional
+            const allRecords = Array.from(uniqueRecordsMap.values());
+
+            const pks = allRecords.map(r => String(r[schema.pk])).filter(Boolean);
             const existingDataMap = new Map<string, any>();
             const FETCH_BATCH_SIZE = 500;
             
@@ -253,7 +263,6 @@ export default function CsvUploader() {
                         const newVal = record[col];
                         const oldVal = existing[col];
                         
-                        // Normalización para comparación
                         const isNumeric = NUMERIC_FIELDS.includes(col);
                         if (isNumeric) {
                             const nNew = newVal === null ? 0 : Number(newVal);
@@ -310,13 +319,17 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 50;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
-                const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
+                
+                // Requisito: Ejecutar upsert con onConflict apuntando a la llave primaria
+                const { error } = await supabase
+                    .from(selectedTable)
+                    .upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
                     errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
                 } else {
                     batch.forEach(r => {
-                        const isNew = categorizedData.new.some(n => n[schema.pk] === r[schema.pk]);
+                        const isNew = categorizedData.new.some(n => String(n[schema.pk]) === String(r[schema.pk]));
                         if (isNew) inserted.push(r);
                         else updated.push(r);
                     });
@@ -506,7 +519,7 @@ export default function CsvUploader() {
 
             {currentStep === 'analyzing' && (
                 <Card className="border-none shadow-xl bg-white text-center p-20">
-                    <CardContent className="space-y-6"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" /><div className="space-y-2"><h3 className="text-2xl font-black uppercase tracking-tighter text-primary">Auditoría Diferencial</h3><p className="text-muted-foreground font-medium">Comparando {rawRows.length} registros con la base de datos...</p></div></CardContent>
+                    <CardContent className="space-y-6"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" /><div className="space-y-2"><h3 className="text-2xl font-black uppercase tracking-tighter text-primary">Auditoría Diferencial</h3><p className="text-muted-foreground font-medium">Comparando registros con la base de datos...</p></div></CardContent>
                 </Card>
             )}
 
@@ -619,7 +632,7 @@ export default function CsvUploader() {
                             {syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12 text-white" /> : <CheckCircle className="h-12 w-12 text-white" />}
                         </div>
                         <h2 className="text-3xl font-black uppercase tracking-tighter mb-2 leading-none">{syncResult.errors.length > 0 ? 'Auditoría con Anomalías' : '¡Sincronización Exitosa!'}</h2>
-                        <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Tabla: {selectedTable} • {rawRows.length} registros auditados</p>
+                        <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Tabla: {selectedTable} • Registros auditados</p>
                     </div>
                     <CardContent className="p-8 bg-white space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
