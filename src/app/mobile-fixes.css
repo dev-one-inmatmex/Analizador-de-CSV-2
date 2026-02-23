@@ -1,0 +1,37 @@
+/* 
+   Instrucciones de adaptabilidad móvil:
+   Si la pantalla mide menos de 768px (celulares y tablets), 
+   aplica estas reglas y dales prioridad sobre las de PC.
+*/
+
+@media (max-width: 768px) {
+    
+    /* 1. Ajuste de Contenedores: Que nada tenga ancho fijo */
+    .contenedor, .main-content {
+        width: 100% !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        padding: 10px !important;
+    }
+
+    /* 2. Tablas Responsivas: Permite el deslizamiento táctil */
+    .table-responsive {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 3. Menús: El sidebar de ShadCN ya maneja su estado móvil,
+       pero forzamos ajustes si fuera necesario */
+    
+    /* 4. Texto: Reduce el tamaño de los títulos para que no se corten */
+    h1 { font-size: 1.5rem !important; }
+    h2 { font-size: 1.2rem !important; }
+
+    /* 5. Inputs y Botones: Más grandes para facilidad táctil */
+    input, button, select {
+        height: 45px !important;
+        font-size: 16px !important; /* Evita zoom automático en iOS */
+    }
+}

@@ -1,5 +1,6 @@
 'use client';
 import './globals.css';
+import './mobile-fixes.css';
 import { Toaster } from '@/components/ui/toaster';
 import {
   SidebarProvider,
@@ -60,6 +61,7 @@ export default function RootLayout({
       <head>
         <title>Análisis Pro - Dashboard</title>
         <meta name="description" content="Plataforma de análisis de datos y gestión empresarial" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet" />

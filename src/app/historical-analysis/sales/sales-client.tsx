@@ -381,7 +381,7 @@ export default function SalesDashboardClient({
                         <h3 className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</h3>
                         <p className="text-sm text-muted-foreground mt-1">Detalle original de las {sales.length.toLocaleString()} transacciones registradas.</p>
                     </div>
-                    <div className="p-0 border-t overflow-x-auto">
+                    <div className="table-responsive border-t">
                         <Table className="min-w-[5000px]">
                             <TableHeader className="bg-muted/30">
                                 <TableRow className="text-[10px] uppercase font-bold text-muted-foreground h-12">

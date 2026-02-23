@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -1360,7 +1359,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                         </Button>
                     </div>
                 </CardHeader>
-                <div className="overflow-x-auto overflow-y-hidden border-t">
+                <div className="table-responsive border-t">
                     <Table className="min-w-[2500px]">
                         <TableHeader className="bg-muted/10">
                             <TableRow className="h-12 border-b">
