@@ -13,7 +13,7 @@ import {
 } from '@/types/database';
 
 export const EMPRESAS: Empresa[] = ['MTM', 'TAL', 'DOMESKA', 'OTRA'];
-export const TIPOS_TRANSACCION: TipoTransaccion[] = ['INGRESO', 'GASTO', 'TRANSFERENCIA', 'AJUSTE'];
+export const TIPOS_TRANSACCION: TipoTransaccion[] = ['INGRESO', 'GASTO', 'TRANSFERENCIA', 'AJUSTE', 'COMPRA', 'VENTA'];
 
 export const TIPO_GASTO_IMPACTO_LIST: TipoGastoImpacto[] = [
   'COSTO_MERCANCIA_COGS', 'GASTO_OPERATIVO', 'GASTO_ADMINISTRATIVO', 

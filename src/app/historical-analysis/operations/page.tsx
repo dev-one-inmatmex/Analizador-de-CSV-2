@@ -385,7 +385,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
         let rubrosFijos = { nomina: 0, renta: 0, servicios: 0, software: 0 };
 
         transactions.forEach((t: any) => {
-            if (t.tipo_transaccion === 'GASTO') {
+            if (['GASTO', 'COMPRA'].includes(t.tipo_transaccion)) {
                 expense += (t.monto || 0);
                 if (t.es_fijo) {
                     fixedCosts += (t.monto || 0);
@@ -396,7 +396,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                     else if (sub.includes('software')) rubrosFijos.software += t.monto;
                 }
             }
-            else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
+            else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += (t.monto || 0);
         });
         
         const margenPromedio = 0.40; 
@@ -446,8 +446,8 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
             });
             let expense = 0, income = 0;
             dayT.forEach((t: any) => {
-                if (t.tipo_transaccion === 'GASTO') expense += (t.monto || 0);
-                else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
+                if (['GASTO', 'COMPRA'].includes(t.tipo_transaccion)) expense += (t.monto || 0);
+                else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += (t.monto || 0);
             });
             return { 
                 name: format(step, periodType === 'month' || periodType === 'day' ? 'd' : 'MMM', { locale: es }), 
@@ -644,8 +644,8 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                                                 <div className="text-[10px] text-muted-foreground">{r.subcategoria_especifica}</div>
                                             </TableCell>
                                             <TableCell className="text-[10px] font-medium uppercase">{r.canal_asociado?.replace(/_/g, ' ')}</TableCell>
-                                            <TableCell><Badge variant={r.tipo_transaccion === 'INGRESO' ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase">{r.tipo_transaccion}</Badge></TableCell>
-                                            <TableCell className={cn("text-right font-bold text-xs", r.tipo_transaccion === 'GASTO' ? "text-slate-900" : "text-primary")}>{money(r.monto)}</TableCell>
+                                            <TableCell><Badge variant={['INGRESO', 'VENTA'].includes(r.tipo_transaccion) ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase">{r.tipo_transaccion}</Badge></TableCell>
+                                            <TableCell className={cn("text-right font-bold text-xs", ['GASTO', 'COMPRA'].includes(r.tipo_transaccion) ? "text-slate-900" : "text-primary")}>{money(r.monto)}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
@@ -665,8 +665,8 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     const [showFilter, setSearchShowFilter] = React.useState(false);
 
     const { logisticsData, chartsData, breakevenChart } = React.useMemo(() => {
-        const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
-        const gastos = transactions.filter((t: any) => t.tipo_transaccion === 'GASTO');
+        const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(t.tipo_transaccion));
+        const gastos = transactions.filter((t: any) => ['GASTO', 'COMPRA'].includes(t.tipo_transaccion));
         const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
         const costosFijos = gastos.filter((g: any) => g.es_fijo).reduce((a: number, b: any) => a + (b.monto || 0), 0);
         
@@ -916,11 +916,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="text-[10px] font-semibold text-slate-500 uppercase">{t.canal_asociado?.replace(/_/g, ' ')}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1">
-                                                <Badge variant={t.tipo_transaccion === 'INGRESO' ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase w-fit">{t.tipo_transaccion}</Badge>
+                                                <Badge variant={['INGRESO', 'VENTA'].includes(t.tipo_transaccion) ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase w-fit">{t.tipo_transaccion}</Badge>
                                                 {t.clasificacion_operativa && <span className="text-[8px] font-black text-muted-foreground uppercase">{t.clasificacion_operativa}</span>}
                                             </div>
                                         </TableCell>
-                                        <TableCell className={cn("text-right font-bold text-sm", t.tipo_transaccion === 'GASTO' ? "text-slate-900" : "text-primary")}>{money(t.monto)}</TableCell>
+                                        <TableCell className={cn("text-right font-bold text-sm", ['GASTO', 'COMPRA'].includes(t.tipo_transaccion) ? "text-slate-900" : "text-primary")}>{money(t.monto)}</TableCell>
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -950,7 +950,7 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
     const budgetAnalysis = React.useMemo(() => {
         return categories.map((cat: string) => {
             const current = transactions
-                .filter((t: any) => t.categoria_macro === cat && t.tipo_transaccion === 'GASTO')
+                .filter((t: any) => t.categoria_macro === cat && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
                 .reduce((s: number, t: any) => s + (t.monto || 0), 0);
             
             return { cat, current, limit: budgets[cat] || 0 }; 

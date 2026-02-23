@@ -9,7 +9,7 @@ export interface Usuario {
  */
 
 export type Empresa = 'MTM' | 'TAL' | 'DOMESKA' | 'OTRA';
-export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA' | 'AJUSTE';
+export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA' | 'AJUSTE' | 'COMPRA' | 'VENTA';
 export type TipoGastoImpacto = 
   | 'COSTO_MERCANCIA_COGS' 
   | 'GASTO_OPERATIVO' 
