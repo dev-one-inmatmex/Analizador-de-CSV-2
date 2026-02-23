@@ -54,10 +54,8 @@ export default function SalesDashboardClient({
     const safeFormat = (dateStr: string | null | undefined, formatStr: string = 'dd/MM/yy') => {
         if (!dateStr) return '-';
         try {
-            const parsed = parseISO(dateStr);
-            if (isValid(parsed)) return format(parsed, formatStr);
-            const fallback = new Date(dateStr);
-            if (isValid(fallback)) return format(fallback, formatStr);
+            const parsed = new Date(dateStr);
+            if (isValid(parsed)) return format(parsed, formatStr, { locale: es });
             return dateStr;
         } catch (e) {
             return dateStr;
@@ -76,7 +74,6 @@ export default function SalesDashboardClient({
     };
 
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
-        // Filtrado de ventas sin modificar valores originales
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
@@ -84,20 +81,18 @@ export default function SalesDashboardClient({
             if (date?.from) {
                 if (!sale.fecha_venta) return false;
                 try {
-                    const saleDate = parseISO(sale.fecha_venta);
-                    const finalDate = isValid(saleDate) ? saleDate : new Date(sale.fecha_venta);
-                    if (!isValid(finalDate)) return false;
+                    const saleDate = new Date(sale.fecha_venta);
+                    if (!isValid(saleDate)) return false;
                     
                     const fromDate = startOfDay(date.from);
                     const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
                     
-                    if (finalDate < fromDate || finalDate > toDate) return false;
+                    if (saleDate < fromDate || saleDate > toDate) return false;
                 } catch (e) { return false; }
             }
             return true;
         });
 
-        // Ordenar por fecha descendente (nuevas primero)
         const sortedSales = [...filteredSales].sort((a, b) => {
             const dateA = a.fecha_venta ? new Date(a.fecha_venta).getTime() : 0;
             const dateB = b.fecha_venta ? new Date(b.fecha_venta).getTime() : 0;
