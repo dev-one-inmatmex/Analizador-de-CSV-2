@@ -106,11 +106,6 @@ export interface sku_m {
   landed_cost: number;
 }
 
-export interface sku_alterno {
-  sku: string;
-  sku_mdr: string | null;
-}
-
 export interface sku_costos {
   id: string;
   sku_mdr: string;
@@ -203,34 +198,4 @@ export interface publi_tienda {
 export interface publi_xsku {
   sku: string;
   num_publicaciones: number | null;
-}
-
-export interface catalogo_madre {
-  sku: string;
-  nombre_madre: string | null;
-  company: string | null;
-}
-
-export interface diccionario_skus {
-  sku: string;
-  categoria_madre: string | null;
-  landed_cost: number | null;
-  codigo_en_siggo: string | null;
-  nombre_en_siggo: string | null;
-  rock_en_siggo: number | null;
-  piezas_totales: number | null;
-  estado_en_siggo: string | null;
-  bodega: string | null;
-  bloque: string | null;
-}
-
-export interface skuxpublicaciones {
-  sku: string;
-  item_id: string;
-  nombre_madre: string | null;
-}
-
-export interface publicaciones_por_sku {
-  sku: string;
-  publicaciones: number | null;
 }

@@ -16,19 +16,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
-    gastos_diarios: { 
-        pk: 'id', 
-        columns: [
-            'id', 'fecha', 'empresa', 'tipo_transaccion', 'tipo_gasto_impacto', 
-            'area_funcional', 'categoria_macro', 'subcategoria_especifica', 
-            'canal_asociado', 'clasificacion_operativa', 'es_fijo', 
-            'es_recurrente', 'monto', 'metodo_pago', 'metodo_pago_especificar', 
-            'banco', 'banco_especificar', 'cuenta', 'cuenta_especificar', 
-            'responsable', 'descripcion', 'notas'
-        ] 
-    },
     ml_sales: { 
         pk: 'num_venta', 
         columns: [
@@ -46,11 +36,32 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             'r_abierto', 'r_cerrado', 'c_mediacion'
         ] 
     },
-    sku_m: { pk: 'sku_mdr', columns: ['sku_mdr', 'cat_mdr', 'piezas_por_sku', 'sku', 'piezas_xcontenedor', 'bodega', 'bloque', 'landed_cost'] },
-    sku_costos: { pk: 'id', columns: ['id', 'sku_mdr', 'landed_cost', 'fecha_desde', 'proveedor', 'piezas_xcontenedor', 'sku', 'esti_time'] },
-    sku_alterno: { pk: 'sku', columns: ['sku', 'sku_mdr'] },
-    catalogo_madre: { pk: 'sku', columns: ['sku', 'nombre_madre', 'company'] },
-    publi_tienda: { pk: 'num_publi', columns: ['num_publi', 'sku', 'num_producto', 'titulo', 'status', 'cat_mdr', 'costo', 'tienda'] },
+    gastos_diarios: { 
+        pk: 'id', 
+        columns: [
+            'id', 'fecha', 'empresa', 'tipo_transaccion', 'tipo_gasto_impacto', 
+            'area_funcional', 'categoria_macro', 'subcategoria_especifica', 
+            'canal_asociado', 'clasificacion_operativa', 'es_fijo', 
+            'es_recurrente', 'monto', 'metodo_pago', 'banco', 'cuenta', 
+            'responsable', 'descripcion', 'notas'
+        ] 
+    },
+    sku_m: { 
+        pk: 'sku_mdr', 
+        columns: ['sku_mdr', 'cat_mdr', 'piezas_por_sku', 'sku', 'piezas_xcontenedor', 'bodega', 'bloque', 'landed_cost'] 
+    },
+    sku_costos: { 
+        pk: 'id', 
+        columns: ['id', 'sku_mdr', 'landed_cost', 'fecha_desde', 'proveedor', 'piezas_xcontenedor', 'sku', 'esti_time'] 
+    },
+    publi_tienda: { 
+        pk: 'num_publi', 
+        columns: ['num_publi', 'sku', 'num_producto', 'titulo', 'status', 'cat_mdr', 'costo', 'tienda'] 
+    },
+    publi_xsku: { 
+        pk: 'sku', 
+        columns: ['sku', 'num_publicaciones'] 
+    },
 };
 
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
@@ -61,7 +72,7 @@ function parseValue(key: string, value: any): any {
     
     const numericFields = [
         'monto', 'total', 'unidades', 'price', 'landed_cost', 'costo_envio', 
-        'piezas_por_sku', 'rock_en_siggo', 'piezas_totales', 'esti_time', 
+        'piezas_por_sku', 'num_publicaciones', 'piezas_totales', 'esti_time', 
         'piezas_xcontenedor', 'bloque', 'costo', 'ing_xunidad', 'cargo_venta',
         'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3'
     ];
@@ -105,7 +116,6 @@ export default function CsvUploader() {
         
         if (isExcel) {
             setCurrentStep('converting');
-            // Simular progreso de conversión
             let progress = 0;
             const interval = setInterval(() => {
                 progress += 15;
@@ -307,12 +317,12 @@ export default function CsvUploader() {
                                     <SelectValue placeholder="Selecciona una tabla..." />
                                 </SelectTrigger>
                                 <SelectContent className="border-none shadow-2xl rounded-xl">
-                                    <SelectItem value="ml_sales" className="py-3 font-bold uppercase text-xs">Ventas Consolidadas (ml_sales)</SelectItem>
-                                    <SelectItem value="gastos_diarios" className="py-3 font-bold uppercase text-xs">Gastos Financieros (BI)</SelectItem>
-                                    <SelectItem value="sku_m" className="py-3 font-bold uppercase text-xs">Catálogo Maestro (sku_m)</SelectItem>
-                                    <SelectItem value="sku_costos" className="py-3 font-bold uppercase text-xs">Historial de Costos (Auditoría)</SelectItem>
-                                    <SelectItem value="catalogo_madre" className="py-3 font-bold uppercase text-xs">Productos Madre</SelectItem>
-                                    <SelectItem value="publi_tienda" className="py-3 font-bold uppercase text-xs">Publicaciones Activas</SelectItem>
+                                    <SelectItem value="ml_sales" className="py-3 font-bold uppercase text-xs">ml_sales</SelectItem>
+                                    <SelectItem value="gastos_diarios" className="py-3 font-bold uppercase text-xs">gastos_diarios</SelectItem>
+                                    <SelectItem value="sku_m" className="py-3 font-bold uppercase text-xs">sku_m</SelectItem>
+                                    <SelectItem value="sku_costos" className="py-3 font-bold uppercase text-xs">sku_costos</SelectItem>
+                                    <SelectItem value="publi_tienda" className="py-3 font-bold uppercase text-xs">publi_tienda</SelectItem>
+                                    <SelectItem value="publi_xsku" className="py-3 font-bold uppercase text-xs">publi_xsku</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
