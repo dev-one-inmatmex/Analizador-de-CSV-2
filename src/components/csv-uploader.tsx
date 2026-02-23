@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  UploadCloud, File as FileIcon, X, Loader2, Database, RefreshCcw, 
+  UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -99,7 +99,6 @@ type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'm
 export default function CsvUploader() {
     const { toast } = useToast();
     const [currentStep, setCurrentStep] = useState<Step>('upload');
-    const [file, setFile] = useState<File | null>(null);
     const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
     const [sheets, setSheets] = useState<string[]>([]);
     const [conversionProgress, setConversionProgress] = useState(0);
@@ -111,7 +110,6 @@ export default function CsvUploader() {
     const [syncResult, setSyncResult] = useState<{inserted: number, updated: number, errors: any[]} | null>(null);
 
     const processFile = (f: File) => {
-        setFile(f);
         const isExcel = f.name.endsWith('.xlsx') || f.name.endsWith('.xls');
         
         if (isExcel) {
@@ -213,7 +211,6 @@ export default function CsvUploader() {
     };
 
     const reset = () => {
-        setFile(null);
         setWorkbook(null);
         setSheets([]);
         setHeaders([]);
@@ -307,22 +304,19 @@ export default function CsvUploader() {
                             </div>
                             <CardTitle className="text-xl font-black uppercase tracking-tighter">Destino de Sincronización</CardTitle>
                         </div>
-                        <CardDescription className="mt-2">¿En qué tabla de la base de datos deseas guardar la información extraída?</CardDescription>
+                        <CardDescription className="mt-2">¿En qué tabla de la base de datos deseas guardar la información?</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-8 pb-12">
                         <div className="max-w-md mx-auto space-y-4">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tabla de Destino</Label>
-                            <Select onValueChange={handleTableSelect}>
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nombre de Tabla (DB)</Label>
+                            <Select onValueChange={handleTableSelect} value={selectedTable}>
                                 <SelectTrigger className="h-14 border-slate-200 shadow-sm text-base font-bold bg-white rounded-xl">
-                                    <SelectValue placeholder="Selecciona una tabla..." />
+                                    <SelectValue placeholder="Selecciona la tabla destino..." />
                                 </SelectTrigger>
                                 <SelectContent className="border-none shadow-2xl rounded-xl">
-                                    <SelectItem value="ml_sales" className="py-3 font-bold uppercase text-xs">ml_sales</SelectItem>
-                                    <SelectItem value="gastos_diarios" className="py-3 font-bold uppercase text-xs">gastos_diarios</SelectItem>
-                                    <SelectItem value="sku_m" className="py-3 font-bold uppercase text-xs">sku_m</SelectItem>
-                                    <SelectItem value="sku_costos" className="py-3 font-bold uppercase text-xs">sku_costos</SelectItem>
-                                    <SelectItem value="publi_tienda" className="py-3 font-bold uppercase text-xs">publi_tienda</SelectItem>
-                                    <SelectItem value="publi_xsku" className="py-3 font-bold uppercase text-xs">publi_xsku</SelectItem>
+                                    {Object.keys(TABLE_SCHEMAS).map(table => (
+                                        <SelectItem key={table} value={table} className="py-3 font-bold uppercase text-xs">{table}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -362,7 +356,7 @@ export default function CsvUploader() {
                                             <TableCell className="px-8">
                                                 <div className="flex flex-col">
                                                     <span className="font-black text-xs text-slate-700 uppercase">{h}</span>
-                                                    <span className="text-[10px] text-muted-foreground font-medium">Ejemplo: {rawRows[0]?.[i] || 'Vacio'}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-medium">Ejemplo: {rawRows[0]?.[i] || 'Vacío'}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="pr-8">
@@ -392,7 +386,7 @@ export default function CsvUploader() {
                     <CardFooter className="p-8 border-t bg-slate-50">
                         <Button onClick={handleSync} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl" disabled={isLoading}>
                             {isLoading ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Database className="mr-3 h-6 w-6" />}
-                            Iniciar Sincronización Directa
+                            Iniciar Sincronización a {selectedTable}
                         </Button>
                     </CardFooter>
                 </Card>

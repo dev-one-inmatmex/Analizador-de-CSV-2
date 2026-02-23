@@ -6,15 +6,10 @@ export interface Usuario {
 
 /**
  * Definición completa de tipos para el sistema de finanzas
- * Sincronizado con la tabla gastos_diarios (Fase 1)
  */
 
-// --- Catálogos (Enums) ---
-
 export type Empresa = 'MTM' | 'TAL' | 'DOMESKA' | 'OTRA';
-
 export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA' | 'AJUSTE';
-
 export type TipoGastoImpacto = 
   | 'COSTO_MERCANCIA_COGS' 
   | 'GASTO_OPERATIVO' 
@@ -47,50 +42,29 @@ export type CanalAsociado =
   | 'GENERAL';
 
 export type ClasificacionOperativa = 'DIRECTO' | 'SEMI_DIRECTO' | 'COMPARTIDO';
-
 export type CategoriaMacro = 'OPERATIVO' | 'COMERCIAL' | 'ADMINISTRATIVO' | 'FINANCIERO' | 'NOMINA';
-
 export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'PAYPAL' | 'OTRO';
-
 export type Banco = 'BBVA' | 'SANTANDER' | 'BANAMEX' | 'MERCADO_PAGO' | 'OTRO';
-
 export type Cuenta = 'OPERATIVA' | 'FISCAL' | 'CAJA_CHICA' | 'OTRO';
 
-// --- Interfaz Principal ---
-
 export interface GastoDiario {
-  // Metadatos
   id?: number; 
-  created_at?: string; 
-  fecha: string; // Formato YYYY-MM-DD
+  fecha: string;
   empresa: Empresa;
-  capturista?: string; // UUID del usuario
-  
-  // Clasificación y Estrategia (Fase 1)
   tipo_transaccion: TipoTransaccion;
   tipo_gasto_impacto: TipoGastoImpacto | null;
   area_funcional: AreaFuncional | null;
   categoria_macro: CategoriaMacro;
-  subcategoria_especifica: string; // El valor del dropdown dinámico del Nivel 3
-  
-  // Atribución de Negocio
+  subcategoria_especifica: string;
   canal_asociado: CanalAsociado;
   clasificacion_operativa: ClasificacionOperativa | null;
   es_fijo: boolean;
   es_recurrente: boolean;
-  
-  // Información Financiera
   monto: number;
   metodo_pago: MetodoPago;
-  metodo_pago_especificar?: string | null;
   banco: Banco;
-  banco_especificar?: string | null;
   cuenta: Cuenta;
-  cuenta_especificar?: string | null;
-  
-  // Soporte y Detalle
   responsable?: string | null;
-  comprobante_url?: string | null;
   descripcion?: string | null;
   notas?: string | null;
 }
