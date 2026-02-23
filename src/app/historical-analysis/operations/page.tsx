@@ -48,6 +48,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel, FormDescription } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -98,7 +99,8 @@ export default function OperationsPage() {
     const { toast } = useToast();
 
     const fetchAllData = React.useCallback(async () => {
-        if (!supabase) return;
+        const supabaseClient = supabase;
+        if (!supabaseClient) return;
         setIsLoading(true);
         try {
             let start, end;
@@ -129,7 +131,7 @@ export default function OperationsPage() {
             let hasMore = true;
 
             while (hasMore) {
-                let query = supabase
+                let query = supabaseClient
                     .from('gastos_diarios')
                     .select('*')
                     .gte('fecha', format(start, 'yyyy-MM-dd'))
@@ -726,6 +728,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             Fijo: t.es_fijo ? 'SÍ' : 'NO',
             Recurrente: t.es_recurrente ? 'SÍ' : 'NO',
             Responsable: t.responsable,
+            Descripción: t.descripcion,
             Notas: t.notas
         })));
         const wb = XLSX.utils.book_new();
@@ -1303,6 +1306,8 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
             banco: 'BBVA', 
             cuenta: 'OPERATIVA',
             responsable: '',
+            descripcion: '',
+            notas: '',
             es_nomina_mixta: false
         }
     });
@@ -1521,6 +1526,27 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                     {CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
                                 </SelectContent>
                             </Select>
+                        </FormItem>
+                    )} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField control={form.control} name="descripcion" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Descripción Detallada</Label>
+                            <FormControl>
+                                <Input className="h-10 text-xs font-bold border-slate-200" placeholder="Ej: Compra de insumos para empaque lote 45" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="notas" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Notas Adicionales (Max 280 car)</Label>
+                            <FormControl>
+                                <Textarea className="min-h-[40px] text-xs font-medium border-slate-200" placeholder="Comentarios internos..." {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
                         </FormItem>
                     )} />
                 </div>
