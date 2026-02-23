@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle,
-  PlusCircle, Edit3, MinusCircle, Save, FileText, Undo2
+  PlusCircle, Edit3, MinusCircle, Save, FileText, Undo2, X
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,11 @@ export default function CsvUploader() {
     const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     
+    // States for enhanced progress bar
+    const [syncProgress, setSyncProgress] = useState(0);
+    const [syncCount, setSyncCount] = useState(0);
+    const [totalToSync, setTotalToSync] = useState(0);
+
     const [categorizedData, setCategorizedData] = useState<{
         new: any[],
         update: any[],
@@ -163,7 +168,6 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[selectedTable];
         
         try {
-            // 1. Convertir todas las filas en objetos mapeados
             const allRecords = rawRows.map(row => {
                 const obj: any = {};
                 headers.forEach((_, headerIndex) => {
@@ -175,10 +179,7 @@ export default function CsvUploader() {
                 return obj;
             });
 
-            // 2. Extraer PKs para consulta
             const pks = allRecords.map(r => r[schema.pk]).filter(Boolean);
-            
-            // 3. Consultar datos existentes en lotes
             const existingDataMap = new Map<string, any>();
             const FETCH_BATCH_SIZE = 500;
             if (supabase) {
@@ -189,7 +190,6 @@ export default function CsvUploader() {
                 }
             }
 
-            // 4. Clasificación Diferencial (Deep Compare)
             const newRecs: any[] = [];
             const updateRecs: any[] = [];
             const unchangedRecs: any[] = [];
@@ -205,14 +205,11 @@ export default function CsvUploader() {
                     for (const col of activeDbColumns) {
                         const newVal = record[col];
                         const oldVal = existing[col];
-                        
-                        // Comparación simple de valores (convertidos a string para normalizar nulls/empty)
                         if (String(newVal ?? '') !== String(oldVal ?? '')) {
                             isDifferent = true;
                             break;
                         }
                     }
-
                     if (isDifferent) updateRecs.push(record);
                     else unchangedRecs.push(record);
                 }
@@ -238,27 +235,35 @@ export default function CsvUploader() {
         else if (mode === 'update') recordsToProcess = categorizedData.update;
         else recordsToProcess = [...categorizedData.new, ...categorizedData.update];
 
+        const total = recordsToProcess.length;
+        setTotalToSync(total);
+        setSyncCount(0);
+        setSyncProgress(0);
+
         const inserted: any[] = [];
         const updated: any[] = [];
         const unchanged: any[] = [...categorizedData.unchanged];
         const errors: { batch: number, msg: string }[] = [];
 
-        if (supabase && recordsToProcess.length > 0) {
+        if (supabase && total > 0) {
             const SYNC_BATCH_SIZE = 50;
-            for (let i = 0; i < recordsToProcess.length; i += SYNC_BATCH_SIZE) {
+            for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
                     errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
                 } else {
-                    // Si el modo era 'all' o combinados, repartimos para el reporte final
                     batch.forEach(r => {
                         const isNew = categorizedData.new.some(n => n[schema.pk] === r[schema.pk]);
                         if (isNew) inserted.push(r);
                         else updated.push(r);
                     });
                 }
+                
+                const currentProcessed = Math.min(i + SYNC_BATCH_SIZE, total);
+                setSyncCount(currentProcessed);
+                setSyncProgress(Math.round((currentProcessed / total) * 100));
             }
         }
 
@@ -330,6 +335,9 @@ export default function CsvUploader() {
         setHeaderMap({});
         setCategorizedData({ new: [], update: [], unchanged: [] });
         setSyncResult(null);
+        setSyncProgress(0);
+        setSyncCount(0);
+        setTotalToSync(0);
         setCurrentStep('upload');
     };
 
@@ -376,15 +384,20 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'sheet-selection' && (
-                <Card className="border-none shadow-xl bg-white animate-in fade-in slide-in-from-bottom-4">
-                    <CardHeader className="flex flex-row items-center gap-4 border-b pb-6">
-                        <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <Layers className="h-6 w-6 text-primary" />
+                <Card className="border-none shadow-xl bg-white animate-in fade-in slide-in-from-bottom-4 relative">
+                    <CardHeader className="flex flex-row items-center justify-between border-b pb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <Layers className="h-6 w-6 text-primary" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Selección de Página Temporal</CardTitle>
+                                <CardDescription>Elige la hoja del archivo que deseas extraer para el mapeo.</CardDescription>
+                            </div>
                         </div>
-                        <div>
-                            <CardTitle className="text-xl font-black uppercase tracking-tighter">Selección de Página Temporal</CardTitle>
-                            <CardDescription>Elige la hoja del archivo que deseas extraer para el mapeo.</CardDescription>
-                        </div>
+                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+                            <X className="h-5 w-5" />
+                        </Button>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-6">
                         {sheets.map((sheet) => (
@@ -410,15 +423,20 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'table-selection' && (
-                <Card className="border-none shadow-xl bg-white animate-in fade-in slide-in-from-right-4">
-                    <CardHeader className="border-b pb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center text-white">
-                                <Database className="h-5 w-5" />
+                <Card className="border-none shadow-xl bg-white animate-in fade-in slide-in-from-right-4 relative">
+                    <CardHeader className="flex flex-row items-center justify-between border-b pb-6">
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center text-white">
+                                    <Database className="h-5 w-5" />
+                                </div>
+                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Destino de Sincronización</CardTitle>
                             </div>
-                            <CardTitle className="text-xl font-black uppercase tracking-tighter">Destino de Sincronización</CardTitle>
+                            <CardDescription className="mt-2 ml-[52px]">¿En qué tabla de la base de datos deseas guardar la información?</CardDescription>
                         </div>
-                        <CardDescription className="mt-2">¿En qué tabla de la base de datos deseas guardar la información?</CardDescription>
+                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+                            <X className="h-5 w-5" />
+                        </Button>
                     </CardHeader>
                     <CardContent className="pt-8 pb-12">
                         <div className="max-w-md mx-auto space-y-4">
@@ -444,7 +462,7 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'mapping' && (
-                <Card className="border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300 overflow-hidden">
+                <Card className="border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300 overflow-hidden relative">
                     <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
@@ -453,7 +471,12 @@ export default function CsvUploader() {
                             </div>
                             <CardDescription>Vincula las columnas de tu archivo con los campos reales de <strong>{selectedTable}</strong>.</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentStep('table-selection')} className="font-bold text-[10px] uppercase border-slate-200">Cambiar Tabla</Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setCurrentStep('table-selection')} className="font-bold text-[10px] uppercase border-slate-200">Cambiar Tabla</Button>
+                            <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="max-h-[500px] overflow-y-auto">
@@ -537,9 +560,14 @@ export default function CsvUploader() {
                             </div>
                             <CardDescription>Revisa los cambios detectados y elige qué acción sincronizar con la base de datos.</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={reset} className="font-bold text-[10px] uppercase border-slate-200">
-                            <Undo2 className="mr-2 h-3 w-3" /> Empezar de Nuevo
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            <Button variant="outline" size="sm" onClick={reset} className="font-bold text-[10px] uppercase border-slate-200">
+                                <Undo2 className="mr-2 h-3 w-3" /> Empezar de Nuevo
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
                     </CardHeader>
                     
                     <CardContent className="p-0">
@@ -626,7 +654,6 @@ export default function CsvUploader() {
                         </div>
                     </CardFooter>
 
-                    {/* Notification summarizing the analysis */}
                     <div className="absolute bottom-4 right-4 bg-white border border-slate-100 rounded-xl shadow-2xl p-5 max-w-sm animate-in slide-in-from-right-4 z-20">
                         <h4 className="font-black text-sm mb-1 uppercase tracking-tight">Análisis Completo</h4>
                         <p className="text-[11px] leading-relaxed text-muted-foreground font-medium">
@@ -639,12 +666,25 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'syncing' && (
-                <Card className="border-none shadow-xl bg-white text-center p-20 animate-pulse">
-                    <CardContent className="space-y-6">
-                        <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-black uppercase tracking-tighter">Inyectando Datos</h3>
-                            <p className="text-muted-foreground font-medium">Sincronizando registros con la tabla {selectedTable}...</p>
+                <Card className="border-none shadow-xl bg-white text-center p-20">
+                    <CardContent className="space-y-8">
+                        <div className="relative mx-auto h-24 w-24">
+                            <Loader2 className="h-24 w-24 animate-spin text-primary opacity-20" />
+                            <Database className="h-10 w-10 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                        </div>
+                        <div className="space-y-4 max-w-md mx-auto">
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black uppercase tracking-tighter">Inyectando Datos</h3>
+                                <p className="text-muted-foreground font-medium">Sincronizando registros con la tabla <strong>{selectedTable}</strong></p>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <Progress value={syncProgress} className="h-4 w-full bg-slate-100" />
+                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                    <span className="text-primary">{syncProgress}% Completado</span>
+                                    <span className="text-muted-foreground">Registros: {syncCount} / {totalToSync}</span>
+                                </div>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -652,11 +692,14 @@ export default function CsvUploader() {
 
             {currentStep === 'results' && syncResult && (
                 <div className="space-y-6 animate-in zoom-in-95 duration-300 w-full">
-                    <Card className="border-none shadow-2xl overflow-hidden rounded-3xl">
+                    <Card className="border-none shadow-2xl overflow-hidden rounded-3xl relative">
                         <div className={cn(
                             "p-12 text-white text-center",
                             syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]"
                         )}>
+                            <Button variant="ghost" size="icon" onClick={reset} className="absolute top-6 right-6 rounded-full h-10 w-10 text-white hover:bg-white/20">
+                                <X className="h-6 w-6" />
+                            </Button>
                             <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6">
                                 {syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12 text-white" /> : <CheckCircle className="h-12 w-12 text-white" />}
                             </div>
