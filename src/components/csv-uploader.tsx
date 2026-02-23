@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle,
-  PlusCircle, Edit3, MinusCircle, Save, FileText
+  PlusCircle, Edit3, MinusCircle, Save, FileText, Undo2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     ml_sales: { 
@@ -96,7 +97,7 @@ function parseValue(key: string, value: any): any {
     return str;
 }
 
-type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'preview' | 'syncing' | 'results';
+type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'analyzing' | 'preview' | 'syncing' | 'results';
 
 export default function CsvUploader() {
     const { toast } = useToast();
@@ -110,6 +111,12 @@ export default function CsvUploader() {
     const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     
+    const [categorizedData, setCategorizedData] = useState<{
+        new: any[],
+        update: any[],
+        unchanged: any[]
+    }>({ new: [], update: [], unchanged: [] });
+
     const [syncResult, setSyncResult] = useState<{
         inserted: any[], 
         updated: any[], 
@@ -150,19 +157,115 @@ export default function CsvUploader() {
         return Array.from(usedDbColumns);
     }, [usedDbColumns]);
 
-    const previewData = useMemo(() => {
-        if (currentStep !== 'preview' && currentStep !== 'syncing') return [];
-        return rawRows.slice(0, 10).map(row => {
-            const obj: Record<string, any> = {};
-            headers.forEach((_, i) => {
-                const dbCol = headerMap[i];
-                if (dbCol && dbCol !== IGNORE_COLUMN_VALUE) {
-                    obj[dbCol] = parseValue(dbCol, row[i]);
+    const performAnalysis = async () => {
+        setIsLoading(true);
+        setCurrentStep('analyzing');
+        const schema = TABLE_SCHEMAS[selectedTable];
+        
+        try {
+            // 1. Convertir todas las filas en objetos mapeados
+            const allRecords = rawRows.map(row => {
+                const obj: any = {};
+                headers.forEach((_, headerIndex) => {
+                    const colName = headerMap[headerIndex];
+                    if (colName && colName !== IGNORE_COLUMN_VALUE) {
+                        obj[colName] = parseValue(colName, row[headerIndex]);
+                    }
+                });
+                return obj;
+            });
+
+            // 2. Extraer PKs para consulta
+            const pks = allRecords.map(r => r[schema.pk]).filter(Boolean);
+            
+            // 3. Consultar datos existentes en lotes
+            const existingDataMap = new Map<string, any>();
+            const FETCH_BATCH_SIZE = 500;
+            if (supabase) {
+                for (let i = 0; i < pks.length; i += FETCH_BATCH_SIZE) {
+                    const pkBatch = pks.slice(i, i + FETCH_BATCH_SIZE);
+                    const { data } = await supabase.from(selectedTable).select('*').in(schema.pk, pkBatch);
+                    data?.forEach(row => existingDataMap.set(String(row[schema.pk]), row));
+                }
+            }
+
+            // 4. Clasificación Diferencial (Deep Compare)
+            const newRecs: any[] = [];
+            const updateRecs: any[] = [];
+            const unchangedRecs: any[] = [];
+
+            allRecords.forEach(record => {
+                const pkValue = String(record[schema.pk]);
+                const existing = existingDataMap.get(pkValue);
+
+                if (!existing) {
+                    newRecs.push(record);
+                } else {
+                    let isDifferent = false;
+                    for (const col of activeDbColumns) {
+                        const newVal = record[col];
+                        const oldVal = existing[col];
+                        
+                        // Comparación simple de valores (convertidos a string para normalizar nulls/empty)
+                        if (String(newVal ?? '') !== String(oldVal ?? '')) {
+                            isDifferent = true;
+                            break;
+                        }
+                    }
+
+                    if (isDifferent) updateRecs.push(record);
+                    else unchangedRecs.push(record);
                 }
             });
-            return obj;
-        });
-    }, [currentStep, rawRows, headers, headerMap]);
+
+            setCategorizedData({ new: newRecs, update: updateRecs, unchanged: unchangedRecs });
+            setCurrentStep('preview');
+        } catch (e: any) {
+            toast({ title: 'Error de análisis', description: e.message, variant: 'destructive' });
+            setCurrentStep('mapping');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSync = async (mode: 'new' | 'update' | 'all') => {
+        setIsLoading(true);
+        setCurrentStep('syncing');
+        const schema = TABLE_SCHEMAS[selectedTable];
+        
+        let recordsToProcess: any[] = [];
+        if (mode === 'new') recordsToProcess = categorizedData.new;
+        else if (mode === 'update') recordsToProcess = categorizedData.update;
+        else recordsToProcess = [...categorizedData.new, ...categorizedData.update];
+
+        const inserted: any[] = [];
+        const updated: any[] = [];
+        const unchanged: any[] = [...categorizedData.unchanged];
+        const errors: { batch: number, msg: string }[] = [];
+
+        if (supabase && recordsToProcess.length > 0) {
+            const SYNC_BATCH_SIZE = 50;
+            for (let i = 0; i < recordsToProcess.length; i += SYNC_BATCH_SIZE) {
+                const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
+                const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
+                
+                if (error) {
+                    errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
+                } else {
+                    // Si el modo era 'all' o combinados, repartimos para el reporte final
+                    batch.forEach(r => {
+                        const isNew = categorizedData.new.some(n => n[schema.pk] === r[schema.pk]);
+                        if (isNew) inserted.push(r);
+                        else updated.push(r);
+                    });
+                }
+            }
+        }
+
+        setSyncResult({ inserted, updated, unchanged, errors });
+        setCurrentStep('results');
+        setIsLoading(false);
+    };
 
     const processFile = (f: File) => {
         const isExcel = f.name.endsWith('.xlsx') || f.name.endsWith('.xls');
@@ -217,86 +320,6 @@ export default function CsvUploader() {
         setCurrentStep('table-selection');
     };
 
-    const handleSync = async (mode: 'new' | 'update' | 'all') => {
-        setIsLoading(true);
-        setCurrentStep('syncing');
-        const schema = TABLE_SCHEMAS[selectedTable];
-        
-        const inserted: any[] = [];
-        const updated: any[] = [];
-        const unchanged: any[] = [];
-        const errors: { batch: number, msg: string }[] = [];
-
-        // Pre-procesar todos los registros mapeados
-        const allRecords = rawRows.map(row => {
-            const obj: any = {};
-            headers.forEach((_, headerIndex) => {
-                const colName = headerMap[headerIndex];
-                if (colName && colName !== IGNORE_COLUMN_VALUE) {
-                    obj[colName] = parseValue(colName, row[headerIndex]);
-                }
-            });
-            return obj;
-        });
-
-        // Obtener PKs para comparación diferencial
-        const pks = allRecords.map(r => r[schema.pk]).filter(Boolean);
-        
-        // Consultar registros existentes en lotes
-        const existingDataMap = new Map<string, any>();
-        const FETCH_BATCH_SIZE = 200;
-        if (supabase) {
-            for (let i = 0; i < pks.length; i += FETCH_BATCH_SIZE) {
-                const pkBatch = pks.slice(i, i + FETCH_BATCH_SIZE);
-                const { data } = await supabase.from(selectedTable).select('*').in(schema.pk, pkBatch);
-                data?.forEach(row => existingDataMap.set(String(row[schema.pk]), row));
-            }
-        }
-
-        // Clasificar registros
-        const recordsToProcess: any[] = [];
-        allRecords.forEach(record => {
-            const pkValue = String(record[schema.pk]);
-            const existing = existingDataMap.get(pkValue);
-
-            if (!existing) {
-                inserted.push(record);
-                if (mode === 'new' || mode === 'all') recordsToProcess.push(record);
-            } else {
-                let isDifferent = false;
-                for (const col of activeDbColumns) {
-                    if (String(record[col] ?? '') !== String(existing[col] ?? '')) {
-                        isDifferent = true;
-                        break;
-                    }
-                }
-
-                if (isDifferent) {
-                    updated.push(record);
-                    if (mode === 'update' || mode === 'all') recordsToProcess.push(record);
-                } else {
-                    unchanged.push(record);
-                }
-            }
-        });
-
-        // Sincronizar registros filtrados por modo
-        if (supabase && recordsToProcess.length > 0) {
-            const SYNC_BATCH_SIZE = 50;
-            for (let i = 0; i < recordsToProcess.length; i += SYNC_BATCH_SIZE) {
-                const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
-                const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
-                if (error) {
-                    errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
-                }
-            }
-        }
-
-        setSyncResult({ inserted, updated, unchanged, errors });
-        setCurrentStep('results');
-        setIsLoading(false);
-    };
-
     const reset = () => {
         setWorkbook(null);
         setSheets([]);
@@ -305,11 +328,13 @@ export default function CsvUploader() {
         setConversionProgress(0);
         setSelectedTable('');
         setHeaderMap({});
+        setCategorizedData({ new: [], update: [], unchanged: [] });
+        setSyncResult(null);
         setCurrentStep('upload');
     };
 
     return (
-        <div className="w-full max-w-6xl mx-auto space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-6">
             {currentStep === 'upload' && (
                 <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md">
                     <CardHeader>
@@ -483,82 +508,133 @@ export default function CsvUploader() {
                         </div>
                     </CardContent>
                     <CardFooter className="p-8 border-t bg-slate-50">
-                        <Button onClick={() => setCurrentStep('preview')} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl">
-                            <Eye className="mr-3 h-6 w-6" /> Revisar Vista Previa
+                        <Button onClick={performAnalysis} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl">
+                            <Eye className="mr-3 h-6 w-6" /> Iniciar Análisis Diferencial
                         </Button>
                     </CardFooter>
                 </Card>
             )}
 
+            {currentStep === 'analyzing' && (
+                <Card className="border-none shadow-xl bg-white text-center p-20">
+                    <CardContent className="space-y-6">
+                        <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-black uppercase tracking-tighter">Analizando Archivo</h3>
+                            <p className="text-muted-foreground font-medium">Comparando {rawRows.length} registros con la base de datos...</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {currentStep === 'preview' && (
-                <Card className="border-none shadow-2xl bg-white animate-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+                <Card className="border-none shadow-2xl bg-white animate-in slide-in-from-bottom-4 duration-500 overflow-hidden relative">
                     <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                                <Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest border-none px-2">Vista Previa Técnica</Badge>
-                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Registros para {selectedTable}</CardTitle>
+                                <Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest border-none px-2">Análisis de Integridad</Badge>
+                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Paso 3: Resultados del Análisis</CardTitle>
                             </div>
-                            <CardDescription>Visualización estructurada de los datos mapeados (Primeros 10 registros).</CardDescription>
+                            <CardDescription>Revisa los cambios detectados y elige qué acción sincronizar con la base de datos.</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentStep('mapping')} className="font-bold text-[10px] uppercase border-slate-200">
-                            <ArrowLeft className="mr-2 h-3 w-3" /> Corregir Mapeo
+                        <Button variant="outline" size="sm" onClick={reset} className="font-bold text-[10px] uppercase border-slate-200">
+                            <Undo2 className="mr-2 h-3 w-3" /> Empezar de Nuevo
                         </Button>
                     </CardHeader>
+                    
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table className="border-collapse border-y">
-                                <TableHeader className="bg-muted/30">
-                                    <TableRow>
-                                        {activeDbColumns.map((col) => (
-                                            <TableHead key={col} className="border-r last:border-r-0 font-black text-[10px] uppercase tracking-wider px-4 bg-muted/10 h-12 whitespace-nowrap">
-                                                {col}
-                                            </TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {previewData.map((row, rowIndex) => (
-                                        <TableRow key={rowIndex} className="h-12 hover:bg-muted/5">
-                                            {activeDbColumns.map((col) => (
-                                                <TableCell key={col} className="border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px] truncate">
-                                                    {String(row[col] ?? '-')}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                        <Tabs defaultValue="nuevos" className="w-full">
+                            <div className="px-8 bg-muted/10 border-b">
+                                <TabsList className="h-14 w-full bg-transparent p-0 gap-8 justify-start">
+                                    <TabsTrigger value="nuevos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 h-full font-bold uppercase text-[11px] tracking-tighter transition-all">
+                                        Nuevos ({categorizedData.new.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger value="actualizar" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 h-full font-bold uppercase text-[11px] tracking-tighter transition-all">
+                                        A Actualizar ({categorizedData.update.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger value="sin-cambios" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 h-full font-bold uppercase text-[11px] tracking-tighter transition-all">
+                                        Sin Cambios ({categorizedData.unchanged.length})
+                                    </TabsTrigger>
+                                </TabsList>
+                            </div>
+
+                            {['nuevos', 'actualizar', 'sin-cambios'].map((tab) => (
+                                <TabsContent key={tab} value={tab} className="mt-0">
+                                    <ScrollArea className="h-[450px] w-full border-b">
+                                        <div className="min-w-full inline-block align-middle">
+                                            <Table className="border-collapse">
+                                                <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
+                                                    <TableRow className="h-12 border-b">
+                                                        {activeDbColumns.map((col) => (
+                                                            <TableHead key={col} className="border-r last:border-r-0 font-black text-[10px] uppercase tracking-wider px-4 h-12 whitespace-nowrap bg-white">
+                                                                {col}
+                                                            </TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(tab === 'nuevos' ? categorizedData.new : tab === 'actualizar' ? categorizedData.update : categorizedData.unchanged).length > 0 ? (
+                                                        (tab === 'nuevos' ? categorizedData.new : tab === 'actualizar' ? categorizedData.update : categorizedData.unchanged).map((row, rowIndex) => (
+                                                            <TableRow key={rowIndex} className="h-12 hover:bg-muted/5 group transition-colors">
+                                                                {activeDbColumns.map((col) => (
+                                                                    <TableCell key={col} className="border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px] truncate group-hover:whitespace-normal group-hover:break-all">
+                                                                        {String(row[col] ?? '-')}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell colSpan={activeDbColumns.length} className="h-32 text-center text-muted-foreground font-bold uppercase text-xs">
+                                                                No se encontraron registros en esta categoría.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                        <ScrollBar orientation="horizontal" />
+                                    </ScrollArea>
+                                </TabsContent>
+                            ))}
+                        </Tabs>
                     </CardContent>
-                    <CardFooter className="p-8 border-t bg-muted/5 flex flex-col gap-6">
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground w-full">
-                            <PlayCircle className="h-4 w-4 text-primary" />
-                            Se procesarán <span className="text-primary font-black">{rawRows.length}</span> registros. Seleccione la acción de inyección:
-                        </div>
-                        <div className="flex flex-wrap items-center gap-4 w-full">
+
+                    <CardFooter className="p-8 bg-slate-50 flex flex-col gap-6">
+                        <div className="flex flex-wrap items-center justify-center gap-4 w-full">
                             <Button 
                                 onClick={() => handleSync('new')} 
-                                className="h-14 px-8 bg-[#A3BCB6] hover:bg-[#8DA8A1] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl shadow-lg flex-1"
-                                disabled={isLoading}
+                                className="h-14 px-8 bg-[#3E6053] hover:bg-[#2D4A3F] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl shadow-lg flex-1"
+                                disabled={isLoading || categorizedData.new.length === 0}
                             >
                                 <Database className="mr-2 h-5 w-5" /> Insertar Nuevos
                             </Button>
                             <Button 
                                 onClick={() => handleSync('update')} 
                                 className="h-14 px-8 bg-[#3E6053] hover:bg-[#2D4A3F] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl shadow-lg flex-1"
-                                disabled={isLoading}
+                                disabled={isLoading || categorizedData.update.length === 0}
                             >
                                 <RefreshCcw className="mr-2 h-5 w-5" /> Actualizar Duplicados
                             </Button>
                             <Button 
                                 onClick={() => handleSync('all')} 
                                 className="h-14 px-8 bg-[#3E6053] hover:bg-[#2D4A3F] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl shadow-lg flex-1"
-                                disabled={isLoading}
+                                disabled={isLoading || (categorizedData.new.length === 0 && categorizedData.update.length === 0)}
                             >
                                 <Save className="mr-2 h-5 w-5" /> Aplicar Todo
                             </Button>
                         </div>
                     </CardFooter>
+
+                    {/* Notification summarizing the analysis */}
+                    <div className="absolute bottom-4 right-4 bg-white border border-slate-100 rounded-xl shadow-2xl p-5 max-w-sm animate-in slide-in-from-right-4 z-20">
+                        <h4 className="font-black text-sm mb-1 uppercase tracking-tight">Análisis Completo</h4>
+                        <p className="text-[11px] leading-relaxed text-muted-foreground font-medium">
+                            Se encontraron <span className="font-bold text-primary">{categorizedData.new.length}</span> registros nuevos, 
+                            <span className="font-bold text-primary"> {categorizedData.update.length}</span> para actualizar, 
+                            y <span className="font-bold text-primary">{categorizedData.unchanged.length}</span> sin cambios.
+                        </p>
+                    </div>
                 </Card>
             )}
 
@@ -703,8 +779,4 @@ export default function CsvUploader() {
             )}
         </div>
     );
-}
-
-function ScrollArea({ className, children }: { className?: string, children: React.ReactNode }) {
-    return <div className={cn("overflow-auto no-scrollbar", className)}>{children}</div>;
 }
