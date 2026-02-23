@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import MotherCatalogClient from './client';
-import type { catalogo_madre } from '@/types/database';
+import type { sku_m } from '@/types/database';
 
 async function getData() {
     if (!supabaseAdmin) {
@@ -8,21 +8,21 @@ async function getData() {
     }
 
     try {
-        const all: catalogo_madre[] = [];
+        const all: sku_m[] = [];
         let from = 0;
         const step = 1000;
         let hasMore = true;
 
         while (hasMore) {
             const { data, error } = await supabaseAdmin
-                .from('catalogo_madre')
+                .from('sku_madr')
                 .select('*')
                 .order('nombre_madre', { ascending: true })
                 .range(from, from + step - 1);
 
             if (error) throw error;
             if (data && data.length > 0) {
-                all.push(...(data as catalogo_madre[]));
+                all.push(...(data as sku_m []));
                 if (data.length < step) hasMore = false;
                 else from += step;
             } else {

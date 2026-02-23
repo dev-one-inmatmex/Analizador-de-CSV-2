@@ -14,7 +14,7 @@ import {
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
   Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
-  PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2, FileDown
+  PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2, FileDown, AlertTriangle
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -191,8 +191,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Empresa / Entidad</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -202,7 +208,9 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormField control={form.control} name="especificar_empresa" render={({ field }) => (
                                     <FormItem className="animate-in fade-in slide-in-from-top-2">
                                         <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Empresa</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre de la empresa" /></FormControl>
+                                        <FormControl>
+                                            <Input {...field} value={field.value ?? ''} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre de la empresa" />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -212,8 +220,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Tipo de Transacción</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-black"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl font-black">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -234,7 +248,7 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                     <FormControl>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
-                                            <Input {...field} type="number" step="0.01" className="h-14 pl-8 rounded-xl text-xl font-black bg-slate-50 border-none shadow-inner" placeholder="0.00" />
+                                            <Input {...field} value={field.value ?? 0} type="number" step="0.01" className="h-14 pl-8 rounded-xl text-xl font-black bg-slate-50 border-none shadow-inner" placeholder="0.00" />
                                         </div>
                                     </FormControl>
                                     <FormMessage />
@@ -245,8 +259,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Nivel 1: Impacto</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{dynamicImpacts.map((i: string) => <SelectItem key={i} value={i}>{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {dynamicImpacts.map((i: string) => <SelectItem key={i} value={i}>{i.replace(/_/g, ' ')}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -256,8 +276,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Nivel 2: Área Funcional</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a}>{a.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a}>{a.replace(/_/g, ' ')}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -267,7 +293,11 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Nivel 3: Subcategoría</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
                                         <SelectContent>
                                             {(dynamicSubcategories[currentImpact] || []).map((s: string) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                                             <SelectItem value="OTRA">-- OTRA SUB --</SelectItem>
@@ -281,8 +311,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Categoría Macro</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{dynamicMacro.map((m: string) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {dynamicMacro.map((m: string) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -292,8 +328,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Canal de Atribución</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -333,8 +375,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Método de Pago</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -344,7 +392,9 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
                                     <FormItem className="animate-in fade-in slide-in-from-top-2">
                                         <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Método</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Ej: Pago en especie" /></FormControl>
+                                        <FormControl>
+                                            <Input {...field} value={field.value ?? ''} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Ej: Pago en especie" />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -354,8 +404,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Banco Origen</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -365,7 +421,9 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormField control={form.control} name="especificar_banco" render={({ field }) => (
                                     <FormItem className="animate-in fade-in slide-in-from-top-2">
                                         <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Banco</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre del banco" /></FormControl>
+                                        <FormControl>
+                                            <Input {...field} value={field.value ?? ''} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre del banco" />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -375,8 +433,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Cuenta Destino</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                                        <FormControl>
+                                            <SelectTrigger className="h-12 rounded-xl">
+                                                <SelectValue placeholder="Seleccionar" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
@@ -386,7 +450,9 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                                 <FormField control={form.control} name="especificar_cuenta" render={({ field }) => (
                                     <FormItem className="animate-in fade-in slide-in-from-top-2">
                                         <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Cuenta</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Tipo de cuenta" /></FormControl>
+                                        <FormControl>
+                                            <Input {...field} value={field.value ?? ''} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Tipo de cuenta" />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -402,28 +468,36 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                             <FormField control={form.control} name="responsable" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">Responsable de Registro</FormLabel>
-                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="Nombre de usuario" /></FormControl>
+                                    <FormControl>
+                                        <Input {...field} value={field.value ?? ''} className="h-12 rounded-xl" placeholder="Nombre de usuario" />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
                             <FormField control={form.control} name="comprobante_url" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-bold uppercase">URL del Comprobante (Opcional)</FormLabel>
-                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="https://..." /></FormControl>
+                                    <FormControl>
+                                        <Input {...field} value={field.value ?? ''} className="h-12 rounded-xl" placeholder="https://..." />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
                             <FormField control={form.control} name="descripcion" render={({ field }) => (
                                 <FormItem className="col-span-full">
                                     <FormLabel className="text-[10px] font-bold uppercase">Descripción Detallada</FormLabel>
-                                    <FormControl><Textarea {...field} className="min-h-[100px] rounded-2xl resize-none p-4" placeholder="Describe el motivo o desglose del gasto..." /></FormControl>
+                                    <FormControl>
+                                        <Textarea {...field} value={field.value ?? ''} className="min-h-[100px] rounded-2xl resize-none p-4" placeholder="Describe el motivo o desglose del gasto..." />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
                             <FormField control={form.control} name="notas" render={({ field }) => (
                                 <FormItem className="col-span-full">
                                     <FormLabel className="text-[10px] font-bold uppercase">Notas de Auditoría (Privadas)</FormLabel>
-                                    <FormControl><Textarea {...field} className="min-h-[80px] rounded-2xl resize-none p-4 border-dashed" placeholder="Anotaciones internas para revisión financiera..." /></FormControl>
+                                    <FormControl>
+                                        <Textarea {...field} value={field.value ?? ''} className="min-h-[80px] rounded-2xl resize-none p-4 border-dashed" placeholder="Anotaciones internas para revisión financiera..." />
+                                    </FormControl>
                                     <FormDescription className="text-[9px]">Máximo 280 caracteres.</FormDescription>
                                     <FormMessage />
                                 </FormItem>
@@ -1419,7 +1493,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-32">
-                                                        <DropdownMenuItem onClick={() => handleEdit(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => onDeleteTransaction(t.id!)} className="text-destructive"><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -1551,7 +1625,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                                 <FileDown className="mr-1.5 h-3 w-3" /> PDF
                             </Button>
                         </div>
-                        <Button className="h-9 px-6 bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[8px]" onClick={() => { handleEdit(selectedDetail!); setSelectedDetail(null); }}>
+                        <Button className="h-9 px-6 bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[8px]" onClick={() => { onEditTransaction(selectedDetail!); setSelectedDetail(null); }}>
                             <Pencil className="mr-1.5 h-3 w-3" /> Editar
                         </Button>
                     </DialogFooter>
