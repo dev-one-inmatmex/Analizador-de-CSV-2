@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
-  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft
+  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -94,7 +94,7 @@ function parseValue(key: string, value: any): any {
     return str;
 }
 
-type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'syncing' | 'results';
+type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'preview' | 'syncing' | 'results';
 
 export default function CsvUploader() {
     const { toast } = useToast();
@@ -109,7 +109,6 @@ export default function CsvUploader() {
     const [isLoading, setIsLoading] = useState(false);
     const [syncResult, setSyncResult] = useState<{inserted: number, updated: number, errors: any[]} | null>(null);
 
-    // Mapeo automático inteligente al seleccionar tabla
     const handleTableSelect = (table: string) => {
         setSelectedTable(table);
         const schema = TABLE_SCHEMAS[table];
@@ -118,10 +117,7 @@ export default function CsvUploader() {
         const usedColumns = new Set<string>();
 
         headers.forEach((h, i) => {
-            // Limpieza profunda para comparación fuzzy
             const cleanHeader = h.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-            
-            // Intentar encontrar coincidencia exacta o por nombre limpio
             const match = schema.columns.find(c => {
                 const cleanCol = c.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
                 return (cleanCol === cleanHeader || c.toLowerCase() === h.toLowerCase().replace(/\s/g, '_')) && !usedColumns.has(c);
@@ -139,10 +135,27 @@ export default function CsvUploader() {
         setCurrentStep('mapping');
     };
 
-    // Calcular qué columnas están siendo usadas actualmente para deshabilitarlas
     const usedDbColumns = useMemo(() => {
         return new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE));
     }, [headerMap]);
+
+    const previewData = useMemo(() => {
+        if (currentStep !== 'preview') return [];
+        return rawRows.slice(0, 10).map(row => {
+            const obj: Record<string, any> = {};
+            headers.forEach((_, i) => {
+                const dbCol = headerMap[i];
+                if (dbCol && dbCol !== IGNORE_COLUMN_VALUE) {
+                    obj[dbCol] = parseValue(dbCol, row[i]);
+                }
+            });
+            return obj;
+        });
+    }, [currentStep, rawRows, headers, headerMap]);
+
+    const activeDbColumns = useMemo(() => {
+        return Array.from(usedDbColumns);
+    }, [usedDbColumns]);
 
     const processFile = (f: File) => {
         const isExcel = f.name.endsWith('.xlsx') || f.name.endsWith('.xls');
@@ -418,10 +431,64 @@ export default function CsvUploader() {
                         </div>
                     </CardContent>
                     <CardFooter className="p-8 border-t bg-slate-50">
-                        <Button onClick={handleSync} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl" disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Database className="mr-3 h-6 w-6" />}
-                            Iniciar Sincronización a {selectedTable}
+                        <Button onClick={() => setCurrentStep('preview')} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl">
+                            <Eye className="mr-3 h-6 w-6" /> Revisar Vista Previa
                         </Button>
+                    </CardFooter>
+                </Card>
+            )}
+
+            {currentStep === 'preview' && (
+                <Card className="border-none shadow-2xl bg-white animate-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 px-8 py-6">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest border-none px-2">Fase de Verificación</Badge>
+                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Vista Previa de Sincronización</CardTitle>
+                            </div>
+                            <CardDescription>Así es como se verán los primeros 10 registros en la tabla <strong>{selectedTable}</strong>.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setCurrentStep('mapping')} className="font-bold text-[10px] uppercase border-slate-200">
+                            <ArrowLeft className="mr-2 h-3 w-3" /> Corregir Mapeo
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="max-h-[500px] overflow-x-auto">
+                            <Table className="min-w-full border-collapse">
+                                <TableHeader className="bg-muted/30 sticky top-0 z-10">
+                                    <TableRow className="border-b-0 h-12">
+                                        {activeDbColumns.map((col) => (
+                                            <TableHead key={col} className="font-black text-[9px] uppercase tracking-widest border-r last:border-r-0 px-4 whitespace-nowrap bg-muted/20">
+                                                {col.replace(/_/g, ' ')}
+                                            </TableHead>
+                                        ))}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {previewData.map((row, rowIndex) => (
+                                        <TableRow key={rowIndex} className="hover:bg-muted/5 h-12 border-b-slate-100">
+                                            {activeDbColumns.map((col) => (
+                                                <TableCell key={col} className="px-4 text-[10px] font-medium border-r last:border-r-0 whitespace-nowrap overflow-hidden max-w-[200px] truncate">
+                                                    {String(row[col] ?? '-')}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="p-8 border-t bg-[#2D5A4C]/5">
+                        <div className="flex flex-col w-full gap-4">
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-muted-foreground">
+                                <PlayCircle className="h-4 w-4 text-primary" />
+                                Se procesarán un total de <span className="text-primary font-black">{rawRows.length}</span> registros para la tabla {selectedTable}.
+                            </div>
+                            <Button onClick={handleSync} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl" disabled={isLoading}>
+                                {isLoading ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Database className="mr-3 h-6 w-6" />}
+                                Confirmar e Iniciar Inyección de Datos
+                            </Button>
+                        </div>
                     </CardFooter>
                 </Card>
             )}
