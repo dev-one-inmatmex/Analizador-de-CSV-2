@@ -3,7 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
-  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle
+  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle,
+  PlusCircle, Edit3, MinusCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     ml_sales: { 
@@ -107,13 +109,18 @@ export default function CsvUploader() {
     const [selectedTable, setSelectedTable] = useState('');
     const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
-    const [syncResult, setSyncResult] = useState<{inserted: number, updated: number, errors: { batch: number, msg: string }[]} | null>(null);
+    
+    const [syncResult, setSyncResult] = useState<{
+        inserted: any[], 
+        updated: any[], 
+        unchanged: any[],
+        errors: { batch: number, msg: string }[]
+    } | null>(null);
 
     const handleTableSelect = (table: string) => {
         setSelectedTable(table);
         const schema = TABLE_SCHEMAS[table];
         const map: Record<number, string> = {};
-        
         const usedColumns = new Set<string>();
 
         headers.forEach((h, i) => {
@@ -139,8 +146,12 @@ export default function CsvUploader() {
         return new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE));
     }, [headerMap]);
 
+    const activeDbColumns = useMemo(() => {
+        return Array.from(usedDbColumns);
+    }, [usedDbColumns]);
+
     const previewData = useMemo(() => {
-        if (currentStep !== 'preview') return [];
+        if (currentStep !== 'preview' && currentStep !== 'syncing') return [];
         return rawRows.slice(0, 10).map(row => {
             const obj: Record<string, any> = {};
             headers.forEach((_, i) => {
@@ -153,13 +164,8 @@ export default function CsvUploader() {
         });
     }, [currentStep, rawRows, headers, headerMap]);
 
-    const activeDbColumns = useMemo(() => {
-        return Array.from(usedDbColumns);
-    }, [usedDbColumns]);
-
     const processFile = (f: File) => {
         const isExcel = f.name.endsWith('.xlsx') || f.name.endsWith('.xls');
-        
         if (isExcel) {
             setCurrentStep('converting');
             let progress = 0;
@@ -215,32 +221,75 @@ export default function CsvUploader() {
         setIsLoading(true);
         setCurrentStep('syncing');
         const schema = TABLE_SCHEMAS[selectedTable];
-        let processed = 0, errors: { batch: number, msg: string }[] = [];
+        
+        const inserted: any[] = [];
+        const updated: any[] = [];
+        const unchanged: any[] = [];
+        const errors: { batch: number, msg: string }[] = [];
 
-        const BATCH_SIZE = 50;
-        for (let i = 0; i < rawRows.length; i += BATCH_SIZE) {
-            const batch = rawRows.slice(i, i + BATCH_SIZE);
-            const records = batch.map(row => {
-                const obj: any = {};
-                headers.forEach((_, headerIndex) => {
-                    const colName = headerMap[headerIndex];
-                    if (colName && colName !== IGNORE_COLUMN_VALUE) {
-                        obj[colName] = parseValue(colName, row[headerIndex]);
-                    }
-                });
-                return obj;
+        // Pre-procesar todos los registros mapeados
+        const allRecords = rawRows.map(row => {
+            const obj: any = {};
+            headers.forEach((_, headerIndex) => {
+                const colName = headerMap[headerIndex];
+                if (colName && colName !== IGNORE_COLUMN_VALUE) {
+                    obj[colName] = parseValue(colName, row[headerIndex]);
+                }
             });
+            return obj;
+        });
 
-            const { error } = await supabase!.from(selectedTable).upsert(records, { onConflict: schema.pk });
-            
-            if (error) {
-                errors.push({ batch: Math.floor(i / BATCH_SIZE) + 1, msg: error.message });
+        // Obtener PKs para comparación diferencial
+        const pks = allRecords.map(r => r[schema.pk]).filter(Boolean);
+        
+        // Consultar registros existentes en lotes para evitar límites de URL
+        const existingDataMap = new Map<string, any>();
+        const FETCH_BATCH_SIZE = 200;
+        for (let i = 0; i < pks.length; i += FETCH_BATCH_SIZE) {
+            const pkBatch = pks.slice(i, i + FETCH_BATCH_SIZE);
+            const { data } = await supabase!.from(selectedTable).select('*').in(schema.pk, pkBatch);
+            data?.forEach(row => existingDataMap.set(String(row[schema.pk]), row));
+        }
+
+        // Clasificar registros
+        const recordsToUpsert: any[] = [];
+        allRecords.forEach(record => {
+            const pkValue = String(record[schema.pk]);
+            const existing = existingDataMap.get(pkValue);
+
+            if (!existing) {
+                inserted.push(record);
+                recordsToUpsert.push(record);
             } else {
-                processed += records.length;
+                // Comparación profunda simplificada para columnas mapeadas
+                let isDifferent = false;
+                for (const col of activeDbColumns) {
+                    if (String(record[col] ?? '') !== String(existing[col] ?? '')) {
+                        isDifferent = true;
+                        break;
+                    }
+                }
+
+                if (isDifferent) {
+                    updated.push(record);
+                    recordsToUpsert.push(record);
+                } else {
+                    unchanged.push(record);
+                }
+            }
+        });
+
+        // Sincronizar solo los que cambiaron o son nuevos
+        const SYNC_BATCH_SIZE = 50;
+        for (let i = 0; i < recordsToUpsert.length; i += SYNC_BATCH_SIZE) {
+            const batch = recordsToUpsert.slice(i, i + SYNC_BATCH_SIZE);
+            const { error } = await supabase!.from(selectedTable).upsert(batch, { onConflict: schema.pk });
+            if (error) {
+                errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
             }
         }
 
-        setSyncResult({ inserted: 0, updated: processed, errors });
+        setSyncResult({ inserted, updated, unchanged, errors });
         setCurrentStep('results');
         setIsLoading(false);
     };
@@ -506,68 +555,117 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'results' && syncResult && (
-                <div className="space-y-6 animate-in zoom-in-95 duration-300 max-w-3xl mx-auto">
+                <div className="space-y-6 animate-in zoom-in-95 duration-300 w-full">
                     <Card className="border-none shadow-2xl overflow-hidden rounded-3xl">
                         <div className={cn(
                             "p-12 text-white text-center",
                             syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]"
                         )}>
                             <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6">
-                                {syncResult.errors.length > 0 ? (
-                                    <AlertTriangle className="h-12 w-12 text-white" />
-                                ) : (
-                                    <CheckCircle className="h-12 w-12 text-white" />
-                                )}
+                                {syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12 text-white" /> : <CheckCircle className="h-12 w-12 text-white" />}
                             </div>
                             <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">
-                                {syncResult.errors.length > 0 ? 'Sincronización con Advertencias' : '¡Operación Exitosa!'}
+                                {syncResult.errors.length > 0 ? 'Sincronización con Advertencias' : '¡Sincronización Completada!'}
                             </h2>
-                            <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Auditoría de sincronización completada</p>
+                            <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Auditoría Diferencial: {rawRows.length} registros analizados</p>
                         </div>
-                        <CardContent className="p-12 bg-white">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-center">
-                                <div className="p-6 rounded-2xl bg-muted/30 border border-muted-foreground/10">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Registros Auditados</p>
-                                    <p className="text-4xl font-black text-slate-800">{syncResult.updated}</p>
+                        <CardContent className="p-8 bg-white space-y-10">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                                <div className="p-6 rounded-2xl bg-green-50 border border-green-100">
+                                    <div className="flex justify-center mb-2"><PlusCircle className="h-5 w-5 text-green-600" /></div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-1">Detectados Nuevos</p>
+                                    <p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p>
                                 </div>
-                                <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Tabla Destino</p>
-                                    <p className="text-xl font-black text-[#2D5A4C] uppercase tracking-tighter truncate">{selectedTable}</p>
+                                <div className="p-6 rounded-2xl bg-blue-50 border border-blue-100">
+                                    <div className="flex justify-center mb-2"><Edit3 className="h-5 w-5 text-blue-600" /></div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">A Actualizar</p>
+                                    <p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p>
+                                </div>
+                                <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <div className="flex justify-center mb-2"><MinusCircle className="h-5 w-5 text-slate-400" /></div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Sin Cambios</p>
+                                    <p className="text-4xl font-black text-slate-600">{syncResult.unchanged.length}</p>
                                 </div>
                             </div>
+
+                            <Tabs defaultValue="nuevos" className="w-full">
+                                <TabsList className="grid w-full grid-cols-3 bg-muted/20 p-1 h-12">
+                                    <TabsTrigger value="nuevos" className="font-bold text-xs uppercase tracking-tight">Nuevos ({syncResult.inserted.length})</TabsTrigger>
+                                    <TabsTrigger value="actualizados" className="font-bold text-xs uppercase tracking-tight">Actualizados ({syncResult.updated.length})</TabsTrigger>
+                                    <TabsTrigger value="sin-cambios" className="font-bold text-xs uppercase tracking-tight">Sin cambios ({syncResult.unchanged.length})</TabsTrigger>
+                                </TabsList>
+                                
+                                <TabsContent value="nuevos" className="mt-4 border rounded-xl overflow-hidden bg-white">
+                                    <ScrollArea className="h-[300px]">
+                                        <Table>
+                                            <TableHeader className="bg-muted/10 sticky top-0 z-10"><TableRow className="h-10">
+                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col.replace(/_/g, ' ')}</TableHead>)}
+                                            </TableRow></TableHeader>
+                                            <TableBody>
+                                                {syncResult.inserted.length > 0 ? syncResult.inserted.map((r, i) => (
+                                                    <TableRow key={i} className="h-10 hover:bg-green-50/30">
+                                                        {activeDbColumns.map(col => <TableCell key={col} className="text-[9px] font-medium whitespace-nowrap">{String(r[col] ?? '-')}</TableCell>)}
+                                                    </TableRow>
+                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">No se detectaron registros nuevos</TableCell></TableRow>}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+
+                                <TabsContent value="actualizados" className="mt-4 border rounded-xl overflow-hidden bg-white">
+                                    <ScrollArea className="h-[300px]">
+                                        <Table>
+                                            <TableHeader className="bg-muted/10 sticky top-0 z-10"><TableRow className="h-10">
+                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col.replace(/_/g, ' ')}</TableHead>)}
+                                            </TableRow></TableHeader>
+                                            <TableBody>
+                                                {syncResult.updated.length > 0 ? syncResult.updated.map((r, i) => (
+                                                    <TableRow key={i} className="h-10 hover:bg-blue-50/30">
+                                                        {activeDbColumns.map(col => <TableCell key={col} className="text-[9px] font-medium whitespace-nowrap">{String(r[col] ?? '-')}</TableCell>)}
+                                                    </TableRow>
+                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">No hubo actualizaciones necesarias</TableCell></TableRow>}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+
+                                <TabsContent value="sin-cambios" className="mt-4 border rounded-xl overflow-hidden bg-white">
+                                    <ScrollArea className="h-[300px]">
+                                        <Table>
+                                            <TableHeader className="bg-muted/10 sticky top-0 z-10"><TableRow className="h-10">
+                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col.replace(/_/g, ' ')}</TableHead>)}
+                                            </TableRow></TableHeader>
+                                            <TableBody>
+                                                {syncResult.unchanged.length > 0 ? syncResult.unchanged.map((r, i) => (
+                                                    <TableRow key={i} className="h-10 opacity-60">
+                                                        {activeDbColumns.map(col => <TableCell key={col} className="text-[9px] font-medium whitespace-nowrap">{String(r[col] ?? '-')}</TableCell>)}
+                                                    </TableRow>
+                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">Todos los registros fueron nuevos o modificados</TableCell></TableRow>}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+                            </Tabs>
                             
                             {syncResult.errors.length > 0 && (
-                                <div className="mt-8 space-y-4 text-left">
+                                <div className="mt-8 space-y-4">
                                     <div className="flex items-center justify-between ml-1">
                                         <h3 className="text-sm font-black uppercase tracking-tight text-slate-700">Detalle de Errores:</h3>
-                                        <Badge variant="destructive" className="text-[10px] font-black uppercase tracking-widest">
-                                            {syncResult.errors.length} anomalías
-                                        </Badge>
+                                        <Badge variant="destructive" className="text-[10px] font-black uppercase tracking-widest">{syncResult.errors.length} anomalías</Badge>
                                     </div>
-                                    <div className="border rounded-2xl p-4 bg-slate-50 space-y-3 max-h-[400px] overflow-y-auto no-scrollbar">
+                                    <div className="border rounded-2xl p-4 bg-slate-50 space-y-3 max-h-[250px] overflow-y-auto no-scrollbar">
                                         {syncResult.errors.map((err, i) => (
                                             <div key={i} className="p-5 rounded-xl bg-white border border-red-100 shadow-sm animate-in fade-in slide-in-from-left-2 duration-300">
                                                 <div className="flex items-start gap-3">
                                                     <div className="mt-1 h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
                                                     <div className="space-y-1.5">
-                                                        <p className="font-black text-destructive text-[11px] uppercase tracking-tighter leading-none">
-                                                            Error en Sincronización (Lote #{err.batch})
-                                                        </p>
-                                                        <p className="text-slate-600 text-xs font-medium leading-relaxed">
-                                                            {err.msg === 'insert or update on table "ml_sales" violates foreign key constraint' 
-                                                                ? "Error de Referencia (Foreign Key): Un valor que intentas usar no existe en la tabla principal a la que está conectado."
-                                                                : err.msg}
-                                                        </p>
+                                                        <p className="font-black text-destructive text-[11px] uppercase tracking-tighter leading-none">Error en Sincronización (Lote #{err.batch})</p>
+                                                        <p className="text-slate-600 text-xs font-medium leading-relaxed">{err.msg}</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    <Alert variant="destructive" className="border-none bg-red-50 py-3">
-                                        <AlertDescription className="text-[10px] font-bold uppercase tracking-widest text-destructive/80 text-center">
-                                            Revisa los datos del archivo para corregir los conflictos de esquema mencionados.
-                                        </AlertDescription>
-                                    </Alert>
                                 </div>
                             )}
 
@@ -581,4 +679,8 @@ export default function CsvUploader() {
             )}
         </div>
     );
+}
+
+function ScrollArea({ className, children }: { className?: string, children: React.ReactNode }) {
+    return <div className={cn("overflow-auto no-scrollbar", className)}>{children}</div>;
 }
