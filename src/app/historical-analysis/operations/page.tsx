@@ -69,21 +69,378 @@ import { Separator } from '@/components/ui/separator';
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
 
-/**
- * Utilidad para extraer valores personalizados guardados en las notas.
- */
 function getEnhancedValue(baseValue: string, notes: string | null | undefined, prefix: string): string {
     if (!notes) return baseValue;
     const match = notes.match(new RegExp(`\\[${prefix}: (.*?)\\]`));
     return (match && match[1]) ? match[1] : baseValue;
 }
 
-/**
- * Limpia las notas de los prefijos técnicos para visualización.
- */
 function cleanNotes(notes: string | null | undefined): string {
     if (!notes) return '';
     return notes.replace(/\[(Empresa|Método|Banco|Cuenta):.*?\]\s*/g, '').trim();
+}
+
+function DetailItem({ label, value }: { label: string, value: any }) {
+    return (
+        <div className="space-y-1">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+            <p className="text-xs font-bold text-slate-700 truncate">{value || '-'}</p>
+        </div>
+    );
+}
+
+function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynamicSubcategories, dynamicMacro }: any) {
+    const form = useForm<TransactionFormValues>({
+        resolver: zodResolver(expenseFormSchema),
+        defaultValues: transaction ? {
+            ...transaction,
+            fecha: parseISO(transaction.fecha),
+            monto: Number(transaction.monto),
+            empresa: EMPRESAS.includes(transaction.empresa) ? transaction.empresa : 'OTRA',
+            especificar_empresa: getEnhancedValue(transaction.empresa, transaction.notes || transaction.notas, 'Empresa'),
+            metodo_pago: METODOS_PAGO.includes(transaction.metodo_pago) ? transaction.metodo_pago : 'OTRO',
+            especificar_metodo_pago: getEnhancedValue(transaction.metodo_pago, transaction.notes || transaction.notas, 'Método'),
+            banco: BANCOS.includes(transaction.banco) ? transaction.banco : 'OTRO',
+            especificar_banco: getEnhancedValue(transaction.banco, transaction.notes || transaction.notas, 'Banco'),
+            cuenta: CUENTAS.includes(transaction.cuenta) ? transaction.cuenta : 'OTRO',
+            especificar_cuenta: getEnhancedValue(transaction.cuenta, transaction.notes || transaction.notas, 'Cuenta'),
+            descripcion: transaction.descripcion || '',
+            notas: cleanNotes(transaction.notes || transaction.notas),
+            es_nomina_mixta: false
+        } : {
+            fecha: new Date(),
+            empresa: '',
+            tipo_transaccion: 'GASTO',
+            monto: 0,
+            tipo_gasto_impacto: '',
+            area_funcional: '',
+            subcategoria_especifica: '',
+            categoria_macro: '',
+            canal_asociado: 'GENERAL',
+            clasificacion_operativa: 'DIRECTO',
+            es_fijo: false,
+            es_recurrente: false,
+            metodo_pago: '',
+            banco: '',
+            cuenta: '',
+            responsable: '',
+            descripcion: '',
+            notas: '',
+            comprobante_url: '',
+            es_nomina_mixta: false
+        }
+    });
+
+    const currentImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
+    const currentEmpresa = useWatch({ control: form.control, name: 'empresa' });
+    const currentMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
+    const currentBanco = useWatch({ control: form.control, name: 'banco' });
+    const currentCuenta = useWatch({ control: form.control, name: 'cuenta' });
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
+                <div className="bg-[#2D5A4C] p-8 text-white">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                                <Edit2 className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <DialogHeader>
+                                    <DialogTitle className="text-2xl font-black uppercase tracking-tight">
+                                        {transaction ? 'Editar Registro' : 'Nuevo Movimiento'}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-white/60 text-[10px] font-bold uppercase tracking-widest">
+                                        Clasificación financiera en 7 fases
+                                    </DialogDescription>
+                                </DialogHeader>
+                            </div>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/10 rounded-full">
+                            <X className="h-6 w-6" />
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="p-8 space-y-10 bg-white">
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 1. Identificación y Tiempo
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <FormField control={form.control} name="fecha" render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-[10px] font-bold uppercase">Fecha de Operación</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("pl-3 text-left font-normal h-12 rounded-xl", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccionar</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="empresa" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Empresa / Entidad</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentEmpresa === 'OTRA' && (
+                                <FormField control={form.control} name="especificar_empresa" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Empresa</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre de la empresa" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+
+                            <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Tipo de Transacción</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-black"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </section>
+
+                    <Separator className="bg-slate-100" />
+
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 2. Clasificación de Negocio
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <FormField control={form.control} name="monto" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Monto Total ($)</FormLabel>
+                                    <FormControl>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
+                                            <Input {...field} type="number" step="0.01" className="h-14 pl-8 rounded-xl text-xl font-black bg-slate-50 border-none shadow-inner" placeholder="0.00" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 1: Impacto</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{dynamicImpacts.map((i: string) => <SelectItem key={i} value={i}>{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="area_funcional" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 2: Área Funcional</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a}>{a.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 3: Subcategoría</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {(dynamicSubcategories[currentImpact] || []).map((s: string) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                            <SelectItem value="OTRA">-- OTRA SUB --</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="categoria_macro" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Categoría Macro</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{dynamicMacro.map((m: string) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField control={form.control} name="canal_asociado" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Canal de Atribución</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </section>
+
+                    <section className="p-6 bg-slate-50 rounded-3xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <FormField control={form.control} name="es_fijo" render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
+                                <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase">¿Es Gasto Fijo?</FormLabel><FormDescription className="text-[9px]">Renta, Sueldos base, etc.</FormDescription></div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="es_recurrente" render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
+                                <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase">¿Es Recurrente?</FormLabel><FormDescription className="text-[9px]">Suscripciones, software, etc.</FormDescription></div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                        {currentImpact === 'NOMINA' && (
+                            <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
+                                <FormItem className="flex items-center justify-between rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 shadow-sm animate-in zoom-in-95">
+                                    <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase text-primary">¿Nómina Mixta?</FormLabel><FormDescription className="text-[9px]">Fraccionar 60/30/10%</FormDescription></div>
+                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                            )} />
+                        )}
+                    </section>
+
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 3. Tesorería y Pago
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <FormField control={form.control} name="metodo_pago" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Método de Pago</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentMetodo === 'OTRO' && (
+                                <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Método</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Ej: Pago en especie" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+
+                            <FormField control={form.control} name="banco" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Banco Origen</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentBanco === 'OTRO' && (
+                                <FormField control={form.control} name="especificar_banco" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Banco</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre del banco" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+
+                            <FormField control={form.control} name="cuenta" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Cuenta Destino</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                        <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            {currentCuenta === 'OTRO' && (
+                                <FormField control={form.control} name="especificar_cuenta" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Cuenta</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Tipo de cuenta" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                            <span className="h-4 w-1 bg-primary rounded-full" /> 4. Detalles y Contexto
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField control={form.control} name="responsable" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">Responsable de Registro</FormLabel>
+                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="Nombre de usuario" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="comprobante_url" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-bold uppercase">URL del Comprobante (Opcional)</FormLabel>
+                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="https://..." /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="descripcion" render={({ field }) => (
+                                <FormItem className="col-span-full">
+                                    <FormLabel className="text-[10px] font-bold uppercase">Descripción Detallada</FormLabel>
+                                    <FormControl><Textarea {...field} className="min-h-[100px] rounded-2xl resize-none p-4" placeholder="Describe el motivo o desglose del gasto..." /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="notas" render={({ field }) => (
+                                <FormItem className="col-span-full">
+                                    <FormLabel className="text-[10px] font-bold uppercase">Notas de Auditoría (Privadas)</FormLabel>
+                                    <FormControl><Textarea {...field} className="min-h-[80px] rounded-2xl resize-none p-4 border-dashed" placeholder="Anotaciones internas para revisión financiera..." /></FormControl>
+                                    <FormDescription className="text-[9px]">Máximo 280 caracteres.</FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                    </section>
+                </div>
+
+                <DialogFooter className="p-8 border-t bg-slate-50 sticky bottom-0 z-10">
+                    <Button type="button" variant="outline" onClick={onClose} className="h-14 px-8 rounded-2xl font-bold uppercase text-xs border-slate-200">Cancelar</Button>
+                    <Button type="submit" className="h-14 px-12 rounded-2xl font-black uppercase text-xs shadow-xl bg-[#2D5A4C] hover:bg-[#1f3e34]">
+                        <Save className="mr-2 h-4 w-4" /> {transaction ? 'Guardar Cambios' : 'Confirmar Registro'}
+                    </Button>
+                </DialogFooter>
+            </form>
+        </Form>
+    );
 }
 
 export default function OperationsPage() {
@@ -378,7 +735,7 @@ export default function OperationsPage() {
             </main>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl">
+                <DialogContent className="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl">
                     <TransactionForm 
                         transaction={editingTransaction} 
                         onSubmit={handleSave} 
@@ -689,15 +1046,6 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
     );
 }
 
-function DetailItem({ label, value }: { label: string, value: any }) {
-    return (
-        <div className="space-y-1">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-            <p className="text-xs font-bold text-slate-700 truncate">{value || '-'}</p>
-        </div>
-    );
-}
-
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [showFilter, setSearchShowFilter] = React.useState(false);
@@ -786,7 +1134,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const banco = getEnhancedValue(detail.banco, detail.notas, 'Banco');
         const cuenta = getEnhancedValue(detail.cuenta, detail.notas, 'Cuenta');
 
-        // Header
         doc.setFillColor(45, 90, 76);
         doc.rect(0, 0, 210, 40, 'F');
         doc.setTextColor(255, 255, 255);
@@ -795,7 +1142,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         doc.setFontSize(10);
         doc.text(`ID REGISTRO: #${detail.id} | FECHA: ${detail.fecha}`, 20, 30);
 
-        // Content
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(14);
         doc.text('RESUMEN GENERAL', 20, 55);
@@ -1081,36 +1427,36 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             </Card>
 
             <Dialog open={!!selectedDetail} onOpenChange={() => setSelectedDetail(null)}>
-                <DialogContent className="max-w-5xl border-none shadow-2xl p-0 overflow-hidden rounded-[24px]">
-                    <div className="bg-[#2D5A4C] p-8 text-white relative">
-                        <button onClick={() => setSelectedDetail(null)} className="absolute top-6 right-6 text-white/60 hover:text-white"><X className="h-6 w-6" /></button>
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                                <FileText className="h-7 w-7 text-white" />
+                <DialogContent className="max-w-2xl border-none shadow-2xl p-0 overflow-hidden rounded-[24px]">
+                    <div className="bg-[#2D5A4C] p-6 text-white relative">
+                        <button onClick={() => setSelectedDetail(null)} className="absolute top-4 right-4 text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                <FileText className="h-5 w-5 text-white" />
                             </div>
                             <div>
                                 <DialogHeader>
-                                    <DialogDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Auditoría de Registro #{selectedDetail?.id}</DialogDescription>
-                                    <DialogTitle className="text-3xl font-black uppercase tracking-tight text-white">{selectedDetail?.subcategoria_especifica}</DialogTitle>
+                                    <DialogDescription className="text-[8px] font-black uppercase tracking-[0.2em] text-white/70">Auditoría # {selectedDetail?.id}</DialogDescription>
+                                    <DialogTitle className="text-xl font-black uppercase tracking-tight text-white leading-tight">{selectedDetail?.subcategoria_especifica}</DialogTitle>
                                 </DialogHeader>
                             </div>
                         </div>
-                        <div className="flex gap-3">
-                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">
+                        <div className="flex gap-2">
+                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[8px] px-2 py-0.5">
                                 {getEnhancedValue(selectedDetail?.empresa || '', selectedDetail?.notas, 'Empresa')}
                             </Badge>
-                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">{selectedDetail?.tipo_transaccion}</Badge>
+                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[8px] px-2 py-0.5">{selectedDetail?.tipo_transaccion}</Badge>
                         </div>
                     </div>
                     
-                    <div className="p-8 space-y-8 bg-white max-h-[70vh] overflow-y-auto no-scrollbar">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-6">
-                                <div className="space-y-4">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                        <Target className="h-3.5 w-3.5" /> Clasificación Operativa
+                    <div className="p-6 space-y-6 bg-white max-h-[60vh] overflow-y-auto no-scrollbar">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div className="space-y-3">
+                                    <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                        <Target className="h-3 w-3" /> Clasificación Operativa
                                     </h3>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <DetailItem label="Impacto" value={selectedDetail?.tipo_gasto_impacto?.replace(/_/g, ' ')} />
                                         <DetailItem label="Área" value={selectedDetail?.area_funcional?.replace(/_/g, ' ')} />
                                         <DetailItem label="Macro" value={selectedDetail?.categoria_macro} />
@@ -1120,48 +1466,48 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 pt-4 border-t border-slate-100">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                        <User className="h-3.5 w-3.5" /> Responsabilidad y Perfil
+                                <div className="space-y-3 pt-3 border-t border-slate-100">
+                                    <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                        <User className="h-3 w-3" /> Responsabilidad
                                     </h3>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <DetailItem label="Responsable" value={selectedDetail?.responsable} />
-                                        <div className="flex gap-2 mt-1">
-                                            {selectedDetail?.es_fijo && <Badge className="bg-blue-50 text-blue-700 text-[8px] border-none font-black">FIJO</Badge>}
-                                            {selectedDetail?.es_recurrente && <Badge className="bg-purple-50 text-purple-700 text-[8px] border-none font-black">RECURRENTE</Badge>}
+                                        <div className="flex gap-1.5 mt-0.5">
+                                            {selectedDetail?.es_fijo && <Badge className="bg-blue-50 text-blue-700 text-[7px] border-none font-black">FIJO</Badge>}
+                                            {selectedDetail?.es_recurrente && <Badge className="bg-purple-50 text-purple-700 text-[7px] border-none font-black">RECURRENTE</Badge>}
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monto del Movimiento</p>
-                                    <p className={cn("text-4xl font-black", ['GASTO', 'COMPRA'].includes(selectedDetail?.tipo_transaccion || '') ? "text-slate-900" : "text-primary")}>
+                            <div className="space-y-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                                <div className="space-y-0.5">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Monto del Movimiento</p>
+                                    <p className={cn("text-2xl font-black", ['GASTO', 'COMPRA'].includes(selectedDetail?.tipo_transaccion || '') ? "text-slate-900" : "text-primary")}>
                                         {money(selectedDetail?.monto)}
                                     </p>
                                 </div>
 
-                                <div className="space-y-4 pt-6 border-t border-slate-200">
-                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                        <CreditCard className="h-3.5 w-3.5" /> Detalles de Pago
+                                <div className="space-y-2.5 pt-4 border-t border-slate-200">
+                                    <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                        <CreditCard className="h-3 w-3" /> Detalles de Pago
                                     </h3>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center py-1">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase">Método:</span>
-                                            <span className="text-xs font-black text-slate-800">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center py-0.5">
+                                            <span className="text-[8px] font-bold text-slate-500 uppercase">Método:</span>
+                                            <span className="text-[10px] font-black text-slate-800">
                                                 {getEnhancedValue(selectedDetail?.metodo_pago || '', selectedDetail?.notas, 'Método')}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between items-center py-1">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase">Banco:</span>
-                                            <span className="text-xs font-black text-slate-800">
+                                        <div className="flex justify-between items-center py-0.5">
+                                            <span className="text-[8px] font-bold text-slate-500 uppercase">Banco:</span>
+                                            <span className="text-[10px] font-black text-slate-800">
                                                 {getEnhancedValue(selectedDetail?.banco || '', selectedDetail?.notas, 'Banco')}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between items-center py-1">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase">Cuenta:</span>
-                                            <span className="text-xs font-black text-slate-800">
+                                        <div className="flex justify-between items-center py-0.5">
+                                            <span className="text-[8px] font-bold text-slate-500 uppercase">Cuenta:</span>
+                                            <span className="text-[10px] font-black text-slate-800">
                                                 {getEnhancedValue(selectedDetail?.cuenta || '', selectedDetail?.notas, 'Cuenta')}
                                             </span>
                                         </div>
@@ -1170,391 +1516,39 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             </div>
                         </div>
 
-                        <div className="space-y-4 border-t pt-8">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Descripción y Notas Contextuales</h3>
-                            <div className="space-y-4">
-                                <div className="p-4 bg-muted/20 rounded-xl">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Descripción Técnica:</p>
-                                    <p className="text-xs text-slate-700 leading-relaxed font-medium italic">
-                                        {selectedDetail?.descripcion || "Sin descripción adicional."}
+                        <div className="space-y-3 border-t pt-4">
+                            <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Descripción y Notas</h3>
+                            <div className="space-y-3">
+                                <div className="p-3 bg-muted/20 rounded-xl">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Descripción Técnica:</p>
+                                    <p className="text-[10px] text-slate-700 leading-relaxed font-medium italic">
+                                        {selectedDetail?.descripcion || "-"}
                                     </p>
                                 </div>
-                                <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
-                                    <p className="text-[10px] font-black text-primary/60 uppercase mb-1">Notas Internas:</p>
-                                    <p className="text-xs text-slate-700 leading-relaxed font-semibold">
-                                        {cleanNotes(selectedDetail?.notas) || "Sin notas registradas."}
+                                <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                                    <p className="text-[8px] font-black text-primary/60 uppercase mb-0.5">Notas Internas:</p>
+                                    <p className="text-[10px] text-slate-700 leading-relaxed font-semibold">
+                                        {cleanNotes(selectedDetail?.notas) || "-"}
                                     </p>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <DialogFooter className="p-6 border-t bg-slate-50 flex items-center justify-between">
+                    <DialogFooter className="p-4 border-t bg-slate-50 flex items-center justify-between">
                         <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => setSelectedDetail(null)} className="font-black uppercase text-[10px] px-8 border-slate-200">Cerrar Visor</Button>
-                            <Button variant="outline" className="font-black uppercase text-[10px] px-8 border-slate-200 bg-white" onClick={() => handleExportSinglePDF(selectedDetail!)}>
-                                <FileDown className="mr-2 h-3.5 w-3.5" /> Exportar PDF
+                            <Button variant="outline" onClick={() => setSelectedDetail(null)} className="h-9 px-4 font-black uppercase text-[8px] border-slate-200">Cerrar</Button>
+                            <Button variant="outline" className="h-9 px-4 font-black uppercase text-[8px] border-slate-200 bg-white" onClick={() => handleExportSinglePDF(selectedDetail!)}>
+                                <FileDown className="mr-1.5 h-3 w-3" /> PDF
                             </Button>
                         </div>
-                        <Button className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-8" onClick={() => { handleEdit(selectedDetail!); setSelectedDetail(null); }}>
-                            <Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro
+                        <Button className="h-9 px-6 bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[8px]" onClick={() => { handleEdit(selectedDetail!); setSelectedDetail(null); }}>
+                            <Pencil className="mr-1.5 h-3 w-3" /> Editar
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
-    );
-}
-
-function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynamicSubcategories, dynamicMacro }: any) {
-    const form = useForm<TransactionFormValues>({
-        resolver: zodResolver(expenseFormSchema),
-        defaultValues: transaction ? {
-            ...transaction,
-            fecha: parseISO(transaction.fecha),
-            monto: Number(transaction.monto),
-            empresa: EMPRESAS.includes(transaction.empresa) ? transaction.empresa : 'OTRA',
-            especificar_empresa: getEnhancedValue(transaction.empresa, transaction.notas, 'Empresa'),
-            metodo_pago: METODOS_PAGO.includes(transaction.metodo_pago) ? transaction.metodo_pago : 'OTRO',
-            especificar_metodo_pago: getEnhancedValue(transaction.metodo_pago, transaction.notas, 'Método'),
-            banco: BANCOS.includes(transaction.banco) ? transaction.banco : 'OTRO',
-            especificar_banco: getEnhancedValue(transaction.banco, transaction.notas, 'Banco'),
-            cuenta: CUENTAS.includes(transaction.cuenta) ? transaction.cuenta : 'OTRO',
-            especificar_cuenta: getEnhancedValue(transaction.cuenta, transaction.notas, 'Cuenta'),
-            descripcion: transaction.descripcion || '',
-            notas: cleanNotes(transaction.notas),
-            es_nomina_mixta: false
-        } : {
-            fecha: new Date(),
-            empresa: '',
-            tipo_transaccion: 'GASTO',
-            monto: 0,
-            tipo_gasto_impacto: '',
-            area_funcional: '',
-            subcategoria_especifica: '',
-            categoria_macro: '',
-            canal_asociado: 'GENERAL',
-            clasificacion_operativa: 'DIRECTO',
-            es_fijo: false,
-            es_recurrente: false,
-            metodo_pago: '',
-            banco: '',
-            cuenta: '',
-            responsable: '',
-            descripcion: '',
-            notas: '',
-            comprobante_url: '',
-            es_nomina_mixta: false
-        }
-    });
-
-    const currentImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
-    const currentEmpresa = useWatch({ control: form.control, name: 'empresa' });
-    const currentMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
-    const currentBanco = useWatch({ control: form.control, name: 'banco' });
-    const currentCuenta = useWatch({ control: form.control, name: 'cuenta' });
-
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
-                <div className="bg-[#2D5A4C] p-8 text-white">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 bg-white/10 rounded-2xl flex items-center justify-center">
-                                <Edit2 className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <DialogTitle className="text-2xl font-black uppercase tracking-tight">
-                                    {transaction ? 'Editar Registro' : 'Nuevo Movimiento'}
-                                </DialogTitle>
-                                <DialogDescription className="text-white/60 text-[10px] font-bold uppercase tracking-widest">
-                                    Clasificación financiera en 7 fases
-                                </DialogDescription>
-                            </div>
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/10 rounded-full">
-                            <X className="h-6 w-6" />
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="p-8 space-y-10 bg-white">
-                    <section className="space-y-6">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <span className="h-4 w-1 bg-primary rounded-full" /> 1. Identificación y Tiempo
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <FormField control={form.control} name="fecha" render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel className="text-[10px] font-bold uppercase">Fecha de Operación</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button variant="outline" className={cn("pl-3 text-left font-normal h-12 rounded-xl", !field.value && "text-muted-foreground")}>
-                                                    {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccionar</span>}
-                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <FormField control={form.control} name="empresa" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Empresa / Entidad</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            {currentEmpresa === 'OTRA' && (
-                                <FormField control={form.control} name="especificar_empresa" render={({ field }) => (
-                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
-                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Empresa</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre de la empresa" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            )}
-
-                            <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Tipo de Transacción</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-black"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                    </section>
-
-                    <Separator className="bg-slate-100" />
-
-                    <section className="space-y-6">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <span className="h-4 w-1 bg-primary rounded-full" /> 2. Clasificación de Negocio
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <FormField control={form.control} name="monto" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Monto Total ($)</FormLabel>
-                                    <FormControl>
-                                        <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">$</span>
-                                            <Input {...field} type="number" step="0.01" className="h-14 pl-8 rounded-xl text-xl font-black bg-slate-50 border-none shadow-inner" placeholder="0.00" />
-                                        </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 1: Impacto</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{dynamicImpacts.map((i: string) => <SelectItem key={i} value={i}>{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <FormField control={form.control} name="area_funcional" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 2: Área Funcional</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a}>{a.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Nivel 3: Subcategoría</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            {(dynamicSubcategories[currentImpact] || []).map((s: string) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                            <SelectItem value="OTRA">-- OTRA SUB --</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <FormField control={form.control} name="categoria_macro" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Categoría Macro</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{dynamicMacro.map((m: string) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <FormField control={form.control} name="canal_asociado" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Canal de Atribución</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                    </section>
-
-                    <section className="p-6 bg-slate-50 rounded-3xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <FormField control={form.control} name="es_fijo" render={({ field }) => (
-                            <FormItem className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
-                                <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase">¿Es Gasto Fijo?</FormLabel><FormDescription className="text-[9px]">Renta, Sueldos base, etc.</FormDescription></div>
-                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="es_recurrente" render={({ field }) => (
-                            <FormItem className="flex items-center justify-between rounded-2xl border bg-white p-4 shadow-sm">
-                                <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase">¿Es Recurrente?</FormLabel><FormDescription className="text-[9px]">Suscripciones, software, etc.</FormDescription></div>
-                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            </FormItem>
-                        )} />
-                        {currentImpact === 'NOMINA' && (
-                            <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
-                                <FormItem className="flex items-center justify-between rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 shadow-sm animate-in zoom-in-95">
-                                    <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase text-primary">¿Nómina Mixta?</FormLabel><FormDescription className="text-[9px]">Fraccionar 60/30/10%</FormDescription></div>
-                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                </FormItem>
-                            )} />
-                        )}
-                    </section>
-
-                    <section className="space-y-6">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <span className="h-4 w-1 bg-primary rounded-full" /> 3. Tesorería y Pago
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <FormField control={form.control} name="metodo_pago" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Método de Pago</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            {currentMetodo === 'OTRO' && (
-                                <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
-                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
-                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Método</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Ej: Pago en especie" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            )}
-
-                            <FormField control={form.control} name="banco" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Banco Origen</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            {currentBanco === 'OTRO' && (
-                                <FormField control={form.control} name="especificar_banco" render={({ field }) => (
-                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
-                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Banco</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Nombre del banco" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            )}
-
-                            <FormField control={form.control} name="cuenta" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Cuenta Destino</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                        <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            {currentCuenta === 'OTRO' && (
-                                <FormField control={form.control} name="especificar_cuenta" render={({ field }) => (
-                                    <FormItem className="animate-in fade-in slide-in-from-top-2">
-                                        <FormLabel className="text-[10px] font-bold uppercase text-primary">Especificar Cuenta</FormLabel>
-                                        <FormControl><Input {...field} className="h-12 rounded-xl border-primary/20 bg-primary/5 font-bold" placeholder="Tipo de cuenta" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            )}
-                        </div>
-                    </section>
-
-                    <section className="space-y-6">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-2">
-                            <span className="h-4 w-1 bg-primary rounded-full" /> 4. Detalles y Contexto
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField control={form.control} name="responsable" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">Responsable de Registro</FormLabel>
-                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="Nombre de usuario" /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="comprobante_url" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-bold uppercase">URL del Comprobante (Opcional)</FormLabel>
-                                    <FormControl><Input {...field} className="h-12 rounded-xl" placeholder="https://..." /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="descripcion" render={({ field }) => (
-                                <FormItem className="col-span-full">
-                                    <FormLabel className="text-[10px] font-bold uppercase">Descripción Detallada</FormLabel>
-                                    <FormControl><Textarea {...field} className="min-h-[100px] rounded-2xl resize-none p-4" placeholder="Describe el motivo o desglose del gasto..." /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="notas" render={({ field }) => (
-                                <FormItem className="col-span-full">
-                                    <FormLabel className="text-[10px] font-bold uppercase">Notas de Auditoría (Privadas)</FormLabel>
-                                    <FormControl><Textarea {...field} className="min-h-[80px] rounded-2xl resize-none p-4 border-dashed" placeholder="Anotaciones internas para revisión financiera..." /></FormControl>
-                                    <FormDescription className="text-[9px]">Máximo 280 caracteres.</FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                    </section>
-                </div>
-
-                <DialogFooter className="p-8 border-t bg-slate-50 sticky bottom-0 z-10">
-                    <Button type="button" variant="outline" onClick={onClose} className="h-14 px-8 rounded-2xl font-bold uppercase text-xs border-slate-200">Cancelar</Button>
-                    <Button type="submit" className="h-14 px-12 rounded-2xl font-black uppercase text-xs shadow-xl bg-[#2D5A4C] hover:bg-[#1f3e34]">
-                        <Save className="mr-2 h-4 w-4" /> {transaction ? 'Guardar Cambios' : 'Confirmar Registro'}
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Form>
     );
 }
 
