@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
-  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle
+  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -107,7 +107,7 @@ export default function CsvUploader() {
     const [selectedTable, setSelectedTable] = useState('');
     const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
-    const [syncResult, setSyncResult] = useState<{inserted: number, updated: number, errors: any[]} | null>(null);
+    const [syncResult, setSyncResult] = useState<{inserted: number, updated: number, errors: { batch: number, msg: string }[]} | null>(null);
 
     const handleTableSelect = (table: string) => {
         setSelectedTable(table);
@@ -215,7 +215,7 @@ export default function CsvUploader() {
         setIsLoading(true);
         setCurrentStep('syncing');
         const schema = TABLE_SCHEMAS[selectedTable];
-        let processed = 0, errors: any[] = [];
+        let processed = 0, errors: { batch: number, msg: string }[] = [];
 
         const BATCH_SIZE = 50;
         for (let i = 0; i < rawRows.length; i += BATCH_SIZE) {
@@ -508,11 +508,20 @@ export default function CsvUploader() {
             {currentStep === 'results' && syncResult && (
                 <div className="space-y-6 animate-in zoom-in-95 duration-300 max-w-3xl mx-auto">
                     <Card className="border-none shadow-2xl overflow-hidden rounded-3xl">
-                        <div className="bg-[#2D5A4C] p-12 text-white text-center">
+                        <div className={cn(
+                            "p-12 text-white text-center",
+                            syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]"
+                        )}>
                             <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6">
-                                <CheckCircle className="h-12 w-12 text-white" />
+                                {syncResult.errors.length > 0 ? (
+                                    <AlertTriangle className="h-12 w-12 text-white" />
+                                ) : (
+                                    <CheckCircle className="h-12 w-12 text-white" />
+                                )}
                             </div>
-                            <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">¡Operación Exitosa!</h2>
+                            <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">
+                                {syncResult.errors.length > 0 ? 'Sincronización con Advertencias' : '¡Operación Exitosa!'}
+                            </h2>
                             <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Auditoría de sincronización completada</p>
                         </div>
                         <CardContent className="p-12 bg-white">
@@ -528,15 +537,41 @@ export default function CsvUploader() {
                             </div>
                             
                             {syncResult.errors.length > 0 && (
-                                <Alert variant="destructive" className="mb-8 border-none bg-red-50">
-                                    <AlertTitle className="font-black uppercase text-xs">Se detectaron {syncResult.errors.length} anomalías</AlertTitle>
-                                    <AlertDescription className="text-[10px] font-medium opacity-80">
-                                        Algunos registros no pudieron ser procesados por conflictos de esquema o duplicados.
-                                    </AlertDescription>
-                                </Alert>
+                                <div className="mt-8 space-y-4 text-left">
+                                    <div className="flex items-center justify-between ml-1">
+                                        <h3 className="text-sm font-black uppercase tracking-tight text-slate-700">Detalle de Errores:</h3>
+                                        <Badge variant="destructive" className="text-[10px] font-black uppercase tracking-widest">
+                                            {syncResult.errors.length} anomalías
+                                        </Badge>
+                                    </div>
+                                    <div className="border rounded-2xl p-4 bg-slate-50 space-y-3 max-h-[400px] overflow-y-auto no-scrollbar">
+                                        {syncResult.errors.map((err, i) => (
+                                            <div key={i} className="p-5 rounded-xl bg-white border border-red-100 shadow-sm animate-in fade-in slide-in-from-left-2 duration-300">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="mt-1 h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
+                                                    <div className="space-y-1.5">
+                                                        <p className="font-black text-destructive text-[11px] uppercase tracking-tighter leading-none">
+                                                            Error en Sincronización (Lote #{err.batch})
+                                                        </p>
+                                                        <p className="text-slate-600 text-xs font-medium leading-relaxed">
+                                                            {err.msg === 'insert or update on table "ml_sales" violates foreign key constraint' 
+                                                                ? "Error de Referencia (Foreign Key): Un valor que intentas usar no existe en la tabla principal a la que está conectado."
+                                                                : err.msg}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <Alert variant="destructive" className="border-none bg-red-50 py-3">
+                                        <AlertDescription className="text-[10px] font-bold uppercase tracking-widest text-destructive/80 text-center">
+                                            Revisa los datos del archivo para corregir los conflictos de esquema mencionados.
+                                        </AlertDescription>
+                                    </Alert>
+                                </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-4 mt-10">
                                 <Button variant="outline" className="h-14 font-black uppercase text-xs border-slate-200 rounded-xl" onClick={reset}>Procesar otro archivo</Button>
                                 <Button className="h-14 font-black uppercase text-xs rounded-xl shadow-lg" onClick={() => window.location.reload()}>Finalizar y salir</Button>
                             </div>
