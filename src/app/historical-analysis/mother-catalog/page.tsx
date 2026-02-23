@@ -15,7 +15,7 @@ async function getData() {
 
         while (hasMore) {
             const { data, error } = await supabaseAdmin
-                .from('sku_madr')
+                .from('sku_madre')
                 .select('*')
                 .order('nombre_madre', { ascending: true })
                 .range(from, from + step - 1);
