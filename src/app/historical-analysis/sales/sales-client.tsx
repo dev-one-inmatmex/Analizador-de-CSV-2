@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabaseClient';
 
 const PAGE_SIZE = 15;
 const PARETO_PAGE_SIZE = 15;
@@ -50,7 +51,34 @@ export default function SalesDashboardClient({
     const [paretoPage, setParetoPage] = React.useState(1);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
 
-    React.useEffect(() => { setIsClient(true); }, []);
+    React.useEffect(() => { 
+        setIsClient(true); 
+    }, []);
+
+    // Suscripción Realtime para actualizaciones automáticas
+    React.useEffect(() => {
+        if (!supabase) return;
+
+        const channel = supabase
+            .channel('ml_sales_realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'ml_sales'
+                },
+                () => {
+                    // Refrescamos los datos del servidor de forma silenciosa
+                    router.refresh();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [router]);
 
     const safeFormat = (dateStr: string | null | undefined, formatStr: string = 'dd/MM/yy') => {
         if (!dateStr) return '-';
@@ -100,6 +128,7 @@ export default function SalesDashboardClient({
             return true;
         });
 
+        // Orden cronológico: ventas nuevas arriba
         const sortedSales = [...filteredSales].sort((a, b) => {
             const dateA = a.fecha_venta ? new Date(a.fecha_venta).getTime() : 0;
             const dateB = b.fecha_venta ? new Date(b.fecha_venta).getTime() : 0;
@@ -174,7 +203,7 @@ export default function SalesDashboardClient({
     const totalPages = Math.ceil(sales.length / PAGE_SIZE);
     const paginatedSales = sales.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-    if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <div className="flex min-h-screen flex-col bg-muted/40 min-w-0">
@@ -273,19 +302,56 @@ export default function SalesDashboardClient({
                               onClick={() => setIsParetoModalOpen(true)} 
                               className="gap-2 font-bold bg-primary/5 border-primary/20 hover:bg-primary/10"
                             >
-                                <BarChart3 className="h-4 w-4" /> Análisis Pareto (Impacto 80/20)
+                                <BarChart3 className="h-4 w-4" /> Análisis Pareto
                             </Button>
                         </CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={charts.topProducts} margin={{ bottom: 100, left: 20, right: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" fontSize={9} interval={0} height={100} tick={{fill: '#666'}} />
-                                    <YAxis yAxisId="left" orientation="left" tickFormatter={v => `$${v/1000}k`} tick={{fill: '#666'}} axisLine={false} tickLine={false} />
-                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{fill: '#666'}} axisLine={false} tickLine={false} />
-                                    <Tooltip formatter={(v, name) => [name === 'Ingresos' ? money(Number(v)) : `${Number(v).toFixed(1)}%`, name]} />
+                                    <XAxis 
+                                        dataKey="name" 
+                                        angle={-45} 
+                                        textAnchor="end" 
+                                        fontSize={9} 
+                                        interval={0} 
+                                        height={100} 
+                                        tick={{fill: '#666', fontWeight: 500}} 
+                                    />
+                                    <YAxis 
+                                        yAxisId="left" 
+                                        orientation="left" 
+                                        tickFormatter={v => `$${v/1000}k`} 
+                                        tick={{fill: '#666'}} 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                    />
+                                    <YAxis 
+                                        yAxisId="right" 
+                                        orientation="right" 
+                                        domain={[0, 100]} 
+                                        tick={{fill: '#666'}} 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tickFormatter={v => `${v}%`}
+                                    />
+                                    <Tooltip 
+                                        formatter={(v, name) => [
+                                            name === 'Ingresos' ? money(Number(v)) : `${Number(v).toFixed(1)}%`, 
+                                            name
+                                        ]} 
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    />
                                     <Bar yAxisId="left" dataKey="value" fill="#2D5A4C" name="Ingresos" radius={[4, 4, 0, 0]} barSize={40} />
-                                    <Line yAxisId="right" dataKey="cumulative" stroke="#f43f5e" name="Acumulado %" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e', strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                                    <Line 
+                                        yAxisId="right" 
+                                        dataKey="cumulative" 
+                                        stroke="#f43f5e" 
+                                        name="Acumulado %" 
+                                        strokeWidth={3} 
+                                        dot={{ r: 4, fill: '#f43f5e', strokeWidth: 2 }} 
+                                        activeDot={{ r: 6 }} 
+                                    />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -305,9 +371,14 @@ export default function SalesDashboardClient({
                                         label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
                                         stroke="none"
                                     >
-                                        {charts.salesByCompany.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                                        {charts.salesByCompany.map((_, i) => (
+                                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                        ))}
                                     </Pie>
-                                    <Tooltip formatter={v => money(v as number)} />
+                                    <Tooltip 
+                                        formatter={v => money(v as number)} 
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    />
                                     <Legend verticalAlign="bottom" height={36} iconType="circle" />
                                 </PieChart>
                             </ResponsiveContainer>
@@ -498,7 +569,7 @@ export default function SalesDashboardClient({
                             <Card className="bg-primary/5 border-none shadow-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Productos Analizados</div><div className="text-xl font-black">{paretoAnalysisData.length} SKU</div></CardContent></Card>
                             <Card className="bg-[#2D5A4C]/10 border-none shadow-none">
                               <CardContent className="pt-4">
-                                <div className="text-xl font-black text-[#2D5A4C]">{paretoAnalysisData.filter(p => p.zona === 'Impacto A').length} SKU</div>
+                                <div className="text-xl font-black text-[#2D5A4C]">{paretoAnalysisData.filter(p => p.zona === 'Impacto A').length} SKU (Clase A)</div>
                               </CardContent>
                             </Card>
                         </div>
