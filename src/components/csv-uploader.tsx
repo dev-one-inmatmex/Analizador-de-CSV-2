@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle,
-  PlusCircle, Edit3, MinusCircle, Save, FileText, Undo2, X
+  PlusCircle, Edit3, MinusCircle, Save, FileText, Undo2, X, ArrowRightLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -67,11 +67,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     },
 };
 
-// Mapeos específicos solicitados por el usuario
 const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     sku_m: {
         'sku': 'sku',
-        'categoria_madre': 'cat_mdr',
+        'Categoria_madre': 'cat_mdr',
         'nombre_madre': 'sku_mdr',
         'landed_cost': 'landed_cost',
         'piezas_por_sku': 'piezas_por_sku',
@@ -111,6 +110,22 @@ function parseValue(key: string, value: any): any {
     return str;
 }
 
+function formatErrorDescription(msg: string): string {
+    if (msg.includes('ON CONFLICT DO UPDATE command cannot affect row a second time')) {
+        return 'Conflicto de redundancia: El archivo contiene múltiples registros con el mismo identificador para actualizar en el mismo lote. Por favor, limpia duplicados en tu archivo.';
+    }
+    if (msg.includes('duplicate key value violates unique constraint')) {
+        return 'Violación de Clave Única: Ya existe un registro con este identificador principal y no se puede duplicar.';
+    }
+    if (msg.includes('violates foreign key constraint')) {
+        return 'Error de Referencia: El registro intenta vincularse a un dato (como un SKU o Categoría) que no existe en las tablas maestras.';
+    }
+    if (msg.includes('null value in column')) {
+        return 'Valor Nulo Prohibido: Falta un dato obligatorio que la base de datos requiere para este registro.';
+    }
+    return msg;
+}
+
 type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'analyzing' | 'preview' | 'syncing' | 'results';
 
 export default function CsvUploader() {
@@ -131,7 +146,7 @@ export default function CsvUploader() {
 
     const [categorizedData, setCategorizedData] = useState<{
         new: any[],
-        update: any[],
+        update: { record: any, original: any }[],
         unchanged: any[]
     }>({ new: [], update: [], unchanged: [] });
 
@@ -150,20 +165,18 @@ export default function CsvUploader() {
         const usedColumns = new Set<string>();
 
         headers.forEach((h, i) => {
-            const hClean = h.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-            const hUnder = h.toLowerCase().replace(/\s+/g, '_');
+            const hRaw = String(h || '');
+            const hClean = hRaw.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            const hUnder = hRaw.toLowerCase().replace(/\s+/g, '_');
 
-            // 1. Intentar coincidencia por alias explícito (configurado por usuario)
             let match = schema.columns.find(c => {
                 if (usedColumns.has(c)) return false;
-                // Buscamos si algún alias para esta columna de BD coincide con el header
                 return Object.entries(aliases).some(([aliasHeader, dbCol]) => {
                     const aliasClean = aliasHeader.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-                    return dbCol === c && (aliasClean === hClean || aliasHeader === h);
+                    return dbCol === c && (aliasClean === hClean || aliasHeader === hRaw);
                 });
             });
 
-            // 2. Si no hay alias, intentar coincidencia por nombre similar
             if (!match) {
                 match = schema.columns.find(c => {
                     if (usedColumns.has(c)) return false;
@@ -223,7 +236,7 @@ export default function CsvUploader() {
             }
 
             const newRecs: any[] = [];
-            const updateRecs: any[] = [];
+            const updateRecs: { record: any, original: any }[] = [];
             const unchangedRecs: any[] = [];
 
             allRecords.forEach(record => {
@@ -244,7 +257,7 @@ export default function CsvUploader() {
                             break;
                         }
                     }
-                    if (isDifferent) updateRecs.push(record);
+                    if (isDifferent) updateRecs.push({ record, original: existing });
                     else unchangedRecs.push(record);
                 }
             });
@@ -266,8 +279,8 @@ export default function CsvUploader() {
         
         let recordsToProcess: any[] = [];
         if (mode === 'new') recordsToProcess = categorizedData.new;
-        else if (mode === 'update') recordsToProcess = categorizedData.update;
-        else recordsToProcess = [...categorizedData.new, ...categorizedData.update];
+        else if (mode === 'update') recordsToProcess = categorizedData.update.map(u => u.record);
+        else recordsToProcess = [...categorizedData.new, ...categorizedData.update.map(u => u.record)];
 
         const total = recordsToProcess.length;
         setTotalToSync(total);
@@ -374,7 +387,7 @@ export default function CsvUploader() {
                 <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md">
                     <CardHeader>
                         <CardTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Cargar Archivo Maestro</CardTitle>
-                        <CardDescription>Sube un reporte de Mercado Libre o Siggo (.csv, .xlsx) para iniciar la sincronización.</CardDescription>
+                        <CardDescription>Sube un archivo (.csv, .xlsx) para iniciar la sincronización.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div 
@@ -503,9 +516,38 @@ export default function CsvUploader() {
                                             {activeDbColumns.map((col) => <TableHead key={col} className="border-r last:border-r-0 font-black text-[10px] uppercase tracking-wider px-4 bg-white whitespace-nowrap">{col}</TableHead>)}
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {(tab === 'nuevos' ? categorizedData.new : tab === 'actualizar' ? categorizedData.update : categorizedData.unchanged).length > 0 ? (
-                                                (tab === 'nuevos' ? categorizedData.new : tab === 'actualizar' ? categorizedData.update : categorizedData.unchanged).map((row, rIdx) => (
+                                            {tab === 'nuevos' && categorizedData.new.length > 0 ? (
+                                                categorizedData.new.map((row, rIdx) => (
                                                     <TableRow key={rIdx} className="h-12 hover:bg-muted/5 transition-colors">
+                                                        {activeDbColumns.map((col) => <TableCell key={col} className="border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px] truncate">{String(row[col] ?? '-')}</TableCell>)}
+                                                    </TableRow>
+                                                ))
+                                            ) : tab === 'actualizar' && categorizedData.update.length > 0 ? (
+                                                categorizedData.update.map((item, rIdx) => (
+                                                    <TableRow key={rIdx} className="h-12 hover:bg-muted/5 transition-colors">
+                                                        {activeDbColumns.map((col) => {
+                                                            const isDiff = String(item.record[col] ?? '') !== String(item.original[col] ?? '');
+                                                            return (
+                                                                <TableCell key={col} className={cn("border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px]", isDiff ? "bg-amber-50/30" : "")}>
+                                                                    {isDiff ? (
+                                                                        <div className="flex flex-col gap-0.5">
+                                                                            <span className="text-destructive line-through opacity-60 text-[8px]">{String(item.original[col] ?? 'vacío')}</span>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <ArrowRightLeft className="h-2.5 w-2.5 text-primary opacity-40" />
+                                                                                <span className="text-primary font-black truncate">{String(item.record[col] ?? 'vacío')}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="opacity-60 truncate">{String(item.record[col] ?? '-')}</span>
+                                                                    )}
+                                                                </TableCell>
+                                                            );
+                                                        })}
+                                                    </TableRow>
+                                                ))
+                                            ) : tab === 'sin-cambios' && categorizedData.unchanged.length > 0 ? (
+                                                categorizedData.unchanged.map((row, rIdx) => (
+                                                    <TableRow key={rIdx} className="h-12 hover:bg-muted/5 transition-colors opacity-60">
                                                         {activeDbColumns.map((col) => <TableCell key={col} className="border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px] truncate">{String(row[col] ?? '-')}</TableCell>)}
                                                     </TableRow>
                                                 ))
@@ -546,34 +588,41 @@ export default function CsvUploader() {
 
             {currentStep === 'results' && syncResult && (
                 <Card className="border-none shadow-2xl overflow-hidden rounded-3xl relative animate-in zoom-in-95">
-                    <div className={cn("p-12 text-white text-center", syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]")}>
+                    <div className={cn("p-12 text-white text-center transition-colors duration-500", syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]")}>
                         <Button variant="ghost" size="icon" onClick={reset} className="absolute top-6 right-6 rounded-full h-10 w-10 text-white hover:bg-white/20"><X className="h-6 w-6" /></Button>
-                        <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6">{syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12 text-white" /> : <CheckCircle className="h-12 w-12 text-white" />}</div>
-                        <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">{syncResult.errors.length > 0 ? 'Auditoría con Advertencias' : '¡Sincronización Exitosa!'}</h2>
-                        <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Tabla: {selectedTable} • {rawRows.length} registros procesados</p>
+                        <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6 shadow-inner animate-pulse">
+                            {syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12 text-white" /> : <CheckCircle className="h-12 w-12 text-white" />}
+                        </div>
+                        <h2 className="text-3xl font-black uppercase tracking-tighter mb-2 leading-none">{syncResult.errors.length > 0 ? 'Auditoría con Anomalías' : '¡Sincronización Exitosa!'}</h2>
+                        <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Tabla: {selectedTable} • {rawRows.length} registros auditados</p>
                     </div>
                     <CardContent className="p-8 bg-white space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                            <div className="p-6 rounded-2xl bg-green-50 border border-green-100"><p className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-1">Inyectados</p><p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p></div>
-                            <div className="p-6 rounded-2xl bg-blue-50 border border-blue-100"><p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Sobrescritos</p><p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p></div>
-                            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100"><p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Sin Cambios</p><p className="text-4xl font-black text-slate-600">{syncResult.unchanged.length}</p></div>
+                            <div className="p-6 rounded-2xl bg-green-50/50 border border-green-100 shadow-sm"><p className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-1">Inyectados</p><p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p></div>
+                            <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 shadow-sm"><p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Sobrescritos</p><p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p></div>
+                            <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100 shadow-sm"><p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Sin Cambios</p><p className="text-4xl font-black text-slate-600">{syncResult.unchanged.length}</p></div>
                         </div>
+
                         {syncResult.errors.length > 0 && (
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-black uppercase tracking-tight text-slate-700 ml-1">Detalle de Anomalías:</h3>
-                                <div className="border rounded-2xl p-4 bg-slate-50 space-y-3 max-h-[300px] overflow-y-auto no-scrollbar">
+                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                                <h3 className="text-sm font-black uppercase tracking-tight text-slate-700 ml-1">DETALLE DE ANOMALÍAS:</h3>
+                                <div className="border border-slate-100 rounded-3xl p-6 bg-slate-50/30 space-y-4 max-h-[400px] overflow-y-auto no-scrollbar">
                                     {syncResult.errors.map((err, i) => (
-                                        <div key={i} className="p-5 rounded-xl bg-white border border-red-100 shadow-sm flex items-start gap-3">
-                                            <div className="mt-1 h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
-                                            <div><p className="font-black text-destructive text-[11px] uppercase tracking-tighter leading-none">Error Lote #{err.batch}</p><p className="text-slate-600 text-xs font-medium mt-1.5">{err.msg}</p></div>
+                                        <div key={i} className="p-6 rounded-2xl bg-white border border-red-50 shadow-sm flex items-start gap-4 transition-all hover:shadow-md">
+                                            <div className="mt-1.5 h-3 w-3 rounded-full bg-red-500 animate-pulse shrink-0 border-2 border-white ring-4 ring-red-50" />
+                                            <div className="space-y-1">
+                                                <p className="font-black text-red-600 text-xs uppercase tracking-tighter leading-none">ERROR LOTE #{err.batch}</p>
+                                                <p className="text-slate-600 text-xs font-semibold leading-relaxed">{formatErrorDescription(err.msg)}</p>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
+
                         <div className="grid grid-cols-2 gap-4 mt-10">
-                            <Button variant="outline" className="h-14 font-black uppercase text-xs border-slate-200 rounded-xl" onClick={reset}><RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo</Button>
-                            <Button className="h-14 font-black uppercase text-xs rounded-xl shadow-lg" onClick={() => window.location.reload()}><CheckCircle className="mr-2 h-4 w-4" /> Finalizar y Salir</Button>
+                            <Button variant="outline" className="h-14 font-black uppercase text-xs border-slate-200 rounded-xl hover:bg-slate-50" onClick={reset}><RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo</Button>
+                            <Button className="h-14 font-black uppercase text-xs rounded-xl shadow-lg shadow-primary/20" onClick={() => window.location.reload()}><CheckCircle className="mr-2 h-4 w-4" /> Finalizar y Salir</Button>
                         </div>
                     </CardContent>
                 </Card>
