@@ -82,6 +82,62 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         'piezas_por_sku': 'piezas_por_sku',
         'bodega': 'bodega',
         'bloque': 'bloque'
+    },
+    ml_sales: {
+        '# de venta:': 'num_venta',
+        'Fecha de venta:': 'fecha_venta',
+        'Estado': 'status',
+        'Descripción del estado': 'desc_status',
+        'Paquete de varios productos': 'paquete_varios',
+        'Pertenece a un kit': 'pertenece_kit',
+        'Unidades': 'unidades',
+        'Ingresos por productos (MXN)': 'ing_xunidad',
+        'Cargo por venta e impuestos (MXN)': 'cargo_venta',
+        'Ingresos por envío (MXN)': 'ing_xenvio',
+        'Costos de envío (MXN)': 'costo_envio',
+        'Costo de envío basado en medidas y peso declarados': 'costo_enviomp',
+        'Cargo por diferencias en medidas y peso del paquete': 'cargo_difpeso',
+        'Anulaciones y reembolsos (MXN)': 'anu_reembolsos',
+        'Total (MXN)': 'total',
+        'Venta por publicidad': 'venta_xpublicidad',
+        'SKU': 'sku',
+        '# de publicación': 'num_publi',
+        'Tienda oficial': 'tienda',
+        'Título de la publicación': 'tit_pub',
+        'Variante': 'variante',
+        'Precio unitario de venta de la publicación (MXN)': 'price',
+        'Tipo de publicación': 'tip_publi',
+        'Factura adjunta': 'factura_a',
+        'Datos personales o de empresa': 'datos_poe',
+        'Tipo y número de documento': 'tipo_ndoc',
+        'Dirección': 'direccion',
+        'Tipo de contribuyente': 't_contribuyente',
+        'CFDI': 'cfdi',
+        'Tipo de usuario': 't_usuario',
+        'Régimen Fiscal': 'r_fiscal',
+        'Comprador': 'comprador',
+        'Negocio': 'negocio',
+        'IFE': 'ife',
+        'Domicilio': 'domicilio',
+        'Municipio/Alcaldía': 'mun_alcaldia',
+        'Estado': 'estado',
+        'Código postal': 'c_postal',
+        'País': 'pais',
+        'Forma de entrega': 'f_entrega',
+        'Fecha en camino': 'f_camino',
+        'Fecha entregado': 'f_entregado',
+        'Transportista': 'transportista',
+        'Número de seguimiento': 'num_seguimiento',
+        'URL de seguimiento': 'url_seguimiento',
+        'Revisado por Mercado Libre': 'revisado_xml',
+        'Fecha de revisión': 'f_revision3',
+        'Dinero a favor': 'd_afavor',
+        'Resultado': 'resultado',
+        'Destino': 'destino',
+        'Motivo del resultado': 'motivo_resul',
+        'Reclamo abierto': 'r_abierto',
+        'Reclamo cerrado': 'r_cerrado',
+        'Con mediación': 'c_mediacion'
     }
 };
 
@@ -123,13 +179,10 @@ function formatErrorDescription(msg: string): string {
         return 'Violación de Clave Única: Ya existe un registro con este identificador principal en la base de datos y no se puede duplicar.';
     }
     if (msg.includes('violates foreign key constraint')) {
-        return 'Error de Referencia: El registro intenta vincularse a un dato (como un SKU o Categoría) que no existe en las tablas maestras.';
+        return 'Error de Referencia: El registro intenta vincularse a un dato que no existe en las tablas maestras.';
     }
     if (msg.includes('null value in column')) {
-        return 'Valor Nulo Prohibido: Falta un dato obligatorio que la base de datos requiere para este registro en particular.';
-    }
-    if (msg.includes('invalid input syntax')) {
-        return 'Formato Inválido: Uno de los valores no coincide con el tipo de dato esperado (ej. texto donde debería ir un número).';
+        return 'Valor Nulo Prohibido: Falta un dato obligatorio requerido por la base de datos.';
     }
     return `Error técnico: ${msg}`;
 }
@@ -176,10 +229,8 @@ export default function CsvUploader() {
         const reader = new FileReader();
         reader.onload = (e) => {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const wb = XLSX.read(data, { type: 'array' });
             
             if (selectedFile.name.toLowerCase().endsWith('.csv')) {
-                // PapaParse logic for ml_sales
                 const csvText = new TextDecoder().decode(data);
                 Papa.parse(csvText, {
                     header: true,
@@ -204,7 +255,7 @@ export default function CsvUploader() {
                     }
                 });
             } else {
-                // Excel processing
+                const wb = XLSX.read(data, { type: 'array' });
                 const ws = wb.Sheets[selectedSheet || wb.SheetNames[0]];
                 const range = table === 'ml_sales' ? 5 : 0;
                 const json = XLSX.utils.sheet_to_json(ws, { header: 1, range, defval: null }) as any[][];
@@ -365,6 +416,7 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 50;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
+                // Indispensable: usar upsert con onConflict para sincronización masiva segura
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
@@ -430,7 +482,7 @@ export default function CsvUploader() {
         <div className="w-full max-w-7xl mx-auto space-y-6">
             {currentStep === 'upload' && (
                 <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md">
-                    <CardHeader><CardTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Cargar Archivo Maestro</CardTitle><CardDescription>Sube CSV o XLSX para iniciar.</CardDescription></CardHeader>
+                    <CardHeader><CardTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Sube un archivo</CardTitle><CardDescription>Sube CSV o XLSX para iniciar.</CardDescription></CardHeader>
                     <CardContent><div className="border-2 border-dashed border-primary/20 p-16 text-center rounded-2xl hover:bg-primary/5 cursor-pointer group" onClick={() => document.getElementById('file-input')?.click()}><div className="mx-auto h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><UploadCloud className="h-10 w-10 text-primary" /></div><p className="mt-2 text-lg font-black uppercase tracking-tight text-slate-700">Seleccionar archivo</p><input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} /></div></CardContent>
                 </Card>
             )}
@@ -468,7 +520,7 @@ export default function CsvUploader() {
                     <CardContent className="p-0">
                         <div className="max-h-[500px] overflow-y-auto">
                             <Table>
-                                <TableHeader className="bg-muted/30 sticky top-0"><TableRow><TableHead className="font-black text-[10px] uppercase tracking-widest px-8">Origen</TableHead><TableHead className="font-black text-[10px] uppercase tracking-widest">Destino</TableHead></TableRow></TableHeader>
+                                <TableHeader className="bg-muted/30 sticky top-0"><TableRow><TableHead className="font-black text-[10px] uppercase tracking-widest px-8">Origen (Archivo)</TableHead><TableHead className="font-black text-[10px] uppercase tracking-widest">Destino (Base de Datos)</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {headers.map((h, i) => (
                                         <TableRow key={i} className="h-16">
@@ -477,7 +529,7 @@ export default function CsvUploader() {
                                                 <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
                                                     <SelectTrigger className={cn("h-10 text-[11px]", headerMap[i] === IGNORE_COLUMN_VALUE ? "opacity-40 border-dashed" : "font-black text-primary border-primary/30 bg-primary/5")}><SelectValue /></SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="italic text-[10px]">-- IGNORAR --</SelectItem>
+                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="italic text-[10px]">-- IGNORAR ESTA COLUMNA --</SelectItem>
                                                         {TABLE_SCHEMAS[selectedTable].columns.map(c => (
                                                             <SelectItem key={c} value={c} disabled={usedDbColumns.has(c) && headerMap[i] !== c} className="uppercase text-[10px] font-bold">{c.replace(/_/g, ' ')}</SelectItem>
                                                         ))}
@@ -495,12 +547,12 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'analyzing' && (
-                <Card className="border-none shadow-xl bg-white p-20 text-center"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" /><h3 className="text-2xl font-black uppercase tracking-tighter">Auditoría Diferencial...</h3></Card>
+                <Card className="border-none shadow-xl bg-white p-20 text-center"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" /><h3 className="text-2xl font-black uppercase tracking-tighter">Realizando Auditoría Diferencial...</h3></Card>
             )}
 
             {currentStep === 'preview' && (
                 <Card className="border-none shadow-2xl bg-white relative overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5"><CardTitle className="text-xl font-black uppercase tracking-tighter">Resultados del Análisis</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5"><CardTitle className="text-xl font-black uppercase tracking-tighter">Vista Previa de Sincronización</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
                     <CardContent className="p-0">
                         <Tabs defaultValue="nuevos" className="w-full">
                             <div className="px-8 border-b bg-muted/10"><TabsList className="h-14 bg-transparent gap-8">
@@ -565,7 +617,7 @@ export default function CsvUploader() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                             <div className="p-6 rounded-2xl bg-green-50/50 border border-green-100"><p className="text-[10px] font-black uppercase text-green-600">Inyectados</p><p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p></div>
                             <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100"><p className="text-[10px] font-black uppercase text-blue-600">Sobrescritos</p><p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p></div>
-                            <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100"><p className="text-[10px] font-black uppercase text-slate-400">Sin Cambios</p><p className="text-4xl font-black text-slate-600">{syncResult.unchanged.length}</p></div>
+                            <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100"><p className="text-[10px] font-black uppercase text-slate-400">Sin Cambios</p><p className="text-4xl font-black text-600">{syncResult.unchanged.length}</p></div>
                         </div>
                         {syncResult.errors.length > 0 && (
                             <div className="space-y-4">
