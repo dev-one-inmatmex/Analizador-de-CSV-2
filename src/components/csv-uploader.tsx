@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle,
-  PlusCircle, Edit3, MinusCircle
+  PlusCircle, Edit3, MinusCircle, Save, FileText
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -217,7 +217,7 @@ export default function CsvUploader() {
         setCurrentStep('table-selection');
     };
 
-    const handleSync = async () => {
+    const handleSync = async (mode: 'new' | 'update' | 'all') => {
         setIsLoading(true);
         setCurrentStep('syncing');
         const schema = TABLE_SCHEMAS[selectedTable];
@@ -242,26 +242,27 @@ export default function CsvUploader() {
         // Obtener PKs para comparación diferencial
         const pks = allRecords.map(r => r[schema.pk]).filter(Boolean);
         
-        // Consultar registros existentes en lotes para evitar límites de URL
+        // Consultar registros existentes en lotes
         const existingDataMap = new Map<string, any>();
         const FETCH_BATCH_SIZE = 200;
-        for (let i = 0; i < pks.length; i += FETCH_BATCH_SIZE) {
-            const pkBatch = pks.slice(i, i + FETCH_BATCH_SIZE);
-            const { data } = await supabase!.from(selectedTable).select('*').in(schema.pk, pkBatch);
-            data?.forEach(row => existingDataMap.set(String(row[schema.pk]), row));
+        if (supabase) {
+            for (let i = 0; i < pks.length; i += FETCH_BATCH_SIZE) {
+                const pkBatch = pks.slice(i, i + FETCH_BATCH_SIZE);
+                const { data } = await supabase.from(selectedTable).select('*').in(schema.pk, pkBatch);
+                data?.forEach(row => existingDataMap.set(String(row[schema.pk]), row));
+            }
         }
 
         // Clasificar registros
-        const recordsToUpsert: any[] = [];
+        const recordsToProcess: any[] = [];
         allRecords.forEach(record => {
             const pkValue = String(record[schema.pk]);
             const existing = existingDataMap.get(pkValue);
 
             if (!existing) {
                 inserted.push(record);
-                recordsToUpsert.push(record);
+                if (mode === 'new' || mode === 'all') recordsToProcess.push(record);
             } else {
-                // Comparación profunda simplificada para columnas mapeadas
                 let isDifferent = false;
                 for (const col of activeDbColumns) {
                     if (String(record[col] ?? '') !== String(existing[col] ?? '')) {
@@ -272,20 +273,22 @@ export default function CsvUploader() {
 
                 if (isDifferent) {
                     updated.push(record);
-                    recordsToUpsert.push(record);
+                    if (mode === 'update' || mode === 'all') recordsToProcess.push(record);
                 } else {
                     unchanged.push(record);
                 }
             }
         });
 
-        // Sincronizar solo los que cambiaron o son nuevos
-        const SYNC_BATCH_SIZE = 50;
-        for (let i = 0; i < recordsToUpsert.length; i += SYNC_BATCH_SIZE) {
-            const batch = recordsToUpsert.slice(i, i + SYNC_BATCH_SIZE);
-            const { error } = await supabase!.from(selectedTable).upsert(batch, { onConflict: schema.pk });
-            if (error) {
-                errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
+        // Sincronizar registros filtrados por modo
+        if (supabase && recordsToProcess.length > 0) {
+            const SYNC_BATCH_SIZE = 50;
+            for (let i = 0; i < recordsToProcess.length; i += SYNC_BATCH_SIZE) {
+                const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
+                const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
+                if (error) {
+                    errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
+                }
             }
         }
 
@@ -306,7 +309,7 @@ export default function CsvUploader() {
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto space-y-6">
+        <div className="w-full max-w-6xl mx-auto space-y-6">
             {currentStep === 'upload' && (
                 <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md">
                     <CardHeader>
@@ -489,35 +492,35 @@ export default function CsvUploader() {
 
             {currentStep === 'preview' && (
                 <Card className="border-none shadow-2xl bg-white animate-in slide-in-from-bottom-4 duration-500 overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 px-8 py-6">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                                <Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest border-none px-2">Fase de Verificación</Badge>
-                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Vista Previa de Sincronización</CardTitle>
+                                <Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest border-none px-2">Vista Previa Técnica</Badge>
+                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Registros para {selectedTable}</CardTitle>
                             </div>
-                            <CardDescription>Así es como se verán los primeros 10 registros en la tabla <strong>{selectedTable}</strong>.</CardDescription>
+                            <CardDescription>Visualización estructurada de los datos mapeados (Primeros 10 registros).</CardDescription>
                         </div>
                         <Button variant="outline" size="sm" onClick={() => setCurrentStep('mapping')} className="font-bold text-[10px] uppercase border-slate-200">
                             <ArrowLeft className="mr-2 h-3 w-3" /> Corregir Mapeo
                         </Button>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <div className="max-h-[500px] overflow-x-auto">
-                            <Table className="min-w-full border-collapse">
-                                <TableHeader className="bg-muted/30 sticky top-0 z-10">
-                                    <TableRow className="border-b-0 h-12">
+                        <div className="overflow-x-auto">
+                            <Table className="border-collapse border-y">
+                                <TableHeader className="bg-muted/30">
+                                    <TableRow>
                                         {activeDbColumns.map((col) => (
-                                            <TableHead key={col} className="font-black text-[9px] uppercase tracking-widest border-r last:border-r-0 px-4 whitespace-nowrap bg-muted/20">
-                                                {col.replace(/_/g, ' ')}
+                                            <TableHead key={col} className="border-r last:border-r-0 font-black text-[10px] uppercase tracking-wider px-4 bg-muted/10 h-12 whitespace-nowrap">
+                                                {col}
                                             </TableHead>
                                         ))}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {previewData.map((row, rowIndex) => (
-                                        <TableRow key={rowIndex} className="hover:bg-muted/5 h-12 border-b-slate-100">
+                                        <TableRow key={rowIndex} className="h-12 hover:bg-muted/5">
                                             {activeDbColumns.map((col) => (
-                                                <TableCell key={col} className="px-4 text-[10px] font-medium border-r last:border-r-0 whitespace-nowrap overflow-hidden max-w-[200px] truncate">
+                                                <TableCell key={col} className="border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px] truncate">
                                                     {String(row[col] ?? '-')}
                                                 </TableCell>
                                             ))}
@@ -527,15 +530,32 @@ export default function CsvUploader() {
                             </Table>
                         </div>
                     </CardContent>
-                    <CardFooter className="p-8 border-t bg-[#2D5A4C]/5">
-                        <div className="flex flex-col w-full gap-4">
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-muted-foreground">
-                                <PlayCircle className="h-4 w-4 text-primary" />
-                                Se procesarán un total de <span className="text-primary font-black">{rawRows.length}</span> registros para la tabla {selectedTable}.
-                            </div>
-                            <Button onClick={handleSync} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Database className="mr-3 h-6 w-6" />}
-                                Confirmar e Iniciar Inyección de Datos
+                    <CardFooter className="p-8 border-t bg-muted/5 flex flex-col gap-6">
+                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase text-muted-foreground w-full">
+                            <PlayCircle className="h-4 w-4 text-primary" />
+                            Se procesarán <span className="text-primary font-black">{rawRows.length}</span> registros. Seleccione la acción de inyección:
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 w-full">
+                            <Button 
+                                onClick={() => handleSync('new')} 
+                                className="h-14 px-8 bg-[#A3BCB6] hover:bg-[#8DA8A1] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl shadow-lg flex-1"
+                                disabled={isLoading}
+                            >
+                                <Database className="mr-2 h-5 w-5" /> Insertar Nuevos
+                            </Button>
+                            <Button 
+                                onClick={() => handleSync('update')} 
+                                className="h-14 px-8 bg-[#3E6053] hover:bg-[#2D4A3F] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl shadow-lg flex-1"
+                                disabled={isLoading}
+                            >
+                                <RefreshCcw className="mr-2 h-5 w-5" /> Actualizar Duplicados
+                            </Button>
+                            <Button 
+                                onClick={() => handleSync('all')} 
+                                className="h-14 px-8 bg-[#3E6053] hover:bg-[#2D4A3F] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl shadow-lg flex-1"
+                                disabled={isLoading}
+                            >
+                                <Save className="mr-2 h-5 w-5" /> Aplicar Todo
                             </Button>
                         </div>
                     </CardFooter>
@@ -548,7 +568,7 @@ export default function CsvUploader() {
                         <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
                         <div className="space-y-2">
                             <h3 className="text-2xl font-black uppercase tracking-tighter">Inyectando Datos</h3>
-                            <p className="text-muted-foreground font-medium">Guardando registros en la tabla {selectedTable}...</p>
+                            <p className="text-muted-foreground font-medium">Sincronizando registros con la tabla {selectedTable}...</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -567,18 +587,18 @@ export default function CsvUploader() {
                             <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">
                                 {syncResult.errors.length > 0 ? 'Sincronización con Advertencias' : '¡Sincronización Completada!'}
                             </h2>
-                            <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Auditoría Diferencial: {rawRows.length} registros analizados</p>
+                            <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Resumen de Auditoría: {rawRows.length} registros analizados</p>
                         </div>
                         <CardContent className="p-8 bg-white space-y-10">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                                 <div className="p-6 rounded-2xl bg-green-50 border border-green-100">
                                     <div className="flex justify-center mb-2"><PlusCircle className="h-5 w-5 text-green-600" /></div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-1">Detectados Nuevos</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-1">Inyectados (Nuevos)</p>
                                     <p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-blue-50 border border-blue-100">
                                     <div className="flex justify-center mb-2"><Edit3 className="h-5 w-5 text-blue-600" /></div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">A Actualizar</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Sobrescritos (Existentes)</p>
                                     <p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p>
                                 </div>
                                 <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
@@ -592,21 +612,21 @@ export default function CsvUploader() {
                                 <TabsList className="grid w-full grid-cols-3 bg-muted/20 p-1 h-12">
                                     <TabsTrigger value="nuevos" className="font-bold text-xs uppercase tracking-tight">Nuevos ({syncResult.inserted.length})</TabsTrigger>
                                     <TabsTrigger value="actualizados" className="font-bold text-xs uppercase tracking-tight">Actualizados ({syncResult.updated.length})</TabsTrigger>
-                                    <TabsTrigger value="sin-cambios" className="font-bold text-xs uppercase tracking-tight">Sin cambios ({syncResult.unchanged.length})</TabsTrigger>
+                                    <TabsTrigger value="sin-cambios" className="font-bold text-xs uppercase tracking-tight">Ignorados ({syncResult.unchanged.length})</TabsTrigger>
                                 </TabsList>
                                 
                                 <TabsContent value="nuevos" className="mt-4 border rounded-xl overflow-hidden bg-white">
                                     <ScrollArea className="h-[300px]">
                                         <Table>
                                             <TableHeader className="bg-muted/10 sticky top-0 z-10"><TableRow className="h-10">
-                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col.replace(/_/g, ' ')}</TableHead>)}
+                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col}</TableHead>)}
                                             </TableRow></TableHeader>
                                             <TableBody>
                                                 {syncResult.inserted.length > 0 ? syncResult.inserted.map((r, i) => (
                                                     <TableRow key={i} className="h-10 hover:bg-green-50/30">
                                                         {activeDbColumns.map(col => <TableCell key={col} className="text-[9px] font-medium whitespace-nowrap">{String(r[col] ?? '-')}</TableCell>)}
                                                     </TableRow>
-                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">No se detectaron registros nuevos</TableCell></TableRow>}
+                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">No se inyectaron registros nuevos</TableCell></TableRow>}
                                             </TableBody>
                                         </Table>
                                     </ScrollArea>
@@ -616,14 +636,14 @@ export default function CsvUploader() {
                                     <ScrollArea className="h-[300px]">
                                         <Table>
                                             <TableHeader className="bg-muted/10 sticky top-0 z-10"><TableRow className="h-10">
-                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col.replace(/_/g, ' ')}</TableHead>)}
+                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col}</TableHead>)}
                                             </TableRow></TableHeader>
                                             <TableBody>
                                                 {syncResult.updated.length > 0 ? syncResult.updated.map((r, i) => (
                                                     <TableRow key={i} className="h-10 hover:bg-blue-50/30">
                                                         {activeDbColumns.map(col => <TableCell key={col} className="text-[9px] font-medium whitespace-nowrap">{String(r[col] ?? '-')}</TableCell>)}
                                                     </TableRow>
-                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">No hubo actualizaciones necesarias</TableCell></TableRow>}
+                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">No hubo actualizaciones</TableCell></TableRow>}
                                             </TableBody>
                                         </Table>
                                     </ScrollArea>
@@ -633,14 +653,14 @@ export default function CsvUploader() {
                                     <ScrollArea className="h-[300px]">
                                         <Table>
                                             <TableHeader className="bg-muted/10 sticky top-0 z-10"><TableRow className="h-10">
-                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col.replace(/_/g, ' ')}</TableHead>)}
+                                                {activeDbColumns.map(col => <TableHead key={col} className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">{col}</TableHead>)}
                                             </TableRow></TableHeader>
                                             <TableBody>
                                                 {syncResult.unchanged.length > 0 ? syncResult.unchanged.map((r, i) => (
                                                     <TableRow key={i} className="h-10 opacity-60">
                                                         {activeDbColumns.map(col => <TableCell key={col} className="text-[9px] font-medium whitespace-nowrap">{String(r[col] ?? '-')}</TableCell>)}
                                                     </TableRow>
-                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">Todos los registros fueron nuevos o modificados</TableCell></TableRow>}
+                                                )) : <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-10 text-muted-foreground text-xs font-bold uppercase italic">Todos los registros fueron procesados</TableCell></TableRow>}
                                             </TableBody>
                                         </Table>
                                     </ScrollArea>
@@ -650,16 +670,16 @@ export default function CsvUploader() {
                             {syncResult.errors.length > 0 && (
                                 <div className="mt-8 space-y-4">
                                     <div className="flex items-center justify-between ml-1">
-                                        <h3 className="text-sm font-black uppercase tracking-tight text-slate-700">Detalle de Errores:</h3>
+                                        <h3 className="text-sm font-black uppercase tracking-tight text-slate-700">Detalle de Errores Técnicos:</h3>
                                         <Badge variant="destructive" className="text-[10px] font-black uppercase tracking-widest">{syncResult.errors.length} anomalías</Badge>
                                     </div>
-                                    <div className="border rounded-2xl p-4 bg-slate-50 space-y-3 max-h-[250px] overflow-y-auto no-scrollbar">
+                                    <div className="border rounded-2xl p-4 bg-slate-50 space-y-3 max-h-[300px] overflow-y-auto no-scrollbar">
                                         {syncResult.errors.map((err, i) => (
                                             <div key={i} className="p-5 rounded-xl bg-white border border-red-100 shadow-sm animate-in fade-in slide-in-from-left-2 duration-300">
                                                 <div className="flex items-start gap-3">
                                                     <div className="mt-1 h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
                                                     <div className="space-y-1.5">
-                                                        <p className="font-black text-destructive text-[11px] uppercase tracking-tighter leading-none">Error en Sincronización (Lote #{err.batch})</p>
+                                                        <p className="font-black text-destructive text-[11px] uppercase tracking-tighter leading-none">Error en Lote #{err.batch}</p>
                                                         <p className="text-slate-600 text-xs font-medium leading-relaxed">{err.msg}</p>
                                                     </div>
                                                 </div>
@@ -670,8 +690,12 @@ export default function CsvUploader() {
                             )}
 
                             <div className="grid grid-cols-2 gap-4 mt-10">
-                                <Button variant="outline" className="h-14 font-black uppercase text-xs border-slate-200 rounded-xl" onClick={reset}>Procesar otro archivo</Button>
-                                <Button className="h-14 font-black uppercase text-xs rounded-xl shadow-lg" onClick={() => window.location.reload()}>Finalizar y salir</Button>
+                                <Button variant="outline" className="h-14 font-black uppercase text-xs border-slate-200 rounded-xl" onClick={reset}>
+                                    <RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo
+                                </Button>
+                                <Button className="h-14 font-black uppercase text-xs rounded-xl shadow-lg" onClick={() => window.location.reload()}>
+                                    <CheckCircle className="mr-2 h-4 w-4" /> Finalizar y salir
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
