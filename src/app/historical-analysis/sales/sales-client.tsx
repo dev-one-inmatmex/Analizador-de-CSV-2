@@ -56,9 +56,10 @@ export default function SalesDashboardClient({
 
     // Suscripción Realtime para actualizaciones automáticas instantáneas
     React.useEffect(() => {
-        if (!supabase) return;
+        const supabaseClient = supabase;
+        if (!supabaseClient) return;
 
-        const channel = supabase
+        const channel = supabaseClient
             .channel('ml_sales_realtime_kpis')
             .on(
                 'postgres_changes',
@@ -75,7 +76,7 @@ export default function SalesDashboardClient({
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            supabaseClient.removeChannel(channel);
         };
     }, [router]);
 
