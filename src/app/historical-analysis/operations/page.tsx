@@ -578,7 +578,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
-                            <History className="h-6 w-6 text-primary" /> Detalles del Periodo: {selectedDayData?.day}
+                            <History className="h-6 w-6 text-primary" /> Auditoría del Periodo: {selectedDayData?.day}
                         </DialogTitle>
                         <DialogDescription>Listado detallado de transacciones registradas.</DialogDescription>
                     </DialogHeader>
@@ -808,7 +808,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div className="space-y-1">
                         <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground">Resumen completo de ingresos y gastos del periodo.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground">Resumen completo para la auditoría de ingresos y gastos del periodo.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <div className="flex items-center gap-2">
@@ -1095,7 +1095,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         </div>
                         <div>
                             <CardTitle className="text-lg font-bold">Parámetros BI</CardTitle>
-                            <CardDescription>Configura los valores clave para el motor de inteligencia financiera.</CardDescription>
+                            <CardDescription>Configura los valores clave para la auditoría y motor de inteligencia financiera.</CardDescription>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-6 pt-4">
@@ -1152,7 +1152,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-4">
-                            <p className="text-[10px] text-muted-foreground font-medium uppercase">Reparto Actual de Esfuerzo:</p>
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase">Reparto Actual para Auditoría de Esfuerzo:</p>
                             <div className="space-y-3">
                                 {[
                                     { name: 'Mercado Libre', val: 60, color: '#2D5A4C' },
