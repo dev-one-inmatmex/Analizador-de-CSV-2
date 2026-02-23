@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   UploadCloud, File as FileIcon, X, Loader2, Database, RefreshCcw, 
-  CheckCircle, FileSpreadsheet, Layers
+  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
@@ -82,12 +83,15 @@ function parseValue(key: string, value: any): any {
     return str;
 }
 
+type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'syncing' | 'results';
+
 export default function CsvUploader() {
     const { toast } = useToast();
-    const [currentStep, setCurrentStep] = useState<'upload' | 'sheet-selection' | 'mapping' | 'syncing' | 'results'>('upload');
+    const [currentStep, setCurrentStep] = useState<Step>('upload');
     const [file, setFile] = useState<File | null>(null);
     const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
     const [sheets, setSheets] = useState<string[]>([]);
+    const [conversionProgress, setConversionProgress] = useState(0);
     const [headers, setHeaders] = useState<string[]>([]);
     const [rawRows, setRawRows] = useState<any[][]>([]);
     const [selectedTable, setSelectedTable] = useState('');
@@ -100,15 +104,26 @@ export default function CsvUploader() {
         const isExcel = f.name.endsWith('.xlsx') || f.name.endsWith('.xls');
         
         if (isExcel) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const wb = XLSX.read(data, { type: 'array' });
-                setWorkbook(wb);
-                setSheets(wb.SheetNames);
-                setCurrentStep('sheet-selection');
-            };
-            reader.readAsArrayBuffer(f);
+            setCurrentStep('converting');
+            // Simular progreso de conversión
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 15;
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                        const wb = XLSX.read(data, { type: 'array' });
+                        setWorkbook(wb);
+                        setSheets(wb.SheetNames);
+                        setCurrentStep('sheet-selection');
+                    };
+                    reader.readAsArrayBuffer(f);
+                } else {
+                    setConversionProgress(progress);
+                }
+            }, 100);
         } else {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -121,7 +136,7 @@ export default function CsvUploader() {
                 const rows = lines.map(line => line.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
                 setHeaders(rows[0]);
                 setRawRows(rows.slice(1));
-                setCurrentStep('upload');
+                setCurrentStep('table-selection');
             };
             reader.readAsText(f, 'windows-1252');
         }
@@ -137,7 +152,7 @@ export default function CsvUploader() {
         }
         setHeaders(json[0].map(h => String(h)));
         setRawRows(json.slice(1));
-        setCurrentStep('upload');
+        setCurrentStep('table-selection');
     };
 
     const handleTableSelect = (table: string) => {
@@ -155,6 +170,7 @@ export default function CsvUploader() {
 
     const handleSync = async () => {
         setIsLoading(true);
+        setCurrentStep('syncing');
         const schema = TABLE_SCHEMAS[selectedTable];
         let processed = 0, errors: any[] = [];
 
@@ -192,155 +208,235 @@ export default function CsvUploader() {
         setSheets([]);
         setHeaders([]);
         setRawRows([]);
+        setConversionProgress(0);
         setCurrentStep('upload');
     };
 
     return (
         <div className="w-full max-w-5xl mx-auto space-y-6">
             {currentStep === 'upload' && (
-                <Card>
+                <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md">
                     <CardHeader>
-                        <CardTitle>Cargar Datos</CardTitle>
-                        <CardDescription>Sube un archivo CSV o Excel para sincronizar con la base de datos.</CardDescription>
+                        <CardTitle className="text-2xl font-black uppercase tracking-tighter">Cargar Archivo Maestro</CardTitle>
+                        <CardDescription>Sube un archivo .csv o .xlsx para iniciar la auditoría de datos.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {!file ? (
-                            <div className="border-2 border-dashed p-10 text-center rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => document.getElementById('file-input')?.click()}>
-                                <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <p className="mt-2 font-medium">Sube tu archivo CSV o Excel aquí</p>
-                                <p className="text-xs text-muted-foreground">Formatos compatibles: .csv, .xlsx, .xls</p>
-                                <input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} />
+                        <div 
+                            className="border-2 border-dashed border-primary/20 p-16 text-center rounded-2xl hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer group" 
+                            onClick={() => document.getElementById('file-input')?.click()}
+                        >
+                            <div className="mx-auto h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                <UploadCloud className="h-10 w-10 text-primary" />
                             </div>
-                        ) : (
-                            <div className="p-4 bg-primary/5 border rounded-lg flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    {file.name.endsWith('.csv') ? <FileIcon className="h-8 w-8 text-primary" /> : <FileSpreadsheet className="h-8 w-8 text-green-600" />}
-                                    <div>
-                                        <p className="font-bold text-sm">{file.name}</p>
-                                        <p className="text-xs text-muted-foreground">{rawRows.length} filas procesadas</p>
-                                    </div>
-                                </div>
-                                <Button variant="ghost" size="icon" onClick={reset}><X className="h-4 w-4" /></Button>
-                            </div>
-                        )}
+                            <p className="mt-2 text-lg font-black uppercase tracking-tight text-slate-700">Arrastra o selecciona un archivo</p>
+                            <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Soporta CSV, Excel (.xlsx, .xls)</p>
+                            <input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} />
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
-                        {headers.length > 0 && (
-                            <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-top-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tabla de Destino</Label>
-                                    <Select onValueChange={handleTableSelect}>
-                                        <SelectTrigger className="h-12 border-slate-200"><SelectValue placeholder="Selecciona la tabla para sincronizar..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ml_sales" className="font-bold">Ventas (ml_sales)</SelectItem>
-                                            <SelectItem value="gastos_diarios" className="font-bold">Gastos Diarios (Finanzas)</SelectItem>
-                                            <SelectItem value="sku_m" className="font-bold">SKU Maestro (sku_m)</SelectItem>
-                                            <SelectItem value="sku_costos" className="font-bold">Historial de Costos</SelectItem>
-                                            <SelectItem value="catalogo_madre" className="font-bold">Catálogo Madre</SelectItem>
-                                            <SelectItem value="publi_tienda" className="font-bold">Publicaciones</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+            {currentStep === 'converting' && (
+                <Card className="border-none shadow-xl bg-white animate-in zoom-in-95">
+                    <CardContent className="p-12 text-center space-y-6">
+                        <div className="flex justify-center">
+                            <div className="relative h-20 w-20 flex items-center justify-center">
+                                <Loader2 className="h-20 w-20 animate-spin text-primary opacity-20" />
+                                <FileSpreadsheet className="h-10 w-10 text-primary absolute" />
                             </div>
-                        )}
+                        </div>
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-black uppercase tracking-tighter">Procesando Libro Excel</h3>
+                            <p className="text-sm text-muted-foreground font-medium">Convirtiendo páginas a formato de auditoría ({conversionProgress}%)</p>
+                        </div>
+                        <Progress value={conversionProgress} className="h-3 w-full bg-slate-100" />
                     </CardContent>
                 </Card>
             )}
 
             {currentStep === 'sheet-selection' && (
-                <Card className="animate-in zoom-in-95 duration-200">
-                    <CardHeader className="flex flex-row items-center gap-4">
-                        <Layers className="h-8 w-8 text-primary" />
+                <Card className="border-none shadow-xl bg-white animate-in fade-in slide-in-from-bottom-4">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b pb-6">
+                        <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Layers className="h-6 w-6 text-primary" />
+                        </div>
                         <div>
-                            <CardTitle>Selección de Página</CardTitle>
-                            <CardDescription>El archivo Excel tiene varias hojas. Elige cuál deseas convertir para el mapeo.</CardDescription>
+                            <CardTitle className="text-xl font-black uppercase tracking-tighter">Selección de Página Temporal</CardTitle>
+                            <CardDescription>Elige la hoja del archivo que deseas extraer para el mapeo.</CardDescription>
                         </div>
                     </CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-6">
                         {sheets.map((sheet) => (
                             <Button 
                                 key={sheet} 
                                 variant="outline" 
-                                className="h-20 flex flex-col gap-1 border-slate-200 hover:border-primary hover:bg-primary/5 transition-all"
+                                className="h-24 flex flex-col gap-2 border-slate-200 hover:border-primary hover:bg-primary/5 hover:ring-4 hover:ring-primary/5 transition-all text-left items-start p-4 rounded-xl group"
                                 onClick={() => handleSheetSelect(sheet)}
                             >
-                                <span className="font-black text-xs truncate w-full">{sheet}</span>
-                                <span className="text-[10px] text-muted-foreground uppercase">Haga clic para extraer</span>
+                                <span className="font-black text-xs uppercase tracking-tight w-full truncate text-slate-700 group-hover:text-primary">{sheet}</span>
+                                <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest">
+                                    <ArrowRight className="h-3 w-3" /> Extraer datos
+                                </div>
                             </Button>
                         ))}
                     </CardContent>
-                    <CardFooter className="bg-muted/10">
-                        <Button variant="ghost" size="sm" onClick={reset} className="text-xs font-bold text-muted-foreground">
+                    <CardFooter className="bg-muted/5 py-4 border-t">
+                        <Button variant="ghost" size="sm" onClick={reset} className="text-xs font-bold text-muted-foreground uppercase">
                             <RefreshCcw className="mr-2 h-3 w-3" /> Cancelar y subir otro
                         </Button>
                     </CardFooter>
                 </Card>
             )}
 
-            {currentStep === 'mapping' && (
-                <Card className="animate-in fade-in duration-300">
-                    <CardHeader className="flex flex-row items-center justify-between border-b pb-6">
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest">Fase de Mapeo</Badge>
-                                <CardTitle>Configurar Columnas</CardTitle>
+            {currentStep === 'table-selection' && (
+                <Card className="border-none shadow-xl bg-white animate-in fade-in slide-in-from-right-4">
+                    <CardHeader className="border-b pb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center text-white">
+                                <Database className="h-5 w-5" />
                             </div>
-                            <CardDescription>Relaciona las columnas del archivo con los campos de <strong>{selectedTable}</strong>.</CardDescription>
+                            <CardTitle className="text-xl font-black uppercase tracking-tighter">Destino de Sincronización</CardTitle>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentStep('upload')} className="font-bold text-[10px] uppercase">Cambiar Tabla</Button>
+                        <CardDescription className="mt-2">¿En qué tabla de la base de datos deseas guardar la información extraída?</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-8 pb-12">
+                        <div className="max-w-md mx-auto space-y-4">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tabla de Destino</Label>
+                            <Select onValueChange={handleTableSelect}>
+                                <SelectTrigger className="h-14 border-slate-200 shadow-sm text-base font-bold bg-white rounded-xl">
+                                    <SelectValue placeholder="Selecciona una tabla..." />
+                                </SelectTrigger>
+                                <SelectContent className="border-none shadow-2xl rounded-xl">
+                                    <SelectItem value="ml_sales" className="py-3 font-bold uppercase text-xs">Ventas Consolidadas (ml_sales)</SelectItem>
+                                    <SelectItem value="gastos_diarios" className="py-3 font-bold uppercase text-xs">Gastos Financieros (BI)</SelectItem>
+                                    <SelectItem value="sku_m" className="py-3 font-bold uppercase text-xs">Catálogo Maestro (sku_m)</SelectItem>
+                                    <SelectItem value="sku_costos" className="py-3 font-bold uppercase text-xs">Historial de Costos (Auditoría)</SelectItem>
+                                    <SelectItem value="catalogo_madre" className="py-3 font-bold uppercase text-xs">Productos Madre</SelectItem>
+                                    <SelectItem value="publi_tienda" className="py-3 font-bold uppercase text-xs">Publicaciones Activas</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between border-t py-4">
+                        <Button variant="ghost" onClick={() => setCurrentStep(workbook ? 'sheet-selection' : 'upload')} className="text-xs font-bold uppercase">
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+                        </Button>
+                    </CardFooter>
+                </Card>
+            )}
+
+            {currentStep === 'mapping' && (
+                <Card className="border-none shadow-2xl bg-white animate-in zoom-in-95 duration-300 overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest hover:bg-primary/10 border-none px-2">Fase de Mapeo</Badge>
+                                <CardTitle className="text-xl font-black uppercase tracking-tighter">Configuración de Columnas</CardTitle>
+                            </div>
+                            <CardDescription>Vincula las columnas de tu archivo con los campos reales de <strong>{selectedTable}</strong>.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setCurrentStep('table-selection')} className="font-bold text-[10px] uppercase border-slate-200">Cambiar Tabla</Button>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <Table>
-                            <TableHeader className="bg-muted/30">
-                                <TableRow>
-                                    <TableHead className="font-black text-[10px] uppercase tracking-widest w-1/2">Columna del Archivo</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase tracking-widest">Campo en Base de Datos</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {headers.map((h, i) => (
-                                    <TableRow key={i} className="hover:bg-muted/5 h-14">
-                                        <TableCell className="font-bold text-xs">{h}</TableCell>
-                                        <TableCell>
-                                            <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
-                                                <SelectTrigger className={cn("h-9 text-[11px]", headerMap[i] === IGNORE_COLUMN_VALUE ? "opacity-40" : "font-black text-primary border-primary/30")}>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value={IGNORE_COLUMN_VALUE} className="text-xs italic">-- IGNORAR ESTA COLUMNA --</SelectItem>
-                                                    {TABLE_SCHEMAS[selectedTable].columns.map(c => (
-                                                        <SelectItem key={c} value={c} className="text-xs font-medium uppercase">{c.replace(/_/g, ' ')}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
+                        <div className="max-h-[500px] overflow-y-auto">
+                            <Table>
+                                <TableHeader className="bg-muted/30 sticky top-0 z-10 shadow-sm">
+                                    <TableRow className="border-b-0 h-12">
+                                        <TableHead className="font-black text-[10px] uppercase tracking-widest px-8">Columna del Archivo</TableHead>
+                                        <TableHead className="font-black text-[10px] uppercase tracking-widest">Campo en Base de Datos</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {headers.map((h, i) => (
+                                        <TableRow key={i} className="hover:bg-muted/5 h-16 border-b-slate-100 last:border-b-0">
+                                            <TableCell className="px-8">
+                                                <div className="flex flex-col">
+                                                    <span className="font-black text-xs text-slate-700 uppercase">{h}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-medium">Ejemplo: {rawRows[0]?.[i] || 'Vacio'}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="pr-8">
+                                                <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
+                                                    <SelectTrigger className={cn(
+                                                        "h-10 text-[11px] rounded-lg transition-all", 
+                                                        headerMap[i] === IGNORE_COLUMN_VALUE 
+                                                            ? "opacity-40 border-dashed" 
+                                                            : "font-black text-primary border-primary/30 bg-primary/5"
+                                                    )}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl border-none shadow-2xl">
+                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="text-[10px] italic font-bold">-- IGNORAR ESTA COLUMNA --</SelectItem>
+                                                        {TABLE_SCHEMAS[selectedTable].columns.map(c => (
+                                                            <SelectItem key={c} value={c} className="text-[10px] font-bold uppercase py-2.5">{c.replace(/_/g, ' ')}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
-                    <CardFooter className="p-6 border-t bg-muted/5">
-                        <Button onClick={handleSync} className="w-full h-14 font-black uppercase tracking-widest" disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin mr-3 h-5 w-5" /> : <Database className="mr-3 h-5 w-5" />}
+                    <CardFooter className="p-8 border-t bg-slate-50">
+                        <Button onClick={handleSync} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl" disabled={isLoading}>
+                            {isLoading ? <Loader2 className="animate-spin mr-3 h-6 w-6" /> : <Database className="mr-3 h-6 w-6" />}
                             Iniciar Sincronización Directa
                         </Button>
                     </CardFooter>
                 </Card>
             )}
 
+            {currentStep === 'syncing' && (
+                <Card className="border-none shadow-xl bg-white text-center p-20 animate-pulse">
+                    <CardContent className="space-y-6">
+                        <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-black uppercase tracking-tighter">Inyectando Datos</h3>
+                            <p className="text-muted-foreground font-medium">Guardando registros en la tabla {selectedTable}...</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {currentStep === 'results' && syncResult && (
-                <div className="space-y-6 animate-in zoom-in-95 duration-300">
-                    <Alert className="bg-[#2D5A4C]/10 border-[#2D5A4C]/30 p-8">
-                        <CheckCircle className="h-8 w-8 text-[#2D5A4C]" />
-                        <AlertTitle className="text-xl font-black uppercase text-[#2D5A4C] ml-4">¡Sincronización Exitosa!</AlertTitle>
-                        <AlertDescription className="text-md ml-4 mt-2">
-                            Se han actualizado correctamente <strong>{syncResult.updated}</strong> registros en la tabla <strong>{selectedTable}</strong>. 
-                            Los datos ya están disponibles en los dashboards de análisis.
-                        </AlertDescription>
-                    </Alert>
-                    <div className="grid grid-cols-2 gap-4">
-                        <Button variant="outline" className="h-14 font-bold uppercase text-xs" onClick={reset}>Procesar otro archivo</Button>
-                        <Button className="h-14 font-black uppercase text-xs" onClick={() => window.location.reload()}>Finalizar y salir</Button>
-                    </div>
+                <div className="space-y-6 animate-in zoom-in-95 duration-300 max-w-3xl mx-auto">
+                    <Card className="border-none shadow-2xl overflow-hidden rounded-3xl">
+                        <div className="bg-[#2D5A4C] p-12 text-white text-center">
+                            <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6">
+                                <CheckCircle className="h-12 w-12 text-white" />
+                            </div>
+                            <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">¡Operación Exitosa!</h2>
+                            <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Auditoría de sincronización completada</p>
+                        </div>
+                        <CardContent className="p-12 bg-white">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-center">
+                                <div className="p-6 rounded-2xl bg-muted/30 border border-muted-foreground/10">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Registros Auditados</p>
+                                    <p className="text-4xl font-black text-slate-800">{syncResult.updated}</p>
+                                </div>
+                                <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Tabla Destino</p>
+                                    <p className="text-xl font-black text-[#2D5A4C] uppercase tracking-tighter truncate">{selectedTable}</p>
+                                </div>
+                            </div>
+                            
+                            {syncResult.errors.length > 0 && (
+                                <Alert variant="destructive" className="mb-8 border-none bg-red-50">
+                                    <AlertTitle className="font-black uppercase text-xs">Se detectaron {syncResult.errors.length} anomalías</AlertTitle>
+                                    <AlertDescription className="text-[10px] font-medium opacity-80">
+                                        Algunos registros no pudieron ser procesados por conflictos de esquema o duplicados.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Button variant="outline" className="h-14 font-black uppercase text-xs border-slate-200 rounded-xl" onClick={reset}>Procesar otro archivo</Button>
+                                <Button className="h-14 font-black uppercase text-xs rounded-xl shadow-lg" onClick={() => window.location.reload()}>Finalizar y salir</Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </div>
