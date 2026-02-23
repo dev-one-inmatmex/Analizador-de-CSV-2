@@ -1322,114 +1322,255 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
     const subcategorias = watchedImpact ? (dynamicSubcategories[watchedImpact] || []) : [];
 
     return (
-        <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-                <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-[#2D5A4C]">{transaction ? 'Editar' : 'Registrar'} Movimiento</DialogTitle>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField control={form.control} name="metodo_pago" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Método Pago</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{METODOS_PAGO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="banco" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Banco</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="cuenta" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo de Cuenta</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <FormField control={form.control} name="empresa" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{TIPOS_TRANSACCION.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="monto" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label><FormControl><Input type="number" step="0.01" className="h-10 font-bold border-slate-200" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="responsable" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Responsable</Label><FormControl><Input className="h-10 text-xs font-bold border-slate-200" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
-                )} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Impacto (Nivel 1)</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{dynamicImpacts.map((v: string) => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="area_funcional" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Área (Nivel 2)</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Subcategoría (Nivel 3)</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue placeholder="Primero elija Nivel 1" /></SelectTrigger></FormControl><SelectContent>{subcategorias.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField control={form.control} name="categoria_macro" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{dynamicMacro.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="canal_asociado" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Canal Asociado</Label>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
-                    <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución Rentabilidad</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''} disabled={watchedChannel === 'GENERAL' || watchedIsNominaMixta}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
-                    </FormItem>
-                )} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
-                <FormField control={form.control} name="es_fijo" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
-                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo</FormLabel><FormDescription className="text-[8px]">Esencial para operar el mes</FormDescription></div>
-                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                    </FormItem>
-                )} />
-                <FormField control={form.control} name="es_recurrente" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
-                        <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest">Recurrente</FormLabel><FormDescription className="text-[8px]">Se repite mensualmente</FormDescription></div>
-                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                    </FormItem>
-                )} />
-            </div>
-
-            {watchedImpact === 'NOMINA' && (
-                <div className="pt-4">
-                    <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-primary/5">
-                            <div className="space-y-0.5"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</FormLabel><FormDescription className="text-[8px]">Repartir 60/30/10 entre canales</FormDescription></div>
-                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                    <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-[#2D5A4C]">
+                        {transaction ? 'Editar' : 'Registrar'} Movimiento
+                    </DialogTitle>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <FormField control={form.control} name="metodo_pago" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Método Pago</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {METODOS_PAGO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="banco" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Banco</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="cuenta" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo de Cuenta</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </FormItem>
                     )} />
                 </div>
-            )}
 
-            <div className="flex justify-end gap-3 pt-6 border-t">
-                <Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px] border-slate-200">Cancelar</Button>
-                <Button type="submit" className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-12 h-11">Registrar Movimiento</Button>
-            </div>
-        </form></Form>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <FormField control={form.control} name="empresa" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {TIPOS_TRANSACCION.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="monto" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label>
+                            <FormControl>
+                                <Input type="number" step="0.01" className="h-10 font-bold border-slate-200" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="responsable" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Responsable</Label>
+                            <FormControl>
+                                <Input className="h-10 text-xs font-bold border-slate-200" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Impacto (Nivel 1)</Label>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {dynamicImpacts.map((v: string) => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="area_funcional" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Área (Nivel 2)</Label>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Subcategoría (Nivel 3)</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue placeholder="Primero elija Nivel 1" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {subcategorias.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <FormField control={form.control} name="categoria_macro" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {dynamicMacro.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="canal_asociado" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Canal Asociado</Label>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
+                        <FormItem>
+                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución Rentabilidad</Label>
+                            <Select onValueChange={field.onChange} value={field.value || ''} disabled={watchedChannel === 'GENERAL' || watchedIsNominaMixta}>
+                                <FormControl>
+                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
+                    <FormField control={form.control} name="es_fijo" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
+                            <div className="space-y-0.5">
+                                <FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo</FormLabel>
+                                <FormDescription className="text-[8px]">Esencial para operar el mes</FormDescription>
+                            </div>
+                            <FormControl>
+                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="es_recurrente" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
+                            <div className="space-y-0.5">
+                                <FormLabel className="text-[10px] font-black uppercase tracking-widest">Recurrente</FormLabel>
+                                <FormDescription className="text-[8px]">Se repite mensualmente</FormDescription>
+                            </div>
+                            <FormControl>
+                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                        </FormItem>
+                    )} />
+                </div>
+
+                {watchedImpact === 'NOMINA' && (
+                    <div className="pt-4">
+                        <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-primary/5">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</FormLabel>
+                                    <FormDescription className="text-[8px]">Repartir 60/30/10 entre canales</FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
+                            </FormItem>
+                        )} />
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-6 border-t">
+                    <Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px] border-slate-200">Cancelar</Button>
+                    <Button type="submit" className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-12 h-11">Registrar Movimiento</Button>
+                </div>
+            </form>
+        </Form>
     );
 }
