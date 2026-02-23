@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -714,7 +715,7 @@ export default function OperationsPage() {
 
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} />}
-                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={handleEdit} onDeleteTransaction={handleDelete} />}
+                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} periodType={periodType} onEditTransaction={handleEdit} onDeleteTransaction={handleDelete} />}
                 {currentView === 'presupuestos' && (
                     <BudgetsView 
                         transactions={transactions} 
@@ -1046,10 +1047,19 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
     );
 }
 
-function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
+function ReportsView({ transactions, isLoading, periodType, onEditTransaction, onDeleteTransaction }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [showFilter, setSearchShowFilter] = React.useState(false);
     const [selectedDetail, setSelectedDetail] = React.useState<GastoDiario | null>(null);
+
+    const periodLabel = React.useMemo(() => {
+        switch (periodType) {
+            case 'day': return 'Diario';
+            case 'six_months': return 'Semestral';
+            case 'year': return 'Anual';
+            default: return 'Mensual';
+        }
+    }, [periodType]);
 
     const { logisticsData, chartsData, breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(t.tipo_transaccion));
@@ -1201,9 +1211,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" /> Punto de Equilibrio
+                            <TrendingUp className="h-5 w-5 text-primary" /> Punto de Equilibrio ({periodLabel})
                         </CardTitle>
-                        <CardDescription>Cruce entre Ingresos y Costos Totales basado en Gasto Fijo Actual.</CardDescription>
+                        <CardDescription>Cruce entre Ingresos y Costos Totales basado en Gasto Fijo del periodo.</CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-8">
@@ -1236,28 +1246,28 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <div className="h-2 w-2 rounded-full bg-[#94a3b8]" />
                                         <span className="text-[10px] font-bold uppercase">Base Fija</span>
                                     </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">Representa el <strong>Costo de Supervivencia</strong>: Renta, Nómina base, Servicios y Software. Lo que pagas aunque no vendas nada.</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">Representa el <strong>Costo de Supervivencia</strong> del periodo seleccionado: Renta, Nómina base, Servicios y Software.</TableCell>
                                 </TableRow>
                                 <TableRow className="h-12">
                                     <TableCell className="flex items-center gap-2">
                                         <div className="h-2 w-2 rounded-full bg-[#f43f5e]" />
                                         <span className="text-[10px] font-bold uppercase">Costos Totales</span>
                                     </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">La suma de la Base Fija más los <strong>Costos Variables</strong> (Materiales, Comisiones, Logística). Sube conforme aumenta el volumen de operación.</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">La suma de la Base Fija más los <strong>Costos Variables</strong> (Materiales, Comisiones, Logística) del periodo.</TableCell>
                                 </TableRow>
                                 <TableRow className="h-12">
                                     <TableCell className="flex items-center gap-2">
                                         <div className="h-2 w-2 rounded-full bg-[#3b82f6]" />
                                         <span className="text-[10px] font-bold uppercase">Ingresos</span>
                                     </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">El flujo bruto de dinero que entra a la empresa por todos los canales de venta analizados.</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">El flujo bruto de dinero que entró a la empresa en este periodo específico.</TableCell>
                                 </TableRow>
                                 <TableRow className="h-12 bg-primary/5">
                                     <TableCell className="flex items-center gap-2">
                                         <HelpCircle className="h-3 w-3 text-primary" />
                                         <span className="text-[10px] font-black uppercase text-primary">Punto de Equilibrio</span>
                                     </TableCell>
-                                    <TableCell className="text-xs font-medium text-primary">El momento exacto donde la línea azul cruza la roja. A partir de este punto, cada peso adicional es <strong>Utilidad Neta</strong>.</TableCell>
+                                    <TableCell className="text-xs font-medium text-primary">El momento exacto donde la línea azul cruza la roja. Indica cuánto debes vender en este lapso para no perder dinero.</TableCell>
                                 </TableRow>
                             </TableBody>
                         </Table>
@@ -1270,9 +1280,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="space-y-1">
                             <CardTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                <Truck className="h-4 w-4 text-primary" /> Eficiencia Logística
+                                <Truck className="h-4 w-4 text-primary" /> Eficiencia Logística ({periodLabel})
                             </CardTitle>
-                            <CardDescription className="text-[10px]">Inversión operativa de movimiento mensual.</CardDescription>
+                            <CardDescription className="text-[10px]">Inversión operativa de movimiento en el periodo filtrado.</CardDescription>
                         </div>
                         <div className="text-right">
                             <p className="text-lg font-black text-primary">{money(logisticsData.total)}</p>
@@ -1292,7 +1302,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 </Card>
 
                 <Card className="border-none shadow-sm bg-white">
-                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Distribución por Área</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Distribución por Área ({periodLabel})</CardTitle></CardHeader>
                     <CardContent className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -1310,8 +1320,8 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             <Card className="border-none shadow-sm overflow-hidden bg-white">
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div className="space-y-1">
-                        <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos (Informe Completo)</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground">Auditoría detallada de todos los campos financieros registrados.</CardDescription>
+                        <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos ({periodLabel})</CardTitle>
+                        <CardDescription className="text-sm text-muted-foreground">Auditoría detallada de todos los campos financieros registrados en este lapso.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <div className="flex items-center gap-2">
@@ -1419,7 +1429,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={17} className="text-center py-16 text-[11px] font-bold uppercase tracking-widest text-slate-400">0 Registros encontrados</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={17} className="text-center py-16 text-[11px] font-bold uppercase tracking-widest text-slate-400">0 Registros encontrados en este periodo</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
