@@ -58,6 +58,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         pk: 'id', 
         columns: ['id', 'sku_mdr', 'landed_cost', 'fecha_desde', 'proveedor', 'piezas_xcontenedor', 'sku', 'esti_time'] 
     },
+    sku_alterno: {
+        pk: 'sku',
+        columns: ['sku', 'sku_mdr']
+    },
     publi_tienda: { 
         pk: 'num_publi', 
         columns: ['num_publi', 'sku', 'num_producto', 'titulo', 'status', 'cat_mdr', 'costo', 'tienda'] 
@@ -169,57 +173,56 @@ export default function CsvUploader() {
 
         if (!selectedFile) return;
 
-        // Lógica de procesamiento basada en la tabla seleccionada
-        if (selectedFile.name.toLowerCase().endsWith('.csv')) {
-            Papa.parse(selectedFile, {
-                header: true,
-                skipEmptyLines: true,
-                beforeFirstChunk: (chunk) => {
-                    if (table === 'ml_sales') {
-                        // Salta las primeras 5 líneas si es ml_sales
-                        const lines = chunk.split(/\r?\n/);
-                        return lines.slice(5).join('\n');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const wb = XLSX.read(data, { type: 'array' });
+            
+            if (selectedFile.name.toLowerCase().endsWith('.csv')) {
+                // PapaParse logic for ml_sales
+                const csvText = new TextDecoder().decode(data);
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    beforeFirstChunk: (chunk) => {
+                        if (table === 'ml_sales') {
+                            const lines = chunk.split(/\r?\n/);
+                            return lines.slice(5).join('\n');
+                        }
+                        return chunk;
+                    },
+                    complete: (results) => {
+                        const parsedData = results.data as any[];
+                        if (parsedData.length > 0) {
+                            const h = Object.keys(parsedData[0]);
+                            const rows = parsedData.map(obj => h.map(key => obj[key]));
+                            setHeaders(h);
+                            setRawRows(rows);
+                            setupMapping(table, h, rows);
+                        }
+                        setIsLoading(false);
                     }
-                    return chunk;
-                },
-                complete: (results) => {
-                    const data = results.data as any[];
-                    if (data.length > 0) {
-                        const h = Object.keys(data[0]);
-                        const rows = data.map(obj => h.map(key => obj[key]));
-                        setHeaders(h);
-                        setRawRows(rows);
-                        setupMapping(table, h);
-                    }
-                    setIsLoading(false);
-                },
-                error: (err) => {
-                    toast({ title: 'Error de parseo', description: err.message, variant: 'destructive' });
-                    setIsLoading(false);
-                }
-            });
-        } else {
-            // Excel
-            const worksheet = workbook?.Sheets[selectedSheet || sheets[0]];
-            if (worksheet) {
-                // Para Excel ml_sales, también aplicamos el salto de 5 filas si es necesario
+                });
+            } else {
+                // Excel processing
+                const ws = wb.Sheets[selectedSheet || wb.SheetNames[0]];
                 const range = table === 'ml_sales' ? 5 : 0;
-                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, range }) as any[][];
+                const json = XLSX.utils.sheet_to_json(ws, { header: 1, range, defval: null }) as any[][];
                 const validRows = json.filter(row => row.some(cell => cell !== null && cell !== ''));
-                
                 if (validRows.length > 0) {
                     const h = validRows[0].map(val => String(val || ''));
                     const rows = validRows.slice(1);
                     setHeaders(h);
                     setRawRows(rows);
-                    setupMapping(table, h);
+                    setupMapping(table, h, rows);
                 }
+                setIsLoading(false);
             }
-            setIsLoading(false);
-        }
+        };
+        reader.readAsArrayBuffer(selectedFile);
     };
 
-    const setupMapping = (table: string, currentHeaders: string[]) => {
+    const setupMapping = (table: string, currentHeaders: string[], rows: any[][]) => {
         const schema = TABLE_SCHEMAS[table];
         const aliases = COLUMN_ALIASES[table] || {};
         const map: Record<number, string> = {};
@@ -230,7 +233,6 @@ export default function CsvUploader() {
             const hClean = hRaw.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
             const hUnder = hRaw.toLowerCase().replace(/\s+/g, '_');
 
-            // Intenta encontrar coincidencia por alias
             let match = schema.columns.find(c => {
                 if (usedColumns.has(c)) return false;
                 return Object.entries(aliases).some(([aliasHeader, dbCol]) => {
@@ -239,7 +241,6 @@ export default function CsvUploader() {
                 });
             });
 
-            // Intenta encontrar coincidencia por nombre técnico
             if (!match) {
                 match = schema.columns.find(c => {
                     if (usedColumns.has(c)) return false;
@@ -275,9 +276,7 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[selectedTable];
         
         try {
-            // Unificamos registros únicos por PK usando un Map
             const uniqueRecordsMap = new Map<string, any>();
-
             rawRows.forEach(row => {
                 const obj: any = {};
                 headers.forEach((_, headerIndex) => {
@@ -286,19 +285,16 @@ export default function CsvUploader() {
                         obj[colName] = parseValue(colName, row[headerIndex]);
                     }
                 });
-                
                 const pkValue = String(obj[schema.pk] || '');
-                if (pkValue) {
-                    uniqueRecordsMap.set(pkValue, obj);
-                }
+                if (pkValue) uniqueRecordsMap.set(pkValue, obj);
             });
 
             const allRecords = Array.from(uniqueRecordsMap.values());
             const pks = allRecords.map(r => String(r[schema.pk])).filter(Boolean);
             const existingDataMap = new Map<string, any>();
-            const FETCH_BATCH_SIZE = 500;
             
-            if (supabase) {
+            if (supabase && pks.length > 0) {
+                const FETCH_BATCH_SIZE = 500;
                 for (let i = 0; i < pks.length; i += FETCH_BATCH_SIZE) {
                     const pkBatch = pks.slice(i, i + FETCH_BATCH_SIZE);
                     const { data } = await supabase.from(selectedTable).select('*').in(schema.pk, pkBatch);
@@ -321,22 +317,13 @@ export default function CsvUploader() {
                     for (const col of activeDbColumns) {
                         const newVal = record[col];
                         const oldVal = existing[col];
-                        
                         const isNumeric = NUMERIC_FIELDS.includes(col);
                         if (isNumeric) {
                             const nNew = newVal === null ? 0 : Number(newVal);
                             const nOld = oldVal === null ? 0 : Number(oldVal);
-                            if (Math.abs(nNew - nOld) > 0.0001) {
-                                isDifferent = true;
-                                break;
-                            }
+                            if (Math.abs(nNew - nOld) > 0.0001) { isDifferent = true; break; }
                         } else {
-                            const sNew = newVal === null ? '' : String(newVal).trim();
-                            const sOld = oldVal === null ? '' : String(oldVal).trim();
-                            if (sNew !== sOld) {
-                                isDifferent = true;
-                                break;
-                            }
+                            if (String(newVal ?? '').trim() !== String(oldVal ?? '').trim()) { isDifferent = true; break; }
                         }
                     }
                     if (isDifferent) updateRecs.push({ record, original: existing });
@@ -378,10 +365,7 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 50;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
-                
-                const { error } = await supabase
-                    .from(selectedTable)
-                    .upsert(batch, { onConflict: schema.pk });
+                const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
                     errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
@@ -392,7 +376,6 @@ export default function CsvUploader() {
                         else updated.push(r);
                     });
                 }
-                
                 const currentProcessed = Math.min(i + SYNC_BATCH_SIZE, total);
                 setSyncCount(currentProcessed);
                 setSyncProgress(Math.round((currentProcessed / total) * 100));
@@ -419,43 +402,27 @@ export default function CsvUploader() {
                         const wb = XLSX.read(data, { type: 'array' });
                         setWorkbook(wb);
                         setSheets(wb.SheetNames);
-                        if (f.name.toLowerCase().endsWith('.csv')) {
-                            setCurrentStep('table-selection');
-                        } else {
-                            setCurrentStep('sheet-selection');
-                        }
-                    } catch (err: any) {
-                        toast({ title: 'Error de lectura', description: 'No se pudo procesar el archivo.', variant: 'destructive' });
+                        if (f.name.toLowerCase().endsWith('.csv')) setCurrentStep('table-selection');
+                        else setCurrentStep('sheet-selection');
+                    } catch (err) {
+                        toast({ title: 'Error de lectura', description: 'Archivo dañado.', variant: 'destructive' });
                         setCurrentStep('upload');
                     }
                 };
                 reader.readAsArrayBuffer(f);
-            } else {
-                setConversionProgress(progress);
-            }
+            } else setConversionProgress(progress);
         }, 100);
-    };
-
-    const handleSheetSelect = (sheetName: string) => {
-        setSelectedSheet(sheetName);
-        setCurrentStep('table-selection');
     };
 
     const reset = () => {
         setSelectedFile(null);
         setWorkbook(null);
-        setSheets([]);
-        setSelectedSheet('');
         setHeaders([]);
         setRawRows([]);
-        setConversionProgress(0);
         setSelectedTable('');
         setHeaderMap({});
         setCategorizedData({ new: [], update: [], unchanged: [] });
         setSyncResult(null);
-        setSyncProgress(0);
-        setSyncCount(0);
-        setTotalToSync(0);
         setCurrentStep('upload');
     };
 
@@ -463,105 +430,57 @@ export default function CsvUploader() {
         <div className="w-full max-w-7xl mx-auto space-y-6">
             {currentStep === 'upload' && (
                 <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md">
-                    <CardHeader>
-                        <CardTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Cargar Archivo Maestro</CardTitle>
-                        <CardDescription>Sube un archivo (.csv, .xlsx) para iniciar la sincronización.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div 
-                            className="border-2 border-dashed border-primary/20 p-16 text-center rounded-2xl hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer group" 
-                            onClick={() => document.getElementById('file-input')?.click()}
-                        >
-                            <div className="mx-auto h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                <UploadCloud className="h-10 w-10 text-primary" />
-                            </div>
-                            <p className="mt-2 text-lg font-black uppercase tracking-tight text-slate-700">Arrastra o selecciona un archivo</p>
-                            <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Soporta reportes CSV y libros Excel</p>
-                            <input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} />
-                        </div>
-                    </CardContent>
+                    <CardHeader><CardTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Cargar Archivo Maestro</CardTitle><CardDescription>Sube CSV o XLSX para iniciar.</CardDescription></CardHeader>
+                    <CardContent><div className="border-2 border-dashed border-primary/20 p-16 text-center rounded-2xl hover:bg-primary/5 cursor-pointer group" onClick={() => document.getElementById('file-input')?.click()}><div className="mx-auto h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><UploadCloud className="h-10 w-10 text-primary" /></div><p className="mt-2 text-lg font-black uppercase tracking-tight text-slate-700">Seleccionar archivo</p><input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} /></div></CardContent>
                 </Card>
             )}
 
             {currentStep === 'converting' && (
-                <Card className="border-none shadow-xl bg-white animate-in zoom-in-95">
-                    <CardContent className="p-12 text-center space-y-6">
-                        <div className="flex justify-center"><div className="relative h-20 w-20 flex items-center justify-center"><Loader2 className="h-20 w-20 animate-spin text-primary opacity-20" /><FileSpreadsheet className="h-10 w-10 text-primary absolute" /></div></div>
-                        <div className="space-y-2"><h3 className="text-xl font-black uppercase tracking-tighter">Procesando Archivo</h3><p className="text-sm text-muted-foreground font-medium">Extrayendo estructura ({conversionProgress}%)</p></div>
-                        <Progress value={conversionProgress} className="h-3 w-full bg-slate-100" />
-                    </CardContent>
-                </Card>
+                <Card className="border-none shadow-xl bg-white p-12 text-center space-y-6"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" /><h3 className="text-xl font-black uppercase tracking-tighter">Procesando ({conversionProgress}%)</h3><Progress value={conversionProgress} className="h-3" /></Card>
             )}
 
             {currentStep === 'sheet-selection' && (
-                <Card className="border-none shadow-xl bg-white animate-in fade-in relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b pb-6 px-8">
-                        <div className="flex items-center gap-4"><div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><Layers className="h-6 w-6 text-primary" /></div><div><CardTitle className="text-xl font-black uppercase tracking-tighter">Selector de Página</CardTitle><CardDescription>Elige la hoja del libro Excel a procesar.</CardDescription></div></div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-6 px-8 pb-8">
-                        {sheets.map((sheet) => (
-                            <Button key={sheet} variant="outline" className="h-24 flex flex-col gap-2 border-slate-200 hover:border-primary hover:bg-primary/5 p-4 rounded-xl items-start group" onClick={() => handleSheetSelect(sheet)}>
-                                <span className="font-black text-xs uppercase tracking-tight truncate w-full group-hover:text-primary">{sheet}</span>
-                                <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-widest"><ArrowRight className="h-3 w-3" /> Extraer datos</div>
-                            </Button>
-                        ))}
+                <Card className="border-none shadow-xl bg-white relative">
+                    <CardHeader className="flex flex-row items-center justify-between border-b"><CardTitle className="text-xl font-black uppercase tracking-tighter">Hoja Excel</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-8">
+                        {sheets.map(s => <Button key={s} variant="outline" className="h-20 font-bold uppercase text-xs" onClick={() => { setSelectedSheet(s); setCurrentStep('table-selection'); }}>{s}</Button>)}
                     </CardContent>
                 </Card>
             )}
 
             {currentStep === 'table-selection' && (
-                <Card className="border-none shadow-xl bg-white animate-in slide-in-from-right-4 relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b pb-6 px-8">
-                        <div className="flex items-center gap-3"><div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center text-white"><Database className="h-5 w-5" /></div><CardTitle className="text-xl font-black uppercase tracking-tighter">Destino de Datos</CardTitle></div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
-                    <CardContent className="pt-8 pb-12 px-8">
-                        {isLoading ? (
-                            <div className="flex flex-col items-center gap-4 py-8">
-                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Analizando estructura del archivo...</p>
-                            </div>
-                        ) : (
-                            <div className="max-w-md mx-auto space-y-4">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tabla de Destino (Base de Datos)</Label>
-                                <Select onValueChange={handleTableSelect} value={selectedTable}>
-                                    <SelectTrigger className="h-14 border-slate-200 text-base font-bold bg-white rounded-xl"><SelectValue placeholder="Selecciona el destino técnico..." /></SelectTrigger>
-                                    <SelectContent className="border-none shadow-2xl rounded-xl">
-                                        {Object.keys(TABLE_SCHEMAS).map(table => <SelectItem key={table} value={table} className="py-3 font-bold uppercase text-xs">{table}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                <Card className="border-none shadow-xl bg-white relative">
+                    <CardHeader className="flex flex-row items-center justify-between border-b"><CardTitle className="text-xl font-black uppercase tracking-tighter">Destino de Datos</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
+                    <CardContent className="p-12 max-w-md mx-auto space-y-4">
+                        {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /> : (
+                            <Select onValueChange={handleTableSelect} value={selectedTable}>
+                                <SelectTrigger className="h-14 font-bold bg-white"><SelectValue placeholder="Seleccionar tabla..." /></SelectTrigger>
+                                <SelectContent>{Object.keys(TABLE_SCHEMAS).map(t => <SelectItem key={t} value={t} className="font-bold uppercase text-xs">{t}</SelectItem>)}</SelectContent>
+                            </Select>
                         )}
                     </CardContent>
                 </Card>
             )}
 
             {currentStep === 'mapping' && (
-                <Card className="border-none shadow-2xl bg-white animate-in zoom-in-95 overflow-hidden relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
-                        <div className="space-y-1"><div className="flex items-center gap-2"><Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest border-none px-2">Configuración Atribución</Badge><CardTitle className="text-xl font-black uppercase tracking-tighter">Mapeo: {selectedTable}</CardTitle></div><CardDescription>Vincula encabezados con campos reales de base de datos.</CardDescription></div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
+                <Card className="border-none shadow-2xl bg-white relative overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5"><CardTitle className="text-xl font-black uppercase tracking-tighter">Mapeo: {selectedTable}</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
                     <CardContent className="p-0">
                         <div className="max-h-[500px] overflow-y-auto">
                             <Table>
-                                <TableHeader className="bg-muted/30 sticky top-0 z-10 shadow-sm"><TableRow className="border-b-0 h-12"><TableHead className="font-black text-[10px] uppercase tracking-widest px-8">Origen (Archivo)</TableHead><TableHead className="font-black text-[10px] uppercase tracking-widest">Destino (BD)</TableHead></TableRow></TableHeader>
+                                <TableHeader className="bg-muted/30 sticky top-0"><TableRow><TableHead className="font-black text-[10px] uppercase tracking-widest px-8">Origen</TableHead><TableHead className="font-black text-[10px] uppercase tracking-widest">Destino</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {headers.map((h, i) => (
-                                        <TableRow key={i} className="hover:bg-muted/5 h-16 border-b-slate-100 last:border-b-0">
-                                            <TableCell className="px-8"><div className="flex flex-col"><span className="font-black text-xs text-slate-700 uppercase">{h || 'S/N'}</span><span className="text-[10px] text-muted-foreground font-medium">Ej: {String(rawRows[0]?.[i] ?? 'Vacío')}</span></div></TableCell>
+                                        <TableRow key={i} className="h-16">
+                                            <TableCell className="px-8"><span className="font-black text-xs text-slate-700 uppercase">{h || 'S/N'}</span></TableCell>
                                             <TableCell className="pr-8">
                                                 <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
-                                                    <SelectTrigger className={cn("h-10 text-[11px] rounded-lg transition-all", headerMap[i] === IGNORE_COLUMN_VALUE ? "opacity-40 border-dashed" : "font-black text-primary border-primary/30 bg-primary/5")}>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="rounded-xl border-none shadow-2xl">
-                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="text-[10px] italic font-bold">-- IGNORAR --</SelectItem>
-                                                        {TABLE_SCHEMAS[selectedTable].columns.map(c => {
-                                                            const isUsed = usedDbColumns.has(c) && headerMap[i] !== c;
-                                                            return <SelectItem key={c} value={c} disabled={isUsed} className={cn("text-[10px] font-bold uppercase py-2.5", isUsed && "opacity-30")}>{c.replace(/_/g, ' ')} {isUsed && '(Ya asignada)'}</SelectItem>;
-                                                        })}
+                                                    <SelectTrigger className={cn("h-10 text-[11px]", headerMap[i] === IGNORE_COLUMN_VALUE ? "opacity-40 border-dashed" : "font-black text-primary border-primary/30 bg-primary/5")}><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="italic text-[10px]">-- IGNORAR --</SelectItem>
+                                                        {TABLE_SCHEMAS[selectedTable].columns.map(c => (
+                                                            <SelectItem key={c} value={c} disabled={usedDbColumns.has(c) && headerMap[i] !== c} className="uppercase text-[10px] font-bold">{c.replace(/_/g, ' ')}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </TableCell>
@@ -571,155 +490,97 @@ export default function CsvUploader() {
                             </Table>
                         </div>
                     </CardContent>
-                    <CardFooter className="p-8 border-t bg-slate-50"><Button onClick={performAnalysis} className="w-full h-16 font-black uppercase tracking-widest text-sm shadow-xl shadow-primary/20 rounded-xl"><Eye className="mr-3 h-6 w-6" /> Iniciar Análisis Diferencial</Button></CardFooter>
+                    <CardFooter className="p-8 border-t bg-slate-50"><Button onClick={performAnalysis} className="w-full h-16 font-black uppercase text-sm shadow-xl rounded-xl"><Eye className="mr-3" /> Analizar Cambios</Button></CardFooter>
                 </Card>
             )}
 
             {currentStep === 'analyzing' && (
-                <Card className="border-none shadow-xl bg-white text-center p-20">
-                    <CardContent className="space-y-6"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" /><div className="space-y-2"><h3 className="text-2xl font-black uppercase tracking-tighter text-primary">Auditoría Diferencial</h3><p className="text-muted-foreground font-medium">Comparando registros con la base de datos...</p></div></CardContent>
-                </Card>
+                <Card className="border-none shadow-xl bg-white p-20 text-center"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" /><h3 className="text-2xl font-black uppercase tracking-tighter">Auditoría Diferencial...</h3></Card>
             )}
 
             {currentStep === 'preview' && (
-                <Card className="border-none shadow-2xl bg-white animate-in slide-in-from-bottom-4 duration-500 overflow-hidden relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
-                        <div className="space-y-1"><div className="flex items-center gap-2"><Badge className="bg-primary/10 text-primary uppercase text-[9px] font-black tracking-widest border-none px-2">Auditoría de Integridad</Badge><CardTitle className="text-xl font-black uppercase tracking-tighter">Resultados: {selectedTable}</CardTitle></div><CardDescription>Visualiza los datos clasificados antes de la inyección.</CardDescription></div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
+                <Card className="border-none shadow-2xl bg-white relative overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5"><CardTitle className="text-xl font-black uppercase tracking-tighter">Resultados del Análisis</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
                     <CardContent className="p-0">
                         <Tabs defaultValue="nuevos" className="w-full">
-                            <div className="px-8 bg-muted/10 border-b"><TabsList className="h-14 w-full bg-transparent p-0 gap-8 justify-start">
-                                <TabsTrigger value="nuevos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 h-full font-bold uppercase text-[11px] tracking-tighter">Nuevos ({categorizedData.new.length})</TabsTrigger>
-                                <TabsTrigger value="actualizar" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 h-full font-bold uppercase text-[11px] tracking-tighter">Con Cambios ({categorizedData.update.length})</TabsTrigger>
-                                <TabsTrigger value="sin-cambios" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 h-full font-bold uppercase text-[11px] tracking-tighter">Sin Cambios ({categorizedData.unchanged.length})</TabsTrigger>
+                            <div className="px-8 border-b bg-muted/10"><TabsList className="h-14 bg-transparent gap-8">
+                                <TabsTrigger value="nuevos" className="font-bold uppercase text-[11px]">Nuevos ({categorizedData.new.length})</TabsTrigger>
+                                <TabsTrigger value="actualizar" className="font-bold uppercase text-[11px]">Con Cambios ({categorizedData.update.length})</TabsTrigger>
+                                <TabsTrigger value="sin-cambios" className="font-bold uppercase text-[11px]">Sin Cambios ({categorizedData.unchanged.length})</TabsTrigger>
                             </TabsList></div>
-                            {['nuevos', 'actualizar', 'sin-cambios'].map((tab) => (
+                            {['nuevos', 'actualizar', 'sin-cambios'].map(tab => (
                                 <TabsContent key={tab} value={tab} className="mt-0">
-                                    <ScrollArea className="h-[450px] w-full border-b"><div className="min-w-full inline-block align-middle"><Table className="border-collapse">
-                                        <TableHeader className="bg-white sticky top-0 z-10 shadow-sm"><TableRow className="h-12 border-b">
-                                            {activeDbColumns.map((col) => <TableHead key={col} className="border-r last:border-r-0 font-black text-[10px] uppercase tracking-wider px-4 bg-white whitespace-nowrap">{col}</TableHead>)}
+                                    <ScrollArea className="h-[450px] w-full border-b"><Table>
+                                        <TableHeader className="bg-white sticky top-0 shadow-sm"><TableRow>
+                                            {activeDbColumns.map(col => <TableHead key={col} className="font-black text-[10px] uppercase px-4 whitespace-nowrap">{col}</TableHead>)}
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {tab === 'nuevos' && categorizedData.new.length > 0 ? (
-                                                categorizedData.new.map((row, rIdx) => (
-                                                    <TableRow key={rIdx} className="h-12 hover:bg-muted/5 transition-colors">
-                                                        {activeDbColumns.map((col) => <TableCell key={col} className="border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px] truncate">{String(row[col] ?? '-')}</TableCell>)}
-                                                    </TableRow>
-                                                ))
-                                            ) : tab === 'actualizar' && categorizedData.update.length > 0 ? (
-                                                categorizedData.update.map((item, rIdx) => (
-                                                    <TableRow key={rIdx} className="h-12 hover:bg-muted/5 transition-colors">
-                                                        {activeDbColumns.map((col) => {
-                                                            const newVal = item.record[col];
-                                                            const oldVal = item.original[col];
-                                                            
-                                                            let isDiff = false;
-                                                            if (NUMERIC_FIELDS.includes(col)) {
-                                                                const nNew = newVal === null ? 0 : Number(newVal);
-                                                                const nOld = oldVal === null ? 0 : Number(oldVal);
-                                                                isDiff = Math.abs(nNew - nOld) > 0.0001;
-                                                            } else {
-                                                                isDiff = String(newVal ?? '').trim() !== String(oldVal ?? '').trim();
-                                                            }
-
-                                                            return (
-                                                                <TableCell key={col} className={cn("border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px]", isDiff ? "bg-amber-50/30" : "")}>
-                                                                    {isDiff ? (
-                                                                        <div className="flex flex-col gap-0.5">
-                                                                            <span className="text-destructive line-through opacity-60 text-[8px]">{String(oldVal ?? 'vacío')}</span>
-                                                                            <div className="flex items-center gap-1">
-                                                                                <ArrowRightLeft className="h-2.5 w-2.5 text-primary opacity-40" />
-                                                                                <span className="text-primary font-black truncate">{String(newVal ?? 'vacío')}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="opacity-60 truncate">{String(newVal ?? '-')}</span>
-                                                                    )}
-                                                                </TableCell>
-                                                            );
-                                                        })}
-                                                    </TableRow>
-                                                ))
-                                            ) : tab === 'sin-cambios' && categorizedData.unchanged.length > 0 ? (
-                                                categorizedData.unchanged.map((row, rIdx) => (
-                                                    <TableRow key={rIdx} className="h-12 hover:bg-muted/5 transition-colors opacity-60">
-                                                        {activeDbColumns.map((col) => <TableCell key={col} className="border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px] truncate">{String(row[col] ?? '-')}</TableCell>)}
-                                                    </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow><TableCell colSpan={activeDbColumns.length} className="h-32 text-center text-muted-foreground font-bold uppercase text-xs">Sin registros en esta categoría.</TableCell></TableRow>
-                                            )}
+                                            {tab === 'nuevos' ? categorizedData.new.map((r, i) => (
+                                                <TableRow key={i} className="h-12">{activeDbColumns.map(col => <TableCell key={col} className="text-[10px] px-4">{String(r[col] ?? '-')}</TableCell>)}</TableRow>
+                                            )) : tab === 'actualizar' ? categorizedData.update.map((u, i) => (
+                                                <TableRow key={i} className="h-12">{activeDbColumns.map(col => {
+                                                    const isDiff = NUMERIC_FIELDS.includes(col) ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 : String(u.record[col] ?? '') !== String(u.original[col] ?? '');
+                                                    return (
+                                                        <TableCell key={col} className={cn("px-4 text-[10px]", isDiff && "bg-amber-50/30")}>
+                                                            {isDiff ? <div className="flex flex-col"><span className="text-destructive line-through text-[8px] opacity-60">{String(u.original[col] ?? 'vacio')}</span><span className="text-primary font-black">{String(u.record[col] ?? 'vacio')}</span></div> : <span className="opacity-60">{String(u.record[col] ?? '-')}</span>}
+                                                        </TableCell>
+                                                    );
+                                                })}</TableRow>
+                                            )) : categorizedData.unchanged.map((r, i) => (
+                                                <TableRow key={i} className="h-12 opacity-60">{activeDbColumns.map(col => <TableCell key={col} className="text-[10px] px-4">{String(r[col] ?? '-')}</TableCell>)}</TableRow>
+                                            ))}
                                         </TableBody>
-                                    </Table></div><ScrollBar orientation="horizontal" /></ScrollArea>
+                                    </Table><ScrollBar orientation="horizontal" /></ScrollArea>
                                 </TabsContent>
                             ))}
                         </Tabs>
                     </CardContent>
-                    <CardFooter className="p-8 bg-slate-50 flex flex-wrap gap-4">
-                        <Button onClick={() => handleSync('new')} className="h-14 px-8 bg-[#3E6053] hover:bg-[#2D4A3F] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl flex-1 shadow-lg" disabled={categorizedData.new.length === 0}><Database className="mr-2 h-5 w-5" /> Insertar Nuevos</Button>
-                        <Button onClick={() => handleSync('update')} className="h-14 px-8 bg-[#3E6053] hover:bg-[#2D4A3F] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl flex-1 shadow-lg" disabled={categorizedData.update.length === 0}><RefreshCcw className="mr-2 h-5 w-5" /> Actualizar Cambios</Button>
-                        <Button onClick={() => handleSync('all')} className="h-14 px-8 bg-[#2D5A4C] hover:bg-[#1f3e34] text-white font-bold uppercase text-[11px] tracking-widest rounded-xl flex-1 shadow-lg" disabled={categorizedData.new.length === 0 && categorizedData.update.length === 0}><Save className="mr-2 h-5 w-5" /> Sincronizar Todo</Button>
+                    <CardFooter className="p-8 bg-slate-50 flex gap-4">
+                        <Button onClick={() => handleSync('new')} className="h-14 font-bold uppercase text-[11px] flex-1 bg-[#3E6053]" disabled={categorizedData.new.length === 0}>Insertar Nuevos</Button>
+                        <Button onClick={() => handleSync('update')} className="h-14 font-bold uppercase text-[11px] flex-1 bg-[#3E6053]" disabled={categorizedData.update.length === 0}>Actualizar Cambios</Button>
+                        <Button onClick={() => handleSync('all')} className="h-14 font-black uppercase text-[11px] flex-1 bg-[#2D5A4C]" disabled={categorizedData.new.length === 0 && categorizedData.update.length === 0}>Sincronizar Todo</Button>
                     </CardFooter>
                 </Card>
             )}
 
             {currentStep === 'syncing' && (
-                <Card className="border-none shadow-xl bg-white text-center p-20">
-                    <CardContent className="space-y-8">
-                        <div className="relative mx-auto h-24 w-24"><Loader2 className="h-24 w-24 animate-spin text-primary opacity-20" /><Database className="h-10 w-10 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" /></div>
-                        <div className="space-y-4 max-w-md mx-auto">
-                            <h3 className="text-2xl font-black uppercase tracking-tighter text-primary">Sincronización en Curso</h3>
-                            <div className="space-y-3">
-                                <Progress value={syncProgress} className="h-4 w-full bg-slate-100" />
-                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                                    <span className="text-primary">{syncProgress}% Completado</span>
-                                    <span className="text-muted-foreground">Registros: {syncCount} / {totalToSync}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
+                <Card className="border-none shadow-xl bg-white p-20 text-center space-y-8">
+                    <div className="relative mx-auto h-24 w-24"><Loader2 className="h-24 w-24 animate-spin text-primary opacity-20" /><Database className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 text-primary" /></div>
+                    <div className="max-w-md mx-auto space-y-4">
+                        <h3 className="text-2xl font-black uppercase tracking-tighter text-primary">Sincronizando Datos</h3>
+                        <Progress value={syncProgress} className="h-4" />
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground"><span>{syncProgress}%</span><span>Registros: {syncCount} / {totalToSync}</span></div>
+                    </div>
                 </Card>
             )}
 
             {currentStep === 'results' && syncResult && (
                 <Card className="border-none shadow-2xl overflow-hidden rounded-3xl relative animate-in zoom-in-95">
-                    <div className={cn("p-12 text-white text-center transition-colors duration-500", syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]")}>
-                        <Button variant="ghost" size="icon" onClick={reset} className="absolute top-6 right-6 rounded-full h-10 w-10 text-white hover:bg-white/20"><X className="h-6 w-6" /></Button>
-                        <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6 shadow-inner animate-pulse">
-                            {syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12 text-white" /> : <CheckCircle className="h-12 w-12 text-white" />}
-                        </div>
-                        <h2 className="text-3xl font-black uppercase tracking-tighter mb-2 leading-none">{syncResult.errors.length > 0 ? 'Auditoría con Anomalías' : '¡Sincronización Exitosa!'}</h2>
-                        <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Tabla: {selectedTable} • Registros auditados</p>
+                    <div className={cn("p-12 text-white text-center", syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]")}>
+                        <Button variant="ghost" size="icon" onClick={reset} className="absolute top-6 right-6 text-white hover:bg-white/20"><X /></Button>
+                        <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6">{syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12" /> : <CheckCircle className="h-12 w-12" />}</div>
+                        <h2 className="text-3xl font-black uppercase tracking-tighter">{syncResult.errors.length > 0 ? 'Auditoría con Anomalías' : '¡Sincronización Exitosa!'}</h2>
                     </div>
                     <CardContent className="p-8 bg-white space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                            <div className="p-6 rounded-2xl bg-green-50/50 border border-green-100 shadow-sm"><p className="text-[10px] font-black uppercase tracking-widest text-green-600 mb-1">Inyectados</p><p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p></div>
-                            <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100 shadow-sm"><p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">Sobrescritos</p><p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p></div>
-                            <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100 shadow-sm"><p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Sin Cambios</p><p className="text-4xl font-black text-slate-600">{syncResult.unchanged.length}</p></div>
+                            <div className="p-6 rounded-2xl bg-green-50/50 border border-green-100"><p className="text-[10px] font-black uppercase text-green-600">Inyectados</p><p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p></div>
+                            <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100"><p className="text-[10px] font-black uppercase text-blue-600">Sobrescritos</p><p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p></div>
+                            <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100"><p className="text-[10px] font-black uppercase text-slate-400">Sin Cambios</p><p className="text-4xl font-black text-slate-600">{syncResult.unchanged.length}</p></div>
                         </div>
-
                         {syncResult.errors.length > 0 && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
-                                <h3 className="text-sm font-black uppercase tracking-tight text-slate-700 ml-1">DETALLE DE ANOMALÍAS:</h3>
-                                <div className="border border-slate-100 rounded-3xl p-6 bg-slate-50/30 space-y-4 max-h-[400px] overflow-y-auto no-scrollbar">
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-black uppercase text-slate-700">DETALLE DE ANOMALÍAS:</h3>
+                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                                     {syncResult.errors.map((err, i) => (
-                                        <div key={i} className="p-6 rounded-2xl bg-white border border-red-50 shadow-sm flex items-start gap-4 transition-all hover:shadow-md">
-                                            <div className="mt-1.5 h-3 w-3 rounded-full bg-red-500 animate-pulse shrink-0 border-2 border-white ring-4 ring-red-50" />
-                                            <div className="space-y-1">
-                                                <p className="font-black text-red-600 text-xs uppercase tracking-tighter leading-none">ERROR LOTE #{err.batch}</p>
-                                                <p className="text-slate-600 text-xs font-semibold leading-relaxed">{formatErrorDescription(err.msg)}</p>
-                                            </div>
+                                        <div key={i} className="p-6 rounded-2xl bg-white border border-red-50 shadow-sm flex items-start gap-4">
+                                            <div className="mt-1.5 h-3 w-3 rounded-full bg-red-500 animate-pulse shrink-0 ring-4 ring-red-50" />
+                                            <div className="space-y-1"><p className="font-black text-red-600 text-xs uppercase">ERROR LOTE #{err.batch}</p><p className="text-slate-600 text-xs font-semibold">{formatErrorDescription(err.msg)}</p></div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
-
-                        <div className="grid grid-cols-2 gap-4 mt-10">
-                            <Button variant="outline" className="h-14 font-black uppercase text-xs border-slate-200 rounded-xl hover:bg-slate-50" onClick={reset}><RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo</Button>
-                            <Button className="h-14 font-black uppercase text-xs rounded-xl shadow-lg shadow-primary/20" onClick={() => window.location.reload()}><CheckCircle className="mr-2 h-4 w-4" /> Finalizar y Salir</Button>
-                        </div>
+                        <div className="grid grid-cols-2 gap-4"><Button variant="outline" className="h-14 font-black uppercase text-xs rounded-xl" onClick={reset}>Procesar otro</Button><Button className="h-14 font-black uppercase text-xs rounded-xl" onClick={() => window.location.reload()}>Finalizar</Button></div>
                     </CardContent>
                 </Card>
             )}

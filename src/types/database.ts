@@ -91,6 +91,11 @@ export interface sku_costos {
   esti_time: number | null;
 }
 
+export interface sku_alterno {
+  sku: string;
+  sku_mdr: string | null;
+}
+
 export interface ml_sales {
   id?: string;
   num_venta: string | null;
