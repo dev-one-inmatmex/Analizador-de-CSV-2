@@ -113,7 +113,6 @@ export const expenseFormSchema = z.object({
   responsable: z.string().min(1, "Responsable es obligatorio."),
   descripcion: z.string().nullable().optional(),
   notas: z.string().max(280, "Máximo 280 caracteres.").nullable().optional(),
-  comprobante_url: z.string().url("URL inválida").optional().or(z.literal('')),
   es_nomina_mixta: z.boolean().default(false).optional(),
 });
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -127,7 +126,6 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
             responsable: '',
             descripcion: '',
             notas: '',
-            comprobante_url: '',
             es_nomina_mixta: false
         }
     });
@@ -336,14 +334,6 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                         <FormItem>
                             <FormLabel>Responsable</FormLabel>
                             <FormControl><Input {...field} value={field.value ?? ''} placeholder="Nombre" /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="comprobante_url" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>URL Comprobante</FormLabel>
-                            <FormControl><Input {...field} value={field.value ?? ''} placeholder="https://..." /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
@@ -1471,7 +1461,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         ))}
                     </div>
                 </CardContent>
-            </Card>
+            </div>
         </div>
     );
 }
