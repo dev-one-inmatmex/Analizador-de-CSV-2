@@ -22,28 +22,46 @@ export type RecentSale = {
 async function getPredictionData() {
     if (!supabaseAdmin) return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
 
-    // 1. Fetch last 12 months of sales from 'ventas'
+    // 1. Fetch last 12 months of sales from 'ventas' (Unlimited batch fetch)
     const twelveMonthsAgo = subMonths(new Date(), 12);
-    const { data: salesData, error: salesError } = await supabaseAdmin
-        .from('ventas')
-        .select('sku, total, unidades, fecha_venta, title, company')
-        .gte('fecha_venta', twelveMonthsAgo.toISOString());
+    const salesData: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
+
+    try {
+        while (hasMore) {
+            const { data, error } = await supabaseAdmin
+                .from('ventas')
+                .select('sku, total, unidades, fecha_venta, title, company')
+                .gte('fecha_venta', twelveMonthsAgo.toISOString())
+                .range(from, from + step - 1);
+            
+            if (error) throw error;
+            if (data && data.length > 0) {
+                salesData.push(...data);
+                if (data.length < step) hasMore = false;
+                else from += step;
+            } else {
+                hasMore = false;
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching sales history:', e);
+        return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
+    }
     
-    if (salesError || !salesData || salesData.length === 0) {
-        console.error('Error fetching sales or no sales data:', salesError);
+    if (salesData.length === 0) {
         return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
     }
 
     // 2. Fetch categories from 'publicaciones'
     const skus = [...new Set(salesData.map(s => s.sku).filter(Boolean))];
-    const { data: pubsData, error: pubsError } = await supabaseAdmin
+    const { data: pubsData } = await supabaseAdmin
         .from('publicaciones')
         .select('sku, nombre_madre')
         .in('sku', skus);
 
-    if (pubsError) {
-        console.error('Error fetching publications for categories:', pubsError);
-    }
     const categoryMap = new Map(pubsData?.map(p => [p.sku, p.nombre_madre]));
     
     // 3. Prepare data for AI Flow
@@ -67,7 +85,7 @@ async function getPredictionData() {
         console.error("AI prediction failed:", aiError);
     }
     
-    // 5. Prepare historical data for main chart (aggregate by month)
+    // 5. Monthly aggregation
     const monthlySales: Record<string, number> = {};
     salesData.forEach(sale => {
         try {
@@ -75,9 +93,7 @@ async function getPredictionData() {
             if (isNaN(saleDate.getTime())) return;
             const monthKey = format(startOfMonth(saleDate), 'yyyy-MM');
             monthlySales[monthKey] = (monthlySales[monthKey] || 0) + (sale.total || 0);
-        } catch (e) {
-            // Ignore invalid date formats
-        }
+        } catch (e) {}
     });
 
     const salesHistoryForChart = Object.entries(monthlySales)
@@ -93,7 +109,7 @@ async function getPredictionData() {
         .sort((a,b) => a.sortKey - b.sortKey)
         .map(({date, ventas}) => ({date, ventas}));
 
-    // 6. Prepare data for company breakdown chart
+    // 6. Company breakdown
     const companyRevenue: Record<string, number> = {};
     salesData.forEach(sale => {
         const key = sale.company || 'Compañía Desconocida';
@@ -102,10 +118,9 @@ async function getPredictionData() {
     const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
         .map(([name, value]) => ({ name, value }));
     
-    // 7. Get recent sales for table display
-    const recentSales: RecentSale[] = salesData
-      .sort((a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime())
-      .slice(0, 500);
+    // 7. Recent sales for table
+    const recentSales: RecentSale[] = [...salesData]
+      .sort((a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime());
 
     return { salesHistoryForChart, predictionResult, salesByCompanyChart, recentSales };
 }

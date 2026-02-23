@@ -14,8 +14,8 @@ async function getSalesData() {
   const step = 1000;
   let hasMore = true;
 
-  // Realizamos una carga por lotes para superar el límite de 1000 registros de la API
-  while (hasMore && allSales.length < 20000) {
+  // Carga exhaustiva para superar el límite de 1000 de Supabase
+  while (hasMore && allSales.length < 50000) { // Límite de seguridad de 50k
     const { data, error } = await supabaseAdmin
       .from('ml_sales')
       .select('*')
@@ -40,7 +40,6 @@ async function getSalesData() {
     }
   }
   
-  // Extraemos las tiendas únicas directamente de los registros recuperados
   const allCompanies = Array.from(new Set(allSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
   
   return {

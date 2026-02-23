@@ -117,20 +117,36 @@ export default function OperationsPage() {
                     break;
             }
 
-            let query = supabase
-                .from('gastos_diarios')
-                .select('*')
-                .gte('fecha', format(start, 'yyyy-MM-dd'))
-                .lte('fecha', format(end, 'yyyy-MM-dd'));
+            const allFetched: GastoDiario[] = [];
+            let from = 0;
+            const step = 1000;
+            let hasMore = true;
 
-            if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
-            if (filterArea !== 'TODAS') query = query.eq('area_funcional', filterArea);
-            if (filterImpact !== 'TODOS') query = query.eq('tipo_gasto_impacto', filterImpact);
+            while (hasMore) {
+                let query = supabase
+                    .from('gastos_diarios')
+                    .select('*')
+                    .gte('fecha', format(start, 'yyyy-MM-dd'))
+                    .lte('fecha', format(end, 'yyyy-MM-dd'));
 
-            const { data, error } = await query.order('fecha', { ascending: false });
+                if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
+                if (filterArea !== 'TODAS') query = query.eq('area_funcional', filterArea);
+                if (filterImpact !== 'TODOS') query = query.eq('tipo_gasto_impacto', filterImpact);
 
-            if (error) throw error;
-            setTransactions(data || []);
+                const { data, error } = await query
+                    .order('fecha', { ascending: false })
+                    .range(from, from + step - 1);
+
+                if (error) throw error;
+                if (data && data.length > 0) {
+                    allFetched.push(...(data as GastoDiario[]));
+                    if (data.length < step) hasMore = false;
+                    else from += step;
+                } else {
+                    hasMore = false;
+                }
+            }
+            setTransactions(allFetched);
         } catch (e: any) {
             console.error('Error fetching transactions:', e);
             toast({ title: "Error", description: "No se pudieron cargar los movimientos.", variant: "destructive" });
@@ -391,7 +407,6 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
         }
 
         const steps = eachDayOfInterval({ start, end });
-        const limit = periodType === 'month' ? 31 : (periodType === 'six_months' ? 180 : 365);
         
         return steps.filter((_, i) => periodType === 'month' || i % (periodType === 'six_months' ? 7 : 30) === 0).map(step => {
             const dayT = transactions.filter((t: any) => {

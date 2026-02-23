@@ -8,23 +8,31 @@ async function getData() {
     }
 
     try {
-        const { data, error } = await supabaseAdmin
-            .from('publicaciones_por_sku')
-            .select('*')
-            .order('publicaciones', { ascending: false });
+        const all: publicaciones_por_sku[] = [];
+        let from = 0;
+        const step = 1000;
+        let hasMore = true;
 
-        if (error) throw error;
-        
-        return { data: (data as publicaciones_por_sku[]) || [], error: null };
-    } catch (e: any) {
-        let errorMessage = `Ocurrió un error al consultar 'publicaciones_por_sku': ${e.message}. Asegúrate de que la tabla existe y los permisos son correctos.`;
-        if (e.code === '42P01') {
-            errorMessage = "Error: La tabla 'publicaciones_por_sku' no fue encontrada en la base de datos.";
-        } else if (e.message.includes('Failed to fetch')) {
-            errorMessage = 'Error de red: No se pudo conectar a la base de datos. Revisa tu conexión y la configuración de las variables de entorno.';
+        while (hasMore) {
+            const { data, error } = await supabaseAdmin
+                .from('publicaciones_por_sku')
+                .select('*')
+                .order('publicaciones', { ascending: false })
+                .range(from, from + step - 1);
+
+            if (error) throw error;
+            if (data && data.length > 0) {
+                all.push(...(data as publicaciones_por_sku[]));
+                if (data.length < step) hasMore = false;
+                else from += step;
+            } else {
+                hasMore = false;
+            }
         }
-        console.error(errorMessage);
-        return { data: [], error: errorMessage };
+        
+        return { data: all, error: null };
+    } catch (e: any) {
+        return { data: [], error: e.message };
     }
 }
 

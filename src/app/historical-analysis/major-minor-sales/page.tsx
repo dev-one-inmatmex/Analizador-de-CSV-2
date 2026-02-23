@@ -9,39 +9,49 @@ export type Transaction = {
   date: string;
 };
 
-async function getRecentTransactions(): Promise<Transaction[]> {
+async function getAllTransactions(): Promise<Transaction[]> {
   if (!supabaseAdmin) {
     console.warn("Supabase admin client is not configured.");
     return [];
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('ventas')
-    .select('id, numero_venta, comprador, total, fecha_venta')
-    .order('fecha_venta', { ascending: false })
-    .limit(10);
+  const allData: any[] = [];
+  let from = 0;
+  const step = 1000;
+  let hasMore = true;
 
-  if (error) {
-    console.error('Error fetching recent transactions for major/minor sales:', error);
-    return [];
+  while (hasMore) {
+    const { data, error } = await supabaseAdmin
+      .from('ventas')
+      .select('id, numero_venta, comprador, total, fecha_venta')
+      .order('fecha_venta', { ascending: false })
+      .range(from, from + step - 1);
+
+    if (error) {
+      console.error('Error fetching transactions batch:', error);
+      break;
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      if (data.length < step) hasMore = false;
+      else from += step;
+    } else {
+      hasMore = false;
+    }
   }
 
-  // Transform Supabase data to match the component's expected structure
-  const transactions: Transaction[] = data.map((sale) => ({
+  return allData.map((sale) => ({
     id: `#${sale.numero_venta || sale.id}`,
     customer: sale.comprador || 'N/A',
-    // Simple logic to determine type based on mock data pattern
     type: sale.comprador !== 'Público General' ? 'Mayorista' : 'Minorista',
     amount: sale.total || 0,
     date: sale.fecha_venta,
   }));
-
-  return transactions;
 }
 
 
 export default async function MajorMinorSalesPage() {
-  const recentTransactions = await getRecentTransactions();
-
-  return <MajorMinorSalesClientPage initialRecentTransactions={recentTransactions} />;
+  const transactions = await getAllTransactions();
+  return <MajorMinorSalesClientPage initialRecentTransactions={transactions} />;
 }
