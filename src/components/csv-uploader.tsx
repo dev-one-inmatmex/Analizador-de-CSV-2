@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, Eye, AlertTriangle,
-  Save, X, ArrowRightLeft, FileText, Info, PlusCircle
+  Save, X, ArrowRightLeft, FileText, Info, PlusCircle, AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -129,7 +129,8 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         'Transportista': 'transportista',
         'Número de seguimiento': 'num_seguimiento',
         'URL de seguimiento': 'url_seguimiento',
-        'Unidades': 'unidades_2',
+        'Unidades ': 'unidades_2',
+        'Forma de entrega ': 'f_entrega2',
         'Fecha en camino ': 'f_camino2',
         'Fecha entregado ': 'f_entregado2',
         'Transportista ': 'transportista2',
@@ -141,7 +142,7 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         'Resultado': 'resultado',
         'Destino': 'destino',
         'Motivo del resultado': 'motivo_resul',
-        'Unidades ': 'unidades_3',
+        'Unidades  ': 'unidades_3',
         'Reclamo abierto': 'r_abierto',
         'Reclamo cerrado': 'r_cerrado',
         'Con mediación': 'c_mediacion'
@@ -162,9 +163,6 @@ const MONTHS_ES: Record<string, number> = {
 
 /**
  * Convierte formatos de fecha de Mercado Libre a Timestamp ISO string.
- * Formatos soportados:
- * 1. "2 de febrero de 2026 00:07 hs."
- * 2. "10 de febrero | 22:08"
  */
 function parseMLDate(str: string): string | null {
     if (!str || typeof str !== 'string') return null;
@@ -193,7 +191,6 @@ function parseMLDate(str: string): string | null {
         }
     }
 
-    // Fallback para fechas estándar o ISO
     const fallback = new Date(str);
     return isNaN(fallback.getTime()) ? null : fallback.toISOString();
 }
@@ -204,7 +201,6 @@ function parseValue(key: string, value: any, tableName: string): any {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') return null;
     const str = String(value).trim();
     
-    // Tratamiento especial para fechas de Mercado Libre
     if (tableName === 'ml_sales') {
         const dateFields = [
             'fecha_venta', 'f_entrega', 'f_camino', 'f_entregado', 
@@ -297,7 +293,6 @@ export default function CsvUploader() {
                     header: true,
                     skipEmptyLines: true,
                     beforeFirstChunk: (chunk) => {
-                        // Lógica condicional para ml_sales: saltar las primeras 5 líneas
                         if (table === 'ml_sales') {
                             const lines = chunk.split(/\r?\n/);
                             return lines.slice(5).join('\n');
@@ -389,7 +384,6 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[selectedTable];
         
         try {
-            // Conversión de Map a Arreglo de registros únicos para inyección segura
             const uniqueRecordsMap = new Map<string, any>();
             rawRows.forEach(row => {
                 const obj: any = {};
@@ -479,7 +473,6 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 50;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
-                // Upsert obligatorio con onConflict sobre la llave primaria
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
