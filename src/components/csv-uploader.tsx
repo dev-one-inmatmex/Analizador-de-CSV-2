@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { revalidateDashboards } from '@/app/actions/revalidate';
 
 const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     ml_sales: { 
@@ -524,6 +525,9 @@ export default function CsvUploader() {
             second: 'numeric', 
             hour12: true 
         }).toLowerCase().replace(/ p\.? m\.?/g, ' p.m.').replace(/ a\.? m\.?/g, ' a.m.');
+
+        // Revalidamos los dashboards para reflejar los cambios
+        await revalidateDashboards();
 
         setSyncResult({ inserted, updated, unchanged, errors, syncTime });
         setCurrentStep('results');

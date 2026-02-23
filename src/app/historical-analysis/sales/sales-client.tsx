@@ -1,19 +1,17 @@
-
 'use client';
 
 import * as React from 'react';
 import { 
-  BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, 
-  Layers, Filter, Maximize, Loader2, Info, Truck, Landmark, User, FileText, CheckCircle2, AlertCircle, X,
-  HelpCircle, RefreshCcw
+  BarChart3, Filter, Loader2, RefreshCcw
 } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, isValid, parseISO } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, 
   PieChart, Pie, Cell, Line, ComposedChart 
 } from 'recharts';
 import { DateRange } from 'react-day-picker';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -24,8 +22,8 @@ import type { Sale } from './page';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 15;
@@ -39,6 +37,7 @@ export default function SalesDashboardClient({
     initialSales: Sale[], 
     allCompanies: string[],
 }) {
+    const router = useRouter();
     const [currentPage, setCurrentPage] = React.useState(1);
     const [isClient, setIsClient] = React.useState(false);
     const [company, setCompany] = React.useState('Todos');
@@ -49,6 +48,7 @@ export default function SalesDashboardClient({
     
     const [isParetoModalOpen, setIsParetoModalOpen] = React.useState(false);
     const [paretoPage, setParetoPage] = React.useState(1);
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
 
     React.useEffect(() => { setIsClient(true); }, []);
 
@@ -74,13 +74,17 @@ export default function SalesDashboardClient({
         setCurrentPage(1);
     };
 
+    const handleManualRefresh = () => {
+        setIsRefreshing(true);
+        router.refresh();
+        setTimeout(() => setIsRefreshing(false), 1000);
+    };
+
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
         const filteredSales = initialSales.filter(sale => {
-            // Filtro de Tienda
             const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
 
-            // Filtro de Fecha robusto
             if (date?.from) {
                 if (!sale.fecha_venta) return false;
                 try {
@@ -96,19 +100,16 @@ export default function SalesDashboardClient({
             return true;
         });
 
-        // Ordenamiento Cronológico (Nuevas primero)
         const sortedSales = [...filteredSales].sort((a, b) => {
             const dateA = a.fecha_venta ? new Date(a.fecha_venta).getTime() : 0;
             const dateB = b.fecha_venta ? new Date(b.fecha_venta).getTime() : 0;
             return dateB - dateA;
         });
 
-        // KPIs
         const totalRevenue = sortedSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
         const totalSalesCount = sortedSales.length;
         const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
         
-        // Análisis de Productos (Pareto)
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         
         sortedSales.forEach(sale => {
@@ -153,7 +154,6 @@ export default function SalesDashboardClient({
             cumulative: p.cumulativePercentage
         }));
 
-        // Distribución por Compañía
         const companyMap: Record<string, number> = {};
         sortedSales.forEach(s => {
             const c = s.tienda || 'Otros';
@@ -183,6 +183,12 @@ export default function SalesDashboardClient({
                     <SidebarTrigger />
                     <h1 className="text-xl font-bold">Ventas Consolidadas</h1>
                     <Badge variant="outline" className="hidden sm:flex">Registro ml_sales</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isRefreshing} className="h-9 px-3 gap-2 font-bold text-muted-foreground">
+                        <RefreshCcw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                        <span className="hidden sm:inline">Actualizar</span>
+                    </Button>
                 </div>
             </header>
 
@@ -220,15 +226,45 @@ export default function SalesDashboardClient({
                     </CardContent>
                 </Card>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground tracking-tighter">Ingresos Netos</CardHeader><CardContent><div className="text-3xl font-black text-primary">{money(kpis.totalRevenue)}</div></CardContent></Card>
-                    <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground tracking-tighter">Ventas Realizadas</CardHeader><CardContent><div className="text-3xl font-black">{kpis.totalSales.toLocaleString()}</div></CardContent></Card>
-                    <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground tracking-tighter">Ticket Promedio</CardHeader><CardContent><div className="text-3xl font-black">{money(kpis.avgSale)}</div></CardContent></Card>
-                    <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-xs font-bold uppercase text-muted-foreground tracking-tighter">Top Producto</CardHeader><CardContent><div className="text-sm font-bold truncate leading-tight" title={kpis.topProductName}>{kpis.topProductName}</div></CardContent></Card>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ingresos Netos</p>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-black text-[#2D5A4C]">{money(kpis.totalRevenue)}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ventas Realizadas</p>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-slate-900">{kpis.totalSales.toLocaleString()}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ticket Promedio</p>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-slate-900">{money(kpis.avgSale)}</div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Top Producto</p>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-sm font-bold truncate leading-tight text-slate-900" title={kpis.topProductName}>
+                                {kpis.topProductName}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
-                    <Card className="min-w-0 overflow-hidden border-none shadow-sm">
+                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-lg font-bold">Curva Pareto (80/20)</CardTitle>
                             <Button 
@@ -254,7 +290,7 @@ export default function SalesDashboardClient({
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
-                    <Card className="min-w-0 overflow-hidden border-none shadow-sm">
+                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white">
                         <CardHeader><CardTitle className="text-lg font-bold">Participación por Canal</CardTitle></CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -301,7 +337,7 @@ export default function SalesDashboardClient({
                                         <TableHead className="border-r text-right">Ing x Unid</TableHead>
                                         <TableHead className="border-r text-right">Cargo Venta</TableHead>
                                         <TableHead className="border-r text-right">Ing x Envío</TableHead>
-                                        <TableHead className="border-r text-right">Costo Envío</TableHead>
+                                        <TableHead className="border-r text-right">Costos Envío</TableHead>
                                         <TableHead className="border-r text-right">Envío MP</TableHead>
                                         <TableHead className="border-r text-right">Dif Peso</TableHead>
                                         <TableHead className="border-r text-right">Reembolsos</TableHead>
@@ -453,22 +489,6 @@ export default function SalesDashboardClient({
                             <Card className="bg-primary/5 border-none shadow-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Productos Analizados</div><div className="text-xl font-black">{paretoAnalysisData.length} SKU</div></CardContent></Card>
                             <Card className="bg-[#2D5A4C]/10 border-none shadow-none">
                               <CardContent className="pt-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="text-[10px] font-bold uppercase text-muted-foreground">Zona Crítica (80%)</div>
-                                  <TooltipProvider>
-                                    <UITooltip>
-                                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                      <TooltipContent className="max-w-xs p-4">
-                                        <div className="space-y-2">
-                                          <p className="font-bold border-b pb-1">Metodología ABC:</p>
-                                          <p><strong>Impacto A (80%):</strong> Los productos estrella que generan la mayor parte del ingreso.</p>
-                                          <p><strong>Impacto B (15%):</strong> Productos con rotación y aporte medio.</p>
-                                          <p><strong>Impacto C (5%):</strong> La cola larga de productos con bajo aporte individual.</p>
-                                        </div>
-                                      </TooltipContent>
-                                    </UITooltip>
-                                  </TooltipProvider>
-                                </div>
                                 <div className="text-xl font-black text-[#2D5A4C]">{paretoAnalysisData.filter(p => p.zona === 'Impacto A').length} SKU</div>
                               </CardContent>
                             </Card>
