@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -6,7 +7,7 @@ import {
   Layers, Filter, Maximize, Loader2, Info, Truck, Landmark, User, FileText, CheckCircle2, AlertCircle, X,
   HelpCircle, RefreshCcw
 } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, 
@@ -75,9 +76,11 @@ export default function SalesDashboardClient({
 
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
         const filteredSales = initialSales.filter(sale => {
+            // Filtro de Tienda
             const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
 
+            // Filtro de Fecha robusto
             if (date?.from) {
                 if (!sale.fecha_venta) return false;
                 try {
@@ -93,16 +96,19 @@ export default function SalesDashboardClient({
             return true;
         });
 
+        // Ordenamiento Cronológico (Nuevas primero)
         const sortedSales = [...filteredSales].sort((a, b) => {
             const dateA = a.fecha_venta ? new Date(a.fecha_venta).getTime() : 0;
             const dateB = b.fecha_venta ? new Date(b.fecha_venta).getTime() : 0;
             return dateB - dateA;
         });
 
+        // KPIs
         const totalRevenue = sortedSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
         const totalSalesCount = sortedSales.length;
         const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
         
+        // Análisis de Productos (Pareto)
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         
         sortedSales.forEach(sale => {
@@ -147,6 +153,7 @@ export default function SalesDashboardClient({
             cumulative: p.cumulativePercentage
         }));
 
+        // Distribución por Compañía
         const companyMap: Record<string, number> = {};
         sortedSales.forEach(s => {
             const c = s.tienda || 'Otros';
