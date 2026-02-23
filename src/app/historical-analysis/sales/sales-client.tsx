@@ -4,7 +4,7 @@ import * as React from 'react';
 import { 
   BarChart3, DollarSign, ShoppingCart, AlertTriangle, Package, PieChart as PieChartIcon, 
   Layers, Filter, Maximize, Loader2, Info, Truck, Landmark, User, FileText, CheckCircle2, AlertCircle, X,
-  HelpCircle
+  HelpCircle, RefreshCcw
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -24,7 +24,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip as UITooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 15;
@@ -66,7 +66,17 @@ export default function SalesDashboardClient({
 
     const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
+    const handleResetFilters = () => {
+        setCompany('Todos');
+        setDate({
+            from: subDays(new Date(), 365),
+            to: new Date(),
+        });
+        setCurrentPage(1);
+    };
+
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
+        // Filtrado de ventas sin modificar valores originales
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
@@ -77,21 +87,30 @@ export default function SalesDashboardClient({
                     const saleDate = parseISO(sale.fecha_venta);
                     const finalDate = isValid(saleDate) ? saleDate : new Date(sale.fecha_venta);
                     if (!isValid(finalDate)) return false;
+                    
                     const fromDate = startOfDay(date.from);
                     const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
+                    
                     if (finalDate < fromDate || finalDate > toDate) return false;
                 } catch (e) { return false; }
             }
             return true;
         });
 
-        const totalRevenue = filteredSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
-        const totalSalesCount = filteredSales.length;
+        // Ordenar por fecha descendente (nuevas primero)
+        const sortedSales = [...filteredSales].sort((a, b) => {
+            const dateA = a.fecha_venta ? new Date(a.fecha_venta).getTime() : 0;
+            const dateB = b.fecha_venta ? new Date(b.fecha_venta).getTime() : 0;
+            return dateB - dateA;
+        });
+
+        const totalRevenue = sortedSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
+        const totalSalesCount = sortedSales.length;
         const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
         
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         
-        filteredSales.forEach(sale => {
+        sortedSales.forEach(sale => {
             const key = sale.tit_pub || sale.sku || 'N/A';
             if (key === 'N/A') return;
 
@@ -134,7 +153,7 @@ export default function SalesDashboardClient({
         }));
 
         const companyMap: Record<string, number> = {};
-        filteredSales.forEach(s => {
+        sortedSales.forEach(s => {
             const c = s.tienda || 'Otros';
             companyMap[c] = (companyMap[c] || 0) + (s.total || 0);
         });
@@ -142,7 +161,7 @@ export default function SalesDashboardClient({
         const detectedCompanies = Array.from(new Set(initialSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
 
         return {
-            sales: filteredSales,
+            sales: sortedSales,
             kpis: { totalRevenue, totalSales: totalSalesCount, avgSale, topProductName: sortedProducts[0]?.name || 'N/A' },
             charts: { topProducts: topProductsChart, salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })) },
             paretoAnalysisData: paretoData,
@@ -167,12 +186,17 @@ export default function SalesDashboardClient({
 
             <main className="p-4 md:p-8 space-y-8 min-w-0 max-w-full">
                 <Card className="min-w-0 shadow-sm border-none bg-white/50 backdrop-blur-sm">
-                    <CardHeader className="flex flex-row items-center gap-4">
-                        <Filter className="h-6 w-6 text-primary" />
-                        <div className="flex-1">
-                            <CardTitle>Filtros Maestros</CardTitle>
-                            <CardDescription>Segmenta ingresos y registros por periodo y tienda.</CardDescription>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Filter className="h-6 w-6 text-primary" />
+                            <div>
+                                <CardTitle>Filtros Maestros</CardTitle>
+                                <CardDescription>Segmenta ingresos y registros por periodo y tienda.</CardDescription>
+                            </div>
                         </div>
+                        <Button variant="outline" size="sm" onClick={handleResetFilters} className="text-xs font-bold gap-2">
+                            <RefreshCcw className="h-3.5 w-3.5" /> Limpiar Filtros
+                        </Button>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
@@ -247,7 +271,7 @@ export default function SalesDashboardClient({
                 <Card className="min-w-0 overflow-hidden border-none shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
-                        <CardDescription>Detalle de transacciones ml_sales.</CardDescription>
+                        <CardDescription>Detalle de transacciones ml_sales con valores originales.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="relative w-full overflow-x-auto border-t">
