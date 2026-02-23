@@ -55,12 +55,12 @@ export default function SalesDashboardClient({
         setIsClient(true); 
     }, []);
 
-    // Suscripción Realtime para actualizaciones automáticas
+    // Suscripción Realtime para actualizaciones automáticas instantáneas
     React.useEffect(() => {
         if (!supabase) return;
 
         const channel = supabase
-            .channel('ml_sales_realtime')
+            .channel('ml_sales_realtime_kpis')
             .on(
                 'postgres_changes',
                 {
@@ -69,7 +69,7 @@ export default function SalesDashboardClient({
                     table: 'ml_sales'
                 },
                 () => {
-                    // Refrescamos los datos del servidor de forma silenciosa
+                    // Refresh server data
                     router.refresh();
                 }
             )
@@ -128,7 +128,6 @@ export default function SalesDashboardClient({
             return true;
         });
 
-        // Orden cronológico: ventas nuevas arriba
         const sortedSales = [...filteredSales].sort((a, b) => {
             const dateA = a.fecha_venta ? new Date(a.fecha_venta).getTime() : 0;
             const dateB = b.fecha_venta ? new Date(b.fecha_venta).getTime() : 0;
@@ -256,36 +255,36 @@ export default function SalesDashboardClient({
                 </Card>
 
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
                         <CardHeader className="pb-2">
                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ingresos Netos</p>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-3xl font-black text-[#2D5A4C]">{money(kpis.totalRevenue)}</div>
+                            <div className="text-4xl font-black text-[#2D5A4C] tabular-nums">{money(kpis.totalRevenue)}</div>
                         </CardContent>
                     </Card>
-                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
                         <CardHeader className="pb-2">
                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ventas Realizadas</p>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-3xl font-bold text-slate-900">{kpis.totalSales.toLocaleString()}</div>
+                            <div className="text-4xl font-bold text-slate-900 tabular-nums">{kpis.totalSales.toLocaleString()}</div>
                         </CardContent>
                     </Card>
-                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
                         <CardHeader className="pb-2">
                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ticket Promedio</p>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-3xl font-bold text-slate-900">{money(kpis.avgSale)}</div>
+                            <div className="text-4xl font-bold text-slate-900 tabular-nums">{money(kpis.avgSale)}</div>
                         </CardContent>
                     </Card>
-                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
                         <CardHeader className="pb-2">
                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Top Producto</p>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-sm font-bold truncate leading-tight text-slate-900" title={kpis.topProductName}>
+                            <div className="text-lg font-bold truncate leading-tight text-slate-900" title={kpis.topProductName}>
                                 {kpis.topProductName}
                             </div>
                         </CardContent>
@@ -293,8 +292,8 @@ export default function SalesDashboardClient({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
-                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white">
-                        <CardHeader className="flex flex-row items-center justify-between">
+                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
+                        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5">
                             <CardTitle className="text-lg font-bold">Curva Pareto (80/20)</CardTitle>
                             <Button 
                               variant="outline" 
@@ -305,7 +304,7 @@ export default function SalesDashboardClient({
                                 <BarChart3 className="h-4 w-4" /> Análisis Pareto
                             </Button>
                         </CardHeader>
-                        <CardContent className="h-[400px]">
+                        <CardContent className="h-[400px] pt-6">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={charts.topProducts} margin={{ bottom: 100, left: 20, right: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -356,9 +355,9 @@ export default function SalesDashboardClient({
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
-                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white">
-                        <CardHeader><CardTitle className="text-lg font-bold">Participación por Canal</CardTitle></CardHeader>
-                        <CardContent className="h-[400px]">
+                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
+                        <CardHeader className="border-b bg-muted/5"><CardTitle className="text-lg font-bold">Participación por Canal</CardTitle></CardHeader>
+                        <CardContent className="h-[400px] pt-6">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie 
@@ -386,8 +385,8 @@ export default function SalesDashboardClient({
                     </Card>
                 </div>
 
-                <Card className="min-w-0 overflow-hidden border-none shadow-sm">
-                    <CardHeader>
+                <Card className="min-w-0 overflow-hidden border-none shadow-sm rounded-xl">
+                    <CardHeader className="bg-muted/5">
                         <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
                         <CardDescription>Detalle de transacciones ml_sales con valores originales.</CardDescription>
                     </CardHeader>
