@@ -79,20 +79,20 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     }
 };
 
+const NUMERIC_FIELDS = [
+    'monto', 'total', 'unidades', 'price', 'landed_cost', 'costo_envio', 
+    'piezas_por_sku', 'num_publicaciones', 'piezas_totales', 'esti_time', 
+    'piezas_xcontenedor', 'bloque', 'costo', 'ing_xunidad', 'cargo_venta',
+    'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3'
+];
+
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
 function parseValue(key: string, value: any): any {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') return null;
     const str = String(value).trim();
     
-    const numericFields = [
-        'monto', 'total', 'unidades', 'price', 'landed_cost', 'costo_envio', 
-        'piezas_por_sku', 'num_publicaciones', 'piezas_totales', 'esti_time', 
-        'piezas_xcontenedor', 'bloque', 'costo', 'ing_xunidad', 'cargo_venta',
-        'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3'
-    ];
-    
-    if (numericFields.includes(key)) {
+    if (NUMERIC_FIELDS.includes(key)) {
         const num = parseFloat(str.replace(/[$\s]/g, '').replace(/,/g, '').replace(/[^0-9.-]/g, ''));
         return isNaN(num) ? null : num;
     }
@@ -252,11 +252,23 @@ export default function CsvUploader() {
                     for (const col of activeDbColumns) {
                         const newVal = record[col];
                         const oldVal = existing[col];
-                        const sNew = newVal === null ? '' : String(newVal);
-                        const sOld = oldVal === null ? '' : String(oldVal);
-                        if (sNew !== sOld) {
-                            isDifferent = true;
-                            break;
+                        
+                        // Normalización para comparación
+                        const isNumeric = NUMERIC_FIELDS.includes(col);
+                        if (isNumeric) {
+                            const nNew = newVal === null ? 0 : Number(newVal);
+                            const nOld = oldVal === null ? 0 : Number(oldVal);
+                            if (Math.abs(nNew - nOld) > 0.0001) {
+                                isDifferent = true;
+                                break;
+                            }
+                        } else {
+                            const sNew = newVal === null ? '' : String(newVal).trim();
+                            const sOld = oldVal === null ? '' : String(oldVal).trim();
+                            if (sNew !== sOld) {
+                                isDifferent = true;
+                                break;
+                            }
                         }
                     }
                     if (isDifferent) updateRecs.push({ record, original: existing });
@@ -528,19 +540,30 @@ export default function CsvUploader() {
                                                 categorizedData.update.map((item, rIdx) => (
                                                     <TableRow key={rIdx} className="h-12 hover:bg-muted/5 transition-colors">
                                                         {activeDbColumns.map((col) => {
-                                                            const isDiff = String(item.record[col] ?? '') !== String(item.original[col] ?? '');
+                                                            const newVal = item.record[col];
+                                                            const oldVal = item.original[col];
+                                                            
+                                                            let isDiff = false;
+                                                            if (NUMERIC_FIELDS.includes(col)) {
+                                                                const nNew = newVal === null ? 0 : Number(newVal);
+                                                                const nOld = oldVal === null ? 0 : Number(oldVal);
+                                                                isDiff = Math.abs(nNew - nOld) > 0.0001;
+                                                            } else {
+                                                                isDiff = String(newVal ?? '').trim() !== String(oldVal ?? '').trim();
+                                                            }
+
                                                             return (
                                                                 <TableCell key={col} className={cn("border-r last:border-r-0 px-4 text-[10px] font-medium max-w-[250px]", isDiff ? "bg-amber-50/30" : "")}>
                                                                     {isDiff ? (
                                                                         <div className="flex flex-col gap-0.5">
-                                                                            <span className="text-destructive line-through opacity-60 text-[8px]">{String(item.original[col] ?? 'vacío')}</span>
+                                                                            <span className="text-destructive line-through opacity-60 text-[8px]">{String(oldVal ?? 'vacío')}</span>
                                                                             <div className="flex items-center gap-1">
                                                                                 <ArrowRightLeft className="h-2.5 w-2.5 text-primary opacity-40" />
-                                                                                <span className="text-primary font-black truncate">{String(item.record[col] ?? 'vacío')}</span>
+                                                                                <span className="text-primary font-black truncate">{String(newVal ?? 'vacío')}</span>
                                                                             </div>
                                                                         </div>
                                                                     ) : (
-                                                                        <span className="opacity-60 truncate">{String(item.record[col] ?? '-')}</span>
+                                                                        <span className="opacity-60 truncate">{String(newVal ?? '-')}</span>
                                                                     )}
                                                                 </TableCell>
                                                             );
