@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, Eye, AlertTriangle,
-  Save, X, ArrowRightLeft, FileText, Info
+  Save, X, ArrowRightLeft, FileText, Info, PlusCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -129,12 +129,19 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         'Transportista': 'transportista',
         'Número de seguimiento': 'num_seguimiento',
         'URL de seguimiento': 'url_seguimiento',
+        'Unidades': 'unidades_2',
+        'Fecha en camino ': 'f_camino2',
+        'Fecha entregado ': 'f_entregado2',
+        'Transportista ': 'transportista2',
+        'Número de seguimiento ': 'num_seguimiento2',
+        'URL de seguimiento ': 'url_seguimiento2',
         'Revisado por Mercado Libre': 'revisado_xml',
         'Fecha de revisión': 'f_revision3',
         'Dinero a favor': 'd_afavor',
         'Resultado': 'resultado',
         'Destino': 'destino',
         'Motivo del resultado': 'motivo_resul',
+        'Unidades ': 'unidades_3',
         'Reclamo abierto': 'r_abierto',
         'Reclamo cerrado': 'r_cerrado',
         'Con mediación': 'c_mediacion'
@@ -148,12 +155,66 @@ const NUMERIC_FIELDS = [
     'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3'
 ];
 
+const MONTHS_ES: Record<string, number> = {
+    enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,
+    julio: 6, agosto: 7, septiembre: 8, octubre: 9, noviembre: 10, diciembre: 11
+};
+
+/**
+ * Convierte formatos de fecha de Mercado Libre a Timestamp ISO string.
+ * Formatos soportados:
+ * 1. "2 de febrero de 2026 00:07 hs."
+ * 2. "10 de febrero | 22:08"
+ */
+function parseMLDate(str: string): string | null {
+    if (!str || typeof str !== 'string') return null;
+    const cleanStr = str.toLowerCase().trim();
+    
+    // Formato 1: "2 de febrero de 2026 00:07 hs."
+    const fullMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s+de\s+(\d{4})\s+(\d{1,2}):(\d{2})/);
+    if (fullMatch) {
+        const [_, day, monthStr, year, hour, min] = fullMatch;
+        const month = MONTHS_ES[monthStr];
+        if (month !== undefined) {
+            const date = new Date(parseInt(year), month, parseInt(day), parseInt(hour), parseInt(min));
+            return isNaN(date.getTime()) ? null : date.toISOString();
+        }
+    }
+
+    // Formato 2: "10 de febrero | 22:08"
+    const shortMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s*\|\s*(\d{1,2}):(\d{2})/);
+    if (shortMatch) {
+        const [_, day, monthStr, hour, min] = shortMatch;
+        const month = MONTHS_ES[monthStr];
+        if (month !== undefined) {
+            const year = new Date().getFullYear();
+            const date = new Date(year, month, parseInt(day), parseInt(hour), parseInt(min));
+            return isNaN(date.getTime()) ? null : date.toISOString();
+        }
+    }
+
+    // Fallback para fechas estándar o ISO
+    const fallback = new Date(str);
+    return isNaN(fallback.getTime()) ? null : fallback.toISOString();
+}
+
 const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
-function parseValue(key: string, value: any): any {
+function parseValue(key: string, value: any, tableName: string): any {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') return null;
     const str = String(value).trim();
     
+    // Tratamiento especial para fechas de Mercado Libre
+    if (tableName === 'ml_sales') {
+        const dateFields = [
+            'fecha_venta', 'f_entrega', 'f_camino', 'f_entregado', 
+            'f_entrega2', 'f_camino2', 'f_entregado2', 'f_revision3'
+        ];
+        if (dateFields.includes(key)) {
+            return parseMLDate(str);
+        }
+    }
+
     if (NUMERIC_FIELDS.includes(key)) {
         const num = parseFloat(str.replace(/[$\s]/g, '').replace(/,/g, '').replace(/[^0-9.-]/g, ''));
         return isNaN(num) ? null : num;
@@ -236,6 +297,7 @@ export default function CsvUploader() {
                     header: true,
                     skipEmptyLines: true,
                     beforeFirstChunk: (chunk) => {
+                        // Lógica condicional para ml_sales: saltar las primeras 5 líneas
                         if (table === 'ml_sales') {
                             const lines = chunk.split(/\r?\n/);
                             return lines.slice(5).join('\n');
@@ -327,13 +389,14 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[selectedTable];
         
         try {
+            // Conversión de Map a Arreglo de registros únicos para inyección segura
             const uniqueRecordsMap = new Map<string, any>();
             rawRows.forEach(row => {
                 const obj: any = {};
                 headers.forEach((_, headerIndex) => {
                     const colName = headerMap[headerIndex];
                     if (colName && colName !== IGNORE_COLUMN_VALUE) {
-                        obj[colName] = parseValue(colName, row[headerIndex]);
+                        obj[colName] = parseValue(colName, row[headerIndex], selectedTable);
                     }
                 });
                 const pkValue = String(obj[schema.pk] || '');
@@ -416,6 +479,7 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 50;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
+                // Upsert obligatorio con onConflict sobre la llave primaria
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
@@ -864,11 +928,4 @@ export default function CsvUploader() {
             )}
         </div>
     );
-}
-
-// Iconos adicionales usados
-function PlusCircle(props: any) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-  );
 }
