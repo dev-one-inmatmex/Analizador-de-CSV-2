@@ -4,6 +4,9 @@ import {cn} from '@/lib/utils';
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
   ({className, ...props}, ref) => {
+    // Si se pasa la prop 'value', nos aseguramos de que nunca sea undefined/null
+    const controlledValue = props.hasOwnProperty('value') ? (props.value ?? "") : undefined;
+
     return (
       <textarea
         className={cn(
@@ -12,6 +15,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'tex
         )}
         ref={ref}
         {...props}
+        value={controlledValue}
       />
     );
   }

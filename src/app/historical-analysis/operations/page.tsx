@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -1294,6 +1293,7 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
             fecha: new Date(), 
             empresa: 'MTM', 
             tipo_transaccion: 'GASTO', 
+            monto: 0,
             categoria_macro: 'OPERATIVO', 
             canal_asociado: 'GENERAL', 
             clasificacion_operativa: 'COMPARTIDO',
@@ -1372,7 +1372,7 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                 )} />
                 <FormField control={form.control} name="area_funcional" render={({ field }) => (
                     <FormItem><Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Área (Nivel 2)</Label>
-                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={field.onChange} value={field.value || ''}><FormControl><SelectTrigger className="h-10 text-xs font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent>{AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
