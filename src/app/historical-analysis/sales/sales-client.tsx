@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 15;
 const PARETO_PAGE_SIZE = 15;
-const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+const PIE_COLORS = ["#2D5A4C", "#f43f5e", "#3b82f6", "#1e40af", "#0ea5e9", "#eab308", "#14b8a6"];
 
 export default function SalesDashboardClient({ 
     initialSales, 
@@ -278,14 +278,14 @@ export default function SalesDashboardClient({
                         </CardHeader>
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart data={charts.topProducts} margin={{ bottom: 100 }}>
+                                <ComposedChart data={charts.topProducts} margin={{ bottom: 100, left: 20, right: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                     <XAxis dataKey="name" angle={-45} textAnchor="end" fontSize={9} interval={0} height={100} tick={{fill: '#666'}} />
-                                    <YAxis yAxisId="left" orientation="left" tickFormatter={v => `$${v/1000}k`} tick={{fill: '#666'}} />
-                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{fill: '#666'}} />
+                                    <YAxis yAxisId="left" orientation="left" tickFormatter={v => `$${v/1000}k`} tick={{fill: '#666'}} axisLine={false} tickLine={false} />
+                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{fill: '#666'}} axisLine={false} tickLine={false} />
                                     <Tooltip formatter={(v, name) => [name === 'Ingresos' ? money(Number(v)) : `${Number(v).toFixed(1)}%`, name]} />
-                                    <Bar yAxisId="left" dataKey="value" fill="#2D5A4C" name="Ingresos" radius={[4, 4, 0, 0]} />
-                                    <Line yAxisId="right" dataKey="cumulative" stroke="#f43f5e" name="Acumulado %" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e' }} />
+                                    <Bar yAxisId="left" dataKey="value" fill="#2D5A4C" name="Ingresos" radius={[4, 4, 0, 0]} barSize={40} />
+                                    <Line yAxisId="right" dataKey="cumulative" stroke="#f43f5e" name="Acumulado %" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e', strokeWidth: 2 }} activeDot={{ r: 6 }} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -295,11 +295,20 @@ export default function SalesDashboardClient({
                         <CardContent className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie data={charts.salesByCompany} dataKey="value" nameKey="name" innerRadius={80} outerRadius={120} paddingAngle={5} label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                                        {charts.salesByCompany.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="none" />)}
+                                    <Pie 
+                                        data={charts.salesByCompany} 
+                                        dataKey="value" 
+                                        nameKey="name" 
+                                        innerRadius={80} 
+                                        outerRadius={120} 
+                                        paddingAngle={5} 
+                                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                        stroke="none"
+                                    >
+                                        {charts.salesByCompany.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                                     </Pie>
                                     <Tooltip formatter={v => money(v as number)} />
-                                    <Legend iconType="circle" />
+                                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
                                 </PieChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -362,7 +371,7 @@ export default function SalesDashboardClient({
                                         <TableHead className="border-r text-center">Negocio</TableHead>
                                         <TableHead className="border-r">IFE</TableHead>
                                         <TableHead className="border-r">Domicilio</TableHead>
-                                        <TableHead className="border-r">Alcaldía</TableHead>
+                                        <TableHead className="border-r">Municipio/Alcaldía</TableHead>
                                         <TableHead className="border-r">Estado</TableHead>
                                         <TableHead className="border-r">CP</TableHead>
                                         <TableHead className="border-r">País</TableHead>
