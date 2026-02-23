@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -7,6 +8,7 @@ import {
   Save, X, ArrowRightLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -68,12 +70,12 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 
 const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     sku_m: {
-        'sku': 'sku',
-        'Categoria_madre': 'cat_mdr',
         'nombre_madre': 'sku_mdr',
+        'Categoria_madre': 'cat_mdr',
+        'piezas_por_contenedor': 'piezas_xcontenedor',
+        'sku': 'sku',
         'landed_cost': 'landed_cost',
         'piezas_por_sku': 'piezas_por_sku',
-        'piezas_por_contenedor': 'piezas_xcontenedor',
         'bodega': 'bodega',
         'bloque': 'bloque'
     }
@@ -133,8 +135,10 @@ type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'm
 export default function CsvUploader() {
     const { toast } = useToast();
     const [currentStep, setCurrentStep] = useState<Step>('upload');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
     const [sheets, setSheets] = useState<string[]>([]);
+    const [selectedSheet, setSelectedSheet] = useState<string>('');
     const [conversionProgress, setConversionProgress] = useState(0);
     const [headers, setHeaders] = useState<string[]>([]);
     const [rawRows, setRawRows] = useState<any[][]>([]);
@@ -161,16 +165,72 @@ export default function CsvUploader() {
 
     const handleTableSelect = (table: string) => {
         setSelectedTable(table);
+        setIsLoading(true);
+
+        if (!selectedFile) return;
+
+        // Lógica de procesamiento basada en la tabla seleccionada
+        if (selectedFile.name.toLowerCase().endsWith('.csv')) {
+            Papa.parse(selectedFile, {
+                header: true,
+                skipEmptyLines: true,
+                beforeFirstChunk: (chunk) => {
+                    if (table === 'ml_sales') {
+                        // Salta las primeras 5 líneas si es ml_sales
+                        const lines = chunk.split(/\r?\n/);
+                        return lines.slice(5).join('\n');
+                    }
+                    return chunk;
+                },
+                complete: (results) => {
+                    const data = results.data as any[];
+                    if (data.length > 0) {
+                        const h = Object.keys(data[0]);
+                        const rows = data.map(obj => h.map(key => obj[key]));
+                        setHeaders(h);
+                        setRawRows(rows);
+                        setupMapping(table, h);
+                    }
+                    setIsLoading(false);
+                },
+                error: (err) => {
+                    toast({ title: 'Error de parseo', description: err.message, variant: 'destructive' });
+                    setIsLoading(false);
+                }
+            });
+        } else {
+            // Excel
+            const worksheet = workbook?.Sheets[selectedSheet || sheets[0]];
+            if (worksheet) {
+                // Para Excel ml_sales, también aplicamos el salto de 5 filas si es necesario
+                const range = table === 'ml_sales' ? 5 : 0;
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, range }) as any[][];
+                const validRows = json.filter(row => row.some(cell => cell !== null && cell !== ''));
+                
+                if (validRows.length > 0) {
+                    const h = validRows[0].map(val => String(val || ''));
+                    const rows = validRows.slice(1);
+                    setHeaders(h);
+                    setRawRows(rows);
+                    setupMapping(table, h);
+                }
+            }
+            setIsLoading(false);
+        }
+    };
+
+    const setupMapping = (table: string, currentHeaders: string[]) => {
         const schema = TABLE_SCHEMAS[table];
         const aliases = COLUMN_ALIASES[table] || {};
         const map: Record<number, string> = {};
         const usedColumns = new Set<string>();
 
-        headers.forEach((h, i) => {
+        currentHeaders.forEach((h, i) => {
             const hRaw = String(h || '');
             const hClean = hRaw.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
             const hUnder = hRaw.toLowerCase().replace(/\s+/g, '_');
 
+            // Intenta encontrar coincidencia por alias
             let match = schema.columns.find(c => {
                 if (usedColumns.has(c)) return false;
                 return Object.entries(aliases).some(([aliasHeader, dbCol]) => {
@@ -179,6 +239,7 @@ export default function CsvUploader() {
                 });
             });
 
+            // Intenta encontrar coincidencia por nombre técnico
             if (!match) {
                 match = schema.columns.find(c => {
                     if (usedColumns.has(c)) return false;
@@ -214,7 +275,7 @@ export default function CsvUploader() {
         const schema = TABLE_SCHEMAS[selectedTable];
         
         try {
-            // Requisito: Usar un Map para registros únicos y tipados antes de convertir a arreglo tradicional
+            // Unificamos registros únicos por PK usando un Map
             const uniqueRecordsMap = new Map<string, any>();
 
             rawRows.forEach(row => {
@@ -232,9 +293,7 @@ export default function CsvUploader() {
                 }
             });
 
-            // Convertir el Map a un arreglo tradicional
             const allRecords = Array.from(uniqueRecordsMap.values());
-
             const pks = allRecords.map(r => String(r[schema.pk])).filter(Boolean);
             const existingDataMap = new Map<string, any>();
             const FETCH_BATCH_SIZE = 500;
@@ -320,7 +379,6 @@ export default function CsvUploader() {
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
                 
-                // Requisito: Ejecutar upsert con onConflict apuntando a la llave primaria
                 const { error } = await supabase
                     .from(selectedTable)
                     .upsert(batch, { onConflict: schema.pk });
@@ -347,6 +405,7 @@ export default function CsvUploader() {
     };
 
     const processFile = (f: File) => {
+        setSelectedFile(f);
         setCurrentStep('converting');
         let progress = 0;
         const interval = setInterval(() => {
@@ -360,8 +419,8 @@ export default function CsvUploader() {
                         const wb = XLSX.read(data, { type: 'array' });
                         setWorkbook(wb);
                         setSheets(wb.SheetNames);
-                        if (f.name.endsWith('.csv')) {
-                            handleSheetSelect(wb.SheetNames[0], wb);
+                        if (f.name.toLowerCase().endsWith('.csv')) {
+                            setCurrentStep('table-selection');
                         } else {
                             setCurrentStep('sheet-selection');
                         }
@@ -377,24 +436,16 @@ export default function CsvUploader() {
         }, 100);
     };
 
-    const handleSheetSelect = (sheetName: string, customWb?: XLSX.WorkBook) => {
-        const targetWb = customWb || workbook;
-        if (!targetWb) return;
-        const worksheet = targetWb.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as any[][];
-        const validRows = json.filter(row => row.some(cell => cell !== null && cell !== ''));
-        if (validRows.length === 0) {
-            toast({ title: 'Página vacía', description: 'La página seleccionada no contiene datos.', variant: 'destructive' });
-            return;
-        }
-        setHeaders(validRows[0].map(h => String(h || '')));
-        setRawRows(validRows.slice(1));
+    const handleSheetSelect = (sheetName: string) => {
+        setSelectedSheet(sheetName);
         setCurrentStep('table-selection');
     };
 
     const reset = () => {
+        setSelectedFile(null);
         setWorkbook(null);
         setSheets([]);
+        setSelectedSheet('');
         setHeaders([]);
         setRawRows([]);
         setConversionProgress(0);
@@ -466,15 +517,22 @@ export default function CsvUploader() {
                         <Button variant="ghost" size="icon" onClick={reset} className="rounded-full h-8 w-8 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /></Button>
                     </CardHeader>
                     <CardContent className="pt-8 pb-12 px-8">
-                        <div className="max-w-md mx-auto space-y-4">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tabla de Destino (Base de Datos)</Label>
-                            <Select onValueChange={handleTableSelect} value={selectedTable}>
-                                <SelectTrigger className="h-14 border-slate-200 text-base font-bold bg-white rounded-xl"><SelectValue placeholder="Selecciona el destino técnico..." /></SelectTrigger>
-                                <SelectContent className="border-none shadow-2xl rounded-xl">
-                                    {Object.keys(TABLE_SCHEMAS).map(table => <SelectItem key={table} value={table} className="py-3 font-bold uppercase text-xs">{table}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {isLoading ? (
+                            <div className="flex flex-col items-center gap-4 py-8">
+                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Analizando estructura del archivo...</p>
+                            </div>
+                        ) : (
+                            <div className="max-w-md mx-auto space-y-4">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tabla de Destino (Base de Datos)</Label>
+                                <Select onValueChange={handleTableSelect} value={selectedTable}>
+                                    <SelectTrigger className="h-14 border-slate-200 text-base font-bold bg-white rounded-xl"><SelectValue placeholder="Selecciona el destino técnico..." /></SelectTrigger>
+                                    <SelectContent className="border-none shadow-2xl rounded-xl">
+                                        {Object.keys(TABLE_SCHEMAS).map(table => <SelectItem key={table} value={table} className="py-3 font-bold uppercase text-xs">{table}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}
