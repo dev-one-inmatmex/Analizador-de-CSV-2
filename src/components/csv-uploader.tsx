@@ -526,7 +526,6 @@ export default function CsvUploader() {
             hour12: true 
         }).toLowerCase().replace(/ p\.? m\.?/g, ' p.m.').replace(/ a\.? m\.?/g, ' a.m.');
 
-        // Revalidamos los dashboards para reflejar los cambios
         await revalidateDashboards();
 
         setSyncResult({ inserted, updated, unchanged, errors, syncTime });

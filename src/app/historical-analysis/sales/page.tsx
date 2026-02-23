@@ -8,29 +8,43 @@ export type Sale = ml_sales;
 async function getSalesData() {
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
-  // Mantenemos el filtro de 12 meses pero aumentamos el límite de registros
-  // Supabase por defecto limita a 1000 si no se especifica un rango mayor o limit
   const twelveMonthsAgo = subMonths(new Date(), 12);
+  const allSales: Sale[] = [];
+  let from = 0;
+  const step = 1000;
+  let hasMore = true;
 
-  const { data, error } = await supabaseAdmin
-    .from('ml_sales')
-    .select('*')
-    .gte('fecha_venta', twelveMonthsAgo.toISOString())
-    .order('fecha_venta', { ascending: false })
-    .limit(10000); // Aumentamos el límite para capturar todas las ventas (aprox 3000+)
-    
-  if (error || !data) {
-    console.error('Error fetching sales data from ml_sales:', error);
-    return { sales: [], allCompanies: [] };
+  // Realizamos una carga por lotes para superar el límite de 1000 registros de la API
+  while (hasMore && allSales.length < 20000) {
+    const { data, error } = await supabaseAdmin
+      .from('ml_sales')
+      .select('*')
+      .gte('fecha_venta', twelveMonthsAgo.toISOString())
+      .order('fecha_venta', { ascending: false })
+      .range(from, from + step - 1);
+
+    if (error) {
+      console.error('Error fetching sales batch:', error);
+      break;
+    }
+
+    if (data && data.length > 0) {
+      allSales.push(...data);
+      if (data.length < step) {
+        hasMore = false;
+      } else {
+        from += step;
+      }
+    } else {
+      hasMore = false;
+    }
   }
-
-  const sales: Sale[] = data;
   
-  // Extraemos las tiendas únicas directamente de los registros
-  const allCompanies = Array.from(new Set(sales.map(s => s.tienda).filter(Boolean) as string[])).sort();
+  // Extraemos las tiendas únicas directamente de los registros recuperados
+  const allCompanies = Array.from(new Set(allSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
   
   return {
-    sales,
+    sales: allSales,
     allCompanies
   };
 }
