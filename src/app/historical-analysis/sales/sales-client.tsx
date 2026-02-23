@@ -14,7 +14,7 @@ import { DateRange } from 'react-day-picker';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -23,7 +23,6 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -221,90 +220,82 @@ export default function SalesDashboardClient({
             </header>
 
             <main className="p-4 md:p-8 space-y-8 min-w-0 max-w-full">
-                <Card className="min-w-0 shadow-sm border-none bg-white/50 backdrop-blur-sm">
-                    <CardHeader className="flex flex-row items-center justify-between">
+                <Card className="min-w-0 shadow-sm border-none bg-white/50 backdrop-blur-sm rounded-xl">
+                    <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <Filter className="h-6 w-6 text-primary" />
                             <div>
-                                <CardTitle>Filtros Maestros</CardTitle>
-                                <CardDescription>Segmenta ingresos y registros por periodo y tienda.</CardDescription>
+                                <h3 className="text-lg font-bold">Filtros Maestros</h3>
+                                <p className="text-sm text-muted-foreground">Segmenta ingresos y registros por periodo y tienda.</p>
                             </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={handleResetFilters} className="text-xs font-bold gap-2">
-                            <RefreshCcw className="h-3.5 w-3.5" /> Limpiar Filtros
-                        </Button>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Rango de Fecha</Label>
-                            <DateRangePicker date={date} onSelect={setDate} />
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Rango de Fecha</Label>
+                                <DateRangePicker date={date} onSelect={setDate} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tienda / Empresa</Label>
+                                <Select value={company} onValueChange={setCompany}>
+                                    <SelectTrigger className="w-[200px] bg-white border-slate-200"><SelectValue placeholder="Todas las tiendas" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Todos">Todas las tiendas</SelectItem>
+                                        {dynamicCompanies.map(c => (
+                                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={handleResetFilters} className="mt-5 text-xs font-bold gap-2 border-slate-200">
+                                <RefreshCcw className="h-3.5 w-3.5" /> Limpiar
+                            </Button>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Tienda / Empresa</Label>
-                            <Select value={company} onValueChange={setCompany}>
-                                <SelectTrigger className="bg-white"><SelectValue placeholder="Todas las tiendas" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Todos">Todas las tiendas</SelectItem>
-                                    {dynamicCompanies.map(c => (
-                                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </CardContent>
+                    </div>
                 </Card>
 
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ingresos Netos</p>
-                        </CardHeader>
-                        <CardContent>
+                        <div className="p-6">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-2">Ingresos Netos</p>
                             <div className="text-4xl font-black text-[#2D5A4C] tabular-nums">{money(kpis.totalRevenue)}</div>
-                        </CardContent>
+                        </div>
                     </Card>
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ventas Realizadas</p>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-4xl font-bold text-slate-900 tabular-nums">{kpis.totalSales.toLocaleString()}</div>
-                        </CardContent>
+                        <div className="p-6">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-2">Ventas Realizadas</p>
+                            <div className="text-4xl font-black text-slate-900 tabular-nums">{kpis.totalSales.toLocaleString()}</div>
+                        </div>
                     </Card>
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Ticket Promedio</p>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-4xl font-bold text-slate-900 tabular-nums">{money(kpis.avgSale)}</div>
-                        </CardContent>
+                        <div className="p-6">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-2">Ticket Promedio</p>
+                            <div className="text-4xl font-black text-slate-900 tabular-nums">{money(kpis.avgSale)}</div>
+                        </div>
                     </Card>
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-xl">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Top Producto</p>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-lg font-bold truncate leading-tight text-slate-900" title={kpis.topProductName}>
+                        <div className="p-6">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-2">Top Producto</p>
+                            <div className="text-lg font-bold truncate leading-tight text-slate-900 mt-2" title={kpis.topProductName}>
                                 {kpis.topProductName}
                             </div>
-                        </CardContent>
+                        </div>
                     </Card>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
-                        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5">
-                            <CardTitle className="text-lg font-bold">Curva Pareto (80/20)</CardTitle>
+                        <div className="flex items-center justify-between p-6 border-b bg-muted/5">
+                            <h3 className="text-lg font-bold">Curva Pareto (80/20)</h3>
                             <Button 
                               variant="outline" 
                               size="sm" 
                               onClick={() => setIsParetoModalOpen(true)} 
-                              className="gap-2 font-bold bg-primary/5 border-primary/20 hover:bg-primary/10"
+                              className="gap-2 font-bold bg-primary/5 border-primary/20"
                             >
                                 <BarChart3 className="h-4 w-4" /> Análisis Pareto
                             </Button>
-                        </CardHeader>
-                        <CardContent className="h-[400px] pt-6">
+                        </div>
+                        <div className="h-[400px] p-6">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={charts.topProducts} margin={{ bottom: 100, left: 20, right: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -353,11 +344,11 @@ export default function SalesDashboardClient({
                                     />
                                 </ComposedChart>
                             </ResponsiveContainer>
-                        </CardContent>
+                        </div>
                     </Card>
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
-                        <CardHeader className="border-b bg-muted/5"><CardTitle className="text-lg font-bold">Participación por Canal</CardTitle></CardHeader>
-                        <CardContent className="h-[400px] pt-6">
+                        <div className="p-6 border-b bg-muted/5"><h3 className="text-lg font-bold">Participación por Canal</h3></div>
+                        <div className="h-[400px] p-6">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie 
@@ -381,179 +372,177 @@ export default function SalesDashboardClient({
                                     <Legend verticalAlign="bottom" height={36} iconType="circle" />
                                 </PieChart>
                             </ResponsiveContainer>
-                        </CardContent>
+                        </div>
                     </Card>
                 </div>
 
-                <Card className="min-w-0 overflow-hidden border-none shadow-sm rounded-xl">
-                    <CardHeader className="bg-muted/5">
-                        <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
-                        <CardDescription>Detalle de transacciones ml_sales con valores originales.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="relative w-full overflow-x-auto border-t">
-                            <Table className="min-w-[5000px]">
-                                <TableHeader className="bg-muted/30">
-                                    <TableRow className="text-[10px] uppercase font-bold text-muted-foreground h-12">
-                                        <TableHead className="border-r border-muted text-center bg-muted/10" colSpan={2}>Identificación</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-blue-50/20" colSpan={3}>Estado Venta</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-green-50/20" colSpan={9}>Finanzas ($)</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-orange-50/20" colSpan={8}>Producto / Publicación</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-purple-50/20" colSpan={8}>Facturación y CFDI</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-yellow-50/20" colSpan={8}>Comprador</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-indigo-50/20" colSpan={6}>Logística S1</TableHead>
-                                        <TableHead className="border-r border-muted text-center bg-cyan-50/20" colSpan={7}>Logística S2</TableHead>
-                                        <TableHead className="bg-red-50/20 text-center" colSpan={10}>Resultados Finales</TableHead>
+                <Card className="min-w-0 overflow-hidden border-none shadow-sm rounded-xl bg-white">
+                    <div className="p-6 bg-muted/5">
+                        <h3 className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</h3>
+                        <p className="text-sm text-muted-foreground mt-1">Detalle original de las {sales.length.toLocaleString()} transacciones registradas.</p>
+                    </div>
+                    <div className="p-0 border-t overflow-x-auto">
+                        <Table className="min-w-[5000px]">
+                            <TableHeader className="bg-muted/30">
+                                <TableRow className="text-[10px] uppercase font-bold text-muted-foreground h-12">
+                                    <TableHead className="border-r border-muted text-center bg-muted/10" colSpan={2}>Identificación</TableHead>
+                                    <TableHead className="border-r border-muted text-center bg-blue-50/20" colSpan={3}>Estado Venta</TableHead>
+                                    <TableHead className="border-r border-muted text-center bg-green-50/20" colSpan={9}>Finanzas ($)</TableHead>
+                                    <TableHead className="border-r border-muted text-center bg-orange-50/20" colSpan={8}>Producto / Publicación</TableHead>
+                                    <TableHead className="border-r border-muted text-center bg-purple-50/20" colSpan={8}>Facturación y CFDI</TableHead>
+                                    <TableHead className="border-r border-muted text-center bg-yellow-50/20" colSpan={8}>Comprador</TableHead>
+                                    <TableHead className="border-r border-muted text-center bg-indigo-50/20" colSpan={6}>Logística S1</TableHead>
+                                    <TableHead className="border-r border-muted text-center bg-cyan-50/20" colSpan={7}>Logística S2</TableHead>
+                                    <TableHead className="bg-red-50/20 text-center" colSpan={10}>Resultados Finales</TableHead>
+                                </TableRow>
+                                <TableRow className="text-[9px] uppercase font-medium bg-muted/10 h-10">
+                                    <TableHead className="border-r"># Venta</TableHead>
+                                    <TableHead className="border-r">Fecha</TableHead>
+                                    <TableHead className="border-r">Status</TableHead>
+                                    <TableHead className="border-r">Descripción</TableHead>
+                                    <TableHead className="border-r text-center">Pq. Varios</TableHead>
+                                    <TableHead className="border-r text-center">Kit</TableHead>
+                                    <TableHead className="border-r text-center">Unid.</TableHead>
+                                    <TableHead className="border-r text-right">Ing x Unid</TableHead>
+                                    <TableHead className="border-r text-right">Cargo Venta</TableHead>
+                                    <TableHead className="border-r text-right">Ing x Envío</TableHead>
+                                    <TableHead className="border-r text-right">Costos Envío</TableHead>
+                                    <TableHead className="border-r text-right">Envío MP</TableHead>
+                                    <TableHead className="border-r text-right">Dif Peso</TableHead>
+                                    <TableHead className="border-r text-right">Reembolsos</TableHead>
+                                    <TableHead className="border-r text-right font-bold text-primary">Total Neto</TableHead>
+                                    <TableHead className="border-r text-center">Publicidad</TableHead>
+                                    <TableHead className="border-r">SKU</TableHead>
+                                    <TableHead className="border-r"># Publi</TableHead>
+                                    <TableHead className="border-r">Tienda</TableHead>
+                                    <TableHead className="border-r">Título Publicación</TableHead>
+                                    <TableHead className="border-r">Variante</TableHead>
+                                    <TableHead className="border-r text-right">Precio Unit.</TableHead>
+                                    <TableHead className="border-r">Tipo Pub</TableHead>
+                                    <TableHead className="border-r">Factura A</TableHead>
+                                    <TableHead className="border-r">POE</TableHead>
+                                    <TableHead className="border-r">Tipo Doc</TableHead>
+                                    <TableHead className="border-r">Dirección Fiscal</TableHead>
+                                    <TableHead className="border-r">RFC/Contrib.</TableHead>
+                                    <TableHead className="border-r">CFDI</TableHead>
+                                    <TableHead className="border-r">Tipo Usuario</TableHead>
+                                    <TableHead className="border-r">R. Fiscal</TableHead>
+                                    <TableHead className="border-r">Comprador</TableHead>
+                                    <TableHead className="border-r text-center">Negocio</TableHead>
+                                    <TableHead className="border-r">IFE</TableHead>
+                                    <TableHead className="border-r">Domicilio</TableHead>
+                                    <TableHead className="border-r">Municipio/Alcaldía</TableHead>
+                                    <TableHead className="border-r">Estado</TableHead>
+                                    <TableHead className="border-r">CP</TableHead>
+                                    <TableHead className="border-r">País</TableHead>
+                                    <TableHead className="border-r">F. Entrega</TableHead>
+                                    <TableHead className="border-r">F. Camino</TableHead>
+                                    <TableHead className="border-r">F. Entregado</TableHead>
+                                    <TableHead className="border-r">Transportista</TableHead>
+                                    <TableHead className="border-r">Seguimiento</TableHead>
+                                    <TableHead className="border-r">URL Seg.</TableHead>
+                                    <TableHead className="border-r text-center">Unid 2</TableHead>
+                                    <TableHead className="border-r">F. Entrega 2</TableHead>
+                                    <TableHead className="border-r">F. Camino 2</TableHead>
+                                    <TableHead className="border-r">F. Entregado 2</TableHead>
+                                    <TableHead className="border-r">Transp. 2</TableHead>
+                                    <TableHead className="border-r">Seg. 2</TableHead>
+                                    <TableHead className="border-r">URL Seg 2</TableHead>
+                                    <TableHead className="border-r text-center">XML Rev.</TableHead>
+                                    <TableHead className="border-r">F. Rev 3</TableHead>
+                                    <TableHead className="border-r text-right">Favor</TableHead>
+                                    <TableHead className="border-r">Resultado</TableHead>
+                                    <TableHead className="border-r">Destino</TableHead>
+                                    <TableHead className="border-r">Motivo</TableHead>
+                                    <TableHead className="border-r text-center">Unid 3</TableHead>
+                                    <TableHead className="border-r text-center">Reclamo Ab.</TableHead>
+                                    <TableHead className="border-r text-center">Reclamo Cerr.</TableHead>
+                                    <TableHead className="text-center">Mediación</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedSales.map((s, idx) => (
+                                    <TableRow key={s.num_venta || idx} className="text-[10px] h-11 hover:bg-primary/5 transition-colors">
+                                        <TableCell className="border-r font-bold text-primary">#{s.num_venta}</TableCell>
+                                        <TableCell className="border-r whitespace-nowrap">{safeFormat(s.fecha_venta, 'dd/MM/yy HH:mm')}</TableCell>
+                                        <TableCell className="border-r"><Badge variant="outline" className="text-[8px] uppercase font-black">{s.status}</Badge></TableCell>
+                                        <TableCell className="border-r italic text-muted-foreground truncate max-w-[150px]">{s.desc_status || '-'}</TableCell>
+                                        <TableCell className="border-r text-center font-bold">{s.paquete_varios ? 'SÍ' : 'NO'}</TableCell>
+                                        <TableCell className="border-r text-center font-bold">{s.pertenece_kit ? 'SÍ' : 'NO'}</TableCell>
+                                        <TableCell className="border-r text-center font-black bg-muted/5">{s.unidades}</TableCell>
+                                        <TableCell className="border-r text-right">{money(s.ing_xunidad)}</TableCell>
+                                        <TableCell className="border-r text-right text-destructive font-medium">{money(s.cargo_venta)}</TableCell>
+                                        <TableCell className="border-r text-right text-blue-600 font-medium">{money(s.ing_xenvio)}</TableCell>
+                                        <TableCell className="border-r text-right text-destructive">{money(s.costo_envio)}</TableCell>
+                                        <TableCell className="border-r text-right">{money(s.costo_enviomp)}</TableCell>
+                                        <TableCell className="border-r text-right text-amber-600">{money(s.cargo_difpeso)}</TableCell>
+                                        <TableCell className="border-r text-right text-orange-600">{money(s.anu_reembolsos)}</TableCell>
+                                        <TableCell className="border-r text-right font-black bg-primary/5 text-primary">{money(s.total)}</TableCell>
+                                        <TableCell className="border-r text-center font-bold">{s.venta_xpublicidad ? 'SÍ' : 'NO'}</TableCell>
+                                        <TableCell className="border-r font-mono font-bold text-blue-700">{s.sku || '-'}</TableCell>
+                                        <TableCell className="border-r font-mono">{s.num_publi || '-'}</TableCell>
+                                        <TableCell className="border-r"><Badge variant="secondary" className="text-[8px] font-bold">{s.tienda}</Badge></TableCell>
+                                        <TableCell className="border-r truncate max-w-[250px] font-medium" title={s.tit_pub || ''}>{s.tit_pub || '-'}</TableCell>
+                                        <TableCell className="border-r">{s.variante || '-'}</TableCell>
+                                        <TableCell className="border-r text-right font-bold">{money(s.price)}</TableCell>
+                                        <TableCell className="border-r">{s.tip_publi || '-'}</TableCell>
+                                        <TableCell className="border-r font-bold">{s.factura_a || '-'}</TableCell>
+                                        <TableCell className="border-r">{s.datos_poe || '-'}</TableCell>
+                                        <TableCell className="border-r">{s.tipo_ndoc || '-'}</TableCell>
+                                        <TableCell className="border-r italic truncate max-w-[150px]">{s.direccion || '-'}</TableCell>
+                                        <TableCell className="border-r font-medium">{s.t_contribuyente || '-'}</TableCell>
+                                        <TableCell className="border-r font-mono text-muted-foreground">{s.cfdi || '-'}</TableCell>
+                                        <TableCell className="border-r text-[9px]">{s.t_usuario || '-'}</TableCell>
+                                        <TableCell className="border-r text-[9px]">{s.r_fiscal || '-'}</TableCell>
+                                        <TableCell className="border-r font-black text-slate-700">{s.comprador || '-'}</TableCell>
+                                        <TableCell className="border-r text-center font-bold">{s.negocio ? 'SÍ' : 'NO'}</TableCell>
+                                        <TableCell className="border-r font-mono text-[9px]">{s.ife || '-'}</TableCell>
+                                        <TableCell className="border-r truncate max-w-[150px]">{s.domicilio || '-'}</TableCell>
+                                        <TableCell className="border-r">{s.mun_alcaldia || '-'}</TableCell>
+                                        <TableCell className="border-r font-bold">{s.estado || '-'}</TableCell>
+                                        <TableCell className="border-r font-mono">{s.c_postal || '-'}</TableCell>
+                                        <TableCell className="border-r text-center font-bold text-[9px]">{s.pais || '-'}</TableCell>
+                                        <TableCell className="border-r">{safeFormat(s.f_entrega)}</TableCell>
+                                        <TableCell className="border-r">{safeFormat(s.f_camino)}</TableCell>
+                                        <TableCell className="border-r font-black text-green-600">{safeFormat(s.f_entregado)}</TableCell>
+                                        <TableCell className="border-r font-bold">{s.transportista || '-'}</TableCell>
+                                        <TableCell className="border-r font-mono text-blue-600 font-bold">{s.num_seguimiento || '-'}</TableCell>
+                                        <TableCell className="border-r truncate max-w-[100px] text-[8px] text-blue-500 underline">{s.url_seguimiento || '-'}</TableCell>
+                                        <TableCell className="border-r text-center font-black bg-muted/5">{s.unidades_2 || '-'}</TableCell>
+                                        <TableCell className="border-r">{safeFormat(s.f_entrega2)}</TableCell>
+                                        <TableCell className="border-r">{safeFormat(s.f_camino2)}</TableCell>
+                                        <TableCell className="border-r font-black text-green-600">{safeFormat(s.f_entregado2)}</TableCell>
+                                        <TableCell className="border-r font-bold">{s.transportista2 || '-'}</TableCell>
+                                        <TableCell className="border-r font-mono text-green-600 font-bold">{s.num_seguimiento2 || '-'}</TableCell>
+                                        <TableCell className="border-r truncate max-w-[100px] text-[8px] text-blue-500 underline">{s.url_seguimiento2 || '-'}</TableCell>
+                                        <TableCell className="border-r text-center font-bold">{s.revisado_xml || 'NO'}</TableCell>
+                                        <TableCell className="border-r">{safeFormat(s.f_revision3)}</TableCell>
+                                        <TableCell className="border-r text-right font-medium">{s.d_afavor || '-'}</TableCell>
+                                        <TableCell className="border-r font-black uppercase text-center">{s.resultado || '-'}</TableCell>
+                                        <TableCell className="border-r">{s.destino || '-'}</TableCell>
+                                        <TableCell className="border-r italic text-muted-foreground truncate max-w-[150px]">{s.motivo_resul || '-'}</TableCell>
+                                        <TableCell className="border-r text-center font-black">{s.unidades_3 || '-'}</TableCell>
+                                        <TableCell className="border-r text-center font-bold">{s.r_abierto ? 'SÍ' : 'NO'}</TableCell>
+                                        <TableCell className="border-r text-center font-bold">{s.r_cerrado ? 'SÍ' : 'NO'}</TableCell>
+                                        <TableCell className="text-center font-bold">{s.c_mediacion ? 'SÍ' : 'NO'}</TableCell>
                                     </TableRow>
-                                    <TableRow className="text-[9px] uppercase font-medium bg-muted/10 h-10">
-                                        <TableHead className="border-r"># Venta</TableHead>
-                                        <TableHead className="border-r">Fecha</TableHead>
-                                        <TableHead className="border-r">Status</TableHead>
-                                        <TableHead className="border-r">Descripción</TableHead>
-                                        <TableHead className="border-r text-center">Pq. Varios</TableHead>
-                                        <TableHead className="border-r text-center">Kit</TableHead>
-                                        <TableHead className="border-r text-center">Unid.</TableHead>
-                                        <TableHead className="border-r text-right">Ing x Unid</TableHead>
-                                        <TableHead className="border-r text-right">Cargo Venta</TableHead>
-                                        <TableHead className="border-r text-right">Ing x Envío</TableHead>
-                                        <TableHead className="border-r text-right">Costos Envío</TableHead>
-                                        <TableHead className="border-r text-right">Envío MP</TableHead>
-                                        <TableHead className="border-r text-right">Dif Peso</TableHead>
-                                        <TableHead className="border-r text-right">Reembolsos</TableHead>
-                                        <TableHead className="border-r text-right font-bold text-primary">Total Neto</TableHead>
-                                        <TableHead className="border-r text-center">Publicidad</TableHead>
-                                        <TableHead className="border-r">SKU</TableHead>
-                                        <TableHead className="border-r"># Publi</TableHead>
-                                        <TableHead className="border-r">Tienda</TableHead>
-                                        <TableHead className="border-r">Título Publicación</TableHead>
-                                        <TableHead className="border-r">Variante</TableHead>
-                                        <TableHead className="border-r text-right">Precio Unit.</TableHead>
-                                        <TableHead className="border-r">Tipo Pub</TableHead>
-                                        <TableHead className="border-r">Factura A</TableHead>
-                                        <TableHead className="border-r">POE</TableHead>
-                                        <TableHead className="border-r">Tipo Doc</TableHead>
-                                        <TableHead className="border-r">Dirección Fiscal</TableHead>
-                                        <TableHead className="border-r">RFC/Contrib.</TableHead>
-                                        <TableHead className="border-r">CFDI</TableHead>
-                                        <TableHead className="border-r">Tipo Usuario</TableHead>
-                                        <TableHead className="border-r">R. Fiscal</TableHead>
-                                        <TableHead className="border-r">Comprador</TableHead>
-                                        <TableHead className="border-r text-center">Negocio</TableHead>
-                                        <TableHead className="border-r">IFE</TableHead>
-                                        <TableHead className="border-r">Domicilio</TableHead>
-                                        <TableHead className="border-r">Municipio/Alcaldía</TableHead>
-                                        <TableHead className="border-r">Estado</TableHead>
-                                        <TableHead className="border-r">CP</TableHead>
-                                        <TableHead className="border-r">País</TableHead>
-                                        <TableHead className="border-r">F. Entrega</TableHead>
-                                        <TableHead className="border-r">F. Camino</TableHead>
-                                        <TableHead className="border-r">F. Entregado</TableHead>
-                                        <TableHead className="border-r">Transportista</TableHead>
-                                        <TableHead className="border-r">Seguimiento</TableHead>
-                                        <TableHead className="border-r">URL Seg.</TableHead>
-                                        <TableHead className="border-r text-center">Unid 2</TableHead>
-                                        <TableHead className="border-r">{`F. Entrega 2`}</TableHead>
-                                        <TableHead className="border-r">{`F. Camino 2`}</TableHead>
-                                        <TableHead className="border-r">{`F. Entregado 2`}</TableHead>
-                                        <TableHead className="border-r">Transp. 2</TableHead>
-                                        <TableHead className="border-r">Seg. 2</TableHead>
-                                        <TableHead className="border-r">URL Seg 2</TableHead>
-                                        <TableHead className="border-r text-center">XML Rev.</TableHead>
-                                        <TableHead className="border-r">F. Rev 3</TableHead>
-                                        <TableHead className="border-r text-right">Favor</TableHead>
-                                        <TableHead className="border-r">Resultado</TableHead>
-                                        <TableHead className="border-r">Destino</TableHead>
-                                        <TableHead className="border-r">Motivo</TableHead>
-                                        <TableHead className="border-r text-center">Unid 3</TableHead>
-                                        <TableHead className="border-r text-center">Reclamo Ab.</TableHead>
-                                        <TableHead className="border-r text-center">Reclamo Cerr.</TableHead>
-                                        <TableHead className="text-center">Mediación</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {paginatedSales.map((s, idx) => (
-                                        <TableRow key={s.num_venta || idx} className="text-[10px] h-11 hover:bg-primary/5 transition-colors">
-                                            <TableCell className="border-r font-bold text-primary">#{s.num_venta}</TableCell>
-                                            <TableCell className="border-r whitespace-nowrap">{safeFormat(s.fecha_venta, 'dd/MM/yy HH:mm')}</TableCell>
-                                            <TableCell className="border-r"><Badge variant="outline" className="text-[8px] uppercase font-black">{s.status}</Badge></TableCell>
-                                            <TableCell className="border-r italic text-muted-foreground truncate max-w-[150px]">{s.desc_status || '-'}</TableCell>
-                                            <TableCell className="border-r text-center font-bold">{s.paquete_varios ? 'SÍ' : 'NO'}</TableCell>
-                                            <TableCell className="border-r text-center font-bold">{s.pertenece_kit ? 'SÍ' : 'NO'}</TableCell>
-                                            <TableCell className="border-r text-center font-black bg-muted/5">{s.unidades}</TableCell>
-                                            <TableCell className="border-r text-right">{money(s.ing_xunidad)}</TableCell>
-                                            <TableCell className="border-r text-right text-destructive font-medium">{money(s.cargo_venta)}</TableCell>
-                                            <TableCell className="border-r text-right text-blue-600 font-medium">{money(s.ing_xenvio)}</TableCell>
-                                            <TableCell className="border-r text-right text-destructive">{money(s.costo_envio)}</TableCell>
-                                            <TableCell className="border-r text-right">{money(s.costo_enviomp)}</TableCell>
-                                            <TableCell className="border-r text-right text-amber-600">{money(s.cargo_difpeso)}</TableCell>
-                                            <TableCell className="border-r text-right text-orange-600">{money(s.anu_reembolsos)}</TableCell>
-                                            <TableCell className="border-r text-right font-black bg-primary/5 text-primary">{money(s.total)}</TableCell>
-                                            <TableCell className="border-r text-center font-bold">{s.venta_xpublicidad ? 'SÍ' : 'NO'}</TableCell>
-                                            <TableCell className="border-r font-mono font-bold text-blue-700">{s.sku || '-'}</TableCell>
-                                            <TableCell className="border-r font-mono">{s.num_publi || '-'}</TableCell>
-                                            <TableCell className="border-r"><Badge variant="secondary" className="text-[8px] font-bold">{s.tienda}</Badge></TableCell>
-                                            <TableCell className="border-r truncate max-w-[250px] font-medium" title={s.tit_pub || ''}>{s.tit_pub || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.variante || '-'}</TableCell>
-                                            <TableCell className="border-r text-right font-bold">{money(s.price)}</TableCell>
-                                            <TableCell className="border-r">{s.tip_publi || '-'}</TableCell>
-                                            <TableCell className="border-r font-bold">{s.factura_a || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.datos_poe || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.tipo_ndoc || '-'}</TableCell>
-                                            <TableCell className="border-r italic truncate max-w-[150px]">{s.direccion || '-'}</TableCell>
-                                            <TableCell className="border-r font-medium">{s.t_contribuyente || '-'}</TableCell>
-                                            <TableCell className="border-r font-mono text-muted-foreground">{s.cfdi || '-'}</TableCell>
-                                            <TableCell className="border-r text-[9px]">{s.t_usuario || '-'}</TableCell>
-                                            <TableCell className="border-r text-[9px]">{s.r_fiscal || '-'}</TableCell>
-                                            <TableCell className="border-r font-black text-slate-700">{s.comprador || '-'}</TableCell>
-                                            <TableCell className="border-r text-center font-bold">{s.negocio ? 'SÍ' : 'NO'}</TableCell>
-                                            <TableCell className="border-r font-mono text-[9px]">{s.ife || '-'}</TableCell>
-                                            <TableCell className="border-r truncate max-w-[150px]">{s.domicilio || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.mun_alcaldia || '-'}</TableCell>
-                                            <TableCell className="border-r font-bold">{s.estado || '-'}</TableCell>
-                                            <TableCell className="border-r font-mono">{s.c_postal || '-'}</TableCell>
-                                            <TableCell className="border-r text-center font-bold text-[9px]">{s.pais || '-'}</TableCell>
-                                            <TableCell className="border-r">{safeFormat(s.f_entrega)}</TableCell>
-                                            <TableCell className="border-r">{safeFormat(s.f_camino)}</TableCell>
-                                            <TableCell className="border-r font-black text-green-600">{safeFormat(s.f_entregado)}</TableCell>
-                                            <TableCell className="border-r font-bold">{s.transportista || '-'}</TableCell>
-                                            <TableCell className="border-r font-mono text-blue-600 font-bold">{s.num_seguimiento || '-'}</TableCell>
-                                            <TableCell className="border-r truncate max-w-[100px] text-[8px] text-blue-500 underline">{s.url_seguimiento || '-'}</TableCell>
-                                            <TableCell className="border-r text-center font-black bg-muted/5">{s.unidades_2 || '-'}</TableCell>
-                                            <TableCell className="border-r">{safeFormat(s.f_entrega2)}</TableCell>
-                                            <TableCell className="border-r">{safeFormat(s.f_camino2)}</TableCell>
-                                            <TableCell className="border-r font-black text-green-600">{safeFormat(s.f_entregado2)}</TableCell>
-                                            <TableCell className="border-r font-bold">{s.transportista2 || '-'}</TableCell>
-                                            <TableCell className="border-r font-mono text-green-600 font-bold">{s.num_seguimiento2 || '-'}</TableCell>
-                                            <TableCell className="border-r truncate max-w-[100px] text-[8px] text-blue-500 underline">{s.url_seguimiento2 || '-'}</TableCell>
-                                            <TableCell className="border-r text-center font-bold">{s.revisado_xml || 'NO'}</TableCell>
-                                            <TableCell className="border-r">{safeFormat(s.f_revision3)}</TableCell>
-                                            <TableCell className="border-r text-right font-medium">{s.d_afavor || '-'}</TableCell>
-                                            <TableCell className="border-r font-black uppercase text-center">{s.resultado || '-'}</TableCell>
-                                            <TableCell className="border-r">{s.destino || '-'}</TableCell>
-                                            <TableCell className="border-r italic text-muted-foreground truncate max-w-[150px]">{s.motivo_resul || '-'}</TableCell>
-                                            <TableCell className="border-r text-center font-black">{s.unidades_3 || '-'}</TableCell>
-                                            <TableCell className="border-r text-center font-bold">{s.r_abierto ? 'SÍ' : 'NO'}</TableCell>
-                                            <TableCell className="border-r text-center font-bold">{s.r_cerrado ? 'SÍ' : 'NO'}</TableCell>
-                                            <TableCell className="text-center font-bold">{s.c_mediacion ? 'SÍ' : 'NO'}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                     <CardFooter className="flex justify-between border-t p-4 bg-muted/5">
-                        <div className="text-xs text-muted-foreground font-medium">Página {currentPage} de {totalPages} • <span className="text-primary font-black">{sales.length}</span> registros procesados</div>
+                        <div className="text-xs text-muted-foreground font-medium">Página {currentPage} de {totalPages} • <span className="text-primary font-black">{sales.length.toLocaleString()}</span> registros procesados</div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
-                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="border-slate-200">Anterior</Button>
+                            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="border-slate-200">Siguiente</Button>
                         </div>
                     </CardFooter>
                 </Card>
             </main>
 
             <Dialog open={isParetoModalOpen} onOpenChange={setIsParetoModalOpen}>
-                <DialogContent className="max-w-5xl h-[85vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden">
-                    <div className="px-6 py-4 border-b bg-muted/30">
+                <DialogContent className="max-w-5xl h-[85vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden rounded-[32px]">
+                    <div className="px-8 py-6 border-b bg-muted/30">
                         <DialogHeader>
                             <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
                                 <BarChart3 className="h-6 w-6 text-primary" /> Análisis Pareto (Impacto 80/20)
@@ -562,43 +551,49 @@ export default function SalesDashboardClient({
                         </DialogHeader>
                     </div>
                     
-                    <div className="flex-1 overflow-auto p-6">
-                        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card className="bg-primary/5 border-none shadow-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Ingreso Total Filtrado</div><div className="text-xl font-black">{money(kpis.totalRevenue)}</div></CardContent></Card>
-                            <Card className="bg-primary/5 border-none shadow-none"><CardContent className="pt-4"><div className="text-[10px] font-bold uppercase text-muted-foreground">Productos Analizados</div><div className="text-xl font-black">{paretoAnalysisData.length} SKU</div></CardContent></Card>
-                            <Card className="bg-[#2D5A4C]/10 border-none shadow-none">
-                              <CardContent className="pt-4">
-                                <div className="text-xl font-black text-[#2D5A4C]">{paretoAnalysisData.filter(p => p.zona === 'Impacto A').length} SKU (Clase A)</div>
-                              </CardContent>
-                            </Card>
+                    <div className="flex-1 overflow-auto p-8">
+                        <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                                <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-1">Ingreso Total Filtrado</div>
+                                <div className="text-2xl font-black text-primary">{money(kpis.totalRevenue)}</div>
+                            </div>
+                            <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                                <div className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-1">Productos Analizados</div>
+                                <div className="text-2xl font-black">{paretoAnalysisData.length.toLocaleString()} SKU</div>
+                            </div>
+                            <div className="p-6 rounded-2xl bg-[#2D5A4C]/10 border border-[#2D5A4C]/20">
+                                <div className="text-[10px] font-bold uppercase text-[#2D5A4C] tracking-widest mb-1">Clase A (80% Ingresos)</div>
+                                <div className="text-2xl font-black text-[#2D5A4C]">{paretoAnalysisData.filter(p => p.zona === 'Impacto A').length} SKU</div>
+                            </div>
                         </div>
 
-                        <div className="border rounded-xl overflow-hidden shadow-sm">
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                             <Table>
-                                <TableHeader className="bg-muted/50">
-                                    <TableRow className="h-12">
-                                        <TableHead className="font-bold">Producto / Publicación</TableHead>
-                                        <TableHead className="text-right font-bold">Ingresos ($)</TableHead>
-                                        <TableHead className="text-right font-bold">Piezas (unid)</TableHead>
-                                        <TableHead className="text-right font-bold">% Acumulado</TableHead>
-                                        <TableHead className="text-center font-bold">Zona</TableHead>
+                                <TableHeader className="bg-slate-50/50">
+                                    <TableRow className="h-14">
+                                        <TableHead className="font-bold px-6">Producto / Publicación</TableHead>
+                                        <TableHead className="text-right font-bold px-6">Ingresos ($)</TableHead>
+                                        <TableHead className="text-right font-bold px-6">Piezas (unid)</TableHead>
+                                        <TableHead className="text-right font-bold px-6">% Acumulado</TableHead>
+                                        <TableHead className="text-center font-bold px-6">Zona</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {paretoAnalysisData.slice((paretoPage-1)*PARETO_PAGE_SIZE, paretoPage*PARETO_PAGE_SIZE).map((p, i) => (
-                                        <TableRow key={i} className={cn("h-14 hover:bg-muted/30 transition-colors", p.zona === 'Impacto A' ? "bg-[#2D5A4C]/5" : "")}>
-                                            <TableCell className="max-w-md">
+                                        <TableRow key={i} className={cn("h-16 hover:bg-muted/30 transition-colors border-b border-slate-50", p.zona === 'Impacto A' ? "bg-[#2D5A4C]/5" : "")}>
+                                            <TableCell className="max-w-md px-6">
                                                 <div className="font-bold text-xs truncate" title={p.name}>{p.name}</div>
-                                                <div className="text-[10px] text-muted-foreground font-mono">{p.sku}</div>
+                                                <div className="text-[10px] text-muted-foreground font-mono mt-1">{p.sku}</div>
                                             </TableCell>
-                                            <TableCell className="text-right font-black text-[#2D5A4C]">{money(p.revenue)}</TableCell>
-                                            <TableCell className="text-right font-medium">{p.units.toLocaleString()}</TableCell>
-                                            <TableCell className="text-right font-bold">{p.cumulativePercentage.toFixed(1)}%</TableCell>
-                                            <TableCell className="text-center">
+                                            <TableCell className="text-right font-black text-[#2D5A4C] px-6">{money(p.revenue)}</TableCell>
+                                            <TableCell className="text-right font-medium px-6">{p.units.toLocaleString()}</TableCell>
+                                            <TableCell className="text-right font-bold px-6">{p.cumulativePercentage.toFixed(1)}%</TableCell>
+                                            <TableCell className="text-center px-6">
                                                 <Badge 
                                                   variant={p.zona === 'Impacto A' ? 'default' : 'outline'} 
                                                   className={cn(
-                                                    p.zona === 'Impacto A' ? "bg-[#2D5A4C]" : 
+                                                    "px-3 py-1 rounded-full text-[9px] font-black",
+                                                    p.zona === 'Impacto A' ? "bg-[#2D5A4C] hover:bg-[#24483D]" : 
                                                     p.zona === 'Impacto B' ? "border-amber-500 text-amber-600" : ""
                                                   )}
                                                 >
@@ -612,11 +607,11 @@ export default function SalesDashboardClient({
                         </div>
                     </div>
                     
-                    <div className="px-6 py-4 border-t bg-muted/10 flex items-center justify-between">
+                    <div className="px-8 py-6 border-t bg-muted/10 flex items-center justify-between">
                         <div className="text-xs text-muted-foreground font-medium">Página {paretoPage} de {Math.ceil(paretoAnalysisData.length / PARETO_PAGE_SIZE)}</div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => Math.max(1, p - 1))} disabled={paretoPage === 1}>Anterior</Button>
-                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)} disabled={paretoPage * PARETO_PAGE_SIZE >= paretoAnalysisData.length}>Siguiente</Button>
+                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => Math.max(1, p - 1))} disabled={paretoPage === 1} className="border-slate-200">Anterior</Button>
+                            <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)} disabled={paretoPage * PARETO_PAGE_SIZE >= paretoAnalysisData.length} className="border-slate-200">Siguiente</Button>
                         </div>
                     </div>
                 </DialogContent>
