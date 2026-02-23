@@ -22,7 +22,7 @@ export type RecentSale = {
 async function getPredictionData() {
     if (!supabaseAdmin) return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
 
-    // 1. Fetch last 12 months of sales from 'ventas' (Unlimited batch fetch)
+    // 1. Fetch last 12 months of sales from 'ml_sales' (Unlimited batch fetch)
     const twelveMonthsAgo = subMonths(new Date(), 12);
     const salesData: any[] = [];
     let from = 0;
@@ -32,8 +32,8 @@ async function getPredictionData() {
     try {
         while (hasMore) {
             const { data, error } = await supabaseAdmin
-                .from('ventas')
-                .select('sku, total, unidades, fecha_venta, title, company')
+                .from('ml_sales')
+                .select('sku, total, unidades, fecha_venta, tit_pub, tienda')
                 .gte('fecha_venta', twelveMonthsAgo.toISOString())
                 .range(from, from + step - 1);
             
@@ -55,18 +55,18 @@ async function getPredictionData() {
         return { salesHistoryForChart: [], predictionResult: null, salesByCompanyChart: [], recentSales: [] };
     }
 
-    // 2. Fetch categories from 'publicaciones'
+    // 2. Fetch categories from 'publi_tienda' (mapping SKU to category)
     const skus = [...new Set(salesData.map(s => s.sku).filter(Boolean))];
     const { data: pubsData } = await supabaseAdmin
-        .from('publicaciones')
-        .select('sku, nombre_madre')
+        .from('publi_tienda')
+        .select('sku, cat_mdr')
         .in('sku', skus);
 
-    const categoryMap = new Map(pubsData?.map(p => [p.sku, p.nombre_madre]));
+    const categoryMap = new Map(pubsData?.map(p => [p.sku, p.cat_mdr]));
     
     // 3. Prepare data for AI Flow
     const salesHistoryForAI: SalesPredictionInput['salesHistory'] = salesData.map(sale => ({
-        product: sale.title || 'Producto Desconocido',
+        product: sale.tit_pub || 'Producto Desconocido',
         category: categoryMap.get(sale.sku) || 'Sin Categoría',
         sku: sale.sku || 'N/A',
         date: sale.fecha_venta,
@@ -109,17 +109,25 @@ async function getPredictionData() {
         .sort((a,b) => a.sortKey - b.sortKey)
         .map(({date, ventas}) => ({date, ventas}));
 
-    // 6. Company breakdown
+    // 6. Company breakdown (tienda)
     const companyRevenue: Record<string, number> = {};
     salesData.forEach(sale => {
-        const key = sale.company || 'Compañía Desconocida';
+        const key = sale.tienda || 'Compañía Desconocida';
         companyRevenue[key] = (companyRevenue[key] || 0) + (sale.total || 0);
     });
     const salesByCompanyChart: ChartData[] = Object.entries(companyRevenue)
         .map(([name, value]) => ({ name, value }));
     
     // 7. Recent sales for table
-    const recentSales: RecentSale[] = [...salesData]
+    const recentSales: RecentSale[] = salesData
+      .map(sale => ({
+          sku: sale.sku || 'N/A',
+          total: sale.total || 0,
+          unidades: sale.unidades || 0,
+          fecha_venta: sale.fecha_venta,
+          title: sale.tit_pub || 'N/A',
+          company: sale.tienda || 'N/A'
+      }))
       .sort((a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime());
 
     return { salesHistoryForChart, predictionResult, salesByCompanyChart, recentSales };

@@ -22,8 +22,8 @@ async function getAllTransactions(): Promise<Transaction[]> {
 
   while (hasMore) {
     const { data, error } = await supabaseAdmin
-      .from('ventas')
-      .select('id, numero_venta, comprador, total, fecha_venta')
+      .from('ml_sales')
+      .select('id, num_venta, comprador, total, fecha_venta')
       .order('fecha_venta', { ascending: false })
       .range(from, from + step - 1);
 
@@ -42,9 +42,9 @@ async function getAllTransactions(): Promise<Transaction[]> {
   }
 
   return allData.map((sale) => ({
-    id: `#${sale.numero_venta || sale.id}`,
+    id: `#${sale.num_venta || sale.id}`,
     customer: sale.comprador || 'N/A',
-    type: sale.comprador !== 'Público General' ? 'Mayorista' : 'Minorista',
+    type: sale.comprador && sale.comprador !== 'Público General' ? 'Mayorista' : 'Minorista',
     amount: sale.total || 0,
     date: sale.fecha_venta,
   }));
