@@ -8,13 +8,16 @@ export type Sale = ml_sales;
 async function getSalesData() {
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
+  // Mantenemos el filtro de 12 meses pero aumentamos el límite de registros
+  // Supabase por defecto limita a 1000 si no se especifica un rango mayor o limit
   const twelveMonthsAgo = subMonths(new Date(), 12);
 
   const { data, error } = await supabaseAdmin
     .from('ml_sales')
     .select('*')
     .gte('fecha_venta', twelveMonthsAgo.toISOString())
-    .order('fecha_venta', { ascending: false });
+    .order('fecha_venta', { ascending: false })
+    .limit(10000); // Aumentamos el límite para capturar todas las ventas (aprox 3000+)
     
   if (error || !data) {
     console.error('Error fetching sales data from ml_sales:', error);
