@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -14,13 +15,15 @@ import {
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
   Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
-  PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2
+  PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2, FileDown
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line, Area, AreaChart
 } from 'recharts';
 import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -767,6 +770,75 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         XLSX.writeFile(wb, `historial_movimientos_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
     };
 
+    const handleExportSinglePDF = (detail: GastoDiario) => {
+        const doc = new jsPDF();
+        const cleanNote = cleanNotes(detail.notas);
+        const empresa = getEnhancedValue(detail.empresa, detail.notas, 'Empresa');
+        const metodo = getEnhancedValue(detail.metodo_pago, detail.notas, 'Método');
+        const banco = getEnhancedValue(detail.banco, detail.notas, 'Banco');
+        const cuenta = getEnhancedValue(detail.cuenta, detail.notas, 'Cuenta');
+
+        // Header
+        doc.setFillColor(45, 90, 76);
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.text('REPORTE DE MOVIMIENTO FINANCIERO', 20, 20);
+        doc.setFontSize(10);
+        doc.text(`ID REGISTRO: #${detail.id} | FECHA: ${detail.fecha}`, 20, 30);
+
+        // Content
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(14);
+        doc.text('RESUMEN GENERAL', 20, 55);
+        
+        (doc as any).autoTable({
+            startY: 60,
+            head: [['Campo', 'Valor']],
+            body: [
+                ['Concepto', detail.subcategoria_especifica],
+                ['Monto', money(detail.monto)],
+                ['Tipo', detail.tipo_transaccion],
+                ['Empresa', empresa],
+                ['Impacto (Nivel 1)', detail.tipo_gasto_impacto?.replace(/_/g, ' ')],
+                ['Área (Nivel 2)', detail.area_funcional?.replace(/_/g, ' ')],
+                ['Categoría Macro', detail.categoria_macro],
+                ['Canal Asociado', detail.canal_asociado?.replace(/_/g, ' ')],
+                ['Atribución', detail.clasificacion_operativa || '-'],
+                ['Responsable', detail.responsable || 'N/A'],
+            ],
+            theme: 'striped',
+            headStyles: { fillColor: [45, 90, 76] }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 15;
+        doc.setFontSize(14);
+        doc.text('DETALLES DE PAGO', 20, finalY);
+
+        (doc as any).autoTable({
+            startY: finalY + 5,
+            head: [['Método', 'Banco', 'Cuenta']],
+            body: [[metodo, banco, cuenta]],
+            theme: 'grid',
+            headStyles: { fillColor: [45, 90, 76] }
+        });
+
+        const notesY = (doc as any).lastAutoTable.finalY + 15;
+        doc.setFontSize(12);
+        doc.text('DESCRIPCIÓN Y NOTAS:', 20, notesY);
+        doc.setFontSize(10);
+        const splitDesc = doc.splitTextToSize(detail.descripcion || 'Sin descripción detallada.', 170);
+        doc.text(splitDesc, 20, notesY + 10);
+        
+        if (cleanNote) {
+            doc.text('Notas adicionales:', 20, notesY + 25 + (splitDesc.length * 5));
+            const splitNotes = doc.splitTextToSize(cleanNote, 170);
+            doc.text(splitNotes, 20, notesY + 32 + (splitDesc.length * 5));
+        }
+
+        doc.save(`reporte_movimiento_${detail.id}.pdf`);
+    };
+
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
@@ -952,7 +1024,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 filteredTransactions.map((t: GastoDiario) => (
                                     <TableRow key={t.id} className="hover:bg-muted/5 h-14 border-b">
                                         <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
-                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{getEnhancedValue(t.empresa, t.notas, 'Empresa')}</Badge></TableCell>
+                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{getEnhancedValue(t.empresa, t.notes, 'Empresa')}</Badge></TableCell>
                                         <TableCell>
                                             <Badge variant={['INGRESO', 'VENTA'].includes(t.tipo_transaccion) ? 'default' : t.tipo_transaccion === 'COMPRA' ? 'secondary' : 'outline'} className="text-[8px] font-black uppercase whitespace-nowrap">
                                                 {t.tipo_transaccion}
@@ -966,9 +1038,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="text-[9px] font-black text-muted-foreground uppercase">{t.clasificacion_operativa || '-'}</TableCell>
                                         <TableCell className="text-center">{t.es_fijo ? <Badge className="bg-blue-100 text-blue-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
                                         <TableCell className="text-center">{t.es_recurrente ? <Badge className="bg-purple-100 text-purple-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.metodo_pago, t.notas, 'Método')}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.banco, t.notas, 'Banco')}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.cuenta, t.notas, 'Cuenta')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.metodo_pago, t.notes, 'Método')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.banco, t.notes, 'Banco')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.cuenta, t.notes, 'Cuenta')}</TableCell>
                                         <TableCell className="text-[10px] text-slate-700 font-bold whitespace-nowrap">{t.responsable || '-'}</TableCell>
                                         <TableCell className={cn(
                                             "text-right font-bold text-sm sticky right-0 bg-white/95 backdrop-blur-sm shadow-[-4px_0_10px_rgba(0,0,0,0.05)] px-6", 
@@ -1001,7 +1073,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             </Card>
 
             <Dialog open={!!selectedDetail} onOpenChange={() => setSelectedDetail(null)}>
-                <DialogContent className="max-w-3xl border-none shadow-2xl p-0 overflow-hidden rounded-[24px]">
+                <DialogContent className="max-w-5xl border-none shadow-2xl p-0 overflow-hidden rounded-[24px]">
                     <div className="bg-[#2D5A4C] p-8 text-white relative">
                         <button onClick={() => setSelectedDetail(null)} className="absolute top-6 right-6 text-white/60 hover:text-white"><X className="h-6 w-6" /></button>
                         <div className="flex items-center gap-4 mb-4">
@@ -1109,8 +1181,13 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         </div>
                     </div>
                     
-                    <DialogFooter className="p-6 border-t bg-slate-50">
-                        <Button variant="outline" onClick={() => setSelectedDetail(null)} className="font-black uppercase text-[10px] px-8 border-slate-200">Cerrar Visor</Button>
+                    <DialogFooter className="p-6 border-t bg-slate-50 flex items-center justify-between">
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => setSelectedDetail(null)} className="font-black uppercase text-[10px] px-8 border-slate-200">Cerrar Visor</Button>
+                            <Button variant="outline" className="font-black uppercase text-[10px] px-8 border-slate-200 bg-white" onClick={() => handleExportSinglePDF(selectedDetail!)}>
+                                <FileDown className="mr-2 h-3.5 w-3.5" /> Exportar PDF
+                            </Button>
+                        </div>
                         <Button className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-8" onClick={() => { handleEdit(selectedDetail!); setSelectedDetail(null); }}>
                             <Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro
                         </Button>
@@ -1118,758 +1195,5 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 </DialogContent>
             </Dialog>
         </div>
-    );
-}
-
-function DetailItem({ label, value }: { label: string, value: any }) {
-    return (
-        <div className="space-y-0.5">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{label}</p>
-            <p className="text-xs font-black text-slate-800 uppercase truncate">{value || '-'}</p>
-        </div>
-    );
-}
-
-function BudgetsView({ transactions, categories, budgets, setBudgets, setCategories }: any) {
-    const [editingCat, setEditingCat] = React.useState<string | null>(null);
-    const [isNewBudgetOpen, setIsNewBudgetOpen] = React.useState(false);
-
-    const budgetAnalysis = React.useMemo(() => {
-        return categories.map((cat: string) => {
-            const current = transactions
-                .filter((t: any) => t.categoria_macro === cat && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
-                .reduce((s: number, t: any) => s + (t.monto || 0), 0);
-            
-            return { cat, current, limit: budgets[cat] || 0 }; 
-        });
-    }, [transactions, categories, budgets]);
-
-    const handleUpdateLimit = (cat: string, limit: number) => {
-        setBudgets({ ...budgets, [cat]: limit });
-        setEditingCat(null);
-    };
-
-    const handleAddBudget = (name: string, limit: number) => {
-        const upperName = name.toUpperCase().replace(/\s/g, '_');
-        if (!categories.includes(upperName)) {
-            setCategories([...categories, upperName]);
-        }
-        setBudgets({ ...budgets, [upperName]: limit });
-        setIsNewBudgetOpen(false);
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold uppercase tracking-tight">Metas Presupuestarias</h2>
-                <Button size="sm" className="bg-[#2D5A4C] font-bold" onClick={() => setIsNewBudgetOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Presupuesto
-                </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {budgetAnalysis.map((item: any) => {
-                    const percentage = item.limit > 0 ? Math.min(100, (item.current / item.limit) * 100) : 0;
-                    const isOver = percentage >= 90;
-                    return (
-                        <Card key={item.cat} className="border-none shadow-sm bg-white hover:shadow-md transition-all relative group">
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                                <div className="space-y-1">
-                                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{item.cat}</CardTitle>
-                                    <div className="text-2xl font-black">{money(item.current)}</div>
-                                </div>
-                                <div className="flex flex-col items-end gap-2">
-                                    <Badge variant={isOver ? "destructive" : "secondary"} className="text-[9px] font-black">
-                                        {percentage.toFixed(0)}%
-                                    </Badge>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setEditingCat(item.cat)}>
-                                        <Edit2 className="h-3 w-3" />
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4 pt-2">
-                                <div className="flex justify-between items-end text-[10px] font-bold text-muted-foreground uppercase">
-                                    <span>Consumo</span>
-                                    <span>Meta: {money(item.limit)}</span>
-                                </div>
-                                <Progress value={percentage} className={cn("h-2.5", isOver ? "bg-red-100 [&>div]:bg-destructive" : "bg-muted [&>div]:bg-[#2D5A4C]")} />
-                            </CardContent>
-                        </Card>
-                    );
-                })}
-            </div>
-            
-            <Card className="border-none shadow-sm bg-white overflow-hidden">
-                <CardHeader>
-                    <CardTitle className="text-lg font-bold flex items-center gap-2">
-                        <Wallet className="h-5 w-5 text-primary" /> Seguimiento de Presupuestos
-                    </CardTitle>
-                    <CardDescription>Resumen de metas mensuales por categoría macro financiera.</CardDescription>
-                </CardHeader>
-                <div className="p-0 border-t">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/30">
-                                <TableHead className="font-bold uppercase text-[10px]">Categoría</TableHead>
-                                <TableHead className="font-bold uppercase text-[10px] text-right">Presupuesto</TableHead>
-                                <TableHead className="font-bold uppercase text-[10px] text-right">Ejecutado</TableHead>
-                                <TableHead className="font-bold uppercase text-[10px] text-right">Disponible</TableHead>
-                                <TableHead className="font-bold uppercase text-[10px] text-center">Estado</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {budgetAnalysis.map((item: any) => (
-                                <TableRow key={item.cat}>
-                                    <TableCell className="font-bold text-xs">{item.cat}</TableCell>
-                                    <TableCell className="text-right font-medium">{money(item.limit)}</TableCell>
-                                    <TableCell className="text-right font-black">{money(item.current)}</TableCell>
-                                    <TableCell className={cn("text-right font-bold", (item.limit - item.current) < 0 ? "text-destructive" : "text-primary")}>
-                                        {money(item.limit - item.current)}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge variant={item.current > item.limit ? "destructive" : "outline"} className="text-[8px] uppercase">
-                                            {item.current > item.limit ? "Excedido" : "En Meta"}
-                                        </Badge>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </Card>
-
-            <Dialog open={!!editingCat} onOpenChange={() => setEditingCat(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Editar Meta: {editingCat}</DialogTitle>
-                        <DialogDescription>Ajusta el límite de presupuesto mensual para esta categoría.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Nuevo Límite Mensual ($)</Label>
-                            <Input 
-                                type="number" 
-                                defaultValue={editingCat ? budgets[editingCat] : 0}
-                                id="edit-limit-input"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditingCat(null)}>Cancelar</Button>
-                        <Button onClick={() => {
-                            const val = (document.getElementById('edit-limit-input') as HTMLInputElement).value;
-                            handleUpdateLimit(editingCat!, Number(val));
-                        }}>Guardar Cambios</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={isNewBudgetOpen} onOpenChange={setIsNewBudgetOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Nuevo Presupuesto Macro</DialogTitle>
-                        <DialogDescription>Define una nueva categoría financiera y su límite de gasto.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Nombre de Categoría</Label>
-                            <Input placeholder="Ej: MARKETING_DIGITAL" id="new-cat-name" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Límite Inicial ($)</Label>
-                            <Input type="number" placeholder="0.00" id="new-cat-limit" />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsNewBudgetOpen(false)}>Cancelar</Button>
-                        <Button onClick={() => {
-                            const name = (document.getElementById('new-cat-name') as HTMLInputElement).value;
-                            const limit = (document.getElementById('new-cat-limit') as HTMLInputElement).value;
-                            handleAddBudget(name, Number(limit));
-                        }}>Crear Categoría</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
-}
-
-function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: any) {
-    const [newImpact, setNewImpact] = React.useState('');
-    const [selectedImpactForSubs, setSelectedImpactForSubs] = React.useState(impacts[0]);
-    const [newSub, setNewSub] = React.useState('');
-
-    const handleAddImpact = () => {
-        if (!newImpact) return;
-        const upper = newImpact.toUpperCase().replace(/\s/g, '_');
-        if (!impacts.includes(upper)) {
-            setImpacts([...impacts, upper]);
-            setSubcategories({ ...subcategories, [upper]: [] });
-        }
-        setNewImpact('');
-    };
-
-    const handleAddSub = () => {
-        if (!newSub || !selectedImpactForSubs) return;
-        const currentSubs = subcategories[selectedImpactForSubs] || [];
-        if (!currentSubs.includes(newSub)) {
-            setSubcategories({
-                ...subcategories,
-                [selectedImpactForSubs]: [...currentSubs, newSub]
-            });
-        }
-        setNewSub('');
-    };
-
-    return (
-        <div className="max-w-7xl mx-auto space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <Card className="md:col-span-2 border-none shadow-sm bg-white">
-                    <CardHeader className="flex flex-row items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Settings2 className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-lg font-bold">Parámetros BI</CardTitle>
-                            <CardDescription>Configura los valores clave para la auditoría y motor de inteligencia financiera.</CardDescription>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6 pt-4">
-                        <div className="flex items-center justify-between border-b pb-4">
-                            <div className="space-y-1">
-                                <Label className="text-sm font-bold">Margen de Contribución Promedio</Label>
-                                <p className="text-xs text-muted-foreground">Valor utilizado para calcular el Punto de Equilibrio mensual.</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Input type="number" defaultValue="40" className="w-20 font-black h-9 text-right" />
-                                <span className="font-bold text-sm">%</span>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between border-b pb-4">
-                            <div className="space-y-1">
-                                <Label className="text-sm font-bold">Días de Historial de Datos</Label>
-                                <p className="text-xs text-muted-foreground">Periodo de datos para el cálculo de promedios de gasto fijo.</p>
-                            </div>
-                            <Select defaultValue="180">
-                                <SelectTrigger className="w-32 h-9 font-bold"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="90">90 Días</SelectItem>
-                                    <SelectItem value="180">180 Días</SelectItem>
-                                    <SelectItem value="365">1 Año</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex items-center justify-between border-b pb-4">
-                            <div className="space-y-1">
-                                <Label className="text-sm font-bold">Unidad Independiente Malla Sombra</Label>
-                                <p className="text-xs text-muted-foreground">Aislar financieramente el taller de producción.</p>
-                            </div>
-                            <Switch defaultChecked />
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                                <Label className="text-sm font-bold">Notificaciones de Presupuesto</Label>
-                                <p className="text-xs text-muted-foreground">Alertar cuando una categoría supere el 90% del límite.</p>
-                            </div>
-                            <Switch defaultChecked />
-                        </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-end border-t bg-muted/5 py-3">
-                        <Button className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-bold">Guardar Configuración</Button>
-                    </CardFooter>
-                </Card>
-
-                <div className="space-y-6">
-                    <Card className="border-none shadow-sm bg-white overflow-hidden">
-                        <CardHeader className="bg-primary/5 pb-4">
-                            <div className="flex items-center gap-2">
-                                <Hammer className="h-4 w-4 text-primary" />
-                                <CardTitle className="text-[10px] font-black uppercase tracking-widest">Nómina Mixta</CardTitle>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4 pt-4">
-                            <p className="text-[10px] text-muted-foreground font-medium uppercase">Reparto Actual para Auditoría de Esfuerzo:</p>
-                            <div className="space-y-3">
-                                {[
-                                    { name: 'Mercado Libre', val: 60, color: '#2D5A4C' },
-                                    { name: 'Mayoreo', val: 30, color: '#3b82f6' },
-                                    { name: 'Físico', val: 10, color: '#f43f5e' }
-                                ].map(i => (
-                                    <div key={i.name} className="space-y-1">
-                                        <div className="flex justify-between text-[10px] font-bold uppercase">
-                                            <span>{i.name}</span>
-                                            <span>{i.val}%</span>
-                                        </div>
-                                        <Progress value={i.val} className="h-1 bg-muted [&>div]:bg-current" style={{ color: i.color }} />
-                                    </div>
-                                ))}
-                            </div>
-                            <Button variant="outline" size="sm" className="w-full text-[10px] font-bold h-8 border-slate-200">Editar Plantilla</Button>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-none shadow-sm bg-[#2D5A4C] text-primary-foreground">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Estado de Salud BI</p>
-                            <CardTitle className="text-xl font-black">Optimizada</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-[10px] leading-relaxed opacity-90">
-                                Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-
-            <Card className="border-none shadow-sm bg-white">
-                <CardHeader>
-                    <CardTitle className="text-lg font-bold flex items-center gap-2">
-                        <SettingsIcon className="h-5 w-5 text-primary" /> Gestión de Categorías e Impactos
-                    </CardTitle>
-                    <CardDescription>Añade o modifica la estructura de clasificación de tus gastos.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest">Impacto (Nivel 1)</Label>
-                        <div className="flex gap-2">
-                            <Input placeholder="Nuevo Impacto..." value={newImpact} onChange={e => setNewImpact(e.target.value)} className="h-9 text-xs" />
-                            <Button size="sm" onClick={handleAddImpact}><Plus className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="h-[200px] border rounded-md p-2 bg-muted/5">
-                            <div className="space-y-1">
-                                {impacts.map((imp: string) => (
-                                    <div key={imp} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md group">
-                                        <span className="text-[10px] font-bold text-slate-600">{imp.replace(/_/g, ' ')}</span>
-                                        <Badge variant="outline" className="text-[8px] opacity-0 group-hover:opacity-100">Activo</Badge>
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-bold uppercase tracking-widest">Subcategorías para:</Label>
-                            <Select value={selectedImpactForSubs} onValueChange={setSelectedImpactForSubs}>
-                                <SelectTrigger className="h-9 text-xs font-bold"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {impacts.map((imp: string) => <SelectItem key={imp} value={imp}>{imp.replace(/_/g, ' ')}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex gap-2">
-                            <Input placeholder="Nueva Subcategoría..." value={newSub} onChange={e => setNewSub(e.target.value)} className="h-9 text-xs" />
-                            <Button size="sm" onClick={handleAddSub}><Plus className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="h-[155px] border rounded-md p-2 bg-muted/5">
-                            <div className="space-y-1">
-                                {(subcategories[selectedImpactForSubs] || []).map((sub: string) => (
-                                    <div key={sub} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
-                                        <span className="text-[10px] font-medium text-slate-500">{sub}</span>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6"><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-    );
-}
-
-function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynamicSubcategories, dynamicMacro }: any) {
-    const defaultValues = React.useMemo(() => {
-        const base = transaction ? { 
-            ...transaction, 
-            fecha: parseISO(transaction.fecha),
-            especificar_empresa: getEnhancedValue(transaction.empresa, transaction.notas, 'Empresa'),
-            especificar_metodo_pago: getEnhancedValue(transaction.metodo_pago, transaction.notas, 'Método'),
-            especificar_banco: getEnhancedValue(transaction.banco, transaction.notas, 'Banco'),
-            especificar_cuenta: getEnhancedValue(transaction.cuenta, transaction.notas, 'Cuenta'),
-            notas: cleanNotes(transaction.notas)
-        } : {
-            fecha: new Date(), 
-            empresa: 'MTM', 
-            tipo_transaccion: 'GASTO', 
-            monto: 0,
-            categoria_macro: 'OPERATIVO', 
-            canal_asociado: 'GENERAL', 
-            clasificacion_operativa: 'COMPARTIDO',
-            es_fijo: false, 
-            es_recurrente: false, 
-            metodo_pago: 'TRANSFERENCIA', 
-            banco: 'BBVA', 
-            cuenta: 'OPERATIVA',
-            responsable: '',
-            descripcion: '',
-            notas: '',
-            es_nomina_mixta: false,
-            especificar_empresa: '',
-            especificar_metodo_pago: '',
-            especificar_banco: '',
-            especificar_cuenta: ''
-        };
-
-        if (transaction) {
-            if (!EMPRESAS.includes(transaction.empresa)) { base.empresa = 'OTRA'; }
-            if (!METODOS_PAGO.includes(transaction.metodo_pago)) { base.metodo_pago = 'OTRO'; }
-            if (!BANCOS.includes(transaction.banco)) { base.banco = 'OTRO'; }
-            if (!CUENTAS.includes(transaction.cuenta)) { base.cuenta = 'OTRO'; }
-        }
-
-        return base;
-    }, [transaction]);
-
-    const form = useForm<TransactionFormValues>({
-        resolver: zodResolver(expenseFormSchema),
-        defaultValues
-    });
-
-    const watchedImpact = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
-    const watchedChannel = useWatch({ control: form.control, name: 'canal_asociado' });
-    const watchedIsNominaMixta = useWatch({ control: form.control, name: 'es_nomina_mixta' });
-    
-    const watchedEmpresa = useWatch({ control: form.control, name: 'empresa' });
-    const watchedMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
-    const watchedBanco = useWatch({ control: form.control, name: 'banco' });
-    const watchedCuenta = useWatch({ control: form.control, name: 'cuenta' });
-
-    React.useEffect(() => {
-        if (watchedChannel === 'GENERAL') {
-            form.setValue('clasificacion_operativa', 'COMPARTIDO');
-        } else if (watchedIsNominaMixta) {
-            form.setValue('clasificacion_operativa', 'SEMI_DIRECTO');
-        }
-    }, [watchedChannel, watchedIsNominaMixta, form]);
-
-    const subcategorias = watchedImpact ? (dynamicSubcategories[watchedImpact] || []) : [];
-
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white rounded-lg">
-                <DialogHeader className="mb-2">
-                    <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-[#2D5A4C]">
-                        {transaction ? 'Editar' : 'Registrar'} Movimiento
-                    </DialogTitle>
-                    <DialogDescription className="sr-only">
-                        Completa los campos para {transaction ? 'actualizar el' : 'ingresar un nuevo'} registro financiero.
-                    </DialogDescription>
-                </DialogHeader>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-4">
-                        <FormField control={form.control} name="metodo_pago" render={({ field }) => (
-                            <FormItem>
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Método Pago</Label>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {METODOS_PAGO.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-                        {watchedMetodo === 'OTRO' && (
-                            <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
-                                <FormItem className="animate-in fade-in slide-in-from-top-1">
-                                    <FormControl>
-                                        <Input placeholder="Especifique método (ej: SPEI)" className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        )}
-                    </div>
-
-                    <div className="space-y-4">
-                        <FormField control={form.control} name="banco" render={({ field }) => (
-                            <FormItem>
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Banco</Label>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {BANCOS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-                        {watchedBanco === 'OTRO' && (
-                            <FormField control={form.control} name="especificar_banco" render={({ field }) => (
-                                <FormItem className="animate-in fade-in slide-in-from-top-1">
-                                    <FormControl>
-                                        <Input placeholder="Especifique banco..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        )}
-                    </div>
-
-                    <div className="space-y-4">
-                        <FormField control={form.control} name="cuenta" render={({ field }) => (
-                            <FormItem>
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo de Cuenta</Label>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {CUENTAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-                        {watchedCuenta === 'OTRO' && (
-                            <FormField control={form.control} name="especificar_cuenta" render={({ field }) => (
-                                <FormItem className="animate-in fade-in slide-in-from-top-1">
-                                    <FormControl>
-                                        <Input placeholder="Especifique cuenta..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        )}
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="space-y-4">
-                        <FormField control={form.control} name="empresa" render={({ field }) => (
-                            <FormItem>
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa</Label>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {EMPRESAS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </FormItem>
-                        )} />
-                        {watchedEmpresa === 'OTRA' && (
-                            <FormField control={form.control} name="especificar_empresa" render={({ field }) => (
-                                <FormItem className="animate-in fade-in slide-in-from-top-1">
-                                    <FormControl>
-                                        <Input placeholder="Especifique empresa..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        )}
-                    </div>
-                    <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tipo</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {TIPOS_TRANSACCION.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="monto" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monto ($)</Label>
-                            <FormControl>
-                                <Input type="number" step="0.01" className="h-10 font-bold border-slate-200" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="responsable" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Responsable</Label>
-                            <FormControl>
-                                <Input className="h-10 text-xs font-bold border-slate-200" {...field} value={field.value || ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Impacto (Nivel 1)</Label>
-                            <Select onValueChange={field.onChange} value={field.value || ''}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {dynamicImpacts.map((v: string) => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="area_funcional" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Área (Nivel 2)</Label>
-                            <Select onValueChange={field.onChange} value={field.value || ''}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {AREAS_FUNCIONALES.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Subcategoría (Nivel 3)</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue placeholder="Primero elija Nivel 1" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {subcategorias.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <FormField control={form.control} name="categoria_macro" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categoría Macro</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {dynamicMacro.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="canal_asociado" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Canal Asociado</Label>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {CANALES_ASOCIADOS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Atribución Rentabilidad</Label>
-                            <Select onValueChange={field.onChange} value={field.value || ''} disabled={watchedChannel === 'GENERAL' || watchedIsNominaMixta}>
-                                <FormControl>
-                                    <SelectTrigger className="h-10 text-xs font-bold border-slate-200">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {CLASIFICACIONES_OPERATIVAS.map(v => <SelectItem key={v} value={v}>{v.replace(/_/g, ' ')}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="descripcion" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Descripción Detallada</Label>
-                            <FormControl>
-                                <Input className="h-10 text-xs font-bold border-slate-200" placeholder="Ej: Compra de insumos para empaque lote 45" {...field} value={field.value || ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="notas" render={({ field }) => (
-                        <FormItem>
-                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Notas Adicionales (Max 280 car)</Label>
-                            <FormControl>
-                                <Textarea className="min-h-[40px] text-xs font-medium border-slate-200" placeholder="Comentarios internos..." {...field} value={field.value || ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
-                    <FormField control={form.control} name="es_fijo" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
-                            <div className="space-y-0.5">
-                                <FormLabel className="text-[10px] font-black uppercase tracking-widest">Gasto Fijo</FormLabel>
-                                <FormDescription className="text-[8px]">Esencial para operar el mes</FormDescription>
-                            </div>
-                            <FormControl>
-                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="es_recurrente" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-muted/5">
-                            <div className="space-y-0.5">
-                                <FormLabel className="text-[10px] font-black uppercase tracking-widest">Recurrente</FormLabel>
-                                <FormDescription className="text-[8px]">Se repite mensualmente</FormDescription>
-                            </div>
-                            <FormControl>
-                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                        </FormItem>
-                    )} />
-                </div>
-
-                {watchedImpact === 'NOMINA' && (
-                    <div className="pt-4">
-                        <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-primary/5">
-                                <div className="space-y-0.5">
-                                    <FormLabel className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</FormLabel>
-                                    <FormDescription className="text-[8px]">Repartir 60/30/10 entre canales</FormDescription>
-                                </div>
-                                <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                </FormControl>
-                            </FormItem>
-                        )} />
-                    </div>
-                )}
-
-                <div className="flex justify-end gap-3 pt-6 border-t">
-                    <Button type="button" variant="outline" onClick={onClose} className="font-bold uppercase text-[10px] border-slate-200">Cancelar</Button>
-                    <Button type="submit" className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-12 h-11">Registrar Movimiento</Button>
-                </div>
-            </form>
-        </Form>
     );
 }
