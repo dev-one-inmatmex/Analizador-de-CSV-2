@@ -36,7 +36,7 @@ import {
 const menuLinks = [
   { href: '/', label: 'Analizador de datos CSV', icon: FileCheck },
   { href: '/historical-analysis/sales', label: 'Ventas', icon: BarChart3 },
-  { href: '/historical-analysis/operations', label: 'Gastos financieros', icon: Receipt },
+  { href: '/historical-analysis/operations', label: 'Gastos diarios', icon: Receipt },
   { href: '/historical-analysis/major-minor-sales', label: 'Consumo (ventas + Siggo)', icon: GitCompareArrows },
   { href: '/historical-analysis/trends-prediction', label: 'Recompra', icon: Repeat },
   { href: '/historical-analysis/publications', label: 'Análisis de Publicaciones', icon: ClipboardList },

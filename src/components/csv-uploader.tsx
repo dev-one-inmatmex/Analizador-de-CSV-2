@@ -166,7 +166,8 @@ function parseMLDate(str: string): string | null {
     if (!str || typeof str !== 'string') return null;
     const cleanStr = str.toLowerCase().trim();
     
-    const fullMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s+de\s+(\d{4})\s+(\d{1,2}):(\d{2})/);
+    // Formato completo: "15 de enero de 2024 14:30" o "15 de enero de 2024 | 14:30"
+    const fullMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s+de\s+(\d{4})(?:\s+|:|\s*\|\s*)(\d{1,2}):(\d{2})/);
     if (fullMatch) {
         const [_, day, monthStr, year, hour, min] = fullMatch;
         const month = MONTHS_ES[monthStr];
@@ -176,6 +177,7 @@ function parseMLDate(str: string): string | null {
         }
     }
 
+    // Formato corto (año actual): "15 de enero | 14:30"
     const shortMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s*\|\s*(\d{1,2}):(\d{2})/);
     if (shortMatch) {
         const [_, day, monthStr, hour, min] = shortMatch;
@@ -187,6 +189,14 @@ function parseMLDate(str: string): string | null {
         }
     }
 
+    // Formato estándar DD/MM/YYYY o DD-MM-YYYY
+    const ddmmyyyy = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (ddmmyyyy) {
+        const [_, day, month, year] = ddmmyyyy;
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        return isNaN(date.getTime()) ? null : date.toISOString();
+    }
+
     const fallback = new Date(str);
     return isNaN(fallback.getTime()) ? null : fallback.toISOString();
 }
@@ -195,8 +205,19 @@ const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
 function parseValue(key: string, value: any, tableName: string): any {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') return null;
+    
+    // Si ya es un objeto Date (viene de Excel con cellDates: true)
+    if (value instanceof Date) {
+        return isNaN(value.getTime()) ? null : value.toISOString();
+    }
+
     const str = String(value).trim();
     
+    // Limpieza de identificadores críticos para evitar duplicados por formato (ej: #123 vs 123)
+    if (['num_venta', 'sku', 'num_publi', 'sku_mdr', 'id'].includes(key)) {
+        return str.replace(/^#/, '').trim();
+    }
+
     if (tableName === 'ml_sales') {
         const dateFields = [
             'fecha_venta', 'f_entrega', 'f_camino', 'f_entregado', 
@@ -325,7 +346,8 @@ export default function CsvUploader() {
                     }
                 });
             } else {
-                const wb = XLSX.read(data, { type: 'array' });
+                // Optimización para Excel: habilitamos cellDates para obtener objetos Date nativos
+                const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
                 const ws = wb.Sheets[selectedSheet || wb.SheetNames[0]];
                 const range = table === 'ml_sales' ? 5 : 0;
                 const json = XLSX.utils.sheet_to_json(ws, { header: 1, range, defval: null }) as any[][];
@@ -417,6 +439,7 @@ export default function CsvUploader() {
                     }
                 });
                 const pkValue = String(obj[schema.pk] || '');
+                // Solo procesamos si hay un identificador válido para evitar basura y duplicados por campos vacíos
                 if (pkValue) uniqueRecordsMap.set(pkValue, obj);
             });
 
@@ -448,6 +471,10 @@ export default function CsvUploader() {
                     for (const col of activeDbColumns) {
                         const newVal = record[col];
                         const oldVal = existing[col];
+                        
+                        // Protección: si el nuevo valor es nulo (error de parseo) no sobrescribimos el valor existente (ej: fechas)
+                        if (newVal === null && oldVal !== null) continue;
+
                         const isNumeric = NUMERIC_FIELDS.includes(col);
                         if (isNumeric) {
                             const nNew = newVal === null ? 0 : Number(newVal);
@@ -496,6 +523,7 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 100;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
+                // Usamos upsert con onConflict explícito para asegurar que NO se dupliquen registros por PK
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {

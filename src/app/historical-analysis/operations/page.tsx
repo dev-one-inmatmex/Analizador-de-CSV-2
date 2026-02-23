@@ -566,7 +566,7 @@ export default function OperationsPage() {
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4 min-w-0">
                     <SidebarTrigger />
-                    <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">Gastos Financieros</h1>
+                    <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">Gastos diarios</h1>
                     <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4 hidden md:block">
                         <TabsList className="bg-muted/40 h-9 p-1 border">
                             <TabsTrigger value="inicio" className="text-xs font-bold uppercase tracking-tighter">Inicio</TabsTrigger>
