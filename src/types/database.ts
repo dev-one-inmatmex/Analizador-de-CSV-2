@@ -47,7 +47,7 @@ export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJ
 export type Banco = 'BBVA' | 'SANTANDER' | 'BANAMEX' | 'MERCADO_PAGO' | 'OTRO';
 export type Cuenta = 'OPERATIVA' | 'FISCAL' | 'CAJA_CHICA' | 'OTRO';
 
-export interface GastoDiario {
+export interface gasto_diarios{
   id?: number; 
   fecha: string;
   empresa: Empresa;
@@ -96,7 +96,7 @@ export interface sku_alterno {
   sku_mdr: string | null;
 }
 
-export interface ml_sales {
+export interface ml_sales{
   id?: string;
   num_venta: string | null;
   fecha_venta: string | null;
