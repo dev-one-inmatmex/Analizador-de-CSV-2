@@ -86,7 +86,9 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     },
     ml_sales: {
         '# de venta:': 'num_venta',
+        '# de venta': 'num_venta',
         'Fecha de venta:': 'fecha_venta',
+        'Fecha de venta': 'fecha_venta',
         'Estado Venta': 'status',
         'Descripción del estado': 'desc_status',
         'Paquete de varios productos': 'paquete_varios',
@@ -224,7 +226,9 @@ function parseValue(key: string, value: any, tableName: string): any {
             'f_entrega2', 'f_camino2', 'f_entregado2', 'f_revision3'
         ];
         if (dateFields.includes(key)) {
-            return parseMLDate(str);
+            const parsed = parseMLDate(str);
+            // Si el parseo falla, devolvemos null pero performAnalysis evitará sobrescribir con null
+            return parsed;
         }
     }
 
@@ -319,6 +323,7 @@ export default function CsvUploader() {
                     skipEmptyLines: true,
                     transformHeader: (header) => {
                         const trimmedHeader = header.trim();
+                        // Lógica especial para detectar las dos columnas "Estado" de Mercado Libre
                         if (table === 'ml_sales' && trimmedHeader === 'Estado') {
                             estadoCount++;
                             if (estadoCount === 1) return 'Estado Venta';
@@ -327,6 +332,7 @@ export default function CsvUploader() {
                         return trimmedHeader;
                     },
                     beforeFirstChunk: (chunk) => {
+                        // Saltamos las 5 filas de encabezado publicitario que suele tener el reporte de ML
                         if (table === 'ml_sales') {
                             const lines = chunk.split(/\r?\n/);
                             return lines.slice(5).join('\n');
@@ -346,7 +352,7 @@ export default function CsvUploader() {
                     }
                 });
             } else {
-                // Optimización para Excel: habilitamos cellDates para obtener objetos Date nativos
+                // Excel: habilitamos cellDates para obtener objetos Date nativos
                 const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
                 const ws = wb.Sheets[selectedSheet || wb.SheetNames[0]];
                 const range = table === 'ml_sales' ? 5 : 0;
@@ -439,7 +445,7 @@ export default function CsvUploader() {
                     }
                 });
                 const pkValue = String(obj[schema.pk] || '');
-                // Solo procesamos si hay un identificador válido para evitar basura y duplicados por campos vacíos
+                // Solo procesamos si hay un identificador válido para evitar registros basura
                 if (pkValue) uniqueRecordsMap.set(pkValue, obj);
             });
 
@@ -472,7 +478,8 @@ export default function CsvUploader() {
                         const newVal = record[col];
                         const oldVal = existing[col];
                         
-                        // Protección: si el nuevo valor es nulo (error de parseo) no sobrescribimos el valor existente (ej: fechas)
+                        // Protección crítica: si el nuevo valor es nulo (ej: error de parseo de fecha) 
+                        // no sobrescribimos el valor real que ya existe en la base de datos.
                         if (newVal === null && oldVal !== null) continue;
 
                         const isNumeric = NUMERIC_FIELDS.includes(col);
@@ -523,7 +530,7 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 100;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
-                // Usamos upsert con onConflict explícito para asegurar que NO se dupliquen registros por PK
+                // Upsert explícito sobre la PK para evitar duplicados accidentales
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
