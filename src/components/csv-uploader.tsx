@@ -3,13 +3,12 @@
 import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
-  CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft, Eye, PlayCircle, AlertTriangle,
-  PlusCircle, Edit3, MinusCircle, Save, FileText, Undo2, X, ArrowRightLeft
+  CheckCircle, FileSpreadsheet, Layers, ArrowRight, Eye, AlertTriangle,
+  Save, X, ArrowRightLeft
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -115,15 +114,18 @@ function formatErrorDescription(msg: string): string {
         return 'Conflicto de redundancia: El archivo contiene múltiples registros con el mismo identificador para actualizar en el mismo lote. Por favor, limpia duplicados en tu archivo.';
     }
     if (msg.includes('duplicate key value violates unique constraint')) {
-        return 'Violación de Clave Única: Ya existe un registro con este identificador principal y no se puede duplicar.';
+        return 'Violación de Clave Única: Ya existe un registro con este identificador principal en la base de datos y no se puede duplicar.';
     }
     if (msg.includes('violates foreign key constraint')) {
         return 'Error de Referencia: El registro intenta vincularse a un dato (como un SKU o Categoría) que no existe en las tablas maestras.';
     }
     if (msg.includes('null value in column')) {
-        return 'Valor Nulo Prohibido: Falta un dato obligatorio que la base de datos requiere para este registro.';
+        return 'Valor Nulo Prohibido: Falta un dato obligatorio que la base de datos requiere para este registro en particular.';
     }
-    return msg;
+    if (msg.includes('invalid input syntax')) {
+        return 'Formato Inválido: Uno de los valores no coincide con el tipo de dato esperado (ej. texto donde debería ir un número).';
+    }
+    return `Error técnico: ${msg}`;
 }
 
 type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'analyzing' | 'preview' | 'syncing' | 'results';
@@ -330,7 +332,7 @@ export default function CsvUploader() {
                 reader.onload = (e) => {
                     const data = new Uint8Array(e.target?.result as ArrayBuffer);
                     try {
-                        const wb = XLSX.read(data, { type: 'array', codepage: 1252 });
+                        const wb = XLSX.read(data, { type: 'array' });
                         setWorkbook(wb);
                         setSheets(wb.SheetNames);
                         if (f.name.endsWith('.csv')) {
@@ -440,7 +442,7 @@ export default function CsvUploader() {
                     </CardHeader>
                     <CardContent className="pt-8 pb-12 px-8">
                         <div className="max-w-md mx-auto space-y-4">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tabla de Destino (Supabase)</Label>
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tabla de Destino (Base de Datos)</Label>
                             <Select onValueChange={handleTableSelect} value={selectedTable}>
                                 <SelectTrigger className="h-14 border-slate-200 text-base font-bold bg-white rounded-xl"><SelectValue placeholder="Selecciona el destino técnico..." /></SelectTrigger>
                                 <SelectContent className="border-none shadow-2xl rounded-xl">
