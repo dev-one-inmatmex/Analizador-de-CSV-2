@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -59,6 +60,8 @@ import { cn } from '@/lib/utils';
 import type { GastoDiario } from '@/types/database';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
@@ -72,7 +75,7 @@ export default function OperationsPage() {
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
     const [isClient, setIsClient] = React.useState(false);
 
-    const [periodType, setPeriodType] = React.useState<'month' | 'six_months' | 'year' | 'custom'>('month');
+    const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
     const [filterArea, setFilterArea] = React.useState<string>('TODAS');
     const [filterImpact, setFilterImpact] = React.useState<string>('TODOS');
@@ -102,6 +105,10 @@ export default function OperationsPage() {
             let start, end;
 
             switch (periodType) {
+                case 'day':
+                    start = startOfDay(currentDate);
+                    end = endOfDay(currentDate);
+                    break;
                 case 'six_months':
                     start = startOfMonth(subMonths(currentDate, 5));
                     end = endOfMonth(currentDate);
@@ -257,11 +264,30 @@ export default function OperationsPage() {
                                 <SelectValue placeholder="Periodo" />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="day" className="text-xs font-bold uppercase">Día Seleccionado</SelectItem>
                                 <SelectItem value="month" className="text-xs font-bold uppercase">Mes Actual</SelectItem>
                                 <SelectItem value="six_months" className="text-xs font-bold uppercase">Últimos 6 Meses</SelectItem>
                                 <SelectItem value="year" className="text-xs font-bold uppercase">Año Actual</SelectItem>
                             </SelectContent>
                         </Select>
+                        
+                        {periodType === 'day' && (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 text-[10px] font-black uppercase border-slate-200">
+                                        {format(currentDate, 'dd/MM/yyyy')}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={currentDate}
+                                        onSelect={(d) => d && setCurrentDate(startOfDay(d))}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        )}
                     </div>
 
                     <div className="h-4 w-px bg-border hidden sm:block" />
@@ -395,7 +421,10 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
 
     const barChartData = React.useMemo(() => {
         let start, end;
-        if (periodType === 'month') {
+        if (periodType === 'day') {
+            start = startOfDay(currentDate);
+            end = endOfDay(currentDate);
+        } else if (periodType === 'month') {
             start = startOfMonth(currentDate);
             end = endOfMonth(currentDate);
         } else if (periodType === 'six_months') {
@@ -408,11 +437,11 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
 
         const steps = eachDayOfInterval({ start, end });
         
-        return steps.filter((_, i) => periodType === 'month' || i % (periodType === 'six_months' ? 7 : 30) === 0).map(step => {
+        return steps.filter((_, i) => periodType === 'month' || periodType === 'day' || i % (periodType === 'six_months' ? 7 : 30) === 0).map(step => {
             const dayT = transactions.filter((t: any) => {
                 try {
                     const tDate = parseISO(t.fecha);
-                    if (periodType === 'month') return isSameDay(tDate, step);
+                    if (periodType === 'month' || periodType === 'day') return isSameDay(tDate, step);
                     return tDate >= startOfDay(step) && tDate <= (periodType === 'six_months' ? endOfDay(add(step, { days: 6 })) : endOfMonth(step));
                 } catch (e) { return false; }
             });
@@ -422,7 +451,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 else if (t.tipo_transaccion === 'INGRESO') income += (t.monto || 0);
             });
             return { 
-                name: format(step, periodType === 'month' ? 'd' : 'MMM', { locale: es }), 
+                name: format(step, periodType === 'month' || periodType === 'day' ? 'd' : 'MMM', { locale: es }), 
                 fullDate: step,
                 Ingresos: income, 
                 Gastos: expense,
@@ -435,7 +464,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
         if (data && data.activePayload && data.activePayload.length > 0) {
             const dayInfo = data.activePayload[0].payload;
             setSelectedDayData({
-                day: format(dayInfo.fullDate, periodType === 'month' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
+                day: format(dayInfo.fullDate, periodType === 'month' || periodType === 'day' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
                 records: dayInfo.records
             });
         }
@@ -517,7 +546,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 </Card>
             </div>
 
-            {periodType === 'month' && (
+            {(periodType === 'month' || periodType === 'day') && (
                 <Card className="border-none shadow-sm overflow-hidden bg-white">
                     <div className="flex items-center justify-between px-6 py-3 border-b">
                         <div className="flex flex-col">
@@ -634,7 +663,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
 
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
-    const [showFilter, setShowFilter] = React.useState(false);
+    const [showFilter, setSearchShowFilter] = React.useState(false);
 
     const { logisticsData, chartsData, breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => t.tipo_transaccion === 'INGRESO');
@@ -847,7 +876,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 variant={showFilter ? "secondary" : "outline"} 
                                 size="sm" 
                                 className="h-9 px-4 text-xs font-medium border-slate-200"
-                                onClick={() => setShowFilter(!showFilter)}
+                                onClick={() => setSearchShowFilter(!showFilter)}
                             >
                                 <Filter className="mr-2 h-4 w-4" /> Filtrar
                             </Button>

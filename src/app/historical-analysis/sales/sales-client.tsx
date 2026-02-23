@@ -208,8 +208,7 @@ export default function SalesDashboardClient({
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4">
                     <SidebarTrigger />
-                    <h1 className="text-xl font-bold">Ventas Consolidadas</h1>
-                    <Badge variant="outline" className="hidden sm:flex">Registro ml_sales</Badge>
+                    <h1 className="text-xl font-bold">Ventas</h1>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isRefreshing} className="h-9 px-3 gap-2 font-bold text-muted-foreground">
