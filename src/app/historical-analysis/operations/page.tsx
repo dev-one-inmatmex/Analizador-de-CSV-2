@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -14,7 +15,7 @@ import {
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
   Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
-  PlusCircle, Edit2, Save, HelpCircle, CalendarDays
+  PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -62,6 +63,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Separator } from '@/components/ui/separator';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
@@ -169,14 +171,12 @@ export default function OperationsPage() {
 
     const handleSave = async (values: TransactionFormValues) => {
         try {
-            // Unir valores de 'OTRO' si existen
             const finalValues = { ...values };
             if (values.empresa === 'OTRA' && values.especificar_empresa) finalValues.empresa = values.especificar_empresa;
             if (values.metodo_pago === 'OTRO' && values.especificar_metodo_pago) finalValues.metodo_pago = values.especificar_metodo_pago;
             if (values.banco === 'OTRO' && values.especificar_banco) finalValues.banco = values.especificar_banco;
             if (values.cuenta === 'OTRO' && values.especificar_cuenta) finalValues.cuenta = values.especificar_cuenta;
 
-            // Limpiar campos temporales
             const { especificar_empresa, especificar_metodo_pago, especificar_banco, especificar_cuenta, ...dataToSave } = finalValues;
 
             let result;
@@ -675,6 +675,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [showFilter, setSearchShowFilter] = React.useState(false);
+    const [selectedDetail, setSelectedDetail] = React.useState<GastoDiario | null>(null);
 
     const { logisticsData, chartsData, breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(t.tipo_transaccion));
@@ -719,7 +720,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             (t.notas?.toLowerCase() || '').includes(q) ||
             (t.subcategoria_especifica?.toLowerCase() || '').includes(q) ||
             (t.canal_asociado?.toLowerCase() || '').includes(q) ||
-            (t.empresa?.toLowerCase() || '').includes(q)
+            (t.empresa?.toLowerCase() || '').includes(q) ||
+            (t.area_funcional?.toLowerCase() || '').includes(q) ||
+            (t.banco?.toLowerCase() || '').includes(q)
         );
     }, [transactions, searchQuery]);
 
@@ -737,6 +740,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             'Atribución': t.clasificacion_operativa,
             Fijo: t.es_fijo ? 'SÍ' : 'NO',
             Recurrente: t.es_recurrente ? 'SÍ' : 'NO',
+            'Método Pago': t.metodo_pago,
+            Banco: t.banco,
+            Cuenta: t.cuenta,
             Responsable: t.responsable,
             Descripción: t.descripcion,
             Notas: t.notas
@@ -863,15 +869,15 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             <Card className="border-none shadow-sm overflow-hidden bg-white">
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div className="space-y-1">
-                        <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground">Resumen completo para la auditoría de ingresos y gastos del periodo.</CardDescription>
+                        <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos (Informe Completo)</CardTitle>
+                        <CardDescription className="text-sm text-muted-foreground">Auditoría detallada de todos los campos financieros registrados.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <div className="flex items-center gap-2">
                             {showFilter && (
                                 <div className="relative animate-in fade-in slide-in-from-right-2">
                                     <Input 
-                                        placeholder="Buscar..." 
+                                        placeholder="Buscar en columnas..." 
                                         className="h-9 w-[200px] text-xs pr-8" 
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -899,59 +905,202 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             className="h-9 px-4 text-xs font-medium border-slate-200"
                             onClick={handleExport}
                         >
-                            <Download className="mr-2 h-4 w-4" /> Exportar
+                            <Download className="mr-2 h-4 w-4" /> Exportar a Excel
                         </Button>
                     </div>
                 </CardHeader>
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader className="bg-muted/10 border-t">
-                            <TableRow className="h-10 border-b-0">
+                <div className="overflow-x-auto overflow-y-hidden border-t">
+                    <Table className="min-w-[2500px]">
+                        <TableHeader className="bg-muted/10">
+                            <TableRow className="h-12 border-b">
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Fecha</TableHead>
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Empresa</TableHead>
-                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Categoría / Subcategoría</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Tipo Trans.</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Impacto (Nivel 1)</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Área (Nivel 2)</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Subcat (Nivel 3)</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Categoría Macro</TableHead>
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Canal</TableHead>
                                 <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Atribución</TableHead>
-                                <TableHead className="text-right font-bold uppercase text-[10px] text-slate-500 tracking-wider">Monto</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Fijo</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Recurrente</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Método Pago</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Banco</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Cuenta</TableHead>
+                                <TableHead className="font-bold uppercase text-[10px] text-slate-500 tracking-wider">Responsable</TableHead>
+                                <TableHead className="text-right font-bold uppercase text-[10px] text-slate-500 tracking-wider sticky right-0 bg-white/95 backdrop-blur-sm shadow-[-4px_0_10px_rgba(0,0,0,0.05)] px-6">Monto</TableHead>
+                                <TableHead className="w-[80px] sticky right-0 bg-white/95 backdrop-blur-sm border-l"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredTransactions.length > 0 ? (
                                 filteredTransactions.map((t: GastoDiario) => (
-                                    <TableRow key={t.id} className="hover:bg-muted/5 h-14">
+                                    <TableRow key={t.id} className="hover:bg-muted/5 h-14 border-b">
                                         <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
                                         <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{t.empresa}</Badge></TableCell>
                                         <TableCell>
-                                            <div className="font-bold text-[11px] text-[#1e293b]">{t.tipo_gasto_impacto?.replace(/_/g, ' ')}</div>
-                                            <div className="text-[10px] text-slate-400 font-medium">{t.subcategoria_especifica}</div>
+                                            <Badge variant={['INGRESO', 'VENTA'].includes(t.tipo_transaccion) ? 'default' : t.tipo_transaccion === 'COMPRA' ? 'secondary' : 'outline'} className="text-[8px] font-black uppercase whitespace-nowrap">
+                                                {t.tipo_transaccion}
+                                            </Badge>
                                         </TableCell>
+                                        <TableCell className="text-[10px] font-bold text-slate-700 uppercase">{t.tipo_gasto_impacto?.replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="text-[10px] font-medium text-slate-500 uppercase">{t.area_funcional?.replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="text-[10px] font-medium text-slate-500">{t.subcategoria_especifica}</TableCell>
+                                        <TableCell className="text-[10px] font-bold text-[#2D5A4C] uppercase">{t.categoria_macro}</TableCell>
                                         <TableCell className="text-[10px] font-semibold text-slate-500 uppercase">{t.canal_asociado?.replace(/_/g, ' ')}</TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col gap-1">
-                                                <Badge variant={['INGRESO', 'VENTA'].includes(t.tipo_transaccion) ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase w-fit">{t.tipo_transaccion}</Badge>
-                                                {t.clasificacion_operativa && <span className="text-[8px] font-black text-muted-foreground uppercase">{t.clasificacion_operativa}</span>}
-                                            </div>
+                                        <TableCell className="text-[9px] font-black text-muted-foreground uppercase">{t.clasificacion_operativa || '-'}</TableCell>
+                                        <TableCell className="text-center">{t.es_fijo ? <Badge className="bg-blue-100 text-blue-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
+                                        <TableCell className="text-center">{t.es_recurrente ? <Badge className="bg-purple-100 text-purple-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{t.metodo_pago}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{t.banco}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{t.cuenta}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-700 font-bold whitespace-nowrap">{t.responsable || '-'}</TableCell>
+                                        <TableCell className={cn(
+                                            "text-right font-bold text-sm sticky right-0 bg-white/95 backdrop-blur-sm shadow-[-4px_0_10px_rgba(0,0,0,0.05)] px-6", 
+                                            ['GASTO', 'COMPRA'].includes(t.tipo_transaccion) ? "text-slate-900" : "text-primary"
+                                        )}>
+                                            {money(t.monto)}
                                         </TableCell>
-                                        <TableCell className={cn("text-right font-bold text-sm", ['GASTO', 'COMPRA'].includes(t.tipo_transaccion) ? "text-slate-900" : "text-primary")}>{money(t.monto)}</TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-32">
-                                                    <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => onDeleteTransaction(t.id!)} className="text-destructive"><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                        <TableCell className="sticky right-0 bg-white/95 backdrop-blur-sm border-l text-center px-2">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setSelectedDetail(t)}>
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-32">
+                                                        <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => onDeleteTransaction(t.id!)} className="text-destructive"><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={7} className="text-center py-16 text-[11px] font-bold uppercase tracking-widest text-slate-400">0 Registros</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={17} className="text-center py-16 text-[11px] font-bold uppercase tracking-widest text-slate-400">0 Registros encontrados</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </div>
             </Card>
+
+            <Dialog open={!!selectedDetail} onOpenChange={() => setSelectedDetail(null)}>
+                <DialogContent className="max-w-3xl border-none shadow-2xl p-0 overflow-hidden rounded-[24px]">
+                    <div className="bg-[#2D5A4C] p-8 text-white relative">
+                        <button onClick={() => setSelectedDetail(null)} className="absolute top-6 right-6 text-white/60 hover:text-white"><X className="h-6 w-6" /></button>
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                                <FileText className="h-7 w-7 text-white" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Auditoría de Registro #{selectedDetail?.id}</p>
+                                <h2 className="text-3xl font-black uppercase tracking-tight">{selectedDetail?.subcategoria_especifica}</h2>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">{selectedDetail?.empresa}</Badge>
+                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">{selectedDetail?.tipo_transaccion}</Badge>
+                        </div>
+                    </div>
+                    
+                    <div className="p-8 space-y-8 bg-white max-h-[70vh] overflow-y-auto no-scrollbar">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <div className="space-y-4">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                        <Target className="h-3.5 w-3.5" /> Clasificación Operativa
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <DetailItem label="Impacto" value={selectedDetail?.tipo_gasto_impacto?.replace(/_/g, ' ')} />
+                                        <DetailItem label="Área" value={selectedDetail?.area_funcional?.replace(/_/g, ' ')} />
+                                        <DetailItem label="Macro" value={selectedDetail?.categoria_macro} />
+                                        <DetailItem label="Canal" value={selectedDetail?.canal_asociado?.replace(/_/g, ' ')} />
+                                        <DetailItem label="Atribución" value={selectedDetail?.clasificacion_operativa} />
+                                        <DetailItem label="Fecha" value={selectedDetail?.fecha} />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 pt-4 border-t border-slate-100">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                        <User className="h-3.5 w-3.5" /> Responsabilidad y Perfil
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <DetailItem label="Responsable" value={selectedDetail?.responsable} />
+                                        <div className="flex gap-2 mt-1">
+                                            {selectedDetail?.es_fijo && <Badge className="bg-blue-50 text-blue-700 text-[8px] border-none font-black">FIJO</Badge>}
+                                            {selectedDetail?.es_recurrente && <Badge className="bg-purple-50 text-purple-700 text-[8px] border-none font-black">RECURRENTE</Badge>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monto del Movimiento</p>
+                                    <p className={cn("text-4xl font-black", ['GASTO', 'COMPRA'].includes(selectedDetail?.tipo_transaccion || '') ? "text-slate-900" : "text-primary")}>
+                                        {money(selectedDetail?.monto)}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-4 pt-6 border-t border-slate-200">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                        <CreditCard className="h-3.5 w-3.5" /> Detalles de Pago
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase">Método:</span>
+                                            <span className="text-xs font-black text-slate-800">{selectedDetail?.metodo_pago}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase">Banco:</span>
+                                            <span className="text-xs font-black text-slate-800">{selectedDetail?.banco}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase">Cuenta:</span>
+                                            <span className="text-xs font-black text-slate-800">{selectedDetail?.cuenta}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 border-t pt-8">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Descripción y Notas Contextuales</h3>
+                            <div className="space-y-4">
+                                <div className="p-4 bg-muted/20 rounded-xl">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Descripción Técnica:</p>
+                                    <p className="text-xs text-slate-700 leading-relaxed font-medium italic">
+                                        {selectedDetail?.descripcion || "Sin descripción adicional."}
+                                    </p>
+                                </div>
+                                <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                                    <p className="text-[10px] font-black text-primary/60 uppercase mb-1">Notas Internas:</p>
+                                    <p className="text-xs text-slate-700 leading-relaxed font-semibold">
+                                        {selectedDetail?.notas || "Sin notas registradas."}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <DialogFooter className="p-6 border-t bg-slate-50">
+                        <Button variant="outline" onClick={() => setSelectedDetail(null)} className="font-black uppercase text-[10px] px-8 border-slate-200">Cerrar Visor</Button>
+                        <Button className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-8" onClick={() => { onEditTransaction(selectedDetail); setSelectedDetail(null); }}>
+                            <Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function DetailItem({ label, value }: { label: string, value: any }) {
+    return (
+        <div className="space-y-0.5">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{label}</p>
+            <p className="text-xs font-black text-slate-800 uppercase truncate">{value || '-'}</p>
         </div>
     );
 }
@@ -1324,7 +1473,6 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
             especificar_cuenta: ''
         };
 
-        // Preprocesar para detectar valores 'OTRO' en modo edición
         if (transaction) {
             if (!EMPRESAS.includes(base.empresa)) { base.especificar_empresa = base.empresa; base.empresa = 'OTRA'; }
             if (!METODOS_PAGO.includes(base.metodo_pago)) { base.especificar_metodo_pago = base.metodo_pago; base.metodo_pago = 'OTRO'; }
@@ -1344,7 +1492,6 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
     const watchedChannel = useWatch({ control: form.control, name: 'canal_asociado' });
     const watchedIsNominaMixta = useWatch({ control: form.control, name: 'es_nomina_mixta' });
     
-    // Watches para campos 'OTRO'
     const watchedEmpresa = useWatch({ control: form.control, name: 'empresa' });
     const watchedMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
     const watchedBanco = useWatch({ control: form.control, name: 'banco' });
