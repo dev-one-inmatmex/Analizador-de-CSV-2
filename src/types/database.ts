@@ -47,7 +47,7 @@ export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJ
 export type Banco = 'BBVA' | 'SANTANDER' | 'BANAMEX' | 'MERCADO_PAGO' | 'OTRO';
 export type Cuenta = 'OPERATIVA' | 'FISCAL' | 'CAJA_CHICA' | 'OTRO';
 
-export interface gasto_diarios{
+export interface gastos_diarios{
   id?: number; 
   fecha: string;
   empresa: Empresa;

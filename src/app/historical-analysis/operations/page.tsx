@@ -59,7 +59,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import type { GastoDiario } from '@/types/database';
+import type { gastos_diarios } from '@/types/database';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -388,10 +388,10 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
 
 export default function OperationsPage() {
     const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion'>('inicio');
-    const [transactions, setTransactions] = React.useState<GastoDiario[]>([]);
+    const [transactions, setTransactions] = React.useState<gastos_diarios []>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const [editingTransaction, setEditingTransaction] = React.useState<GastoDiario | null>(null);
+    const [editingTransaction, setEditingTransaction] = React.useState<gastos_diarios | null>(null);
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
     const [isClient, setIsClient] = React.useState(false);
 
@@ -445,7 +445,7 @@ export default function OperationsPage() {
                     break;
             }
 
-            const allFetched: GastoDiario[] = [];
+            const allFetched: gastos_diarios [] = [];
             let from = 0;
             const step = 1000;
             let hasMore = true;
@@ -467,7 +467,7 @@ export default function OperationsPage() {
 
                 if (error) throw error;
                 if (data && data.length > 0) {
-                    allFetched.push(...(data as GastoDiario[]));
+                    allFetched.push(...(data as gastos_diarios []));
                     if (data.length < step) hasMore = false;
                     else from += step;
                 } else {
@@ -548,7 +548,7 @@ export default function OperationsPage() {
         }
     }, [fetchAllData, toast]);
 
-    const handleEdit = React.useCallback((t: GastoDiario) => {
+    const handleEdit = React.useCallback((t: gastos_diarios) => {
         setEditingTransaction(t);
         setIsFormOpen(true);
     }, []);
@@ -986,7 +986,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
 function ReportsView({ transactions, isLoading, periodType, onEditTransaction, onDeleteTransaction }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [showFilter, setSearchShowFilter] = React.useState(false);
-    const [selectedDetail, setSelectedDetail] = React.useState<GastoDiario | null>(null);
+    const [selectedDetail, setSelectedDetail] = React.useState<gastos_diarios | null>(null);
 
     const periodLabel = React.useMemo(() => {
         switch (periodType) {
@@ -1072,7 +1072,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
         XLSX.writeFile(wb, `historial_movimientos_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
     };
 
-    const handleExportSinglePDF = (detail: GastoDiario) => {
+    const handleExportSinglePDF = (detail: gastos_diarios) => {
         const doc = new jsPDF();
         const cleanNote = cleanNotes(detail.notas);
         const empresa = getEnhancedValue(detail.empresa, detail.notas, 'Empresa');
@@ -1253,7 +1253,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredTransactions.map((t: GastoDiario) => (
+                            {filteredTransactions.map((t: gastos_diarios) => (
                                 <TableRow key={t.id} className="hover:bg-muted/5 h-14 border-b">
                                     <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
                                     <TableCell><Badge variant="outline" className="text-[10px]">{getEnhancedValue(t.empresa, t.notas, 'Empresa')}</Badge></TableCell>
