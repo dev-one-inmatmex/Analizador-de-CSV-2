@@ -66,59 +66,8 @@ export default function SalesDashboardClient({
 
     const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
-    const reconciledSales = React.useMemo(() => {
-        const data = initialSales.map(s => ({ ...s }));
-        
-        for (let i = 0; i < data.length; i++) {
-            const current = data[i];
-            const status = (current.status || '').toLowerCase();
-            
-            const match = status.match(/paquete de (\d+) productos/);
-            if (match) {
-                const numChildren = parseInt(match[1]);
-                const childrenIndices = [];
-                for (let j = 1; j <= numChildren; j++) {
-                    if (i + j < data.length) {
-                        childrenIndices.push(i + j);
-                    }
-                }
-
-                const parentToChildFields: (keyof Sale)[] = [
-                    'ing_xunidad', 'cargo_venta', 'costo_envio', 'costo_enviomp', 'total', 
-                    'factura_a', 'datos_poe', 'tipo_ndoc', 'direccion', 't_contribuyente', 
-                    'cfdi', 't_usuario', 'r_fiscal', 'comprador', 'negocio', 'ife', 
-                    'domicilio', 'mun_alcaldia', 'estado', 'c_postal', 'pais', 
-                    'f_entrega', 'f_camino', 'f_entregado', 'transportista', 'num_seguimiento'
-                ];
-
-                childrenIndices.forEach(idx => {
-                    const child = data[idx];
-                    (child as any)._isPackageChild = true;
-                    (child as any)._parentIndex = i;
-                    (child as any)._packageSize = numChildren;
-
-                    parentToChildFields.forEach(field => {
-                        const val = child[field];
-                        const isMissing = val === null || val === undefined || val === '' || val === 0;
-                        if (isMissing && current[field] !== undefined) {
-                            (child as any)[field] = current[field];
-                        }
-                    });
-                    
-                    if ((current.tienda === null || current.tienda === undefined || current.tienda === '') && child.tienda) {
-                        current.tienda = child.tienda;
-                    }
-                });
-                
-                (current as any)._isPackageParent = true;
-                (current as any)._packageSize = numChildren;
-            }
-        }
-        return data;
-    }, [initialSales]);
-
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
-        const filteredSales = reconciledSales.filter(sale => {
+        const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
 
@@ -136,16 +85,13 @@ export default function SalesDashboardClient({
             return true;
         });
 
-        const financialRecords = filteredSales.filter(s => !(s as any)._isPackageChild);
-        const totalRevenue = financialRecords.reduce((acc, sale) => acc + (sale.total || 0), 0);
-        const totalSalesCount = financialRecords.length;
+        const totalRevenue = filteredSales.reduce((acc, sale) => acc + (sale.total || 0), 0);
+        const totalSalesCount = filteredSales.length;
         const avgSale = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
         
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         
         filteredSales.forEach(sale => {
-            if ((sale as any)._isPackageParent && !sale.sku) return;
-            
             const key = sale.tit_pub || sale.sku || 'N/A';
             if (key === 'N/A') return;
 
@@ -153,11 +99,7 @@ export default function SalesDashboardClient({
                 productStats[key] = { revenue: 0, units: 0, sku: sale.sku || 'N/A' };
             }
             
-            const valueToAdd = (sale as any)._isPackageChild 
-                ? (sale.total || 0) / ((sale as any)._packageSize || 1) 
-                : (sale.total || 0);
-
-            productStats[key].revenue += valueToAdd;
+            productStats[key].revenue += (sale.total || 0);
             productStats[key].units += (sale.unidades || 0);
         });
 
@@ -192,12 +134,12 @@ export default function SalesDashboardClient({
         }));
 
         const companyMap: Record<string, number> = {};
-        financialRecords.forEach(s => {
+        filteredSales.forEach(s => {
             const c = s.tienda || 'Otros';
             companyMap[c] = (companyMap[c] || 0) + (s.total || 0);
         });
 
-        const detectedCompanies = Array.from(new Set(reconciledSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
+        const detectedCompanies = Array.from(new Set(initialSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
 
         return {
             sales: filteredSales,
@@ -206,7 +148,7 @@ export default function SalesDashboardClient({
             paretoAnalysisData: paretoData,
             dynamicCompanies: detectedCompanies
         };
-    }, [reconciledSales, company, date]);
+    }, [initialSales, company, date]);
 
     const totalPages = Math.ceil(sales.length / PAGE_SIZE);
     const paginatedSales = sales.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -305,7 +247,7 @@ export default function SalesDashboardClient({
                 <Card className="min-w-0 overflow-hidden border-none shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-xl font-black uppercase tracking-tight">Registro Maestro de Ventas</CardTitle>
-                        <CardDescription>Detalle de transacciones ml_sales (Herencia aplicada para paquetes).</CardDescription>
+                        <CardDescription>Detalle de transacciones ml_sales.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="relative w-full overflow-x-auto border-t">
