@@ -86,7 +86,7 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     ml_sales: {
         '# de venta:': 'num_venta',
         'Fecha de venta:': 'fecha_venta',
-        'Estado': 'status',
+        'Estado Venta': 'status',
         'Descripción del estado': 'desc_status',
         'Paquete de varios productos': 'paquete_varios',
         'Pertenece a un kit': 'pertenece_kit',
@@ -120,7 +120,7 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         'IFE': 'ife',
         'Domicilio': 'domicilio',
         'Municipio/Alcaldía': 'mun_alcaldia',
-        'Estado': 'estado',
+        'Estado Geografico': 'estado',
         'Código postal': 'c_postal',
         'País': 'pais',
         'Forma de entrega': 'f_entrega',
@@ -161,14 +161,10 @@ const MONTHS_ES: Record<string, number> = {
     julio: 6, agosto: 7, septiembre: 8, octubre: 9, noviembre: 10, diciembre: 11
 };
 
-/**
- * Convierte formatos de fecha de Mercado Libre a Timestamp ISO string.
- */
 function parseMLDate(str: string): string | null {
     if (!str || typeof str !== 'string') return null;
     const cleanStr = str.toLowerCase().trim();
     
-    // Formato 1: "2 de febrero de 2026 00:07 hs."
     const fullMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s+de\s+(\d{4})\s+(\d{1,2}):(\d{2})/);
     if (fullMatch) {
         const [_, day, monthStr, year, hour, min] = fullMatch;
@@ -179,7 +175,6 @@ function parseMLDate(str: string): string | null {
         }
     }
 
-    // Formato 2: "10 de febrero | 22:08"
     const shortMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s*\|\s*(\d{1,2}):(\d{2})/);
     if (shortMatch) {
         const [_, day, monthStr, hour, min] = shortMatch;
@@ -289,9 +284,21 @@ export default function CsvUploader() {
             
             if (selectedFile.name.toLowerCase().endsWith('.csv')) {
                 const csvText = new TextDecoder().decode(data);
+                let estadoCount = 0; // Contador para diferenciar "Estado"
+                
                 Papa.parse(csvText, {
                     header: true,
                     skipEmptyLines: true,
+                    transformHeader: (header) => {
+                        const trimmedHeader = header.trim();
+                        // Interceptamos y renombramos si la tabla es ml_sales
+                        if (table === 'ml_sales' && trimmedHeader === 'Estado') {
+                            estadoCount++;
+                            if (estadoCount === 1) return 'Estado Venta';
+                            if (estadoCount === 2) return 'Estado Geografico';
+                        }
+                        return trimmedHeader;
+                    },
                     beforeFirstChunk: (chunk) => {
                         if (table === 'ml_sales') {
                             const lines = chunk.split(/\r?\n/);
@@ -317,8 +324,19 @@ export default function CsvUploader() {
                 const range = table === 'ml_sales' ? 5 : 0;
                 const json = XLSX.utils.sheet_to_json(ws, { header: 1, range, defval: null }) as any[][];
                 const validRows = json.filter(row => row.some(cell => cell !== null && cell !== ''));
+                
                 if (validRows.length > 0) {
-                    const h = validRows[0].map(val => String(val || ''));
+                    let estadoCountExcel = 0; // Contador para diferenciar "Estado" en Excel
+                    const h = validRows[0].map(val => {
+                        const headerName = String(val || '').trim();
+                        // Interceptamos y renombramos si la tabla es ml_sales
+                        if (table === 'ml_sales' && headerName === 'Estado') {
+                            estadoCountExcel++;
+                            if (estadoCountExcel === 1) return 'Estado Venta';
+                            if (estadoCountExcel === 2) return 'Estado Geografico';
+                        }
+                        return headerName;
+                    });
                     const rows = validRows.slice(1);
                     setHeaders(h);
                     setRawRows(rows);
