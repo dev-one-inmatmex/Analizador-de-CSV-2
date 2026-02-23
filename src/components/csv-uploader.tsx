@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, ArrowLeft
@@ -109,6 +109,41 @@ export default function CsvUploader() {
     const [isLoading, setIsLoading] = useState(false);
     const [syncResult, setSyncResult] = useState<{inserted: number, updated: number, errors: any[]} | null>(null);
 
+    // Mapeo automático inteligente al seleccionar tabla
+    const handleTableSelect = (table: string) => {
+        setSelectedTable(table);
+        const schema = TABLE_SCHEMAS[table];
+        const map: Record<number, string> = {};
+        
+        const usedColumns = new Set<string>();
+
+        headers.forEach((h, i) => {
+            // Limpieza profunda para comparación fuzzy
+            const cleanHeader = h.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            
+            // Intentar encontrar coincidencia exacta o por nombre limpio
+            const match = schema.columns.find(c => {
+                const cleanCol = c.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+                return (cleanCol === cleanHeader || c.toLowerCase() === h.toLowerCase().replace(/\s/g, '_')) && !usedColumns.has(c);
+            });
+
+            if (match) {
+                map[i] = match;
+                usedColumns.add(match);
+            } else {
+                map[i] = IGNORE_COLUMN_VALUE;
+            }
+        });
+
+        setHeaderMap(map);
+        setCurrentStep('mapping');
+    };
+
+    // Calcular qué columnas están siendo usadas actualmente para deshabilitarlas
+    const usedDbColumns = useMemo(() => {
+        return new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE));
+    }, [headerMap]);
+
     const processFile = (f: File) => {
         const isExcel = f.name.endsWith('.xlsx') || f.name.endsWith('.xls');
         
@@ -163,19 +198,6 @@ export default function CsvUploader() {
         setCurrentStep('table-selection');
     };
 
-    const handleTableSelect = (table: string) => {
-        setSelectedTable(table);
-        const schema = TABLE_SCHEMAS[table];
-        const map: Record<number, string> = {};
-        headers.forEach((h, i) => {
-            const cleanHeader = h.toLowerCase().replace(/\s/g, '_');
-            const match = schema.columns.find(c => c.toLowerCase() === cleanHeader);
-            map[i] = match || IGNORE_COLUMN_VALUE;
-        });
-        setHeaderMap(map);
-        setCurrentStep('mapping');
-    };
-
     const handleSync = async () => {
         setIsLoading(true);
         setCurrentStep('syncing');
@@ -189,7 +211,7 @@ export default function CsvUploader() {
                 const obj: any = {};
                 headers.forEach((_, headerIndex) => {
                     const colName = headerMap[headerIndex];
-                    if (colName !== IGNORE_COLUMN_VALUE) {
+                    if (colName && colName !== IGNORE_COLUMN_VALUE) {
                         obj[colName] = parseValue(colName, row[headerIndex]);
                     }
                 });
@@ -216,6 +238,8 @@ export default function CsvUploader() {
         setHeaders([]);
         setRawRows([]);
         setConversionProgress(0);
+        setSelectedTable('');
+        setHeaderMap({});
         setCurrentStep('upload');
     };
 
@@ -371,9 +395,19 @@ export default function CsvUploader() {
                                                     </SelectTrigger>
                                                     <SelectContent className="rounded-xl border-none shadow-2xl">
                                                         <SelectItem value={IGNORE_COLUMN_VALUE} className="text-[10px] italic font-bold">-- IGNORAR ESTA COLUMNA --</SelectItem>
-                                                        {TABLE_SCHEMAS[selectedTable].columns.map(c => (
-                                                            <SelectItem key={c} value={c} className="text-[10px] font-bold uppercase py-2.5">{c.replace(/_/g, ' ')}</SelectItem>
-                                                        ))}
+                                                        {TABLE_SCHEMAS[selectedTable].columns.map(c => {
+                                                            const isAlreadyUsed = usedDbColumns.has(c) && headerMap[i] !== c;
+                                                            return (
+                                                                <SelectItem 
+                                                                    key={c} 
+                                                                    value={c} 
+                                                                    disabled={isAlreadyUsed}
+                                                                    className={cn("text-[10px] font-bold uppercase py-2.5", isAlreadyUsed && "opacity-30")}
+                                                                >
+                                                                    {c.replace(/_/g, ' ')} {isAlreadyUsed && '(Ya asignada)'}
+                                                                </SelectItem>
+                                                            );
+                                                        })}
                                                     </SelectContent>
                                                 </Select>
                                             </TableCell>
