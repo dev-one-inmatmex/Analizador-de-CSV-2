@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   UploadCloud, Loader2, Database, RefreshCcw, 
   CheckCircle, FileSpreadsheet, Layers, ArrowRight, Eye, AlertTriangle,
-  Save, X, ArrowRightLeft
+  Save, X, ArrowRightLeft, FileText, Info
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -416,7 +416,6 @@ export default function CsvUploader() {
             const SYNC_BATCH_SIZE = 50;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
-                // Indispensable: usar upsert con onConflict para sincronización masiva segura
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 
                 if (error) {
@@ -457,7 +456,7 @@ export default function CsvUploader() {
                         if (f.name.toLowerCase().endsWith('.csv')) setCurrentStep('table-selection');
                         else setCurrentStep('sheet-selection');
                     } catch (err) {
-                        toast({ title: 'Error de lectura', description: 'Archivo dañado.', variant: 'destructive' });
+                        toast({ title: 'Error de lectura', description: 'Archivo dañado o formato no soportado.', variant: 'destructive' });
                         setCurrentStep('upload');
                     }
                 };
@@ -479,59 +478,158 @@ export default function CsvUploader() {
     };
 
     return (
-        <div className="w-full max-w-7xl mx-auto space-y-6">
+        <div className="w-full max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             {currentStep === 'upload' && (
-                <Card className="border-none shadow-xl bg-white/80 backdrop-blur-md">
-                    <CardHeader><CardTitle className="text-2xl font-black uppercase tracking-tighter text-primary">Sube un archivo</CardTitle><CardDescription>Sube CSV o XLSX para iniciar.</CardDescription></CardHeader>
-                    <CardContent><div className="border-2 border-dashed border-primary/20 p-16 text-center rounded-2xl hover:bg-primary/5 cursor-pointer group" onClick={() => document.getElementById('file-input')?.click()}><div className="mx-auto h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><UploadCloud className="h-10 w-10 text-primary" /></div><p className="mt-2 text-lg font-black uppercase tracking-tight text-slate-700">Seleccionar archivo</p><input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} /></div></CardContent>
+                <Card className="border-none shadow-2xl bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden">
+                    <CardHeader className="bg-primary/5 pb-8">
+                        <CardTitle className="text-3xl font-black uppercase tracking-tight text-primary flex items-center gap-3">
+                            <UploadCloud className="h-8 w-8" /> Iniciar Procesamiento
+                        </CardTitle>
+                        <CardDescription className="text-lg font-medium text-slate-500">
+                            Sube un archivo .csv o .xlsx para realizar una auditoría diferencial y sincronizar con la base de datos.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-10">
+                        <div 
+                            className="border-2 border-dashed border-primary/20 p-20 text-center rounded-3xl hover:bg-primary/5 hover:border-primary/40 cursor-pointer group transition-all duration-300"
+                            onClick={() => document.getElementById('file-input')?.click()}
+                        >
+                            <div className="mx-auto h-24 w-24 bg-primary/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-500">
+                                <FileSpreadsheet className="h-12 w-12 text-primary" />
+                            </div>
+                            <h3 className="text-2xl font-black uppercase tracking-tight text-slate-800">Seleccionar Documento</h3>
+                            <p className="mt-2 text-slate-500 font-medium">O arrastra y suelta tu archivo aquí (Máx 50MB)</p>
+                            <input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} />
+                        </div>
+                    </CardContent>
                 </Card>
             )}
 
             {currentStep === 'converting' && (
-                <Card className="border-none shadow-xl bg-white p-12 text-center space-y-6"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" /><h3 className="text-xl font-black uppercase tracking-tighter">Procesando ({conversionProgress}%)</h3><Progress value={conversionProgress} className="h-3" /></Card>
+                <Card className="border-none shadow-2xl bg-white p-20 text-center rounded-3xl space-y-8">
+                    <div className="relative mx-auto h-24 w-24">
+                        <Loader2 className="h-24 w-24 animate-spin text-primary opacity-20" />
+                        <RefreshCcw className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 text-primary animate-bounce" />
+                    </div>
+                    <div className="space-y-4 max-w-md mx-auto">
+                        <h3 className="text-2xl font-black uppercase tracking-tight">Analizando Estructura...</h3>
+                        <Progress value={conversionProgress} className="h-3 bg-slate-100" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{conversionProgress}% COMPLETADO</p>
+                    </div>
+                </Card>
             )}
 
             {currentStep === 'sheet-selection' && (
-                <Card className="border-none shadow-xl bg-white relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b"><CardTitle className="text-xl font-black uppercase tracking-tighter">Hoja Excel</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-8">
-                        {sheets.map(s => <Button key={s} variant="outline" className="h-20 font-bold uppercase text-xs" onClick={() => { setSelectedSheet(s); setCurrentStep('table-selection'); }}>{s}</Button>)}
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
+                        <div>
+                            <CardTitle className="text-xl font-black uppercase tracking-tight">Seleccionar Hoja de Trabajo</CardTitle>
+                            <CardDescription>El archivo Excel contiene múltiples hojas. Elige la correcta.</CardDescription>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"><X className="h-5 w-5" /></Button>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 p-10">
+                        {sheets.map(s => (
+                            <Button 
+                                key={s} 
+                                variant="outline" 
+                                className="h-24 font-black uppercase text-xs flex flex-col gap-2 rounded-2xl border-slate-200 hover:border-primary hover:bg-primary/5 transition-all shadow-sm"
+                                onClick={() => { setSelectedSheet(s); setCurrentStep('table-selection'); }}
+                            >
+                                <FileText className="h-5 w-5 opacity-50" />
+                                {s}
+                            </Button>
+                        ))}
                     </CardContent>
                 </Card>
             )}
 
             {currentStep === 'table-selection' && (
-                <Card className="border-none shadow-xl bg-white relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b"><CardTitle className="text-xl font-black uppercase tracking-tighter">Destino de Datos</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
-                    <CardContent className="p-12 max-w-md mx-auto space-y-4">
-                        {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /> : (
-                            <Select onValueChange={handleTableSelect} value={selectedTable}>
-                                <SelectTrigger className="h-14 font-bold bg-white"><SelectValue placeholder="Seleccionar tabla..." /></SelectTrigger>
-                                <SelectContent>{Object.keys(TABLE_SCHEMAS).map(t => <SelectItem key={t} value={t} className="font-bold uppercase text-xs">{t}</SelectItem>)}</SelectContent>
-                            </Select>
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
+                        <div>
+                            <CardTitle className="text-xl font-black uppercase tracking-tight">Destino de la Información</CardTitle>
+                            <CardDescription>¿A qué tabla técnica pertenecen estos datos?</CardDescription>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button>
+                    </CardHeader>
+                    <CardContent className="p-20 max-w-xl mx-auto space-y-8">
+                        {isLoading ? (
+                            <div className="text-center space-y-4">
+                                <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+                                <p className="font-black text-[10px] uppercase tracking-widest text-slate-400">Preparando motor de mapeo...</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">TABLA DE DESTINO</Label>
+                                <Select onValueChange={handleTableSelect} value={selectedTable}>
+                                    <SelectTrigger className="h-16 font-black bg-white border-2 border-slate-100 rounded-2xl shadow-sm text-lg focus:ring-primary/20">
+                                        <SelectValue placeholder="Seleccionar tabla..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {Object.keys(TABLE_SCHEMAS).map(t => (
+                                            <SelectItem key={t} value={t} className="font-bold uppercase text-xs py-3">{t.replace(/_/g, ' ')}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+                                    <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                                        El sistema intentará mapear automáticamente las columnas basándose en alias técnicos y nombres históricos.
+                                    </p>
+                                </div>
+                            </div>
                         )}
                     </CardContent>
                 </Card>
             )}
 
             {currentStep === 'mapping' && (
-                <Card className="border-none shadow-2xl bg-white relative overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5"><CardTitle className="text-xl font-black uppercase tracking-tighter">Mapeo: {selectedTable}</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 px-8 py-6">
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white">
+                                <ArrowRightLeft className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-xl font-black uppercase tracking-tight">Mapeo Técnico: {selectedTable}</CardTitle>
+                                <CardDescription className="font-medium text-primary/60">Vincula las columnas de tu archivo con los campos de la base de datos.</CardDescription>
+                            </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button>
+                    </CardHeader>
                     <CardContent className="p-0">
-                        <div className="max-h-[500px] overflow-y-auto">
+                        <ScrollArea className="h-[500px]">
                             <Table>
-                                <TableHeader className="bg-muted/30 sticky top-0"><TableRow><TableHead className="font-black text-[10px] uppercase tracking-widest px-8">Origen (Archivo)</TableHead><TableHead className="font-black text-[10px] uppercase tracking-widest">Destino (Base de Datos)</TableHead></TableRow></TableHeader>
+                                <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                                    <TableRow className="border-b-0">
+                                        <TableHead className="font-black text-[10px] uppercase tracking-widest px-8 py-4 text-slate-500">Origen (Archivo)</TableHead>
+                                        <TableHead className="font-black text-[10px] uppercase tracking-widest py-4 text-slate-500">Destino (Base de Datos)</TableHead>
+                                    </TableRow>
+                                </TableHeader>
                                 <TableBody>
                                     {headers.map((h, i) => (
-                                        <TableRow key={i} className="h-16">
-                                            <TableCell className="px-8"><span className="font-black text-xs text-slate-700 uppercase">{h || 'S/N'}</span></TableCell>
+                                        <TableRow key={i} className="h-20 hover:bg-slate-50/50 transition-colors border-slate-100">
+                                            <TableCell className="px-8">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="font-black text-sm text-slate-800 uppercase leading-none">{h || 'COLUMNA SIN NOMBRE'}</span>
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ÍNDICE #{i}</span>
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="pr-8">
                                                 <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
-                                                    <SelectTrigger className={cn("h-10 text-[11px]", headerMap[i] === IGNORE_COLUMN_VALUE ? "opacity-40 border-dashed" : "font-black text-primary border-primary/30 bg-primary/5")}><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="italic text-[10px]">-- IGNORAR ESTA COLUMNA --</SelectItem>
+                                                    <SelectTrigger className={cn(
+                                                        "h-12 text-[11px] rounded-xl transition-all duration-300", 
+                                                        headerMap[i] === IGNORE_COLUMN_VALUE 
+                                                            ? "opacity-40 border-dashed border-slate-300" 
+                                                            : "font-black text-primary border-primary/30 bg-primary/5 shadow-sm"
+                                                    )}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl max-h-[300px]">
+                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="italic text-[10px] font-bold text-slate-400">-- IGNORAR ESTA COLUMNA --</SelectItem>
                                                         {TABLE_SCHEMAS[selectedTable].columns.map(c => (
-                                                            <SelectItem key={c} value={c} disabled={usedDbColumns.has(c) && headerMap[i] !== c} className="uppercase text-[10px] font-bold">{c.replace(/_/g, ' ')}</SelectItem>
+                                                            <SelectItem key={c} value={c} disabled={usedDbColumns.has(c) && headerMap[i] !== c} className="uppercase text-[10px] font-bold py-3">{c.replace(/_/g, ' ')}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
@@ -540,102 +638,237 @@ export default function CsvUploader() {
                                     ))}
                                 </TableBody>
                             </Table>
-                        </div>
+                        </ScrollArea>
                     </CardContent>
-                    <CardFooter className="p-8 border-t bg-slate-50"><Button onClick={performAnalysis} className="w-full h-16 font-black uppercase text-sm shadow-xl rounded-xl"><Eye className="mr-3" /> Analizar Cambios</Button></CardFooter>
+                    <CardFooter className="p-8 border-t bg-slate-50/80">
+                        <Button onClick={performAnalysis} className="w-full h-16 font-black uppercase text-sm shadow-xl rounded-2xl bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]">
+                            <Eye className="mr-3 h-5 w-5" /> Iniciar Auditoría Diferencial
+                        </Button>
+                    </CardFooter>
                 </Card>
             )}
 
             {currentStep === 'analyzing' && (
-                <Card className="border-none shadow-xl bg-white p-20 text-center"><Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" /><h3 className="text-2xl font-black uppercase tracking-tighter">Realizando Auditoría Diferencial...</h3></Card>
+                <Card className="border-none shadow-2xl bg-white p-24 text-center rounded-3xl">
+                    <div className="relative mx-auto h-24 w-24 mb-8">
+                        <Loader2 className="h-24 w-24 animate-spin text-primary" />
+                        <Layers className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-primary/40 animate-pulse" />
+                    </div>
+                    <h3 className="text-3xl font-black uppercase tracking-tight text-slate-800">Auditoría en Curso</h3>
+                    <p className="text-slate-500 font-medium max-w-sm mx-auto mt-2">Comparando el archivo contra el 100% de los registros en la base de datos...</p>
+                </Card>
             )}
 
             {currentStep === 'preview' && (
-                <Card className="border-none shadow-2xl bg-white relative overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5"><CardTitle className="text-xl font-black uppercase tracking-tighter">Vista Previa de Sincronización</CardTitle><Button variant="ghost" size="icon" onClick={reset}><X /></Button></CardHeader>
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative animate-in zoom-in-95 duration-300">
+                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 bg-slate-800 rounded-xl flex items-center justify-center text-white">
+                                <CheckCircle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-xl font-black uppercase tracking-tight">Auditoría de Resultados</CardTitle>
+                                <CardDescription className="font-medium text-slate-500">Revisa los cambios detectados antes de confirmar la sincronización.</CardDescription>
+                            </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button>
+                    </CardHeader>
                     <CardContent className="p-0">
                         <Tabs defaultValue="nuevos" className="w-full">
-                            <div className="px-8 border-b bg-muted/10"><TabsList className="h-14 bg-transparent gap-8">
-                                <TabsTrigger value="nuevos" className="font-bold uppercase text-[11px]">Nuevos ({categorizedData.new.length})</TabsTrigger>
-                                <TabsTrigger value="actualizar" className="font-bold uppercase text-[11px]">Con Cambios ({categorizedData.update.length})</TabsTrigger>
-                                <TabsTrigger value="sin-cambios" className="font-bold uppercase text-[11px]">Sin Cambios ({categorizedData.unchanged.length})</TabsTrigger>
-                            </TabsList></div>
+                            <div className="px-8 border-b bg-slate-50/50">
+                                <TabsList className="h-16 bg-transparent gap-10">
+                                    <TabsTrigger value="nuevos" className="font-black uppercase text-[11px] data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-0 h-16">
+                                        Nuevos <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary border-none">{categorizedData.new.length}</Badge>
+                                    </TabsTrigger>
+                                    <TabsTrigger value="actualizar" className="font-black uppercase text-[11px] data-[state=active]:text-amber-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 rounded-none px-0 h-16">
+                                        A Actualizar <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 border-none">{categorizedData.update.length}</Badge>
+                                    </TabsTrigger>
+                                    <TabsTrigger value="sin-cambios" className="font-black uppercase text-[11px] data-[state=active]:text-slate-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-slate-400 rounded-none px-0 h-16">
+                                        Sin Cambios <Badge variant="secondary" className="ml-2 bg-slate-100 text-slate-500 border-none">{categorizedData.unchanged.length}</Badge>
+                                    </TabsTrigger>
+                                </TabsList>
+                            </div>
+                            
                             {['nuevos', 'actualizar', 'sin-cambios'].map(tab => (
                                 <TabsContent key={tab} value={tab} className="mt-0">
-                                    <ScrollArea className="h-[450px] w-full border-b"><Table>
-                                        <TableHeader className="bg-white sticky top-0 shadow-sm"><TableRow>
-                                            {activeDbColumns.map(col => <TableHead key={col} className="font-black text-[10px] uppercase px-4 whitespace-nowrap">{col}</TableHead>)}
-                                        </TableRow></TableHeader>
-                                        <TableBody>
-                                            {tab === 'nuevos' ? categorizedData.new.map((r, i) => (
-                                                <TableRow key={i} className="h-12">{activeDbColumns.map(col => <TableCell key={col} className="text-[10px] px-4">{String(r[col] ?? '-')}</TableCell>)}</TableRow>
-                                            )) : tab === 'actualizar' ? categorizedData.update.map((u, i) => (
-                                                <TableRow key={i} className="h-12">{activeDbColumns.map(col => {
-                                                    const isDiff = NUMERIC_FIELDS.includes(col) ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 : String(u.record[col] ?? '') !== String(u.original[col] ?? '');
-                                                    return (
-                                                        <TableCell key={col} className={cn("px-4 text-[10px]", isDiff && "bg-amber-50/30")}>
-                                                            {isDiff ? <div className="flex flex-col"><span className="text-destructive line-through text-[8px] opacity-60">{String(u.original[col] ?? 'vacio')}</span><span className="text-primary font-black">{String(u.record[col] ?? 'vacio')}</span></div> : <span className="opacity-60">{String(u.record[col] ?? '-')}</span>}
+                                    <ScrollArea className="h-[450px] w-full border-b">
+                                        <Table className="min-w-full">
+                                            <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
+                                                <TableRow className="border-b-0">
+                                                    {activeDbColumns.map(col => (
+                                                        <TableHead key={col} className="font-black text-[10px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {tab === 'nuevos' && categorizedData.new.length > 0 ? (
+                                                    categorizedData.new.map((r, i) => (
+                                                        <TableRow key={i} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
+                                                            {activeDbColumns.map(col => <TableCell key={col} className="text-[11px] px-6 font-medium text-slate-700">{String(r[col] ?? '-')}</TableCell>)}
+                                                        </TableRow>
+                                                    ))
+                                                ) : tab === 'actualizar' && categorizedData.update.length > 0 ? (
+                                                    categorizedData.update.map((u, i) => (
+                                                        <TableRow key={i} className="h-16 hover:bg-amber-50/20 transition-colors border-slate-50">
+                                                            {activeDbColumns.map(col => {
+                                                                const isDiff = NUMERIC_FIELDS.includes(col) 
+                                                                    ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 
+                                                                    : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim();
+                                                                
+                                                                return (
+                                                                    <TableCell key={col} className={cn("px-6 text-[11px] font-medium", isDiff ? "bg-amber-50/40" : "text-slate-400 opacity-60")}>
+                                                                        {isDiff ? (
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <span className="text-red-500/60 line-through text-[9px] font-bold">{String(u.original[col] ?? 'vacío')}</span>
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <ArrowRight className="h-3 w-3 text-amber-500" />
+                                                                                    <span className="text-primary font-black text-xs">{String(u.record[col] ?? 'vacío')}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : String(u.record[col] ?? '-')}
+                                                                    </TableCell>
+                                                                );
+                                                            })}
+                                                        </TableRow>
+                                                    ))
+                                                ) : tab === 'sin-cambios' && categorizedData.unchanged.length > 0 ? (
+                                                    categorizedData.unchanged.map((r, i) => (
+                                                        <TableRow key={i} className="h-14 opacity-50 border-slate-50">
+                                                            {activeDbColumns.map(col => <TableCell key={col} className="text-[11px] px-6 font-medium">{String(r[col] ?? '-')}</TableCell>)}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow>
+                                                        <TableCell colSpan={activeDbColumns.length} className="text-center py-20">
+                                                            <div className="flex flex-col items-center gap-3 opacity-30">
+                                                                <Database className="h-12 w-12" />
+                                                                <p className="font-black uppercase text-xs tracking-widest">Sin registros en esta categoría</p>
+                                                            </div>
                                                         </TableCell>
-                                                    );
-                                                })}</TableRow>
-                                            )) : categorizedData.unchanged.map((r, i) => (
-                                                <TableRow key={i} className="h-12 opacity-60">{activeDbColumns.map(col => <TableCell key={col} className="text-[10px] px-4">{String(r[col] ?? '-')}</TableCell>)}</TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table><ScrollBar orientation="horizontal" /></ScrollArea>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                        <ScrollBar orientation="horizontal" />
+                                    </ScrollArea>
                                 </TabsContent>
                             ))}
                         </Tabs>
                     </CardContent>
-                    <CardFooter className="p-8 bg-slate-50 flex gap-4">
-                        <Button onClick={() => handleSync('new')} className="h-14 font-bold uppercase text-[11px] flex-1 bg-[#3E6053]" disabled={categorizedData.new.length === 0}>Insertar Nuevos</Button>
-                        <Button onClick={() => handleSync('update')} className="h-14 font-bold uppercase text-[11px] flex-1 bg-[#3E6053]" disabled={categorizedData.update.length === 0}>Actualizar Cambios</Button>
-                        <Button onClick={() => handleSync('all')} className="h-14 font-black uppercase text-[11px] flex-1 bg-[#2D5A4C]" disabled={categorizedData.new.length === 0 && categorizedData.update.length === 0}>Sincronizar Todo</Button>
+                    <CardFooter className="p-8 bg-slate-100/80 flex gap-6 items-center">
+                        <div className="flex-1 flex gap-4">
+                            <Button onClick={() => handleSync('new')} className="h-14 font-black uppercase text-[10px] flex-1 bg-slate-800 hover:bg-slate-900 rounded-2xl shadow-lg transition-all" disabled={categorizedData.new.length === 0}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Insertar Nuevos
+                            </Button>
+                            <Button onClick={() => handleSync('update')} className="h-14 font-black uppercase text-[10px] flex-1 bg-amber-600 hover:bg-amber-700 rounded-2xl shadow-lg transition-all" disabled={categorizedData.update.length === 0}>
+                                <RefreshCcw className="mr-2 h-4 w-4" /> Actualizar Cambios
+                            </Button>
+                            <Button onClick={() => handleSync('all')} className="h-14 font-black uppercase text-[10px] flex-1 bg-primary hover:bg-primary/90 rounded-2xl shadow-xl transition-all active:scale-[0.98]" disabled={categorizedData.new.length === 0 && categorizedData.update.length === 0}>
+                                <Save className="mr-2 h-4 w-4" /> Sincronizar Todo
+                            </Button>
+                        </div>
+                        <div className="w-px h-10 bg-slate-300" />
+                        <div className="text-right flex flex-col justify-center">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL PROCESABLE</span>
+                            <span className="text-xl font-black text-slate-800 leading-none">{categorizedData.new.length + categorizedData.update.length}</span>
+                        </div>
                     </CardFooter>
                 </Card>
             )}
 
             {currentStep === 'syncing' && (
-                <Card className="border-none shadow-xl bg-white p-20 text-center space-y-8">
-                    <div className="relative mx-auto h-24 w-24"><Loader2 className="h-24 w-24 animate-spin text-primary opacity-20" /><Database className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 text-primary" /></div>
-                    <div className="max-w-md mx-auto space-y-4">
-                        <h3 className="text-2xl font-black uppercase tracking-tighter text-primary">Sincronizando Datos</h3>
-                        <Progress value={syncProgress} className="h-4" />
-                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-muted-foreground"><span>{syncProgress}%</span><span>Registros: {syncCount} / {totalToSync}</span></div>
+                <Card className="border-none shadow-2xl bg-white p-24 text-center space-y-10 rounded-3xl">
+                    <div className="relative mx-auto h-32 w-32">
+                        <Loader2 className="h-32 w-32 animate-spin text-primary opacity-10" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 bg-primary/5 rounded-full flex items-center justify-center animate-pulse shadow-inner">
+                            <Database className="h-8 w-8 text-primary" />
+                        </div>
+                    </div>
+                    <div className="max-w-md mx-auto space-y-6">
+                        <div className="space-y-2">
+                            <h3 className="text-3xl font-black uppercase tracking-tight text-primary">Inyectando Datos...</h3>
+                            <p className="text-slate-500 font-medium">No cierres esta ventana mientras la operación esté activa.</p>
+                        </div>
+                        <div className="space-y-3">
+                            <Progress value={syncProgress} className="h-4 bg-slate-100 rounded-full overflow-hidden" />
+                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <span className="bg-primary/10 text-primary px-3 py-1 rounded-full">{syncProgress}% COMPLETADO</span>
+                                <span className="bg-slate-100 px-3 py-1 rounded-full">REGISTROS: {syncCount} / {totalToSync}</span>
+                            </div>
+                        </div>
                     </div>
                 </Card>
             )}
 
             {currentStep === 'results' && syncResult && (
-                <Card className="border-none shadow-2xl overflow-hidden rounded-3xl relative animate-in zoom-in-95">
-                    <div className={cn("p-12 text-white text-center", syncResult.errors.length > 0 ? "bg-amber-600" : "bg-[#2D5A4C]")}>
-                        <Button variant="ghost" size="icon" onClick={reset} className="absolute top-6 right-6 text-white hover:bg-white/20"><X /></Button>
-                        <div className="mx-auto h-20 w-20 bg-white/20 rounded-full flex items-center justify-center mb-6">{syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12" /> : <CheckCircle className="h-12 w-12" />}</div>
-                        <h2 className="text-3xl font-black uppercase tracking-tighter">{syncResult.errors.length > 0 ? 'Auditoría con Anomalías' : '¡Sincronización Exitosa!'}</h2>
-                    </div>
-                    <CardContent className="p-8 bg-white space-y-10">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                            <div className="p-6 rounded-2xl bg-green-50/50 border border-green-100"><p className="text-[10px] font-black uppercase text-green-600">Inyectados</p><p className="text-4xl font-black text-green-800">{syncResult.inserted.length}</p></div>
-                            <div className="p-6 rounded-2xl bg-blue-50/50 border border-blue-100"><p className="text-[10px] font-black uppercase text-blue-600">Sobrescritos</p><p className="text-4xl font-black text-blue-800">{syncResult.updated.length}</p></div>
-                            <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100"><p className="text-[10px] font-black uppercase text-slate-400">Sin Cambios</p><p className="text-4xl font-black text-600">{syncResult.unchanged.length}</p></div>
+                <Card className="border-none shadow-2xl overflow-hidden rounded-[40px] relative animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+                    <div className={cn("p-16 text-white text-center relative", syncResult.errors.length > 0 ? "bg-amber-600" : "bg-primary")}>
+                        <Button variant="ghost" size="icon" onClick={reset} className="absolute top-8 right-8 text-white hover:bg-white/20 rounded-full"><X className="h-6 w-6" /></Button>
+                        <div className="mx-auto h-24 w-24 bg-white/20 rounded-full flex items-center justify-center mb-8 shadow-inner animate-in zoom-in duration-700">
+                            {syncResult.errors.length > 0 ? <AlertTriangle className="h-12 w-12" /> : <CheckCircle className="h-12 w-12" />}
                         </div>
+                        <h2 className="text-4xl font-black uppercase tracking-tighter leading-none mb-3">
+                            {syncResult.errors.length > 0 ? 'Auditoría Finalizada con Anomalías' : '¡Sincronización Exitosa!'}
+                        </h2>
+                        <p className="text-white/70 font-medium text-lg uppercase tracking-widest text-[10px]">REPORTE TÉCNICO DE EJECUCIÓN</p>
+                    </div>
+                    
+                    <CardContent className="p-12 bg-white space-y-12">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="p-10 rounded-3xl bg-emerald-50 border border-emerald-100 shadow-sm text-center space-y-2">
+                                <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Inyectados</p>
+                                <p className="text-5xl font-black text-emerald-800 leading-none">{syncResult.inserted.length}</p>
+                            </div>
+                            <div className="p-10 rounded-3xl bg-blue-50 border border-blue-100 shadow-sm text-center space-y-2">
+                                <p className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Sobrescritos</p>
+                                <p className="text-5xl font-black text-blue-800 leading-none">{syncResult.updated.length}</p>
+                            </div>
+                            <div className="p-10 rounded-3xl bg-slate-50 border border-slate-100 shadow-sm text-center space-y-2">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sin Cambios</p>
+                                <p className="text-5xl font-black text-slate-600 leading-none">{syncResult.unchanged.length}</p>
+                            </div>
+                        </div>
+
                         {syncResult.errors.length > 0 && (
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-black uppercase text-slate-700">DETALLE DE ANOMALÍAS:</h3>
-                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                            <div className="space-y-6">
+                                <h3 className="text-base font-black uppercase text-slate-800 tracking-tight flex items-center gap-2">
+                                    <AlertCircle className="h-5 w-5 text-amber-600" /> DETALLE DE ANOMALÍAS:
+                                </h3>
+                                <div className="space-y-4 max-h-[450px] overflow-y-auto pr-4 no-scrollbar">
                                     {syncResult.errors.map((err, i) => (
-                                        <div key={i} className="p-6 rounded-2xl bg-white border border-red-50 shadow-sm flex items-start gap-4">
-                                            <div className="mt-1.5 h-3 w-3 rounded-full bg-red-500 animate-pulse shrink-0 ring-4 ring-red-50" />
-                                            <div className="space-y-1"><p className="font-black text-red-600 text-xs uppercase">ERROR LOTE #{err.batch}</p><p className="text-slate-600 text-xs font-semibold">{formatErrorDescription(err.msg)}</p></div>
+                                        <div key={i} className="group p-8 rounded-3xl bg-white border border-slate-100 shadow-md flex items-start gap-6 hover:shadow-xl transition-all duration-300">
+                                            <div className="relative mt-1">
+                                                <div className="h-4 w-4 rounded-full bg-red-500 animate-ping absolute inset-0 opacity-20" />
+                                                <div className="h-4 w-4 rounded-full bg-red-500 relative ring-4 ring-red-50" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="font-black text-red-600 text-xs uppercase tracking-widest leading-none">ERROR LOTE #{err.batch}</p>
+                                                <p className="text-slate-700 text-sm font-semibold leading-relaxed">{formatErrorDescription(err.msg)}</p>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
-                        <div className="grid grid-cols-2 gap-4"><Button variant="outline" className="h-14 font-black uppercase text-xs rounded-xl" onClick={reset}>Procesar otro</Button><Button className="h-14 font-black uppercase text-xs rounded-xl" onClick={() => window.location.reload()}>Finalizar</Button></div>
+
+                        <div className="grid grid-cols-2 gap-6 pt-4 border-t">
+                            <Button variant="outline" className="h-16 font-black uppercase text-xs rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm" onClick={reset}>
+                                <RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo
+                            </Button>
+                            <Button className="h-16 font-black uppercase text-xs rounded-2xl bg-slate-900 hover:bg-black transition-all shadow-xl active:scale-[0.98]" onClick={() => window.location.reload()}>
+                                <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Auditoría
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
             )}
         </div>
     );
+}
+
+// Iconos adicionales usados
+function PlusCircle(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+  );
 }
