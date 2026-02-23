@@ -2,8 +2,54 @@
 
 import { supabaseAdmin } from '@/lib/supabaseClient';
 import { revalidatePath } from 'next/cache';
-import { expenseFormSchema, TransactionFormValues } from './schemas';
+import { 
+  expenseFormSchema, 
+  TransactionFormValues,
+  EMPRESAS,
+  METODOS_PAGO,
+  BANCOS,
+  CUENTAS 
+} from './schemas';
 import { format } from 'date-fns';
+
+/**
+ * Prepara los datos para la base de datos, asegurando que no se envíen valores 
+ * que violen las restricciones de ENUM de Postgres.
+ */
+function prepareDataForDB(values: any) {
+  const data = { ...values };
+  let extraNotes = '';
+
+  // Verificación de Empresa
+  if (!EMPRESAS.includes(data.empresa as any)) {
+    extraNotes += `[Empresa: ${data.empresa}] `;
+    data.empresa = 'OTRA';
+  }
+
+  // Verificación de Método de Pago
+  if (!METODOS_PAGO.includes(data.metodo_pago as any)) {
+    extraNotes += `[Método: ${data.metodo_pago}] `;
+    data.metodo_pago = 'OTRO';
+  }
+
+  // Verificación de Banco
+  if (!BANCOS.includes(data.banco as any)) {
+    extraNotes += `[Banco: ${data.banco}] `;
+    data.banco = 'OTRO';
+  }
+
+  // Verificación de Cuenta
+  if (!CUENTAS.includes(data.cuenta as any)) {
+    extraNotes += `[Cuenta: ${data.cuenta}] `;
+    data.cuenta = 'OTRO';
+  }
+
+  if (extraNotes) {
+    data.notas = `${extraNotes}${data.notas || ''}`.trim();
+  }
+
+  return data;
+}
 
 /**
  * Registra un nuevo gasto utilizando privilegios de administrador para bypass de RLS.
@@ -20,9 +66,8 @@ export async function addExpenseAction(values: TransactionFormValues) {
     return { error: "La conexión con la base de datos (admin) no está disponible." };
   }
 
-  // Extraemos solo los campos que existen en la base de datos
-  // es_nomina_mixta es un campo del formulario, no de la DB
-  const { es_nomina_mixta, ...dbFields } = validatedFields.data;
+  const dbCompatibleData = prepareDataForDB(validatedFields.data);
+  const { es_nomina_mixta, especificar_empresa, especificar_metodo_pago, especificar_banco, especificar_cuenta, ...dbFields } = dbCompatibleData;
 
   const dataToInsert = {
     ...dbFields,
@@ -55,7 +100,8 @@ export async function updateExpenseAction(id: number, values: TransactionFormVal
         return { error: "La conexión con la base de datos (admin) no está disponible." };
     }
 
-    const { es_nomina_mixta, ...dbFields } = validatedFields.data;
+    const dbCompatibleData = prepareDataForDB(validatedFields.data);
+    const { es_nomina_mixta, especificar_empresa, especificar_metodo_pago, especificar_banco, especificar_cuenta, ...dbFields } = dbCompatibleData;
 
     const dataToUpdate = {
         ...dbFields,

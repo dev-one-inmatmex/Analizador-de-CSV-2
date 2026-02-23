@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -67,6 +66,23 @@ import { Separator } from '@/components/ui/separator';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
+
+/**
+ * Utilidad para extraer valores personalizados guardados en las notas.
+ */
+function getEnhancedValue(baseValue: string, notes: string | null | undefined, prefix: string): string {
+    if (!notes) return baseValue;
+    const match = notes.match(new RegExp(`\\[${prefix}: (.*?)\\]`));
+    return (match && match[1]) ? match[1] : baseValue;
+}
+
+/**
+ * Limpia las notas de los prefijos técnicos para visualización.
+ */
+function cleanNotes(notes: string | null | undefined): string {
+    if (!notes) return '';
+    return notes.replace(/\[(Empresa|Método|Banco|Cuenta):.*?\]\s*/g, '').trim();
+}
 
 export default function OperationsPage() {
     const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion'>('inicio');
@@ -172,16 +188,17 @@ export default function OperationsPage() {
     const handleSave = async (values: TransactionFormValues) => {
         try {
             const finalValues = { ...values };
+            
+            // Si eligió OTRA/OTRO, el valor real que queremos guardar es el especificado.
+            // La lógica en actions.ts se encargará de guardarlo en Notas si la DB es un ENUM rígido.
             if (values.empresa === 'OTRA' && values.especificar_empresa) finalValues.empresa = values.especificar_empresa;
             if (values.metodo_pago === 'OTRO' && values.especificar_metodo_pago) finalValues.metodo_pago = values.especificar_metodo_pago;
             if (values.banco === 'OTRO' && values.especificar_banco) finalValues.banco = values.especificar_banco;
             if (values.cuenta === 'OTRO' && values.especificar_cuenta) finalValues.cuenta = values.especificar_cuenta;
 
-            const { especificar_empresa, especificar_metodo_pago, especificar_banco, especificar_cuenta, ...dataToSave } = finalValues;
-
             let result;
             
-            if (dataToSave.tipo_gasto_impacto === 'NOMINA' && dataToSave.es_nomina_mixta) {
+            if (finalValues.tipo_gasto_impacto === 'NOMINA' && finalValues.es_nomina_mixta) {
                 const distribucion = [
                     { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
                     { canal: 'MAYOREO', porcentaje: 0.30 },
@@ -190,11 +207,11 @@ export default function OperationsPage() {
 
                 for (const dest of distribucion) {
                     const fraccionado = {
-                        ...(dataToSave as any),
-                        monto: Number(dataToSave.monto) * dest.porcentaje,
+                        ...(finalValues as any),
+                        monto: Number(finalValues.monto) * dest.porcentaje,
                         canal_asociado: dest.canal as any,
                         clasificacion_operativa: 'SEMI_DIRECTO' as any,
-                        notas: `${dataToSave.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
+                        notas: `${finalValues.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
                         es_nomina_mixta: false 
                     };
                     const res = await addExpenseAction(fraccionado);
@@ -203,9 +220,9 @@ export default function OperationsPage() {
                 result = { data: "Nómina mixta registrada exitosamente." };
             } else {
                 if (editingTransaction && editingTransaction.id) {
-                    result = await updateExpenseAction(editingTransaction.id, dataToSave as any);
+                    result = await updateExpenseAction(editingTransaction.id, finalValues as any);
                 } else {
-                    result = await addExpenseAction(dataToSave as any);
+                    result = await addExpenseAction(finalValues as any);
                 }
             }
 
@@ -729,7 +746,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     const handleExport = () => {
         const ws = XLSX.utils.json_to_sheet(filteredTransactions.map((t: any) => ({
             Fecha: t.fecha,
-            Empresa: t.empresa,
+            Empresa: getEnhancedValue(t.empresa, t.notas, 'Empresa'),
             'Tipo Transacción': t.tipo_transaccion,
             Monto: t.monto,
             'Tipo Gasto': t.tipo_gasto_impacto,
@@ -740,12 +757,12 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             'Atribución': t.clasificacion_operativa,
             Fijo: t.es_fijo ? 'SÍ' : 'NO',
             Recurrente: t.es_recurrente ? 'SÍ' : 'NO',
-            'Método Pago': t.metodo_pago,
-            Banco: t.banco,
-            Cuenta: t.cuenta,
+            'Método Pago': getEnhancedValue(t.metodo_pago, t.notas, 'Método'),
+            Banco: getEnhancedValue(t.banco, t.notas, 'Banco'),
+            Cuenta: getEnhancedValue(t.cuenta, t.notas, 'Cuenta'),
             Responsable: t.responsable,
             Descripción: t.descripcion,
-            Notas: t.notas
+            Notas: cleanNotes(t.notas)
         })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Historial Movimientos");
@@ -937,7 +954,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 filteredTransactions.map((t: GastoDiario) => (
                                     <TableRow key={t.id} className="hover:bg-muted/5 h-14 border-b">
                                         <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
-                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{t.empresa}</Badge></TableCell>
+                                        <TableCell><Badge variant="outline" className="text-[10px] font-semibold text-slate-600 border-slate-200">{getEnhancedValue(t.empresa, t.notas, 'Empresa')}</Badge></TableCell>
                                         <TableCell>
                                             <Badge variant={['INGRESO', 'VENTA'].includes(t.tipo_transaccion) ? 'default' : t.tipo_transaccion === 'COMPRA' ? 'secondary' : 'outline'} className="text-[8px] font-black uppercase whitespace-nowrap">
                                                 {t.tipo_transaccion}
@@ -951,9 +968,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="text-[9px] font-black text-muted-foreground uppercase">{t.clasificacion_operativa || '-'}</TableCell>
                                         <TableCell className="text-center">{t.es_fijo ? <Badge className="bg-blue-100 text-blue-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
                                         <TableCell className="text-center">{t.es_recurrente ? <Badge className="bg-purple-100 text-purple-700 border-none text-[8px]">SÍ</Badge> : '-'}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{t.metodo_pago}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{t.banco}</TableCell>
-                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{t.cuenta}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.metodo_pago, t.notas, 'Método')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.banco, t.notas, 'Banco')}</TableCell>
+                                        <TableCell className="text-[10px] text-slate-500 font-medium uppercase">{getEnhancedValue(t.cuenta, t.notas, 'Cuenta')}</TableCell>
                                         <TableCell className="text-[10px] text-slate-700 font-bold whitespace-nowrap">{t.responsable || '-'}</TableCell>
                                         <TableCell className={cn(
                                             "text-right font-bold text-sm sticky right-0 bg-white/95 backdrop-blur-sm shadow-[-4px_0_10px_rgba(0,0,0,0.05)] px-6", 
@@ -969,7 +986,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-32">
-                                                        <DropdownMenuItem onClick={() => onEditTransaction(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEdit(t)}><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => onDeleteTransaction(t.id!)} className="text-destructive"><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -999,7 +1016,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             </div>
                         </div>
                         <div className="flex gap-3">
-                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">{selectedDetail?.empresa}</Badge>
+                            <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">
+                                {getEnhancedValue(selectedDetail?.empresa || '', selectedDetail?.notas, 'Empresa')}
+                            </Badge>
                             <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-black uppercase tracking-widest text-[9px] px-3 py-1">{selectedDetail?.tipo_transaccion}</Badge>
                         </div>
                     </div>
@@ -1050,15 +1069,21 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center py-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">Método:</span>
-                                            <span className="text-xs font-black text-slate-800">{selectedDetail?.metodo_pago}</span>
+                                            <span className="text-xs font-black text-slate-800">
+                                                {getEnhancedValue(selectedDetail?.metodo_pago || '', selectedDetail?.notas, 'Método')}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between items-center py-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">Banco:</span>
-                                            <span className="text-xs font-black text-slate-800">{selectedDetail?.banco}</span>
+                                            <span className="text-xs font-black text-slate-800">
+                                                {getEnhancedValue(selectedDetail?.banco || '', selectedDetail?.notas, 'Banco')}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between items-center py-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">Cuenta:</span>
-                                            <span className="text-xs font-black text-slate-800">{selectedDetail?.cuenta}</span>
+                                            <span className="text-xs font-black text-slate-800">
+                                                {getEnhancedValue(selectedDetail?.cuenta || '', selectedDetail?.notas, 'Cuenta')}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -1077,7 +1102,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
                                     <p className="text-[10px] font-black text-primary/60 uppercase mb-1">Notas Internas:</p>
                                     <p className="text-xs text-slate-700 leading-relaxed font-semibold">
-                                        {selectedDetail?.notas || "Sin notas registradas."}
+                                        {cleanNotes(selectedDetail?.notas) || "Sin notas registradas."}
                                     </p>
                                 </div>
                             </div>
@@ -1086,7 +1111,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     
                     <DialogFooter className="p-6 border-t bg-slate-50">
                         <Button variant="outline" onClick={() => setSelectedDetail(null)} className="font-black uppercase text-[10px] px-8 border-slate-200">Cerrar Visor</Button>
-                        <Button className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-8" onClick={() => { onEditTransaction(selectedDetail); setSelectedDetail(null); }}>
+                        <Button className="bg-[#2D5A4C] hover:bg-[#1f3e34] font-black uppercase text-[10px] px-8" onClick={() => { handleEdit(selectedDetail!); setSelectedDetail(null); }}>
                             <Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro
                         </Button>
                     </DialogFooter>
@@ -1450,7 +1475,16 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
 
 function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynamicSubcategories, dynamicMacro }: any) {
     const defaultValues = React.useMemo(() => {
-        const base = transaction ? { ...transaction, fecha: parseISO(transaction.fecha) } : {
+        const base = transaction ? { 
+            ...transaction, 
+            fecha: parseISO(transaction.fecha),
+            // Intentamos extraer valores de las notas para re-poblar los campos "Especificar"
+            especificar_empresa: getEnhancedValue(transaction.empresa, transaction.notas, 'Empresa'),
+            especificar_metodo_pago: getEnhancedValue(transaction.metodo_pago, transaction.notas, 'Método'),
+            especificar_banco: getEnhancedValue(transaction.banco, transaction.notas, 'Banco'),
+            especificar_cuenta: getEnhancedValue(transaction.cuenta, transaction.notas, 'Cuenta'),
+            notas: cleanNotes(transaction.notas)
+        } : {
             fecha: new Date(), 
             empresa: 'MTM', 
             tipo_transaccion: 'GASTO', 
@@ -1473,11 +1507,12 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
             especificar_cuenta: ''
         };
 
+        // Si es edición y el valor base era OTRA/OTRO, nos aseguramos de que el selector se quede en OTRA/OTRO
         if (transaction) {
-            if (!EMPRESAS.includes(base.empresa)) { base.especificar_empresa = base.empresa; base.empresa = 'OTRA'; }
-            if (!METODOS_PAGO.includes(base.metodo_pago)) { base.especificar_metodo_pago = base.metodo_pago; base.metodo_pago = 'OTRO'; }
-            if (!BANCOS.includes(base.banco)) { base.especificar_banco = base.banco; base.banco = 'OTRO'; }
-            if (!CUENTAS.includes(base.cuenta)) { base.especificar_cuenta = base.cuenta; base.cuenta = 'OTRO'; }
+            if (!EMPRESAS.includes(transaction.empresa)) { base.empresa = 'OTRA'; }
+            if (!METODOS_PAGO.includes(transaction.metodo_pago)) { base.metodo_pago = 'OTRO'; }
+            if (!BANCOS.includes(transaction.banco)) { base.banco = 'OTRO'; }
+            if (!CUENTAS.includes(transaction.cuenta)) { base.cuenta = 'OTRO'; }
         }
 
         return base;
@@ -1537,7 +1572,7 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
                             <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
                                 <FormItem className="animate-in fade-in slide-in-from-top-1">
                                     <FormControl>
-                                        <Input placeholder="Especifique método..." className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
+                                        <Input placeholder="Especifique método (ej: SPEI)" className="h-9 text-xs border-primary/20 bg-primary/5 font-medium" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
