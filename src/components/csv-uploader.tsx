@@ -266,7 +266,7 @@ export default function CsvUploader() {
 
     const [syncResult, setSyncResult] = useState<{
         inserted: any[], 
-        updated: any[], 
+        updated: { record: any, original: any }[], 
         unchanged: any[],
         errors: { batch: number, msg: string }[]
     } | null>(null);
@@ -480,7 +480,7 @@ export default function CsvUploader() {
         setSyncProgress(0);
 
         const inserted: any[] = [];
-        const updated: any[] = [];
+        const updated: { record: any, original: any }[] = [];
         const unchanged: any[] = [...categorizedData.unchanged];
         const errors: { batch: number, msg: string }[] = [];
 
@@ -494,9 +494,12 @@ export default function CsvUploader() {
                     errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
                 } else {
                     batch.forEach(r => {
-                        const isNew = categorizedData.new.some(n => String(n[schema.pk]) === String(r[schema.pk]));
-                        if (isNew) inserted.push(r);
-                        else updated.push(r);
+                        const originalUpdate = categorizedData.update.find(u => String(u.record[schema.pk]) === String(r[schema.pk]));
+                        if (originalUpdate) {
+                            updated.push(originalUpdate);
+                        } else {
+                            inserted.push(r);
+                        }
                     });
                 }
                 const currentProcessed = Math.min(i + SYNC_BATCH_SIZE, total);
@@ -922,6 +925,92 @@ export default function CsvUploader() {
                                 </div>
                             </div>
                         )}
+
+                        <div className="space-y-6 border-t pt-12">
+                            <h3 className="text-base font-black uppercase text-slate-800 tracking-tight flex items-center gap-2">
+                                <Database className="h-5 w-5 text-primary" /> VISOR DE REGISTROS PROCESADOS:
+                            </h3>
+                            <Tabs defaultValue="inyectados" className="w-full">
+                                <TabsList className="h-12 bg-slate-100 p-1 rounded-xl mb-6">
+                                    <TabsTrigger value="inyectados" className="flex-1 font-black uppercase text-[10px] rounded-lg">
+                                        Nuevos Inyectados ({syncResult.inserted.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger value="actualizados" className="flex-1 font-black uppercase text-[10px] rounded-lg">
+                                        Sobrescritos ({syncResult.updated.length})
+                                    </TabsTrigger>
+                                </TabsList>
+                                
+                                <TabsContent value="inyectados">
+                                    <ScrollArea className="h-[400px] border rounded-2xl bg-slate-50/30">
+                                        <Table className="min-w-full">
+                                            <TableHeader className="bg-white sticky top-0 z-10">
+                                                <TableRow>
+                                                    {activeDbColumns.map(col => (
+                                                        <TableHead key={col} className="font-black text-[9px] uppercase px-6 py-3 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {syncResult.inserted.length > 0 ? (
+                                                    syncResult.inserted.map((r, i) => (
+                                                        <TableRow key={i} className="h-12 border-slate-100 hover:bg-white transition-colors">
+                                                            {activeDbColumns.map(col => <TableCell key={col} className="text-[10px] px-6 font-medium text-slate-600">{String(r[col] ?? '-')}</TableCell>)}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-20 italic text-slate-400 font-bold uppercase text-[10px]">Sin nuevos registros inyectados</TableCell></TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                        <ScrollBar orientation="horizontal" />
+                                    </ScrollArea>
+                                </TabsContent>
+
+                                <TabsContent value="actualizados">
+                                    <ScrollArea className="h-[400px] border rounded-2xl bg-slate-50/30">
+                                        <Table className="min-w-full">
+                                            <TableHeader className="bg-white sticky top-0 z-10">
+                                                <TableRow>
+                                                    {activeDbColumns.map(col => (
+                                                        <TableHead key={col} className="font-black text-[9px] uppercase px-6 py-3 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {syncResult.updated.length > 0 ? (
+                                                    syncResult.updated.map((u, i) => (
+                                                        <TableRow key={i} className="h-14 border-slate-100 hover:bg-white transition-colors">
+                                                            {activeDbColumns.map(col => {
+                                                                const isDiff = NUMERIC_FIELDS.includes(col) 
+                                                                    ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 
+                                                                    : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim();
+                                                                
+                                                                return (
+                                                                    <TableCell key={col} className={cn("px-6 text-[10px] font-medium", isDiff ? "bg-amber-50/30" : "text-slate-400 opacity-60")}>
+                                                                        {isDiff ? (
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <span className="text-red-500/60 line-through text-[8px] font-bold">{String(u.original[col] ?? 'vacío')}</span>
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <ArrowRight className="h-2.5 w-2.5 text-amber-500" />
+                                                                                    <span className="text-primary font-black text-[10px]">{String(u.record[col] ?? 'vacío')}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : String(u.record[col] ?? '-')}
+                                                                    </TableCell>
+                                                                );
+                                                            })}
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                    <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-20 italic text-slate-400 font-bold uppercase text-[10px]">Sin registros actualizados</TableCell></TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                        <ScrollBar orientation="horizontal" />
+                                    </ScrollArea>
+                                </TabsContent>
+                            </Tabs>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-6 pt-4 border-t">
                             <Button variant="outline" className="h-16 font-black uppercase text-xs rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm" onClick={reset}>
