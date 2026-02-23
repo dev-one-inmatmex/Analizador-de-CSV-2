@@ -189,8 +189,6 @@ export default function OperationsPage() {
         try {
             const finalValues = { ...values };
             
-            // Si eligió OTRA/OTRO, el valor real que queremos guardar es el especificado.
-            // La lógica en actions.ts se encargará de guardarlo en Notas si la DB es un ENUM rígido.
             if (values.empresa === 'OTRA' && values.especificar_empresa) finalValues.empresa = values.especificar_empresa;
             if (values.metodo_pago === 'OTRO' && values.especificar_metodo_pago) finalValues.metodo_pago = values.especificar_metodo_pago;
             if (values.banco === 'OTRO' && values.especificar_banco) finalValues.banco = values.especificar_banco;
@@ -1011,8 +1009,10 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 <FileText className="h-7 w-7 text-white" />
                             </div>
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Auditoría de Registro #{selectedDetail?.id}</p>
-                                <h2 className="text-3xl font-black uppercase tracking-tight">{selectedDetail?.subcategoria_especifica}</h2>
+                                <DialogHeader>
+                                    <DialogDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70">Auditoría de Registro #{selectedDetail?.id}</DialogDescription>
+                                    <DialogTitle className="text-3xl font-black uppercase tracking-tight text-white">{selectedDetail?.subcategoria_especifica}</DialogTitle>
+                                </DialogHeader>
                             </div>
                         </div>
                         <div className="flex gap-3">
@@ -1240,7 +1240,10 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
 
             <Dialog open={!!editingCat} onOpenChange={() => setEditingCat(null)}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Editar Meta: {editingCat}</DialogTitle></DialogHeader>
+                    <DialogHeader>
+                        <DialogTitle>Editar Meta: {editingCat}</DialogTitle>
+                        <DialogDescription>Ajusta el límite de presupuesto mensual para esta categoría.</DialogDescription>
+                    </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>Nuevo Límite Mensual ($)</Label>
@@ -1263,7 +1266,10 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
 
             <Dialog open={isNewBudgetOpen} onOpenChange={setIsNewBudgetOpen}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Nuevo Presupuesto Macro</DialogTitle></DialogHeader>
+                    <DialogHeader>
+                        <DialogTitle>Nuevo Presupuesto Macro</DialogTitle>
+                        <DialogDescription>Define una nueva categoría financiera y su límite de gasto.</DialogDescription>
+                    </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>Nombre de Categoría</Label>
@@ -1478,7 +1484,6 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
         const base = transaction ? { 
             ...transaction, 
             fecha: parseISO(transaction.fecha),
-            // Intentamos extraer valores de las notas para re-poblar los campos "Especificar"
             especificar_empresa: getEnhancedValue(transaction.empresa, transaction.notas, 'Empresa'),
             especificar_metodo_pago: getEnhancedValue(transaction.metodo_pago, transaction.notas, 'Método'),
             especificar_banco: getEnhancedValue(transaction.banco, transaction.notas, 'Banco'),
@@ -1507,7 +1512,6 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
             especificar_cuenta: ''
         };
 
-        // Si es edición y el valor base era OTRA/OTRO, nos aseguramos de que el selector se quede en OTRA/OTRO
         if (transaction) {
             if (!EMPRESAS.includes(transaction.empresa)) { base.empresa = 'OTRA'; }
             if (!METODOS_PAGO.includes(transaction.metodo_pago)) { base.metodo_pago = 'OTRO'; }
@@ -1545,11 +1549,14 @@ function TransactionForm({ transaction, onSubmit, onClose, dynamicImpacts, dynam
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white rounded-lg">
-                <div className="flex items-center justify-between mb-2">
+                <DialogHeader className="mb-2">
                     <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-[#2D5A4C]">
                         {transaction ? 'Editar' : 'Registrar'} Movimiento
                     </DialogTitle>
-                </div>
+                    <DialogDescription className="sr-only">
+                        Completa los campos para {transaction ? 'actualizar el' : 'ingresar un nuevo'} registro financiero.
+                    </DialogDescription>
+                </DialogHeader>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-4">
