@@ -309,27 +309,29 @@ export default function MajorMinorSalesClientPage({
                 </CardHeader>
                 <div className="table-responsive bg-white">
                     <ScrollArea className="w-full whitespace-nowrap">
-                        <Table className="min-w-[2500px]">
+                        <Table className="min-w-[3500px]">
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow className="h-12">
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">SKU</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Nombre en Siggo</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Stock Maestro</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Unidad</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Mín/Máx</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Pzs Totales</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Estado</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider">Categoría Madre</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider">Sub Categoría</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Bodega</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Bloque</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider">SKU Madre</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Landed ID</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Pzs x SKU</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Esti Time</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Emp. Master</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Pz Emp. Master</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Emp. Master</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Código Siggo</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Nombre Siggo</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Stock Maestro</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Mínimo Stock</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Máximo Stock</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Días s/ Mov</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Landed ID</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Pzs Totales</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Estado Siggo</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Bodega</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider">Bloque</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Unidad</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -337,48 +339,44 @@ export default function MajorMinorSalesClientPage({
                                     paginatedInventory.map((item) => (
                                         <TableRow key={item.sku} className="h-14 hover:bg-slate-50 transition-colors">
                                             <TableCell className="font-mono text-xs font-bold text-primary sticky left-0 bg-white z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">{item.sku}</TableCell>
+                                            <TableCell className="text-[10px] font-black uppercase text-slate-600">{item.cat_mdr || '-'}</TableCell>
+                                            <TableCell className="text-[10px] font-bold text-slate-500">{item.sub_cat || '-'}</TableCell>
+                                            <TableCell className="font-mono text-[10px] font-bold text-blue-600">{item.sku_mdr || '-'}</TableCell>
+                                            <TableCell className="text-center font-mono text-[9px] text-muted-foreground">{item.landed_cost_id || '-'}</TableCell>
+                                            <TableCell className="text-center font-black text-xs">{item.piezas_por_sku || '-'}</TableCell>
+                                            <TableCell className="text-center font-bold text-orange-600">{item.esti_time ? `${item.esti_time}d` : '-'}</TableCell>
+                                            <TableCell className="text-[10px] font-bold">{item.empaquetado_master || '-'}</TableCell>
+                                            <TableCell className="text-center font-black text-xs text-slate-500">{item.pz_empaquetado_master || '-'}</TableCell>
+                                            <TableCell className="text-[9px] font-mono text-muted-foreground">{item.cod_siggo}</TableCell>
                                             <TableCell>
                                                 <div className="font-bold text-[11px] uppercase leading-tight truncate max-w-[250px]" title={item.nombre_siggo || ''}>{item.nombre_siggo || '-'}</div>
-                                                <div className="text-[9px] font-mono text-muted-foreground">{item.cod_siggo}</div>
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant={Number(item.stock_maestro) <= Number(item.min_stock) ? 'destructive' : 'outline'} className="font-black text-xs">
                                                     {item.stock_maestro?.toLocaleString() || '0'}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-center text-[10px] font-black uppercase text-muted-foreground">{item.unidad || 'PZA'}</TableCell>
-                                            <TableCell className="text-center">
-                                                <div className="flex flex-col items-center gap-0.5">
-                                                    <span className="text-[9px] font-black text-slate-400">MIN: {item.min_stock || 0}</span>
-                                                    <span className="text-[9px] font-black text-slate-400">MAX: {item.max_stock || 0}</span>
-                                                </div>
-                                            </TableCell>
+                                            <TableCell className="text-center font-bold text-slate-400 text-[9px]">{item.min_stock || 0}</TableCell>
+                                            <TableCell className="text-center font-bold text-slate-400 text-[9px]">{item.max_stock || 0}</TableCell>
+                                            <TableCell className="text-center font-bold text-red-500">{item.dias_sin_mov_siggo || '-'}</TableCell>
                                             <TableCell className="text-center font-black text-xs text-slate-700">{item.pzs_totales?.toLocaleString() || '-'}</TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="secondary" className="text-[9px] font-black uppercase px-2 py-0.5">
                                                     {item.estado_siggo || 'ACTIVO'}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-[10px] font-black uppercase text-slate-600">{item.cat_mdr || '-'}</TableCell>
-                                            <TableCell className="text-[10px] font-bold text-slate-500">{item.sub_cat || '-'}</TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="outline" className="border-primary/20 text-primary font-black text-[9px] uppercase">{item.bodega || '-'}</Badge>
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="outline" className="border-slate-200 text-slate-600 font-bold text-[9px] uppercase">{item.bloque || '-'}</Badge>
                                             </TableCell>
-                                            <TableCell className="font-mono text-[10px] font-bold text-blue-600">{item.sku_mdr || '-'}</TableCell>
-                                            <TableCell className="text-center font-black text-xs">{item.piezas_por_sku || '-'}</TableCell>
-                                            <TableCell className="text-center font-bold text-orange-600">{item.esti_time ? `${item.esti_time}d` : '-'}</TableCell>
-                                            <TableCell className="text-center font-black text-xs text-slate-500">{item.pz_empaquetado_master || '-'}</TableCell>
-                                            <TableCell className="text-center text-[10px] font-bold">{item.empaquetado_master || '-'}</TableCell>
-                                            <TableCell className="text-center font-bold text-red-500">{item.dias_sin_mov_siggo || '-'}</TableCell>
-                                            <TableCell className="text-center font-mono text-[9px] text-muted-foreground">{item.landed_cost_id || '-'}</TableCell>
+                                            <TableCell className="text-center text-[10px] font-black uppercase text-muted-foreground">{item.unidad || 'PZA'}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={18} className="h-64 text-center">
+                                        <TableCell colSpan={20} className="h-64 text-center">
                                             <div className="flex flex-col items-center gap-2 opacity-30">
                                                 <Warehouse className="h-12 w-12" />
                                                 <p className="font-black uppercase text-xs tracking-widest">No se encontraron productos en inventario</p>

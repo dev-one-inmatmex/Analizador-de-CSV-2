@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -42,6 +41,15 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             'r_abierto', 'r_cerrado', 'c_mediacion'
         ] 
     },
+    inventario_master: {
+        pk: 'sku',
+        columns: [
+            'sku', 'stock_maestro', 'unidad', 'landed_cost_id', 'empaquetado_master', 
+            'cod_siggo', 'nombre_siggo', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 
+            'pzs_totales', 'estado_siggo', 'cat_mdr', 'sub_cat', 'bodega', 'sku_mdr', 
+            'piezas_por_sku', 'esti_time', 'pz_empaquetado_master', 'bloque'
+        ]
+    },
     gastos_diarios: { 
         pk: 'id', 
         columns: [
@@ -51,15 +59,6 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             'es_recurrente', 'monto', 'metodo_pago', 'banco', 'cuenta', 
             'responsable', 'descripcion', 'notas'
         ] 
-    },
-    inventario_master: {
-        pk: 'sku',
-        columns: [
-            'sku', 'stock_maestro', 'unidad', 'landed_cost_id', 'empaquetado_master', 
-            'cod_siggo', 'nombre_siggo', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 
-            'pzs_totales', 'estado_siggo', 'cat_mdr', 'sub_cat', 'bodega', 'sku_mdr', 
-            'piezas_por_sku', 'esti_time', 'pz_empaquetado_master', 'bloque'
-        ]
     },
     sku_m: { 
         pk: 'sku_mdr', 
@@ -102,16 +101,6 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         'DIAS SIN MOVIMIENTO DE STOCK': 'dias_sin_mov_siggo',
         'PIEZAS TOTALES': 'pzs_totales',
         'ESTADO EN SIGGO': 'estado_siggo',
-        'bodega': 'bodega',
-        'bloque': 'bloque'
-    },
-    sku_m: {
-        'nombre_madre': 'sku_mdr',
-        'Categoria_madre': 'cat_mdr',
-        'piezas_por_contenedor': 'piezas_xcontenedor',
-        'sku': 'sku',
-        'landed_cost': 'landed_cost',
-        'piezas_por_sku': 'piezas_por_sku',
         'bodega': 'bodega',
         'bloque': 'bloque'
     },
@@ -489,7 +478,7 @@ export default function CsvUploader() {
         const inserted: any[] = [], updated: { record: any, original: any }[] = [], unchanged: any[] = [...categorizedData.unchanged], errors: SyncError[] = [];
         
         if (supabase && total > 0) {
-            const SYNC_BATCH_SIZE = 50; // Lote más pequeño para mejor captura de errores
+            const SYNC_BATCH_SIZE = 50; 
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
@@ -617,7 +606,7 @@ export default function CsvUploader() {
                                 </h3>
                                 <div className="border border-red-100 rounded-[32px] overflow-hidden shadow-sm bg-red-50/30">
                                     <ScrollArea className="h-[600px] w-full">
-                                        <Table className="min-w-[2000px]">
+                                        <Table className="min-w-[3000px]">
                                             <TableHeader className="bg-red-100/50 sticky top-0 z-10">
                                                 <TableRow className="border-b border-red-200">
                                                     {activeDbColumns.map(col => (
