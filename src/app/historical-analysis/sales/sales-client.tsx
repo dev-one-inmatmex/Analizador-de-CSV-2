@@ -759,7 +759,7 @@ export default function SalesDashboardClient({
 
             {/* Modal de Pedidos de Hoy */}
             <Dialog open={isTodayOrdersModalOpen} onOpenChange={setIsTodayOrdersModalOpen}>
-                <DialogContent className="max-w-5xl h-[85vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden rounded-[32px]">
+                <DialogContent className="max-w-6xl h-[85vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden rounded-[32px]">
                     <div className="px-8 py-6 border-b bg-[#F0FDF4]/50">
                         <DialogHeader>
                             <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2 text-[#166534]">
@@ -775,7 +775,8 @@ export default function SalesDashboardClient({
                                 <TableHeader className="bg-slate-50/50">
                                     <TableRow className="h-14">
                                         <TableHead className="font-bold px-6 text-[10px] uppercase"># Venta</TableHead>
-                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Tienda</TableHead>
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Fecha</TableHead>
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase text-center">Tienda</TableHead>
                                         <TableHead className="font-bold px-6 text-[10px] uppercase">SKU</TableHead>
                                         <TableHead className="font-bold px-6 text-[10px] uppercase">Producto</TableHead>
                                         <TableHead className="text-center font-bold px-6 text-[10px] uppercase">Unid.</TableHead>
@@ -786,17 +787,26 @@ export default function SalesDashboardClient({
                                     {todaySales.length > 0 ? (
                                         todaySales.map((s, i) => (
                                             <TableRow key={i} className="h-16 hover:bg-muted/30 transition-colors border-b border-slate-50">
-                                                <TableCell className="px-6 font-bold text-primary text-xs">#{s.num_venta}</TableCell>
-                                                <TableCell className="px-6"><Badge variant="outline" className="text-[9px] font-black">{s.tienda}</Badge></TableCell>
-                                                <TableCell className="px-6 font-mono text-[10px] text-blue-700">{s.sku}</TableCell>
-                                                <TableCell className="px-6 max-w-sm"><div className="font-medium text-xs truncate" title={s.tit_pub || ''}>{s.tit_pub}</div></TableCell>
-                                                <TableCell className="px-6 text-center font-black text-xs">{s.unidades}</TableCell>
-                                                <TableCell className="px-6 text-right font-black text-[#2D5A4C]">{money(s.total)}</TableCell>
+                                                <TableCell className="px-6 font-bold text-[#2D5A4C] text-xs">#{s.num_venta}</TableCell>
+                                                <TableCell className="px-6 text-[10px] font-medium text-slate-500 whitespace-nowrap">{safeFormat(s.fecha_venta, 'HH:mm')}</TableCell>
+                                                <TableCell className="px-6 text-center">
+                                                    <div className="inline-flex items-center px-4 py-1 rounded-full border border-slate-100 bg-white shadow-sm text-[8px] font-black uppercase text-slate-700">
+                                                        {s.tienda}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="px-6 font-mono text-[10px] text-blue-700/80">{s.sku}</TableCell>
+                                                <TableCell className="px-6 max-w-sm">
+                                                    <div className="text-blue-600 font-medium text-xs truncate leading-tight hover:underline cursor-default" title={s.tit_pub || ''}>
+                                                        {s.tit_pub}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="px-6 text-center font-black text-xs text-slate-800">{s.unidades}</TableCell>
+                                                <TableCell className="px-6 text-right font-black text-[#2D5A4C] text-sm">{money(s.total)}</TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-64 text-center">
+                                            <TableCell colSpan={7} className="h-64 text-center">
                                                 <div className="flex flex-col items-center gap-3 opacity-30">
                                                     <ClipboardList className="h-12 w-12" />
                                                     <p className="font-black uppercase text-xs tracking-widest text-slate-500">Sin pedidos registrados el día de hoy</p>
@@ -811,7 +821,7 @@ export default function SalesDashboardClient({
                     
                     <div className="px-8 py-6 border-t bg-muted/10 flex items-center justify-between">
                         <div className="text-xs text-muted-foreground font-medium">Total de hoy: <span className="font-black text-slate-900">{todaySales.length} pedidos</span></div>
-                        <Button variant="outline" onClick={() => setIsTodayOrdersModalOpen(false)} className="rounded-xl font-bold uppercase text-[10px]">Cerrar Visor</Button>
+                        <Button variant="outline" onClick={() => setIsTodayOrdersModalOpen(false)} className="rounded-xl font-bold uppercase text-[10px] px-6 h-10 border-slate-200">Cerrar Visor</Button>
                     </div>
                 </DialogContent>
             </Dialog>
