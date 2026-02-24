@@ -28,6 +28,7 @@ import type { Sale } from './page';
 import type { inventario_master } from '@/types/database';
 
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
+const PAGE_SIZE = 50;
 
 export default function ConsumptionClient({ 
     initialSales, 
@@ -46,11 +47,20 @@ export default function ConsumptionClient({
     const [isClient, setIsClient] = React.useState(false);
     const [invSearch, setInvSearch] = React.useState('');
     const [invPage, setInvPage] = React.useState(1);
-    const PAGE_SIZE = 15;
+    const [consPage, setConsPage] = React.useState(1);
 
     React.useEffect(() => {
         setIsClient(true);
     }, []);
+
+    // Reiniciar páginas al cambiar filtros
+    React.useEffect(() => {
+        setConsPage(1);
+    }, [company, date]);
+
+    React.useEffect(() => {
+        setInvPage(1);
+    }, [invSearch]);
 
     // ==========================================
     // MOTOR DE CÁLCULO DE CONSUMO POR VENTAS
@@ -164,6 +174,9 @@ export default function ConsumptionClient({
 
     const totalInvPages = Math.ceil(filteredInventory.length / PAGE_SIZE);
     const paginatedInventory = filteredInventory.slice((invPage - 1) * PAGE_SIZE, invPage * PAGE_SIZE);
+
+    const totalConsPages = Math.ceil(consumoData.length / PAGE_SIZE);
+    const paginatedConsumo = consumoData.slice((consPage - 1) * PAGE_SIZE, consPage * PAGE_SIZE);
 
     return (
         <div className="flex min-h-screen flex-col bg-muted/40 min-w-0">
@@ -318,7 +331,7 @@ export default function ConsumptionClient({
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {consumoData.map((item, idx) => (
+                                        {paginatedConsumo.map((item, idx) => (
                                             <TableRow key={idx} className="hover:bg-muted/10">
                                                 <TableCell>
                                                     <div className="flex items-center gap-2 mb-1">
@@ -350,7 +363,7 @@ export default function ConsumptionClient({
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        {consumoData.length === 0 && (
+                                        {paginatedConsumo.length === 0 && (
                                             <TableRow>
                                                 <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                                                     No hay datos de consumo para los filtros seleccionados.
@@ -360,6 +373,17 @@ export default function ConsumptionClient({
                                     </TableBody>
                                 </Table>
                             </div>
+                            <CardFooter className="bg-slate-50 border-t py-4 flex justify-between items-center">
+                                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500">
+                                    <Info className="h-3 w-3" />
+                                    Mostrando {paginatedConsumo.length} de {consumoData.length} productos
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase mr-4">Página {consPage} de {totalConsPages || 1}</span>
+                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setConsPage(p => Math.max(1, p - 1))} disabled={consPage === 1}>ANTERIOR</Button>
+                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setConsPage(p => Math.min(totalConsPages, p + 1))} disabled={consPage >= totalConsPages}>SIGUIENTE</Button>
+                                </div>
+                            </CardFooter>
                         </Card>
                     </TabsContent>
 
@@ -379,7 +403,7 @@ export default function ConsumptionClient({
                                         placeholder="BUSCAR POR SKU, NOMBRE O CATEGORÍA..." 
                                         className="pl-9 h-10 font-bold text-[10px] uppercase border-slate-200" 
                                         value={invSearch}
-                                        onChange={(e) => { setInvSearch(e.target.value); setInvPage(1); }}
+                                        onChange={(e) => setInvSearch(e.target.value)}
                                     />
                                 </div>
                             </CardHeader>
