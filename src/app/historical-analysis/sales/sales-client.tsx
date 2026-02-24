@@ -30,7 +30,7 @@ import { supabase } from '@/lib/supabaseClient';
 const PAGE_SIZE = 15;
 const PARETO_PAGE_SIZE = 15;
 // Colores basados en la imagen proporcionada: Cian, Azul, Gris, Naranja, Lima
-const PIE_COLORS = ["#00aeef", "#3b82f6", "#6b7280", "#ffa500", "#84cc16", "#14b8a6", "#f43f5e", "#8b5cf6"];
+const PIE_COLORS = ["#00aeef", "#3b82f6", "#6b7280", "#ffa500", "#84cc16"];
 
 export default function SalesDashboardClient({ 
     initialSales, 
@@ -240,6 +240,8 @@ export default function SalesDashboardClient({
         const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
         const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
 
+        if (percent < 0.05) return null; // No mostrar etiquetas muy pequeñas
+
         return (
             <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-black">
                 {`${(percent * 100).toFixed(0)}%`}
@@ -393,13 +395,13 @@ export default function SalesDashboardClient({
                     </Card>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
                         <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
                             <ShoppingCart className="h-4 w-4 text-primary" />
                             <h3 className="text-[10px] font-bold uppercase tracking-widest">Pedidos de Hoy por Empresa</h3>
                         </div>
-                        <div className="h-[300px] p-4">
+                        <div className="h-[350px] p-4">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie 
@@ -407,7 +409,7 @@ export default function SalesDashboardClient({
                                         dataKey="value" 
                                         nameKey="name" 
                                         innerRadius={0} 
-                                        outerRadius={85} 
+                                        outerRadius={100} 
                                         stroke="#fff"
                                         strokeWidth={2}
                                         labelLine={false}
@@ -421,7 +423,7 @@ export default function SalesDashboardClient({
                                         formatter={v => `${v} pedidos`} 
                                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                     />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -432,7 +434,7 @@ export default function SalesDashboardClient({
                             <PieIcon className="h-4 w-4 text-primary" />
                             <h3 className="text-[10px] font-bold uppercase tracking-widest">Participación por Canal (Filtro)</h3>
                         </div>
-                        <div className="h-[300px] p-4">
+                        <div className="h-[350px] p-4">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie 
@@ -440,7 +442,7 @@ export default function SalesDashboardClient({
                                         dataKey="value" 
                                         nameKey="name" 
                                         innerRadius={0} 
-                                        outerRadius={85} 
+                                        outerRadius={100} 
                                         stroke="#fff"
                                         strokeWidth={2}
                                         labelLine={false}
@@ -454,73 +456,7 @@ export default function SalesDashboardClient({
                                         formatter={v => money(v as number)} 
                                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                     />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </Card>
-
-                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
-                        <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
-                            <PieIcon className="h-4 w-4 text-primary" />
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Distribución por Categoría</h3>
-                        </div>
-                        <div className="h-[300px] p-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie 
-                                        data={charts.salesByCategory} 
-                                        dataKey="value" 
-                                        nameKey="name" 
-                                        innerRadius={0} 
-                                        outerRadius={85} 
-                                        stroke="#fff"
-                                        strokeWidth={2}
-                                        labelLine={false}
-                                        label={renderCustomizedLabel}
-                                    >
-                                        {charts.salesByCategory.map((_, i) => (
-                                            <Cell key={i} fill={PIE_COLORS[(i + 2) % PIE_COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip 
-                                        formatter={v => money(v as number)} 
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </Card>
-
-                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
-                        <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
-                            <PieIcon className="h-4 w-4 text-primary" />
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Estado de Ventas</h3>
-                        </div>
-                        <div className="h-[300px] p-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie 
-                                        data={charts.salesByStatus} 
-                                        dataKey="value" 
-                                        nameKey="name" 
-                                        innerRadius={0} 
-                                        outerRadius={85} 
-                                        stroke="#fff"
-                                        strokeWidth={2}
-                                        labelLine={false}
-                                        label={renderCustomizedLabel}
-                                    >
-                                        {charts.salesByStatus.map((_, i) => (
-                                            <Cell key={i} fill={PIE_COLORS[(i + 4) % PIE_COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip 
-                                        formatter={v => `${v} ventas`} 
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
