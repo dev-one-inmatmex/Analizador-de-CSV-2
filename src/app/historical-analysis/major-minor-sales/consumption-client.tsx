@@ -330,8 +330,8 @@ export default function ConsumptionClient({
                                             <Pie 
                                                 data={categoryData} 
                                                 cx="50%" cy="50%" 
-                                                innerRadius={60} outerRadius={100} 
-                                                paddingAngle={5} dataKey="value"
+                                                innerRadius={0} outerRadius={100} 
+                                                paddingAngle={0} dataKey="value"
                                                 stroke="#fff" strokeWidth={2}
                                             >
                                                 {categoryData.map((entry, index) => (
@@ -339,7 +339,7 @@ export default function ConsumptionClient({
                                                 ))}
                                             </Pie>
                                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </CardContent>
@@ -365,8 +365,8 @@ export default function ConsumptionClient({
                                             <Pie 
                                                 data={skuPieData} 
                                                 cx="50%" cy="50%" 
-                                                innerRadius={60} outerRadius={100} 
-                                                paddingAngle={5} dataKey="value"
+                                                innerRadius={0} outerRadius={100} 
+                                                paddingAngle={0} dataKey="value"
                                                 stroke="#fff" strokeWidth={2}
                                             >
                                                 {skuPieData.map((entry, index) => (
@@ -374,7 +374,7 @@ export default function ConsumptionClient({
                                                 ))}
                                             </Pie>
                                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </CardContent>
