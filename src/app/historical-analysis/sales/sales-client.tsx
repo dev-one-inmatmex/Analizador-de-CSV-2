@@ -775,10 +775,9 @@ export default function SalesDashboardClient({
                                 <TableHeader className="bg-slate-50/50">
                                     <TableRow className="h-14">
                                         <TableHead className="font-bold px-6 text-[10px] uppercase"># Venta</TableHead>
-                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Fecha</TableHead>
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Hora</TableHead>
                                         <TableHead className="font-bold px-6 text-[10px] uppercase text-center">Tienda</TableHead>
                                         <TableHead className="font-bold px-6 text-[10px] uppercase">SKU</TableHead>
-                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Producto</TableHead>
                                         <TableHead className="text-center font-bold px-6 text-[10px] uppercase">Unid.</TableHead>
                                         <TableHead className="text-right font-bold px-6 text-[10px] uppercase">Total ($)</TableHead>
                                     </TableRow>
@@ -795,11 +794,6 @@ export default function SalesDashboardClient({
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-6 font-mono text-[10px] text-blue-700/80">{s.sku}</TableCell>
-                                                <TableCell className="px-6 max-w-sm">
-                                                    <div className="text-blue-600 font-medium text-xs truncate leading-tight hover:underline cursor-default" title={s.tit_pub || ''}>
-                                                        {s.tit_pub}
-                                                    </div>
-                                                </TableCell>
                                                 <TableCell className="px-6 text-center font-black text-xs text-slate-800">{s.unidades}</TableCell>
                                                 <TableCell className="px-6 text-right font-black text-[#2D5A4C] text-sm">{money(s.total)}</TableCell>
                                             </TableRow>
