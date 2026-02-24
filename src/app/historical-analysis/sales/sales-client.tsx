@@ -434,12 +434,12 @@ export default function SalesDashboardClient({
                                 <h3 className="text-[10px] font-bold uppercase tracking-widest">Pedidos de Hoy por Empresa</h3>
                             </div>
                             <Button 
-                                variant="ghost" 
+                                variant="outline" 
                                 size="sm" 
-                                className="h-8 text-[9px] font-black uppercase text-primary gap-1.5 hover:bg-primary/5"
+                                className="gap-2 font-bold bg-primary/5 border-primary/20"
                                 onClick={() => setIsTodayOrdersModalOpen(true)}
                             >
-                                <Eye className="h-3.5 w-3.5" />
+                                <Eye className="h-4 w-4" />
                                 Ver Pedidos
                             </Button>
                         </div>
