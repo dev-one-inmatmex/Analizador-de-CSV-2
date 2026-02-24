@@ -29,7 +29,8 @@ import { supabase } from '@/lib/supabaseClient';
 
 const PAGE_SIZE = 15;
 const PARETO_PAGE_SIZE = 15;
-const PIE_COLORS = ["#2D5A4C", "#f43f5e", "#3b82f6", "#8b5cf6", "#0ea5e9", "#eab308", "#14b8a6", "#f97316"];
+// Colores basados en la imagen proporcionada: Cian, Azul, Gris, Naranja, Lima
+const PIE_COLORS = ["#00aeef", "#3b82f6", "#6b7280", "#ffa500", "#84cc16", "#14b8a6", "#f43f5e", "#8b5cf6"];
 
 export default function SalesDashboardClient({ 
     initialSales, 
@@ -233,6 +234,19 @@ export default function SalesDashboardClient({
     const totalPages = Math.ceil(sales.length / PAGE_SIZE);
     const paginatedSales = sales.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+    // Custom label for Pie Charts to show percentage
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+        const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+        const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+
+        return (
+            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-black">
+                {`${(percent * 100).toFixed(0)}%`}
+            </text>
+        );
+    };
+
     if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
@@ -392,10 +406,12 @@ export default function SalesDashboardClient({
                                         data={charts.todaySalesByCompany} 
                                         dataKey="value" 
                                         nameKey="name" 
-                                        innerRadius={60} 
+                                        innerRadius={0} 
                                         outerRadius={85} 
-                                        paddingAngle={5} 
-                                        stroke="none"
+                                        stroke="#fff"
+                                        strokeWidth={2}
+                                        labelLine={false}
+                                        label={renderCustomizedLabel}
                                     >
                                         {charts.todaySalesByCompany.map((_, i) => (
                                             <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -423,10 +439,12 @@ export default function SalesDashboardClient({
                                         data={charts.salesByCompany} 
                                         dataKey="value" 
                                         nameKey="name" 
-                                        innerRadius={60} 
+                                        innerRadius={0} 
                                         outerRadius={85} 
-                                        paddingAngle={5} 
-                                        stroke="none"
+                                        stroke="#fff"
+                                        strokeWidth={2}
+                                        labelLine={false}
+                                        label={renderCustomizedLabel}
                                     >
                                         {charts.salesByCompany.map((_, i) => (
                                             <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -454,10 +472,12 @@ export default function SalesDashboardClient({
                                         data={charts.salesByCategory} 
                                         dataKey="value" 
                                         nameKey="name" 
-                                        innerRadius={60} 
+                                        innerRadius={0} 
                                         outerRadius={85} 
-                                        paddingAngle={5} 
-                                        stroke="none"
+                                        stroke="#fff"
+                                        strokeWidth={2}
+                                        labelLine={false}
+                                        label={renderCustomizedLabel}
                                     >
                                         {charts.salesByCategory.map((_, i) => (
                                             <Cell key={i} fill={PIE_COLORS[(i + 2) % PIE_COLORS.length]} />
@@ -485,10 +505,12 @@ export default function SalesDashboardClient({
                                         data={charts.salesByStatus} 
                                         dataKey="value" 
                                         nameKey="name" 
-                                        innerRadius={60} 
+                                        innerRadius={0} 
                                         outerRadius={85} 
-                                        paddingAngle={5} 
-                                        stroke="none"
+                                        stroke="#fff"
+                                        strokeWidth={2}
+                                        labelLine={false}
+                                        label={renderCustomizedLabel}
                                     >
                                         {charts.salesByStatus.map((_, i) => (
                                             <Cell key={i} fill={PIE_COLORS[(i + 4) % PIE_COLORS.length]} />
@@ -562,7 +584,7 @@ export default function SalesDashboardClient({
                                     <TableHead className="border-r">Domicilio</TableHead>
                                     <TableHead className="border-r">Municipio/Alcaldía</TableHead>
                                     <TableHead className="border-r">Estado</TableHead>
-                                    <TableHead className="border-r">CP</TableHead>
+                                    <TableHead className="border-r">Código postal</TableHead>
                                     <TableHead className="border-r">País</TableHead>
                                     <TableHead className="border-r">F. Entrega</TableHead>
                                     <TableHead className="border-r">F. Camino</TableHead>
