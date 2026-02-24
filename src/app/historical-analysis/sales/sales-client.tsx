@@ -1,10 +1,11 @@
+
 'use client';
 
 import * as React from 'react';
 import { 
-  BarChart3, Filter, Loader2, RefreshCcw, PieChart as PieIcon
+  BarChart3, Filter, Loader2, RefreshCcw, PieChart as PieIcon, ShoppingCart
 } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, isValid } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, isValid, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, 
@@ -109,6 +110,8 @@ export default function SalesDashboardClient({
     };
 
     const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
+        const today = new Date();
+        
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
             if (!companyMatch) return false;
@@ -143,6 +146,19 @@ export default function SalesDashboardClient({
         const categoryMap: Record<string, number> = {};
         const statusMap: Record<string, number> = {};
         
+        // Mapa para pedidos de hoy por empresa
+        const todayCompanyMap: Record<string, number> = {};
+
+        initialSales.forEach(sale => {
+            if (sale.fecha_venta) {
+                const saleDate = new Date(sale.fecha_venta);
+                if (isSameDay(saleDate, today)) {
+                    const c = sale.tienda || 'Otros';
+                    todayCompanyMap[c] = (todayCompanyMap[c] || 0) + 1;
+                }
+            }
+        });
+
         sortedSales.forEach(sale => {
             // Stats por producto
             const key = sale.tit_pub || sale.sku || 'N/A';
@@ -206,7 +222,8 @@ export default function SalesDashboardClient({
                 topProducts: topProductsChart, 
                 salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })),
                 salesByCategory: Object.entries(categoryMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
-                salesByStatus: Object.entries(statusMap).map(([name, value]) => ({ name, value }))
+                salesByStatus: Object.entries(statusMap).map(([name, value]) => ({ name, value })),
+                todaySalesByCompany: Object.entries(todayCompanyMap).map(([name, value]) => ({ name, value }))
             },
             paretoAnalysisData: paretoData,
             dynamicCompanies: detectedCompanies
@@ -362,11 +379,42 @@ export default function SalesDashboardClient({
                     </Card>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
+                        <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
+                            <ShoppingCart className="h-4 w-4 text-primary" />
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Pedidos de Hoy por Empresa</h3>
+                        </div>
+                        <div className="h-[300px] p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie 
+                                        data={charts.todaySalesByCompany} 
+                                        dataKey="value" 
+                                        nameKey="name" 
+                                        innerRadius={60} 
+                                        outerRadius={85} 
+                                        paddingAngle={5} 
+                                        stroke="none"
+                                    >
+                                        {charts.todaySalesByCompany.map((_, i) => (
+                                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        formatter={v => `${v} pedidos`} 
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    />
+                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
                         <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
                             <PieIcon className="h-4 w-4 text-primary" />
-                            <h3 className="text-sm font-bold uppercase">Participación por Canal</h3>
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Participación por Canal (Filtro)</h3>
                         </div>
                         <div className="h-[300px] p-4">
                             <ResponsiveContainer width="100%" height="100%">
@@ -397,7 +445,7 @@ export default function SalesDashboardClient({
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
                         <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
                             <PieIcon className="h-4 w-4 text-primary" />
-                            <h3 className="text-sm font-bold uppercase">Distribución por Categoría</h3>
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Distribución por Categoría</h3>
                         </div>
                         <div className="h-[300px] p-4">
                             <ResponsiveContainer width="100%" height="100%">
@@ -428,7 +476,7 @@ export default function SalesDashboardClient({
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
                         <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
                             <PieIcon className="h-4 w-4 text-primary" />
-                            <h3 className="text-sm font-bold uppercase">Estado de Ventas</h3>
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Estado de Ventas</h3>
                         </div>
                         <div className="h-[300px] p-4">
                             <ResponsiveContainer width="100%" height="100%">
@@ -520,12 +568,12 @@ export default function SalesDashboardClient({
                                     <TableHead className="border-r">F. Camino</TableHead>
                                     <TableHead className="border-r">F. Entregado</TableHead>
                                     <TableHead className="border-r">Transportista</TableHead>
-                                    <TableHead className="border-r">Seguimiento</TableHead>
-                                    <TableHead className="border-r">URL Seg.</TableHead>
+                                    <TableHead className="border-r">Número de seguimiento</TableHead>
+                                    <TableHead className="border-r">URL de seguimiento</TableHead>
                                     <TableHead className="border-r text-center">Unid 2</TableHead>
-                                    <TableHead className="border-r">F. Entrega 2</TableHead>
-                                    <TableHead className="border-r">F. Camino 2</TableHead>
-                                    <TableHead className="border-r">F. Entregado 2</TableHead>
+                                    <TableHead className="border-r">{safeFormat('F. Entrega 2')}</TableHead>
+                                    <TableHead className="border-r">{safeFormat('F. Camino 2')}</TableHead>
+                                    <TableHead className="border-r">{safeFormat('F. Entregado 2')}</TableHead>
                                     <TableHead className="border-r">Transp. 2</TableHead>
                                     <TableHead className="border-r">Seg. 2</TableHead>
                                     <TableHead className="border-r">URL Seg 2</TableHead>
