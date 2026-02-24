@@ -5,7 +5,7 @@ import { differenceInDays, startOfDay, endOfDay, parseISO, isValid, subDays } fr
 import { es } from 'date-fns/locale';
 import { 
     Package, Filter, Activity, TrendingUp, Hash, 
-    PieChart as PieIcon, BarChart3, Warehouse, Search, Info 
+    PieChart as PieIcon, BarChart3, Warehouse, Search, Info, Boxes 
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { 
@@ -158,6 +158,27 @@ export default function ConsumptionClient({
             .slice(0, 7);
     }, [consumoData]);
 
+    const skuPieData = React.useMemo(() => {
+        const skuMap = new Map<string, number>();
+        consumoData.forEach(item => {
+            const current = skuMap.get(item.sku) || 0;
+            skuMap.set(item.sku, current + item.unidadesConsumidas);
+        });
+        
+        const sorted = Array.from(skuMap.entries())
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+            
+        const top5 = sorted.slice(0, 5);
+        const othersValue = sorted.slice(5).reduce((sum, item) => sum + item.value, 0);
+        
+        if (othersValue > 0) {
+            top5.push({ name: 'OTROS SKUS', value: othersValue });
+        }
+        
+        return top5;
+    }, [consumoData]);
+
     const filteredInventory = React.useMemo(() => {
         if (!invSearch) return inventoryMaster;
         const q = invSearch.toLowerCase();
@@ -259,7 +280,7 @@ export default function ConsumptionClient({
                         </div>
 
                         {/* GRÁFICOS */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
                                 <CardHeader className="bg-muted/5 border-b">
                                     <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
@@ -300,6 +321,33 @@ export default function ConsumptionClient({
                                             >
                                                 {categoryData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
+                                <CardHeader className="bg-muted/5 border-b">
+                                    <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
+                                        <Boxes className="h-4 w-4 text-primary"/> Salidas por SKU
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="h-[350px] pt-6">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie 
+                                                data={skuPieData} 
+                                                cx="50%" cy="50%" 
+                                                innerRadius={60} outerRadius={100} 
+                                                paddingAngle={5} dataKey="value"
+                                                stroke="#fff" strokeWidth={2}
+                                            >
+                                                {skuPieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                                                 ))}
                                             </Pie>
                                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
