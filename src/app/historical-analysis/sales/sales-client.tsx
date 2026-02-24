@@ -5,7 +5,7 @@ import * as React from 'react';
 import { 
   BarChart3, Filter, Loader2, RefreshCcw, PieChart as PieIcon, ShoppingCart
 } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, isValid, isSameDay } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, isValid, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
   BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, 
@@ -103,8 +103,11 @@ export default function SalesDashboardClient({
     const safeFormat = (dateStr: string | null | undefined, formatStr: string = 'dd/MM/yy') => {
         if (!dateStr) return '-';
         try {
-            const parsed = new Date(dateStr);
+            const parsed = parseISO(dateStr);
             if (isValid(parsed)) return format(parsed, formatStr, { locale: es });
+            // Fallback for non-ISO strings
+            const fallback = new Date(dateStr);
+            if (isValid(fallback)) return format(fallback, formatStr, { locale: es });
             return dateStr;
         } catch (e) {
             return dateStr;
@@ -138,13 +141,16 @@ export default function SalesDashboardClient({
             if (date?.from) {
                 if (!sale.fecha_venta) return false;
                 try {
-                    const saleDate = new Date(sale.fecha_venta);
-                    if (!isValid(saleDate)) return false;
+                    const saleDate = parseISO(sale.fecha_venta);
+                    const finalSaleDate = isValid(saleDate) ? saleDate : new Date(sale.fecha_venta);
                     
-                    const fromDate = startOfDay(date.from);
-                    const toDate = date.to ? endOfDay(date.to) : endOfDay(date.from);
+                    if (!isValid(finalSaleDate)) return false;
                     
-                    if (saleDate < fromDate || saleDate > toDate) return false;
+                    const fromTime = startOfDay(date.from).getTime();
+                    const toTime = date.to ? endOfDay(date.to).getTime() : endOfDay(date.from).getTime();
+                    const saleTime = finalSaleDate.getTime();
+                    
+                    if (saleTime < fromTime || saleTime > toTime) return false;
                 } catch (e) { return false; }
             }
             return true;
@@ -166,8 +172,9 @@ export default function SalesDashboardClient({
 
         initialSales.forEach(sale => {
             if (sale.fecha_venta) {
-                const saleDate = new Date(sale.fecha_venta);
-                if (isSameDay(saleDate, today)) {
+                const saleDate = parseISO(sale.fecha_venta);
+                const finalSaleDate = isValid(saleDate) ? saleDate : new Date(sale.fecha_venta);
+                if (isValid(finalSaleDate) && isSameDay(finalSaleDate, today)) {
                     const c = sale.tienda || 'Otros';
                     todayCompanyMap[c] = (todayCompanyMap[c] || 0) + 1;
                 }
@@ -295,7 +302,7 @@ export default function SalesDashboardClient({
                         </div>
                         <div className="flex flex-wrap items-center gap-4">
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Rango de Fecha</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">RANGO DE FECHA</Label>
                                 <DateRangePicker date={date} onSelect={setDate} />
                             </div>
                             <div className="space-y-1.5">
