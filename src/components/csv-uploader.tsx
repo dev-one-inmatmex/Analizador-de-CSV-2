@@ -54,10 +54,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     inventario_master: {
         pk: 'sku',
         columns: [
-            'id', 'sku', 'stock_maestro', 'unidad', 'landed_cost_id', 'location_id',
+            'sku', 'stock_maestro', 'unidad', 'landed_cost_id',
             'empaquetado_master', 'cod_siggo', 'nombre_siggo', 'min_stock', 'max_stock',
             'dias_sin_mov_siggo', 'pzs_totales', 'estado_siggo', 'cat_mdr', 'sub_cat',
-            'nave', 'sku_mdr', 'piezas_por_sku', 'esti_time', 'pz_empaquetado_master'
+            'bodega', 'sku_mdr', 'piezas_por_sku', 'esti_time', 'pz_empaquetado_master', 'bloque'
         ]
     },
     sku_m: { 
@@ -101,8 +101,8 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         'DIAS SIN MOVIMIENTO DE STOCK': 'dias_sin_mov_siggo',
         'PIEZAS TOTALES': 'pzs_totales',
         'ESTADO EN SIGGO': 'estado_siggo',
-        'bodega': 'nave',
-        'bloque': 'location_id'
+        'bodega': 'bodega',
+        'bloque': 'bloque'
     },
     sku_m: {
         'nombre_madre': 'sku_mdr',
@@ -185,9 +185,9 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
 const NUMERIC_FIELDS = [
     'monto', 'total', 'unidades', 'price', 'landed_cost', 'costo_envio', 
     'piezas_por_sku', 'num_publicaciones', 'piezas_totales', 'esti_time', 
-    'piezas_xcontenedor', 'bloque', 'costo', 'ing_xunidad', 'cargo_venta',
+    'piezas_xcontenedor', 'costo', 'ing_xunidad', 'cargo_venta',
     'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3',
-    'stock_maestro', 'landed_cost_id', 'barcode', 'sat_key', 'location_id', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 'pzs_totales', 'pz_empaquetado_master'
+    'stock_maestro', 'landed_cost_id', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 'pzs_totales', 'pz_empaquetado_master'
 ];
 
 const MONTHS_ES: Record<string, number> = {

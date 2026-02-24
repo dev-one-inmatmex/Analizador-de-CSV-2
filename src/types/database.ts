@@ -180,12 +180,10 @@ export interface publi_xsku {
 }
 
 export interface inventario_master {
-  id: number;
   sku: string;
   stock_maestro: number | null;
   unidad: string | null;
   landed_cost_id: number | null;
-  location_id: number | null;
   empaquetado_master: string | null;
   cod_siggo: string | null;
   nombre_siggo: string | null;
@@ -196,9 +194,10 @@ export interface inventario_master {
   estado_siggo: string | null;
   cat_mdr: string | null;
   sub_cat: string | null;
-  nave: string | null;
+  bodega: string | null;
   sku_mdr: string | null;
   piezas_por_sku: number | null;
   esti_time: number | null;
   pz_empaquetado_master: number | null;
+  bloque: string | null;
 }

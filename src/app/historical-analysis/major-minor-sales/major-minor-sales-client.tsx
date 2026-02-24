@@ -321,13 +321,13 @@ export default function MajorMinorSalesClientPage({
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Estado</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider">Categoría Madre</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider">Sub Categoría</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Nave</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Bodega</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Bloque</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider">SKU Madre</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Pzs x SKU</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Esti Time</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Pz Emp. Master</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Emp. Master</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Location ID</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Días s/ Mov</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Landed ID</TableHead>
                                 </TableRow>
@@ -362,14 +362,16 @@ export default function MajorMinorSalesClientPage({
                                             <TableCell className="text-[10px] font-black uppercase text-slate-600">{item.cat_mdr || '-'}</TableCell>
                                             <TableCell className="text-[10px] font-bold text-slate-500">{item.sub_cat || '-'}</TableCell>
                                             <TableCell className="text-center">
-                                                <Badge variant="outline" className="border-primary/20 text-primary font-black text-[9px]">{item.nave || '-'}</Badge>
+                                                <Badge variant="outline" className="border-primary/20 text-primary font-black text-[9px] uppercase">{item.bodega || '-'}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <Badge variant="outline" className="border-slate-200 text-slate-600 font-bold text-[9px] uppercase">{item.bloque || '-'}</Badge>
                                             </TableCell>
                                             <TableCell className="font-mono text-[10px] font-bold text-blue-600">{item.sku_mdr || '-'}</TableCell>
                                             <TableCell className="text-center font-black text-xs">{item.piezas_por_sku || '-'}</TableCell>
                                             <TableCell className="text-center font-bold text-orange-600">{item.esti_time ? `${item.esti_time}d` : '-'}</TableCell>
                                             <TableCell className="text-center font-black text-xs text-slate-500">{item.pz_empaquetado_master || '-'}</TableCell>
                                             <TableCell className="text-center text-[10px] font-bold">{item.empaquetado_master || '-'}</TableCell>
-                                            <TableCell className="text-center font-mono text-[10px]">{item.location_id || '-'}</TableCell>
                                             <TableCell className="text-center font-bold text-red-500">{item.dias_sin_mov_siggo || '-'}</TableCell>
                                             <TableCell className="text-center font-mono text-[9px] text-muted-foreground">{item.landed_cost_id || '-'}</TableCell>
                                         </TableRow>
