@@ -44,10 +44,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     inventario_master: {
         pk: 'sku',
         columns: [
-            'sku', 'stock_maestro', 'unidad', 'landed_cost_id', 'empaquetado_master', 
-            'cod_siggo', 'nombre_siggo', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 
-            'pzs_totales', 'estado_siggo', 'cat_mdr', 'sub_cat', 'bodega', 'sku_mdr', 
-            'piezas_por_sku', 'esti_time', 'pz_empaquetado_master', 'bloque'
+            'sku', 'cat_mdr', 'sub_cat', 'sku_mdr', 'landed_cost_id', 'piezas_por_sku', 
+            'esti_time', 'empaquetado_master', 'pz_empaquetado_master', 'cod_siggo', 
+            'nombre_siggo', 'stock_maestro', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 
+            'pzs_totales', 'estado_siggo', 'bodega', 'bloque', 'unidad'
         ]
     },
     gastos_diarios: { 
@@ -65,8 +65,8 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
         columns: ['sku_mdr', 'cat_mdr', 'piezas_por_sku', 'sku', 'piezas_xcontenedor', 'bodega', 'bloque', 'landed_cost'] 
     },
     sku_costos: { 
-        pk: 'id', 
-        columns: ['id', 'sku_mdr', 'landed_cost', 'fecha_desde', 'proveedor', 'piezas_xcontenedor', 'sku', 'esti_time'] 
+        pk: 'sku_mdr', // Mapeo usando sku_mdr como PK para el CSV
+        columns: ['sku_mdr', 'landed_cost', 'fecha_desde', 'proveedor', 'piezas_xcontenedor', 'sku', 'esti_time'] 
     },
     sku_alterno: {
         pk: 'sku',

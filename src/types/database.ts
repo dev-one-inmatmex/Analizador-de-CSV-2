@@ -76,12 +76,12 @@ export interface sku_m {
   sku: string | null;
   piezas_xcontenedor: number | null;
   bodega: string | null;
-  bloque: number | null;
+  bloque: string | null;
   landed_cost: number;
 }
 
 export interface sku_costos {
-  id: string;
+  id?: string; // ID opcional para facilitar el mapeo por sku_mdr
   sku_mdr: string;
   landed_cost: number;
   fecha_desde: string;
