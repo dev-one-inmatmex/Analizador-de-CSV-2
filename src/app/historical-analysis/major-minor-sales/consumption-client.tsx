@@ -29,7 +29,7 @@ import type { Sale } from './page';
 import type { inventario_master } from '@/types/database';
 
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 export default function ConsumptionClient({ 
     initialSales, 
@@ -195,8 +195,8 @@ export default function ConsumptionClient({
 
     if (!isClient) return null;
 
-    const totalInvPages = Math.ceil(filteredInventory.length / PAGE_SIZE);
-    const paginatedInventory = filteredInventory.slice((invPage - 1) * PAGE_SIZE, invPage * PAGE_SIZE);
+    const totalInvPages = Math.ceil(filteredInventory.length / 50); // Mantenemos 50 para Siggo por ser técnica
+    const paginatedInventory = filteredInventory.slice((invPage - 1) * 50, invPage * 50);
 
     const totalConsPages = Math.ceil(consumoData.length / PAGE_SIZE);
     const paginatedConsumo = consumoData.slice((consPage - 1) * PAGE_SIZE, consPage * PAGE_SIZE);
@@ -376,10 +376,10 @@ export default function ConsumptionClient({
                         <Card className="min-w-0 overflow-hidden border-none shadow-sm rounded-xl bg-white">
                             <div className="p-6 bg-muted/5 flex items-center gap-3">
                                 <Package className="h-5 w-5 text-primary" />
-                                {<div>
+                                <div>
                                     <h3 className="text-xl font-black uppercase tracking-tight">Velocidad de Salida por Producto</h3>
                                     <p className="text-sm text-muted-foreground">Análisis de rotación real con identificación Pareto 80/20.</p>
-                                </div>}
+                                </div>
                             </div>
                             <div className="table-responsive border-t">
                                 <Table>
@@ -394,32 +394,32 @@ export default function ConsumptionClient({
                                     </TableHeader>
                                     <TableBody>
                                         {paginatedConsumo.map((item, idx) => (
-                                            <TableRow key={idx} className="hover:bg-muted/10">
+                                            <TableRow key={idx} className="hover:bg-muted/10 h-20">
                                                 <TableCell>
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <div className="font-bold text-slate-900">{item.sku}</div>
+                                                        <div className="font-black text-slate-900 uppercase tracking-tight">{item.sku}</div>
                                                         {item.isTop8020 && (
                                                             <Badge className="bg-amber-500 hover:bg-amber-600 text-[9px] px-1.5 py-0 h-4 font-black">TOP 20%</Badge>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-muted-foreground truncate max-w-[300px]" title={item.titulo}>
+                                                    <div className="text-xs text-muted-foreground truncate max-w-[400px]" title={item.titulo}>
                                                         {item.titulo}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-center">
-                                                    <Badge variant="outline" className="font-medium bg-slate-50">{item.tienda}</Badge>
+                                                    <Badge variant="outline" className="font-bold text-[10px] uppercase bg-slate-50 border-slate-200">{item.tienda}</Badge>
                                                 </TableCell>
-                                                <TableCell className="text-center text-sm font-medium text-slate-600">
+                                                <TableCell className="text-center text-sm font-medium text-slate-400">
                                                     {item.diasAnalizados}
                                                 </TableCell>
-                                                <TableCell className="text-center font-bold text-slate-800">
+                                                <TableCell className="text-center font-black text-slate-800">
                                                     {item.unidadesConsumidas}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <div className="font-black text-primary text-lg">
+                                                    <div className="font-black text-[#2D5A4C] text-xl leading-none">
                                                         {item.consumoDiarioPromedio.toFixed(2)}
                                                     </div>
-                                                    <div className="text-[10px] uppercase font-bold text-muted-foreground">
+                                                    <div className="text-[9px] uppercase font-bold text-muted-foreground mt-1">
                                                         pz / día
                                                     </div>
                                                 </TableCell>
@@ -442,8 +442,8 @@ export default function ConsumptionClient({
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-black text-slate-400 uppercase mr-4">Página {consPage} de {totalConsPages || 1}</span>
-                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setConsPage(p => Math.max(1, p - 1))} disabled={consPage === 1}>ANTERIOR</Button>
-                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setConsPage(p => Math.min(totalConsPages, p + 1))} disabled={consPage >= totalConsPages}>SIGUIENTE</Button>
+                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black border-slate-200" onClick={() => setConsPage(p => Math.max(1, p - 1))} disabled={consPage === 1}>ANTERIOR</Button>
+                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black border-slate-200" onClick={() => setConsPage(p => Math.min(totalConsPages, p + 1))} disabled={consPage >= totalConsPages}>SIGUIENTE</Button>
                                 </div>
                             </CardFooter>
                         </Card>
@@ -557,9 +557,9 @@ export default function ConsumptionClient({
                                     Mostrando {paginatedInventory.length} de {filteredInventory.length} productos
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase mr-4">Página {invPage} de {totalInvPages || 1}</span>
-                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setInvPage(p => Math.max(1, p - 1))} disabled={invPage === 1}>ANTERIOR</Button>
-                                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setInvPage(p => Math.min(totalInvPages, p + 1))} disabled={invPage >= totalInvPages}>SIGUIENTE</Button>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase mr-4">Página {invPage} de {Math.ceil(filteredInventory.length / 50) || 1}</span>
+                                    <Button variant="outline" size="sm" onClick={() => setInvPage(p => Math.max(1, p - 1))} disabled={invPage === 1} className="h-8 text-[9px] font-black border-slate-200">ANTERIOR</Button>
+                                    <Button variant="outline" size="sm" onClick={() => setInvPage(p => Math.min(Math.ceil(filteredInventory.length / 50), p + 1))} disabled={invPage >= Math.ceil(filteredInventory.length / 50)} className="h-8 text-[9px] font-black border-slate-200">SIGUIENTE</Button>
                                 </div>
                             </CardFooter>
                         </Card>
