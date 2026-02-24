@@ -3,8 +3,15 @@
 import * as React from 'react';
 import { differenceInDays, startOfDay, endOfDay, parseISO, isValid, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Filter, Activity, Warehouse, Search, Info } from 'lucide-react';
+import { 
+    Package, Filter, Activity, TrendingUp, Hash, 
+    PieChart as PieIcon, BarChart3, Warehouse, Search, Info 
+} from 'lucide-react';
 import { DateRange } from 'react-day-picker';
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend 
+} from 'recharts';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,6 +26,8 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import type { Sale } from './page';
 import type { inventario_master } from '@/types/database';
+
+const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
 
 export default function ConsumptionClient({ 
     initialSales, 
@@ -95,13 +104,49 @@ export default function ConsumptionClient({
         });
 
         // 4. Transformar en Array y calcular el Consumo Diario Promedio
-        return Array.from(consumptionMap.values()).map(item => ({
+        const arrayData = Array.from(consumptionMap.values()).map(item => ({
             ...item,
             consumoDiarioPromedio: item.unidadesConsumidas / daysInPeriod,
             diasAnalizados: daysInPeriod
         })).sort((a, b) => b.consumoDiarioPromedio - a.consumoDiarioPromedio);
 
+        // 5. CÁLCULO PARETO (80/20)
+        const totalUnidades = arrayData.reduce((sum, item) => sum + item.unidadesConsumidas, 0);
+        const limite80 = totalUnidades * 0.8;
+        let sumaAcumulada = 0;
+
+        return arrayData.map(item => {
+            sumaAcumulada += item.unidadesConsumidas;
+            return {
+                ...item,
+                isTop8020: sumaAcumulada <= limite80
+            };
+        });
+
     }, [initialSales, company, date]);
+
+    // 6. DATOS PARA DASHBOARD
+    const kpis = React.useMemo(() => {
+        return {
+            totalSalidas: consumoData.reduce((sum, item) => sum + item.unidadesConsumidas, 0),
+            velocidadGlobal: consumoData.reduce((sum, item) => sum + item.consumoDiarioPromedio, 0),
+            skusActivos: consumoData.length
+        };
+    }, [consumoData]);
+
+    const top10Data = React.useMemo(() => consumoData.slice(0, 10), [consumoData]);
+
+    const categoryData = React.useMemo(() => {
+        const catMap = new Map<string, number>();
+        consumoData.forEach(item => {
+            const current = catMap.get(item.categoria) || 0;
+            catMap.set(item.categoria, current + item.unidadesConsumidas);
+        });
+        return Array.from(catMap.entries())
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 7);
+    }, [consumoData]);
 
     const filteredInventory = React.useMemo(() => {
         if (!invSearch) return inventoryMaster;
@@ -169,13 +214,96 @@ export default function ConsumptionClient({
                             </div>
                         </Card>
 
+                        {/* KPIs DASHBOARD */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
+                                <CardContent className="p-6 flex items-center gap-4">
+                                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><Package className="h-6 w-6" /></div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Total Salidas (Pz)</p>
+                                        <h3 className="text-3xl font-black text-slate-900">{kpis.totalSalidas.toLocaleString()}</h3>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
+                                <CardContent className="p-6 flex items-center gap-4">
+                                    <div className="p-3 bg-green-50 text-green-600 rounded-xl"><TrendingUp className="h-6 w-6" /></div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Velocidad Global</p>
+                                        <h3 className="text-3xl font-black text-slate-900">{kpis.velocidadGlobal.toFixed(2)} <span className="text-xs font-bold text-muted-foreground uppercase">pz/día</span></h3>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
+                                <CardContent className="p-6 flex items-center gap-4">
+                                    <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><Hash className="h-6 w-6" /></div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">SKUs Activos</p>
+                                        <h3 className="text-3xl font-black text-slate-900">{kpis.skusActivos.toLocaleString()}</h3>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* GRÁFICOS */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
+                                <CardHeader className="bg-muted/5 border-b">
+                                    <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
+                                        <BarChart3 className="h-4 w-4 text-primary"/> Top 10 Velocidad (Pz/Día)
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="h-[350px] pt-6">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={top10Data} layout="vertical" margin={{ left: 20, right: 30 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                                            <XAxis type="number" fontSize={10} axisLine={false} tickLine={false} />
+                                            <YAxis dataKey="sku" type="category" width={100} fontSize={9} fontWeight="black" axisLine={false} tickLine={false} />
+                                            <Tooltip 
+                                                cursor={{fill: '#f8fafc'}} 
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                            />
+                                            <Bar dataKey="consumoDiarioPromedio" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={20} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
+                                <CardHeader className="bg-muted/5 border-b">
+                                    <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
+                                        <PieIcon className="h-4 w-4 text-primary"/> Salidas por Categoría
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="h-[350px] pt-6">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie 
+                                                data={categoryData} 
+                                                cx="50%" cy="50%" 
+                                                innerRadius={60} outerRadius={100} 
+                                                paddingAngle={5} dataKey="value"
+                                                stroke="#fff" strokeWidth={2}
+                                            >
+                                                {categoryData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+
                         {/* TABLA DE CONSUMO */}
                         <Card className="min-w-0 overflow-hidden border-none shadow-sm rounded-xl bg-white">
                             <div className="p-6 bg-muted/5 flex items-center gap-3">
                                 <Package className="h-5 w-5 text-primary" />
                                 <div>
                                     <h3 className="text-xl font-black uppercase tracking-tight">Velocidad de Salida por Producto</h3>
-                                    <p className="text-sm text-muted-foreground">Basado estrictamente en transacciones completadas (ml_sales).</p>
+                                    <p className="text-sm text-muted-foreground">Análisis de rotación real con identificación Pareto 80/20.</p>
                                 </div>
                             </div>
                             <div className="table-responsive border-t">
@@ -183,7 +311,6 @@ export default function ConsumptionClient({
                                     <TableHeader className="bg-muted/30">
                                         <TableRow className="text-[11px] uppercase font-bold text-muted-foreground h-12">
                                             <TableHead>Producto / SKU</TableHead>
-                                            <TableHead>Categoría</TableHead>
                                             <TableHead className="text-center">Empresa</TableHead>
                                             <TableHead className="text-center">Días Analizados</TableHead>
                                             <TableHead className="text-center">Salidas (Pz)</TableHead>
@@ -194,13 +321,15 @@ export default function ConsumptionClient({
                                         {consumoData.map((item, idx) => (
                                             <TableRow key={idx} className="hover:bg-muted/10">
                                                 <TableCell>
-                                                    <div className="font-bold text-slate-900">{item.sku}</div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <div className="font-bold text-slate-900">{item.sku}</div>
+                                                        {item.isTop8020 && (
+                                                            <Badge className="bg-amber-500 hover:bg-amber-600 text-[9px] px-1.5 py-0 h-4 font-black">TOP 20%</Badge>
+                                                        )}
+                                                    </div>
                                                     <div className="text-xs text-muted-foreground truncate max-w-[300px]" title={item.titulo}>
                                                         {item.titulo}
                                                     </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className="text-xs text-muted-foreground">{item.categoria}</span>
                                                 </TableCell>
                                                 <TableCell className="text-center">
                                                     <Badge variant="outline" className="font-medium bg-slate-50">{item.tienda}</Badge>
@@ -223,7 +352,7 @@ export default function ConsumptionClient({
                                         ))}
                                         {consumoData.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                                                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                                                     No hay datos de consumo para los filtros seleccionados.
                                                 </TableCell>
                                             </TableRow>
