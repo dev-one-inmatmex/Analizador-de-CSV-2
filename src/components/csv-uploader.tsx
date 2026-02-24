@@ -54,11 +54,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     inventario_master: {
         pk: 'sku',
         columns: [
-            'id', 'sku', 'stock_maestro', 'unidad', 'empresa', 'landed_cost_id',
-            'barcode', 'sat_key', 'unidad_med_sat', 'fech_hora', 'observaciones',
-            'adjuntar_image', 'location_id', 'empaquetado_master', 'cod_siggo',
-            'nombre_siggo', 'min_stock', 'max_stock', 'dias_sin_mov_siggo',
-            'pzs_totales', 'estado_siggo'
+            'id', 'sku', 'stock_maestro', 'unidad', 'landed_cost_id', 'location_id',
+            'empaquetado_master', 'cod_siggo', 'nombre_siggo', 'min_stock', 'max_stock',
+            'dias_sin_mov_siggo', 'pzs_totales', 'estado_siggo', 'cat_mdr', 'sub_cat',
+            'nave', 'sku_mdr', 'piezas_por_sku', 'esti_time', 'pz_empaquetado_master'
         ]
     },
     sku_m: { 
@@ -87,14 +86,18 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     inventario_master: {
         'SKU': 'sku',
         'Stock': 'stock_maestro',
-        'Existencias': 'stock_maestro',
         'Stock Maestro': 'stock_maestro',
+        'Unidad': 'unidad',
         'Código Siggo': 'cod_siggo',
         'Nombre Siggo': 'nombre_siggo',
-        'Min Stock': 'min_stock',
-        'Max Stock': 'max_stock',
-        'Empresa': 'empresa',
-        'Unidad': 'unidad'
+        'Mínimo': 'min_stock',
+        'Máximo': 'max_stock',
+        'Categoría Madre': 'cat_mdr',
+        'Sub Categoría': 'sub_cat',
+        'Nave': 'nave',
+        'SKU Madre': 'sku_mdr',
+        'Pzs por SKU': 'piezas_por_sku',
+        'Esti Time': 'esti_time'
     },
     sku_m: {
         'nombre_madre': 'sku_mdr',
@@ -179,7 +182,7 @@ const NUMERIC_FIELDS = [
     'piezas_por_sku', 'num_publicaciones', 'piezas_totales', 'esti_time', 
     'piezas_xcontenedor', 'bloque', 'costo', 'ing_xunidad', 'cargo_venta',
     'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3',
-    'stock_maestro', 'landed_cost_id', 'barcode', 'sat_key', 'location_id', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 'pzs_totales'
+    'stock_maestro', 'landed_cost_id', 'barcode', 'sat_key', 'location_id', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 'pzs_totales', 'pz_empaquetado_master'
 ];
 
 const MONTHS_ES: Record<string, number> = {

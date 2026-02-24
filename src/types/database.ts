@@ -184,14 +184,7 @@ export interface inventario_master {
   sku: string;
   stock_maestro: number | null;
   unidad: string | null;
-  empresa: string | null;
   landed_cost_id: number | null;
-  barcode: number | null;
-  sat_key: number | null;
-  unidad_med_sat: string | null;
-  fech_hora: string | Date | null;
-  observaciones: string | null;
-  adjuntar_image: string;
   location_id: number | null;
   empaquetado_master: string | null;
   cod_siggo: string | null;
@@ -201,4 +194,11 @@ export interface inventario_master {
   dias_sin_mov_siggo: number | null;
   pzs_totales: number | null;
   estado_siggo: string | null;
+  cat_mdr: string | null;
+  sub_cat: string | null;
+  nave: string | null;
+  sku_mdr: string | null;
+  piezas_por_sku: number | null;
+  esti_time: number | null;
+  pz_empaquetado_master: number | null;
 }
