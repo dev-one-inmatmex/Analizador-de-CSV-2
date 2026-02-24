@@ -130,7 +130,7 @@ export default function InventoryAnalysisClient({
                                 <TabsTrigger value="maestro" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">1. Catálogo Maestro (sku_m)</TabsTrigger>
                                 <TabsTrigger value="costos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">2. Historial de Costos (sku_costos)</TabsTrigger>
                                 <TabsTrigger value="alternos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">3. Relaciones Alternas (sku_alterno)</TabsTrigger>
-                                <TabsTrigger value="siggo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">4. Inventario Maestro (Siggo)</TabsTrigger>
+                                <TabsTrigger value="siggo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">4. SKU MASTER - DICCIONARIO SIGGO</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="maestro" className="mt-6 space-y-4">
@@ -283,8 +283,8 @@ export default function InventoryAnalysisClient({
                                         <div className="flex items-center gap-4">
                                             <Warehouse className="h-8 w-8 text-primary" />
                                             <div>
-                                                <CardTitle className="text-lg font-black uppercase tracking-tight">Inventario Maestro (Siggo)</CardTitle>
-                                                <CardDescription className="text-xs font-bold uppercase">Auditoría global de existencias y parámetros operativos.</CardDescription>
+                                                <CardTitle className="text-lg font-black uppercase tracking-tight">SKU MAESTRO</CardTitle>
+                                                <CardDescription className="text-xs font-bold uppercase">SKUS Y CONCENTRADOS PARA MASTER.</CardDescription>
                                             </div>
                                         </div>
                                         <div className="relative w-full md:w-72">
