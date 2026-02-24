@@ -3,13 +3,13 @@ import SalesDashboardClient from './sales-client';
 import { subMonths } from 'date-fns';
 import type { ml_sales } from '@/types/database';
 
-export type Sale = ml_sales;
+export type Sale = ml_sales & { categoria?: string };
 
 async function getSalesData() {
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
   const twelveMonthsAgo = subMonths(new Date(), 12);
-  const allSales: Sale[] = [];
+  const allSales: ml_sales[] = [];
   let from = 0;
   const step = 1000;
   let hasMore = true;
@@ -39,11 +39,31 @@ async function getSalesData() {
       hasMore = false;
     }
   }
+
+  // Obtener categorías para enriquecer las ventas
+  const skus = Array.from(new Set(allSales.map(s => s.sku).filter(Boolean) as string[]));
+  let categoryMap = new Map<string, string>();
+  
+  if (skus.length > 0) {
+    const { data: pubsData } = await supabaseAdmin
+      .from('publi_tienda')
+      .select('sku, cat_mdr')
+      .in('sku', skus);
+    
+    pubsData?.forEach(p => {
+      if (p.sku && p.cat_mdr) categoryMap.set(p.sku, p.cat_mdr);
+    });
+  }
+
+  const enrichedSales: Sale[] = allSales.map(s => ({
+    ...s,
+    categoria: categoryMap.get(s.sku || '') || 'Sin Categoría'
+  }));
   
   const allCompanies = Array.from(new Set(allSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
   
   return {
-    sales: allSales,
+    sales: enrichedSales,
     allCompanies
   };
 }
