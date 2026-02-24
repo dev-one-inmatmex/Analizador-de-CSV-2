@@ -29,8 +29,26 @@ import { supabase } from '@/lib/supabaseClient';
 
 const PAGE_SIZE = 15;
 const PARETO_PAGE_SIZE = 15;
-// Colores basados en la imagen proporcionada: Cian, Azul, Gris, Naranja, Lima
-const PIE_COLORS = ["#00aeef", "#3b82f6", "#6b7280", "#ffa500", "#84cc16"];
+
+// Paleta de colores basada en la imagen
+const COMPANY_COLOR_MAP: Record<string, string> = {
+    'DOMESKA': '#00aeef',
+    'DO MESKA': '#00aeef',
+    'TAL': '#3b82f6',
+    'TAL COMERCIALIZADORA': '#3b82f6',
+    'MTM': '#ffa500',
+    'INMATMEX': '#ffa500',
+    'MERCADO LIBRE': '#6b7280',
+    'OTROS': '#84cc16',
+    'OTRA': '#84cc16'
+};
+
+const DEFAULT_COLORS = ["#00aeef", "#3b82f6", "#6b7280", "#ffa500", "#84cc16"];
+
+const getCompanyColor = (name: string, index: number) => {
+    const key = name.toUpperCase();
+    return COMPANY_COLOR_MAP[key] || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+};
 
 export default function SalesDashboardClient({ 
     initialSales, 
@@ -144,10 +162,6 @@ export default function SalesDashboardClient({
         
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         const companyMap: Record<string, number> = {};
-        const categoryMap: Record<string, number> = {};
-        const statusMap: Record<string, number> = {};
-        
-        // Mapa para pedidos de hoy por empresa
         const todayCompanyMap: Record<string, number> = {};
 
         initialSales.forEach(sale => {
@@ -161,7 +175,6 @@ export default function SalesDashboardClient({
         });
 
         sortedSales.forEach(sale => {
-            // Stats por producto
             const key = sale.tit_pub || sale.sku || 'N/A';
             if (key !== 'N/A') {
                 if (!productStats[key]) {
@@ -171,17 +184,8 @@ export default function SalesDashboardClient({
                 productStats[key].units += (sale.unidades || 0);
             }
 
-            // Participación por Canal (Empresa)
             const c = sale.tienda || 'Otros';
             companyMap[c] = (companyMap[c] || 0) + (sale.total || 0);
-
-            // Distribución por Categoría
-            const cat = sale.categoria || 'Sin Categoría';
-            categoryMap[cat] = (categoryMap[cat] || 0) + (sale.total || 0);
-
-            // Estado de la Venta
-            const st = sale.status || 'Desconocido';
-            statusMap[st] = (statusMap[st] || 0) + 1;
         });
 
         const sortedProducts = Object.entries(productStats)
@@ -221,10 +225,16 @@ export default function SalesDashboardClient({
             kpis: { totalRevenue, totalSales: totalSalesCount, avgSale, topProductName: sortedProducts[0]?.name || 'N/A' },
             charts: { 
                 topProducts: topProductsChart, 
-                salesByCompany: Object.entries(companyMap).map(([name, value]) => ({ name, value })),
-                salesByCategory: Object.entries(categoryMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
-                salesByStatus: Object.entries(statusMap).map(([name, value]) => ({ name, value })),
-                todaySalesByCompany: Object.entries(todayCompanyMap).map(([name, value]) => ({ name, value }))
+                salesByCompany: Object.entries(companyMap).map(([name, value], i) => ({ 
+                    name, 
+                    value,
+                    color: getCompanyColor(name, i)
+                })),
+                todaySalesByCompany: Object.entries(todayCompanyMap).map(([name, value], i) => ({ 
+                    name, 
+                    value,
+                    color: getCompanyColor(name, i)
+                }))
             },
             paretoAnalysisData: paretoData,
             dynamicCompanies: detectedCompanies
@@ -234,16 +244,23 @@ export default function SalesDashboardClient({
     const totalPages = Math.ceil(sales.length / PAGE_SIZE);
     const paginatedSales = sales.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-    // Custom label for Pie Charts to show percentage
+    // Custom label for Pie Charts to show percentage according to reference image
     const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+        const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
         const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
         const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
 
-        if (percent < 0.05) return null; // No mostrar etiquetas muy pequeñas
+        if (percent < 0.05) return null;
 
         return (
-            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-black">
+            <text 
+                x={x} 
+                y={y} 
+                fill="#000" 
+                textAnchor="middle" 
+                dominantBaseline="central" 
+                className="text-[10px] font-black"
+            >
                 {`${(percent * 100).toFixed(0)}%`}
             </text>
         );
@@ -415,15 +432,20 @@ export default function SalesDashboardClient({
                                         labelLine={false}
                                         label={renderCustomizedLabel}
                                     >
-                                        {charts.todaySalesByCompany.map((_, i) => (
-                                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                        {charts.todaySalesByCompany.map((entry, i) => (
+                                            <Cell key={i} fill={entry.color} />
                                         ))}
                                     </Pie>
                                     <Tooltip 
                                         formatter={v => `${v} pedidos`} 
                                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                     />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                                    <Legend 
+                                        verticalAlign="bottom" 
+                                        height={36} 
+                                        iconType="circle" 
+                                        wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} 
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -448,15 +470,20 @@ export default function SalesDashboardClient({
                                         labelLine={false}
                                         label={renderCustomizedLabel}
                                     >
-                                        {charts.salesByCompany.map((_, i) => (
-                                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                        {charts.salesByCompany.map((entry, i) => (
+                                            <Cell key={i} fill={entry.color} />
                                         ))}
                                     </Pie>
                                     <Tooltip 
                                         formatter={v => money(v as number)} 
                                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                     />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                                    <Legend 
+                                        verticalAlign="bottom" 
+                                        height={36} 
+                                        iconType="circle" 
+                                        wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} 
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
