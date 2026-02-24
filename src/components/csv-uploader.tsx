@@ -55,10 +55,10 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
     inventario_master: {
         pk: 'sku',
         columns: [
-            'sku', 'stock_maestro', 'unidad', 'landed_cost_id',
-            'empaquetado_master', 'cod_siggo', 'nombre_siggo', 'min_stock', 'max_stock',
-            'dias_sin_mov_siggo', 'pzs_totales', 'estado_siggo', 'cat_mdr', 'sub_cat',
-            'bodega', 'sku_mdr', 'piezas_por_sku', 'esti_time', 'pz_empaquetado_master', 'bloque'
+            'sku', 'stock_maestro', 'unidad', 'landed_cost_id', 'empaquetado_master', 
+            'cod_siggo', 'nombre_siggo', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 
+            'pzs_totales', 'estado_siggo', 'cat_mdr', 'sub_cat', 'bodega', 'sku_mdr', 
+            'piezas_por_sku', 'esti_time', 'pz_empaquetado_master', 'bloque'
         ]
     },
     sku_m: { 
@@ -261,8 +261,23 @@ function formatErrorDescription(msg: string): string {
     if (msg.includes('ON CONFLICT DO UPDATE command cannot affect row a second time')) return 'Conflicto de redundancia: El archivo contiene múltiples registros con el mismo identificador.';
     if (msg.includes('duplicate key value violates unique constraint')) return 'Violación de Clave Única: Ya existe un registro con este identificador.';
     if (msg.includes('violates foreign key constraint')) return 'Error de Referencia: El valor no existe en la tabla principal o viola una restricción técnica.';
-    if (msg.includes('null value in column')) return 'Valor Nulo Prohibido: Falta un dato obligatorio en el registro.';
+    if (msg.includes('null value in column')) {
+        const colMatch = msg.match(/column "(.*?)"/);
+        return `Valor Nulo Prohibido: El campo '${colMatch ? colMatch[1] : 'obligatorio'}' no puede estar vacío.`;
+    }
     return `Error de Inserción: ${msg}`;
+}
+
+function getErrorColumn(msg: string, columns: string[]): string | null {
+    const lowerMsg = msg.toLowerCase();
+    for (const col of columns) {
+        if (lowerMsg.includes(`column "${col.toLowerCase()}"`) || 
+            lowerMsg.includes(`column ${col.toLowerCase()}`) ||
+            lowerMsg.includes(`key (${col.toLowerCase()})=`)) {
+            return col;
+        }
+    }
+    return null;
 }
 
 type SyncError = {
@@ -474,12 +489,11 @@ export default function CsvUploader() {
         const inserted: any[] = [], updated: { record: any, original: any }[] = [], unchanged: any[] = [...categorizedData.unchanged], errors: SyncError[] = [];
         
         if (supabase && total > 0) {
-            const SYNC_BATCH_SIZE = 100;
+            const SYNC_BATCH_SIZE = 50; // Lote más pequeño para mejor captura de errores
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
                 if (error) {
-                    // Si el lote falla, registramos el error para cada registro del lote para visualización
                     batch.forEach(rec => {
                         errors.push({ record: rec, msg: error.message, batch: Math.floor(i / SYNC_BATCH_SIZE) + 1 });
                     });
@@ -615,21 +629,30 @@ export default function CsvUploader() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {syncResult.errors.map((err, i) => (
-                                                    <TableRow key={i} className="h-16 border-b border-red-100 bg-red-50/50 hover:bg-red-50 transition-colors">
-                                                        {activeDbColumns.map(col => (
-                                                            <TableCell key={col} className="text-[11px] px-6 font-medium text-red-900/80">
-                                                                {String(err.record?.[col] ?? '-')}
+                                                {syncResult.errors.map((err, i) => {
+                                                    const errorCol = getErrorColumn(err.msg, activeDbColumns);
+                                                    return (
+                                                        <TableRow key={i} className="h-16 border-b border-red-100 bg-red-50/50 hover:bg-red-50 transition-colors">
+                                                            {activeDbColumns.map(col => (
+                                                                <TableCell 
+                                                                    key={col} 
+                                                                    className={cn(
+                                                                        "text-[11px] px-6 font-medium text-red-900/80 transition-all",
+                                                                        errorCol === col ? "bg-red-200/60 text-red-900 font-black shadow-[inset_0_0_0_2px_rgba(239,68,68,0.3)] rounded-sm" : ""
+                                                                    )}
+                                                                >
+                                                                    {String(err.record?.[col] ?? '-')}
+                                                                </TableCell>
+                                                            ))}
+                                                            <TableCell className="px-6 text-[11px] font-bold text-red-700 bg-red-100/30 sticky right-0 z-10 backdrop-blur-sm border-l border-red-200">
+                                                                <div className="flex items-start gap-2">
+                                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                                    <span className="leading-tight">{formatErrorDescription(err.msg)}</span>
+                                                                </div>
                                                             </TableCell>
-                                                        ))}
-                                                        <TableCell className="px-6 text-[11px] font-bold text-red-700 bg-red-100/30 sticky right-0 z-10 backdrop-blur-sm">
-                                                            <div className="flex items-start gap-2">
-                                                                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                                <span className="leading-tight">{formatErrorDescription(err.msg)}</span>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
+                                                        </TableRow>
+                                                    );
+                                                })}
                                             </TableBody>
                                         </Table>
                                         <ScrollBar orientation="horizontal" />
