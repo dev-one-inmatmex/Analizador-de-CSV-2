@@ -196,7 +196,7 @@ export default function ConsumptionClient({
 
     if (!isClient) return null;
 
-    const totalInvPages = Math.ceil(filteredInventory.length / 50); // Mantenemos 50 para Siggo por ser técnica
+    const totalInvPages = Math.ceil(filteredInventory.length / 50);
     const paginatedInventory = filteredInventory.slice((invPage - 1) * 50, invPage * 50);
 
     const totalConsPages = Math.ceil(consumoData.length / PAGE_SIZE);
@@ -298,7 +298,7 @@ export default function ConsumptionClient({
                                         <Eye className="h-3 w-3" /> Ver Detalle
                                     </Button>
                                 </CardHeader>
-                                <CardContent className="h-[350px] pt-6">
+                                <CardContent className="h-[450px] pt-6">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={top10Data} layout="vertical" margin={{ left: 20, right: 30 }}>
                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
@@ -324,7 +324,7 @@ export default function ConsumptionClient({
                                         <PieIcon className="h-4 w-4 text-primary"/> Salidas por Categoría
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent className="h-[350px] pt-6">
+                                <CardContent className="h-[450px] pt-6">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie 
@@ -339,7 +339,7 @@ export default function ConsumptionClient({
                                                 ))}
                                             </Pie>
                                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                                            <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingTop: '20px' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </CardContent>
@@ -359,7 +359,7 @@ export default function ConsumptionClient({
                                         <Eye className="h-3 w-3" /> Ver Detalle
                                     </Button>
                                 </CardHeader>
-                                <CardContent className="h-[350px] pt-6">
+                                <CardContent className="h-[450px] pt-6">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie 
@@ -374,7 +374,7 @@ export default function ConsumptionClient({
                                                 ))}
                                             </Pie>
                                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                                            <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingTop: '20px' }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </CardContent>
