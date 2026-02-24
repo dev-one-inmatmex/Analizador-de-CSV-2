@@ -1,7 +1,6 @@
-
 'use client';
 
-import { GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, DollarSign, Loader2 } from 'lucide-react';
+import { GitCompareArrows, Filter, PieChart as PieChartIcon, BarChart3, DollarSign, Loader2, Package, Search, Warehouse, Info } from 'lucide-react';
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DateRange } from 'react-day-picker';
@@ -18,9 +17,12 @@ import { useToast } from '@/hooks/use-toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import type { Transaction } from './page';
+import type { inventario_master } from '@/types/database';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 function ClientRelativeTime({ dateString }: { dateString: string }) {
   const [relativeTime, setRelativeTime] = React.useState('');
@@ -30,7 +32,6 @@ function ClientRelativeTime({ dateString }: { dateString: string }) {
       try {
         setRelativeTime(formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: es }));
       } catch (e) {
-        console.error("Error formatting date", e);
         setRelativeTime('Fecha inválida');
       }
     }
@@ -39,8 +40,13 @@ function ClientRelativeTime({ dateString }: { dateString: string }) {
   return <>{relativeTime || '...'}</>;
 }
 
-
-export default function MajorMinorSalesClientPage({ initialRecentTransactions }: { initialRecentTransactions: Transaction[] }) {
+export default function MajorMinorSalesClientPage({ 
+  initialRecentTransactions,
+  inventoryMaster
+}: { 
+  initialRecentTransactions: Transaction[],
+  inventoryMaster: inventario_master[]
+}) {
   const { toast } = useToast();
   
   const [saleType, setSaleType] = React.useState('Todos');
@@ -48,6 +54,10 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
   const [date, setDate] = React.useState<DateRange | undefined>();
   const [isClient, setIsClient] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
+  
+  // Inventory state
+  const [invPage, setInvPage] = React.useState(1);
+  const [invSearch, setInvSearch] = React.useState('');
 
   React.useEffect(() => {
     setDate({
@@ -85,19 +95,16 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
       return true;
     });
 
-    // Calculate KPIs from filtered data
     const wholesaleRevenue = filtered.filter(t => t.type === 'Mayorista').reduce((sum, t) => sum + t.amount, 0);
     const retailRevenue = filtered.filter(t => t.type === 'Minorista').reduce((sum, t) => sum + t.amount, 0);
     const wholesaleTransactions = filtered.filter(t => t.type === 'Mayorista').length;
     const retailTransactions = filtered.filter(t => t.type === 'Minorista').length;
     
-    // Revenue by type for Pie Chart
     const revenueData = [
       { type: 'Mayorista', value: wholesaleRevenue, color: 'hsl(var(--chart-1))' },
       { type: 'Minorista', value: retailRevenue, color: 'hsl(var(--chart-2))' },
     ];
     
-    // Top wholesale customers for Bar Chart
     const customerRevenue: Record<string, number> = {};
     filtered.filter(t => t.type === 'Mayorista').forEach(t => {
       customerRevenue[t.customer] = (customerRevenue[t.customer] || 0) + t.amount;
@@ -117,19 +124,22 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
     };
   }, [initialRecentTransactions, saleType, customer, date]);
 
+  const filteredInventory = React.useMemo(() => {
+    if (!invSearch) return inventoryMaster;
+    const q = invSearch.toLowerCase();
+    return inventoryMaster.filter(item => 
+      (item.sku?.toLowerCase() || '').includes(q) ||
+      (item.nombre_siggo?.toLowerCase() || '').includes(q) ||
+      (item.cod_siggo?.toLowerCase() || '').includes(q)
+    );
+  }, [inventoryMaster, invSearch]);
+
   const handleApplyFilters = () => {
-    toast({
-      title: 'Filtros aplicados',
-      description: 'Los datos de ventas han sido actualizados.',
-    });
+    toast({ title: 'Filtros aplicados', description: 'Los datos de ventas han sido actualizados.' });
     setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
-    toast({
-      title: 'Filtros limpiados',
-      description: 'Mostrando todos los datos originales.',
-    });
     setSaleType('Todos');
     setCustomer('Todos');
     setDate({ from: subDays(new Date(), 29), to: new Date() });
@@ -137,32 +147,35 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
   };
   
   const totalPages = Math.ceil(displayedTransactions.length / PAGE_SIZE);
-  const paginatedTransactions = displayedTransactions.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
+  const paginatedTransactions = displayedTransactions.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const totalInvPages = Math.ceil(filteredInventory.length / PAGE_SIZE);
+  const paginatedInventory = filteredInventory.slice((invPage - 1) * PAGE_SIZE, invPage * PAGE_SIZE);
 
   if (!isClient) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
   }
 
   return (
-    <>
+    <div className="flex flex-col min-h-screen bg-muted/20">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
           <h1 className="text-xl font-bold tracking-tight">Consumo (ventas + Siggo)</h1>
         </div>
       </header>
-      <main className="flex flex-1 flex-col items-center p-4 md:p-10">
-        <div className="w-full max-w-7xl space-y-4 md:space-y-8">
-            <Card>
+
+      <main className="flex-1 p-4 md:p-10 space-y-8">
+        <Tabs defaultValue="consumption" className="w-full">
+          <TabsList className="bg-muted/40 p-1 mb-8">
+            <TabsTrigger value="consumption" className="text-xs font-bold uppercase">Análisis de Consumo</TabsTrigger>
+            <TabsTrigger value="inventory" className="text-xs font-bold uppercase">Inventario Maestro (Siggo)</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="consumption" className="space-y-8 animate-in fade-in duration-500">
+            <Card className="border-none shadow-sm">
                 <CardHeader className="flex flex-row items-center gap-4">
-                    <Filter className="h-6 w-6 text-muted-foreground" />
+                    <Filter className="h-6 w-6 text-primary" />
                     <div><CardTitle>Filtros de Segmentación</CardTitle><CardDescription>Analiza por tipo de venta, cliente o periodo de tiempo.</CardDescription></div>
                 </CardHeader>
                 <CardContent>
@@ -175,25 +188,157 @@ export default function MajorMinorSalesClientPage({ initialRecentTransactions }:
                 </CardContent>
             </Card>
 
-            <div>
-                <div className="mb-4"><h2 className="text-xl font-semibold">Resumen de Segmentación</h2><p className="text-muted-foreground">Comparativa de ingresos y transacciones entre ventas mayoristas y minoristas.</p></div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Mayoristas</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.wholesaleRevenue)}</div><p className="text-xs text-muted-foreground">{kpis.wholesaleTransactions.toLocaleString('es-MX')} transacciones</p></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ingresos Minoristas</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.retailRevenue)}</div><p className="text-xs text-muted-foreground">{kpis.retailTransactions.toLocaleString('es-MX')} transacciones</p></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">% Ingreso Mayorista</CardTitle><PieChartIcon className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{((kpis.wholesaleRevenue / (kpis.wholesaleRevenue + kpis.retailRevenue || 1)) * 100).toFixed(1)}%</div><p className="text-xs text-muted-foreground">Del total de ingresos del periodo.</p></CardContent></Card>
-                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Ticket Promedio Mayorista</CardTitle><BarChart3 className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.wholesaleTransactions > 0 ? kpis.wholesaleRevenue / kpis.wholesaleTransactions : 0)}</div><p className="text-xs text-muted-foreground">Valor medio por transacción.</p></CardContent></Card>
-                </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Ingresos Mayoristas</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-black">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.wholesaleRevenue)}</div><p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">{kpis.wholesaleTransactions.toLocaleString('es-MX')} transacciones</p></CardContent></Card>
+                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Ingresos Minoristas</CardTitle><DollarSign className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-black">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.retailRevenue)}</div><p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">{kpis.retailTransactions.toLocaleString('es-MX')} transacciones</p></CardContent></Card>
+                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">% Ingreso Mayorista</CardTitle><PieChartIcon className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-black text-primary">{((kpis.wholesaleRevenue / (kpis.wholesaleRevenue + kpis.retailRevenue || 1)) * 100).toFixed(1)}%</div><p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Del total de ingresos filtrados</p></CardContent></Card>
+                <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Ticket Prom. Mayorista</CardTitle><BarChart3 className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-black">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(kpis.wholesaleTransactions > 0 ? kpis.wholesaleRevenue / kpis.wholesaleTransactions : 0)}</div><p className="text-[10px] text-muted-foreground font-medium uppercase mt-1">Valor medio por transacción</p></CardContent></Card>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Distribución de Ingresos</CardTitle><CardDescription>Porcentaje de ingresos generado por cada segmento.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Pie data={revenueByTypeData} dataKey="value" nameKey="type" innerRadius={60} outerRadius={80} paddingAngle={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{revenueByTypeData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}</Pie><Legend /></PieChart></ResponsiveContainer></CardContent></Card>
-                <Card className="lg:col-span-3"><CardHeader><CardTitle>Top 5 Clientes Mayoristas</CardTitle><CardDescription>Clientes que generaron los mayores ingresos en el periodo.</CardDescription></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><BarChart data={topWholesaleCustomersData} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} /><YAxis type="category" dataKey="customer" width={80}/><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Bar dataKey="revenue" name="Ingresos" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
-                <Card className="lg:col-span-5"><CardHeader><CardTitle>Transacciones Recientes</CardTitle><CardDescription>Listado de las últimas ventas registradas en los segmentos.</CardDescription></CardHeader><CardContent>{paginatedTransactions.length > 0 ? (<Table><TableHeader><TableRow><TableHead>ID Transacción</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo de Venta</TableHead><TableHead className="text-right">Monto</TableHead><TableHead className="text-right">Hora</TableHead></TableRow></TableHeader><TableBody>{paginatedTransactions.map((item) => (<TableRow key={item.id}><TableCell className="font-mono text-xs">{item.id}</TableCell><TableCell className="font-medium">{item.customer}</TableCell><TableCell><Badge variant={item.type === 'Mayorista' ? 'default' : 'secondary'}>{item.type}</Badge></TableCell><TableCell className="text-right font-medium">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.amount)}</TableCell><TableCell className="text-right text-sm text-muted-foreground"><ClientRelativeTime dateString={item.date} /></TableCell></TableRow>))}</TableBody></Table>) : (<Alert><GitCompareArrows className="h-4 w-4" /><AlertTitle>No hay transacciones</AlertTitle><AlertDescription>No se encontraron registros para el periodo o filtros seleccionados.</AlertDescription></Alert>)}</CardContent>
-                {totalPages > 1 && (<CardFooter><div className="flex w-full items-center justify-between text-xs text-muted-foreground"><div>Página {currentPage} de {totalPages}</div><div className="flex items-center gap-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button></div></div></CardFooter>)}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                <Card className="lg:col-span-2 border-none shadow-sm"><CardHeader><CardTitle className="text-sm font-bold uppercase">Distribución de Ingresos</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Pie data={revenueByTypeData} dataKey="value" nameKey="type" innerRadius={60} outerRadius={80} paddingAngle={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{revenueByTypeData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}</Pie><Legend wrapperStyle={{fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold'}} /></PieChart></ResponsiveContainer></CardContent></Card>
+                <Card className="lg:col-span-3 border-none shadow-sm"><CardHeader><CardTitle className="text-sm font-bold uppercase">Top 5 Clientes Mayoristas</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><BarChart data={topWholesaleCustomersData} layout="vertical" margin={{left: 20, right: 40}}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} fontSize={10} /><YAxis type="category" dataKey="customer" width={100} fontSize={9} fontWeight="bold" axisLine={false} tickLine={false} /><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Bar dataKey="revenue" name="Ingresos" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={25} /></BarChart></ResponsiveContainer></CardContent></Card>
+                
+                <Card className="lg:col-span-5 border-none shadow-sm overflow-hidden">
+                    <CardHeader className="bg-muted/10"><CardTitle className="text-sm font-bold uppercase">Transacciones Recientes</CardTitle></CardHeader>
+                    <div className="table-responsive">
+                        {paginatedTransactions.length > 0 ? (
+                            <Table>
+                                <TableHeader className="bg-muted/20">
+                                    <TableRow>
+                                        <TableHead className="text-[10px] font-black uppercase">ID Transacción</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Cliente</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Tipo</TableHead>
+                                        <TableHead className="text-right text-[10px] font-black uppercase">Monto</TableHead>
+                                        <TableHead className="text-right text-[10px] font-black uppercase">Fecha</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {paginatedTransactions.map((item) => (
+                                        <TableRow key={item.id} className="h-14">
+                                            <TableCell className="font-mono text-[10px] text-primary font-bold">{item.id}</TableCell>
+                                            <TableCell className="font-bold text-xs uppercase">{item.customer}</TableCell>
+                                            <TableCell><Badge variant={item.type === 'Mayorista' ? 'default' : 'secondary'} className="text-[9px] font-black uppercase">{item.type}</Badge></TableCell>
+                                            <TableCell className="text-right font-black text-sm">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.amount)}</TableCell>
+                                            <TableCell className="text-right text-[10px] font-bold text-muted-foreground"><ClientRelativeTime dateString={item.date} /></TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <div className="p-20 text-center space-y-4">
+                                <GitCompareArrows className="mx-auto h-12 w-12 text-muted-foreground opacity-20" />
+                                <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Sin transacciones registradas</p>
+                            </div>
+                        )}
+                    </div>
+                    {totalPages > 1 && (
+                        <CardFooter className="bg-muted/5 border-t py-4">
+                            <div className="flex w-full items-center justify-between text-[10px] font-bold uppercase text-muted-foreground">
+                                <div>Página {currentPage} de {totalPages}</div>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
+                                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
+                                </div>
+                            </div>
+                        </CardFooter>
+                    )}
                 </Card>
             </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="inventory" className="animate-in slide-in-from-bottom-4 duration-500">
+            <Card className="border-none shadow-sm overflow-hidden">
+                <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b bg-white">
+                    <div className="flex items-center gap-4">
+                        <Warehouse className="h-8 w-8 text-primary" />
+                        <div>
+                            <CardTitle className="text-lg font-black uppercase tracking-tight">Inventario Maestro (Siggo)</CardTitle>
+                            <CardDescription className="text-xs font-bold uppercase">Estado global de existencias y parámetros de reposición.</CardDescription>
+                        </div>
+                    </div>
+                    <div className="relative w-full md:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="BUSCAR POR SKU O NOMBRE..." 
+                            className="pl-9 h-10 font-bold text-[10px] uppercase border-slate-200" 
+                            value={invSearch}
+                            onChange={(e) => { setInvSearch(e.target.value); setInvPage(1); }}
+                        />
+                    </div>
+                </CardHeader>
+                <div className="table-responsive bg-white">
+                    <Table>
+                        <TableHeader className="bg-slate-50/50">
+                            <TableRow className="h-12">
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider">SKU</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Nombre en Siggo</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Stock Maestro</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Unidad</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Mín/Máx</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Pzs Totales</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider text-center">Estado Siggo</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Empresa</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedInventory.length > 0 ? (
+                                paginatedInventory.map((item) => (
+                                    <TableRow key={item.sku} className="h-14 hover:bg-slate-50 transition-colors">
+                                        <TableCell className="font-mono text-xs font-bold text-primary">{item.sku}</TableCell>
+                                        <TableCell>
+                                            <div className="font-bold text-[11px] uppercase leading-tight truncate max-w-[250px]" title={item.nombre_siggo || ''}>{item.nombre_siggo || '-'}</div>
+                                            <div className="text-[9px] font-mono text-muted-foreground">{item.cod_siggo}</div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant={Number(item.stock_maestro) <= Number(item.min_stock) ? 'destructive' : 'outline'} className="font-black text-xs">
+                                                {item.stock_maestro?.toLocaleString() || '0'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-center text-[10px] font-black uppercase text-muted-foreground">{item.unidad || 'PZA'}</TableCell>
+                                        <TableCell className="text-center">
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <span className="text-[9px] font-black text-slate-400">MIN: {item.min_stock || 0}</span>
+                                                <span className="text-[9px] font-black text-slate-400">MAX: {item.max_stock || 0}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-center font-black text-xs text-slate-700">{item.pzs_totales?.toLocaleString() || '-'}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant="secondary" className="text-[9px] font-black uppercase px-2 py-0.5">
+                                                {item.estado_siggo || 'ACTIVO'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-[10px] font-black uppercase text-muted-foreground">{item.empresa || '-'}</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="h-64 text-center">
+                                        <div className="flex flex-col items-center gap-2 opacity-30">
+                                            <Warehouse className="h-12 w-12" />
+                                            <p className="font-black uppercase text-xs tracking-widest">No se encontraron productos en inventario</p>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                <CardFooter className="bg-slate-50 border-t py-4 flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500">
+                        <Info className="h-3 w-3" />
+                        Mostrando {paginatedInventory.length} de {filteredInventory.length} productos
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase mr-4">Página {invPage} de {totalInvPages || 1}</span>
+                        <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setInvPage(p => Math.max(1, p - 1))} disabled={invPage === 1}>ANTERIOR</Button>
+                        <Button variant="outline" size="sm" className="h-8 text-[9px] font-black" onClick={() => setInvPage(p => Math.min(totalInvPages, p + 1))} disabled={invPage >= totalInvPages}>SIGUIENTE</Button>
+                    </div>
+                </CardFooter>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
-    </>
+    </div>
   );
 }

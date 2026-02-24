@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseClient'
 import MajorMinorSalesClientPage from './major-minor-sales-client';
+import type { inventario_master } from '@/types/database';
 
 export type Transaction = {
   id: string;
@@ -50,8 +51,47 @@ async function getAllTransactions(): Promise<Transaction[]> {
   }));
 }
 
+async function getInventoryMaster(): Promise<inventario_master[]> {
+  if (!supabaseAdmin) return [];
+  const all: inventario_master[] = [];
+  let from = 0;
+  const step = 1000;
+  let hasMore = true;
+
+  try {
+    while (hasMore) {
+      const { data, error } = await supabaseAdmin
+        .from('inventario_master')
+        .select('*')
+        .order('sku', { ascending: true })
+        .range(from, from + step - 1);
+      
+      if (error) throw error;
+      if (data && data.length > 0) {
+        all.push(...(data as inventario_master[]));
+        if (data.length < step) hasMore = false;
+        else from += step;
+      } else {
+        hasMore = false;
+      }
+    }
+  } catch (e) {
+    console.error('Error fetching inventory master:', e);
+  }
+  return all;
+}
+
 
 export default async function MajorMinorSalesPage() {
-  const transactions = await getAllTransactions();
-  return <MajorMinorSalesClientPage initialRecentTransactions={transactions} />;
+  const [transactions, inventory] = await Promise.all([
+    getAllTransactions(),
+    getInventoryMaster()
+  ]);
+  
+  return (
+    <MajorMinorSalesClientPage 
+      initialRecentTransactions={transactions} 
+      inventoryMaster={inventory} 
+    />
+  );
 }
