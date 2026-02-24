@@ -1,40 +1,35 @@
 import { supabaseAdmin } from '@/lib/supabaseClient'
-import MajorMinorSalesClientPage from './major-minor-sales-client';
-import type { inventario_master } from '@/types/database';
+import ConsumptionClient from './consumption-client';
+import { subMonths } from 'date-fns';
+import type { ml_sales, inventario_master } from '@/types/database';
 
-export type Transaction = {
-  id: string;
-  customer: string;
-  type: 'Mayorista' | 'Minorista';
-  amount: number;
-  date: string;
-};
+export type Sale = ml_sales & { categoria?: string };
 
-async function getAllTransactions(): Promise<Transaction[]> {
-  if (!supabaseAdmin) {
-    console.warn("Supabase admin client is not configured.");
-    return [];
-  }
-
-  const allData: any[] = [];
+async function getSalesData() {
+  if (!supabaseAdmin) return { sales: [], allCompanies: [] };
+  
+  const twelveMonthsAgo = subMonths(new Date(), 12);
+  const allSales: ml_sales[] = [];
   let from = 0;
   const step = 1000;
   let hasMore = true;
 
-  while (hasMore) {
+  // Carga exhaustiva para superar el límite de 1000 de Supabase (Motor idéntico al de Ventas)
+  while (hasMore && allSales.length < 50000) {
     const { data, error } = await supabaseAdmin
       .from('ml_sales')
-      .select('id, num_venta, comprador, total, fecha_venta')
+      .select('*')
+      .gte('fecha_venta', twelveMonthsAgo.toISOString())
       .order('fecha_venta', { ascending: false })
       .range(from, from + step - 1);
 
     if (error) {
-      console.error('Error fetching transactions batch:', error);
+      console.error('Error fetching sales batch:', error);
       break;
     }
 
     if (data && data.length > 0) {
-      allData.push(...data);
+      allSales.push(...data);
       if (data.length < step) hasMore = false;
       else from += step;
     } else {
@@ -42,13 +37,29 @@ async function getAllTransactions(): Promise<Transaction[]> {
     }
   }
 
-  return allData.map((sale) => ({
-    id: `#${sale.num_venta || sale.id}`,
-    customer: sale.comprador || 'N/A',
-    type: sale.comprador && sale.comprador !== 'Público General' ? 'Mayorista' : 'Minorista',
-    amount: sale.total || 0,
-    date: sale.fecha_venta,
+  // Enriquecimiento con categorías desde publi_tienda
+  const skus = Array.from(new Set(allSales.map(s => s.sku).filter(Boolean) as string[]));
+  let categoryMap = new Map<string, string>();
+  
+  if (skus.length > 0) {
+    const { data: pubsData } = await supabaseAdmin
+      .from('publi_tienda')
+      .select('sku, cat_mdr')
+      .in('sku', skus);
+    
+    pubsData?.forEach(p => {
+      if (p.sku && p.cat_mdr) categoryMap.set(p.sku, p.cat_mdr);
+    });
+  }
+
+  const enrichedSales: Sale[] = allSales.map(s => ({
+    ...s,
+    categoria: categoryMap.get(s.sku || '') || 'Sin Categoría'
   }));
+  
+  const allCompanies = Array.from(new Set(allSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
+  
+  return { sales: enrichedSales, allCompanies };
 }
 
 async function getInventoryMaster(): Promise<inventario_master[]> {
@@ -81,16 +92,16 @@ async function getInventoryMaster(): Promise<inventario_master[]> {
   return all;
 }
 
-
 export default async function MajorMinorSalesPage() {
-  const [transactions, inventory] = await Promise.all([
-    getAllTransactions(),
+  const [{ sales, allCompanies }, inventory] = await Promise.all([
+    getSalesData(),
     getInventoryMaster()
   ]);
   
   return (
-    <MajorMinorSalesClientPage 
-      initialRecentTransactions={transactions} 
+    <ConsumptionClient 
+      initialSales={sales} 
+      allCompanies={allCompanies} 
       inventoryMaster={inventory} 
     />
   );
