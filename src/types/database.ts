@@ -81,7 +81,7 @@ export interface sku_m {
 }
 
 export interface sku_costos {
-  id?: string; // ID opcional para facilitar el mapeo por sku_mdr
+  id?: string;
   sku_mdr: string;
   landed_cost: number;
   fecha_desde: string;
