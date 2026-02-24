@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -259,10 +260,24 @@ function parseValue(key: string, value: any, tableName: string): any {
 function formatErrorDescription(msg: string): string {
     if (msg.includes('ON CONFLICT DO UPDATE command cannot affect row a second time')) return 'Conflicto de redundancia: El archivo contiene múltiples registros con el mismo identificador.';
     if (msg.includes('duplicate key value violates unique constraint')) return 'Violación de Clave Única: Ya existe un registro con este identificador.';
-    if (msg.includes('violates foreign key constraint')) return 'Error de Referencia: El registro intenta vincularse a un dato que no existe.';
-    if (msg.includes('null value in column')) return 'Valor Nulo Prohibido: Falta un dato obligatorio.';
-    return `Error técnico: ${msg}`;
+    if (msg.includes('violates foreign key constraint')) return 'Error de Referencia: El valor no existe en la tabla principal o viola una restricción técnica.';
+    if (msg.includes('null value in column')) return 'Valor Nulo Prohibido: Falta un dato obligatorio en el registro.';
+    return `Error de Inserción: ${msg}`;
 }
+
+type SyncError = {
+    record: any;
+    msg: string;
+    batch?: number;
+};
+
+type SyncResult = {
+    inserted: any[];
+    updated: { record: any, original: any }[];
+    unchanged: any[];
+    errors: SyncError[];
+    syncTime?: string;
+};
 
 type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'analyzing' | 'preview' | 'syncing' | 'results';
 const RESULTS_PAGE_SIZE = 50;
@@ -284,7 +299,7 @@ export default function CsvUploader() {
     const [syncCount, setSyncCount] = useState(0);
     const [totalToSync, setTotalToSync] = useState(0);
     const [categorizedData, setCategorizedData] = useState<{ new: any[], update: { record: any, original: any }[], unchanged: any[] }>({ new: [], update: [], unchanged: [] });
-    const [syncResult, setSyncResult] = useState<{ inserted: any[], updated: { record: any, original: any }[], unchanged: any[], errors: { batch: number, msg: string }[], syncTime?: string } | null>(null);
+    const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
     const [resultPageInjected, setResultPageInjected] = useState(1);
     const [resultPageUpdated, setResultPageUpdated] = useState(1);
 
@@ -456,18 +471,25 @@ export default function CsvUploader() {
         else recordsToProcess = [...categorizedData.new, ...categorizedData.update.map(u => u.record)];
         const total = recordsToProcess.length;
         setTotalToSync(total); setSyncCount(0); setSyncProgress(0);
-        const inserted: any[] = [], updated: { record: any, original: any }[] = [], unchanged: any[] = [...categorizedData.unchanged], errors: { batch: number, msg: string }[] = [];
+        const inserted: any[] = [], updated: { record: any, original: any }[] = [], unchanged: any[] = [...categorizedData.unchanged], errors: SyncError[] = [];
+        
         if (supabase && total > 0) {
             const SYNC_BATCH_SIZE = 100;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
-                if (error) errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
-                else batch.forEach(r => {
-                    const originalUpdate = categorizedData.update.find(u => String(u.record[schema.pk]) === String(r[schema.pk]));
-                    if (originalUpdate) updated.push(originalUpdate);
-                    else inserted.push(r);
-                });
+                if (error) {
+                    // Si el lote falla, registramos el error para cada registro del lote para visualización
+                    batch.forEach(rec => {
+                        errors.push({ record: rec, msg: error.message, batch: Math.floor(i / SYNC_BATCH_SIZE) + 1 });
+                    });
+                } else {
+                    batch.forEach(r => {
+                        const originalUpdate = categorizedData.update.find(u => String(u.record[schema.pk]) === String(r[schema.pk]));
+                        if (originalUpdate) updated.push(originalUpdate);
+                        else inserted.push(r);
+                    });
+                }
                 const currentProcessed = Math.min(i + SYNC_BATCH_SIZE, total);
                 setSyncCount(currentProcessed); setSyncProgress(Math.round((currentProcessed / total) * 100));
             }
@@ -546,7 +568,169 @@ export default function CsvUploader() {
             )}
 
             {currentStep === 'results' && syncResult && (
-                <Card className="border-none shadow-2xl overflow-hidden rounded-[40px] relative animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 bg-white"><div className="p-16 relative"><Button variant="ghost" size="icon" onClick={reset} className="absolute top-8 right-8 text-slate-400 hover:bg-slate-100 rounded-full"><X className="h-6 w-6" /></Button><div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto"><div className="p-10 rounded-[32px] bg-[#F0FDF4] border border-[#DCFCE7] text-center space-y-4"><p className="text-[11px] font-black uppercase text-[#166534] tracking-widest">Inyectados</p><p className="text-7xl font-black text-[#14532D] tabular-nums">{syncResult.inserted.length}</p></div><div className="p-10 rounded-[32px] bg-[#EFF6FF] border border-[#DBEAFE] text-center space-y-4"><p className="text-[11px] font-black uppercase text-[#1E40AF] tracking-widest">Sobrescritos</p><p className="text-7xl font-black text-[#1E3A8A] tabular-nums">{syncResult.updated.length}</p></div><div className="p-10 rounded-[32px] bg-[#F8FAFC] border border-[#F1F5F9] text-center space-y-4"><p className="text-[11px] font-black uppercase text-[#64748B] tracking-widest">Sin Cambios</p><p className="text-7xl font-black text-[#334155] tabular-nums">{syncResult.unchanged.length}</p></div></div><div className="mt-12 space-y-3 max-w-5xl mx-auto"><h4 className="text-sm font-black text-slate-900">Registro de Cambios:</h4><div className="bg-[#F8FAFC] border border-[#F1F5F9] px-4 py-3 rounded-xl"><p className="text-[11px] font-medium text-slate-500">Sincronización completada el {syncResult.syncTime || new Date().toLocaleString('es-MX')}. Nuevos: {syncResult.inserted.length}, Actualizados: {syncResult.updated.length}, Errores: {syncResult.errors.length}.</p></div></div></div><Separator className="mx-16 w-auto bg-slate-100" /><CardContent className="p-12 space-y-12">{syncResult.errors.length > 0 && (<div className="space-y-6 max-w-5xl mx-auto"><h3 className="text-base font-black uppercase text-slate-800 tracking-tight flex items-center gap-2"><AlertCircle className="h-5 w-5 text-amber-600" /> DETALLE DE ANOMALÍAS:</h3><div className="space-y-4 max-h-[450px] overflow-y-auto pr-4 no-scrollbar">{syncResult.errors.map((err, i) => (<div key={i} className="group p-8 rounded-3xl bg-white border border-slate-100 shadow-md flex items-start gap-6 hover:shadow-xl transition-all duration-300"><div className="relative mt-1"><div className="h-4 w-4 rounded-full bg-red-500 animate-ping absolute inset-0 opacity-20" /><div className="h-4 w-4 rounded-full bg-red-500 relative ring-4 ring-red-50" /></div><div className="space-y-2"><p className="font-black text-red-600 text-xs uppercase tracking-widest leading-none">ERROR LOTE #{err.batch}</p><p className="text-slate-700 text-sm font-semibold leading-relaxed">{formatErrorDescription(err.msg)}</p></div></div>))}</div></div>)}<div className="space-y-8 max-w-5xl mx-auto pt-4"><div className="flex items-center gap-3"><Database className="h-6 w-6 text-slate-800" /><h3 className="text-lg font-black uppercase text-slate-800 tracking-tighter">Visor de Registros Procesados:</h3></div><Tabs defaultValue="actualizados" className="w-full"><TabsList className="h-12 bg-slate-100/50 p-1 rounded-2xl mb-8 w-fit border border-slate-100"><TabsTrigger value="inyectados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Nuevos Inyectados ({syncResult.inserted.length})</TabsTrigger><TabsTrigger value="actualizados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Sobrescritos ({syncResult.updated.length})</TabsTrigger></TabsList><TabsContent value="inyectados"><div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm"><ScrollArea className="h-[500px] w-full bg-white"><Table className="min-w-full border-collapse"><TableHeader className="bg-slate-50/50 sticky top-0 z-10"><TableRow className="border-b border-slate-100">{activeDbColumns.map(col => (<TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>))}</TableRow></TableHeader><TableBody>{syncResult.inserted.length > 0 ? (syncResult.inserted.slice((resultPageInjected - 1) * RESULTS_PAGE_SIZE, resultPageInjected * RESULTS_PAGE_SIZE).map((r, i) => (<TableRow key={i} className="h-12 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">{activeDbColumns.map(col => (<TableCell key={col} className="text-[10px] px-6 font-medium text-slate-600 border-r border-slate-50/50">{String(r[col] ?? '-')}</TableCell>))}</TableRow>))) : (<TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin nuevos registros inyectados</TableCell></TableRow>)}</TableBody></Table><ScrollBar orientation="horizontal" /></ScrollArea>{syncResult.inserted.length > RESULTS_PAGE_SIZE && (<div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2"><Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => Math.max(1, p-1))} disabled={resultPageInjected === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => p+1)} disabled={resultPageInjected * RESULTS_PAGE_SIZE >= syncResult.inserted.length}>Siguiente</Button></div>)}</div></TabsContent><TabsContent value="actualizados"><div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm"><ScrollArea className="h-[500px] w-full bg-white"><Table className="min-w-full border-collapse"><TableHeader className="bg-slate-50/50 sticky top-0 z-10"><TableRow className="border-b border-slate-100">{activeDbColumns.map(col => (<TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>))}</TableRow></TableHeader><TableBody>{syncResult.updated.length > 0 ? (syncResult.updated.slice((resultPageUpdated - 1) * RESULTS_PAGE_SIZE, resultPageUpdated * RESULTS_PAGE_SIZE).map((u, i) => (<TableRow key={i} className="h-20 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">{activeDbColumns.map(col => { const isDiff = NUMERIC_FIELDS.includes(col) ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim(); return (<TableCell key={col} className={cn("px-6 text-[10px] font-medium border-r border-slate-50/50", isDiff ? "bg-amber-50/20" : "text-slate-400 opacity-60")}>{isDiff ? (<div className="flex flex-col gap-1"><span className="text-red-500/60 line-through text-[8px] font-bold">{String(u.original[col] ?? 'vacío')}</span><span className="text-primary font-black text-[10px] leading-tight">{String(u.record[col] ?? 'vacío')}</span></div>) : String(u.record[col] ?? '-')}</TableCell>); })}</TableRow>))) : (<TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin registros actualizados</TableCell></TableRow>)}</TableBody></Table><ScrollBar orientation="horizontal" /></ScrollArea>{syncResult.updated.length > RESULTS_PAGE_SIZE && (<div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2"><Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => Math.max(1, p-1))} disabled={resultPageUpdated === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => p+1)} disabled={resultPageUpdated * RESULTS_PAGE_SIZE >= syncResult.updated.length}>Siguiente</Button></div>)}</div></TabsContent></Tabs></div><div className="grid grid-cols-2 gap-6 pt-12 border-t max-w-5xl mx-auto"><Button variant="outline" className="h-16 font-black uppercase text-xs rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm" onClick={reset}><RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo</Button><Button className="h-16 font-black uppercase text-xs rounded-2xl bg-slate-900 hover:bg-black transition-all shadow-xl active:scale-[0.98]" onClick={() => window.location.reload()}><CheckCircle className="mr-2 h-4 w-4" /> Finalizar Proceso</Button></div></CardContent></Card>
+                <Card className="border-none shadow-2xl overflow-hidden rounded-[40px] relative animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 bg-white">
+                    <div className="p-16 relative">
+                        <Button variant="ghost" size="icon" onClick={reset} className="absolute top-8 right-8 text-slate-400 hover:bg-slate-100 rounded-full"><X className="h-6 w-6" /></Button>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                            <div className="p-10 rounded-[32px] bg-[#F0FDF4] border border-[#DCFCE7] text-center space-y-4">
+                                <p className="text-[11px] font-black uppercase text-[#166534] tracking-widest">Inyectados</p>
+                                <p className="text-7xl font-black text-[#14532D] tabular-nums">{syncResult.inserted.length}</p>
+                            </div>
+                            <div className="p-10 rounded-[32px] bg-[#EFF6FF] border border-[#DBEAFE] text-center space-y-4">
+                                <p className="text-[11px] font-black uppercase text-[#1E40AF] tracking-widest">Sobrescritos</p>
+                                <p className="text-7xl font-black text-[#1E3A8A] tabular-nums">{syncResult.updated.length}</p>
+                            </div>
+                            <div className="p-10 rounded-[32px] bg-[#F8FAFC] border border-[#F1F5F9] text-center space-y-4">
+                                <p className="text-[11px] font-black uppercase text-[#64748B] tracking-widest">Sin Cambios</p>
+                                <p className="text-7xl font-black text-[#334155] tabular-nums">{syncResult.unchanged.length}</p>
+                            </div>
+                        </div>
+                        <div className="mt-12 space-y-3 max-w-5xl mx-auto">
+                            <h4 className="text-sm font-black text-slate-900">Resumen de Ejecución:</h4>
+                            <div className="bg-[#F8FAFC] border border-[#F1F5F9] px-4 py-3 rounded-xl">
+                                <p className="text-[11px] font-medium text-slate-500">Sincronización técnica completada el {syncResult.syncTime}. Operación exitosa en el {(syncResult.inserted.length + syncResult.updated.length + syncResult.unchanged.length) - syncResult.errors.length} registros.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Separator className="mx-16 w-auto bg-slate-100" />
+
+                    <CardContent className="p-12 space-y-12">
+                        {syncResult.errors.length > 0 && (
+                            <div className="space-y-6 max-w-full">
+                                <h3 className="text-lg font-black uppercase text-slate-800 tracking-tight flex items-center gap-2">
+                                    DETALLE DE ANOMALÍAS ({syncResult.errors.length}):
+                                </h3>
+                                <div className="border border-red-100 rounded-[32px] overflow-hidden shadow-sm bg-red-50/30">
+                                    <ScrollArea className="h-[600px] w-full">
+                                        <Table className="min-w-[2000px]">
+                                            <TableHeader className="bg-red-100/50 sticky top-0 z-10">
+                                                <TableRow className="border-b border-red-200">
+                                                    {activeDbColumns.map(col => (
+                                                        <TableHead key={col} className="font-black text-[10px] uppercase px-6 py-4 whitespace-nowrap text-red-900/60">
+                                                            {col.replace(/_/g, ' ')}
+                                                        </TableHead>
+                                                    ))}
+                                                    <TableHead className="font-black text-[10px] uppercase px-6 py-4 whitespace-nowrap text-red-900 bg-red-200/50 sticky right-0 z-20">Error Info</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {syncResult.errors.map((err, i) => (
+                                                    <TableRow key={i} className="h-16 border-b border-red-100 bg-red-50/50 hover:bg-red-50 transition-colors">
+                                                        {activeDbColumns.map(col => (
+                                                            <TableCell key={col} className="text-[11px] px-6 font-medium text-red-900/80">
+                                                                {String(err.record?.[col] ?? '-')}
+                                                            </TableCell>
+                                                        ))}
+                                                        <TableCell className="px-6 text-[11px] font-bold text-red-700 bg-red-100/30 sticky right-0 z-10 backdrop-blur-sm">
+                                                            <div className="flex items-start gap-2">
+                                                                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                                <span className="leading-tight">{formatErrorDescription(err.msg)}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                        <ScrollBar orientation="horizontal" />
+                                    </ScrollArea>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-8 max-w-5xl mx-auto pt-4">
+                            <div className="flex items-center gap-3">
+                                <Database className="h-6 w-6 text-slate-800" />
+                                <h3 className="text-lg font-black uppercase text-slate-800 tracking-tighter">Visor de Registros Exitosos:</h3>
+                            </div>
+                            <Tabs defaultValue="inyectados" className="w-full">
+                                <TabsList className="h-12 bg-slate-100/50 p-1 rounded-2xl mb-8 w-fit border border-slate-100">
+                                    <TabsTrigger value="inyectados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Nuevos Inyectados ({syncResult.inserted.length})</TabsTrigger>
+                                    <TabsTrigger value="actualizados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Sobrescritos ({syncResult.updated.length})</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="inyectados">
+                                    <div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                                        <ScrollArea className="h-[500px] w-full bg-white">
+                                            <Table className="min-w-full border-collapse">
+                                                <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
+                                                    <TableRow className="border-b border-slate-100">
+                                                        {activeDbColumns.map(col => (
+                                                            <TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {syncResult.inserted.length > 0 ? (
+                                                        syncResult.inserted.slice((resultPageInjected - 1) * RESULTS_PAGE_SIZE, resultPageInjected * RESULTS_PAGE_SIZE).map((r, i) => (
+                                                            <TableRow key={i} className="h-12 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">
+                                                                {activeDbColumns.map(col => (
+                                                                    <TableCell key={col} className="text-[10px] px-6 font-medium text-slate-600 border-r border-slate-50/50">{String(r[col] ?? '-')}</TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin nuevos registros inyectados</TableCell></TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                            <ScrollBar orientation="horizontal" />
+                                        </ScrollArea>
+                                        {syncResult.inserted.length > RESULTS_PAGE_SIZE && (
+                                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2">
+                                                <Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => Math.max(1, p-1))} disabled={resultPageInjected === 1}>Anterior</Button>
+                                                <Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => p+1)} disabled={resultPageInjected * RESULTS_PAGE_SIZE >= syncResult.inserted.length}>Siguiente</Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </TabsContent>
+                                <TabsContent value="actualizados">
+                                    <div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                                        <ScrollArea className="h-[500px] w-full bg-white">
+                                            <Table className="min-w-full border-collapse">
+                                                <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
+                                                    <TableRow className="border-b border-slate-100">
+                                                        {activeDbColumns.map(col => (
+                                                            <TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {syncResult.updated.length > 0 ? (
+                                                        syncResult.updated.slice((resultPageUpdated - 1) * RESULTS_PAGE_SIZE, resultPageUpdated * RESULTS_PAGE_SIZE).map((u, i) => (
+                                                            <TableRow key={i} className="h-20 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">
+                                                                {activeDbColumns.map(col => { 
+                                                                    const isDiff = NUMERIC_FIELDS.includes(col) ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim(); 
+                                                                    return (
+                                                                        <TableCell key={col} className={cn("px-6 text-[10px] font-medium border-r border-slate-50/50", isDiff ? "bg-amber-50/20" : "text-slate-400 opacity-60")}>
+                                                                            {isDiff ? (<div className="flex flex-col gap-1"><span className="text-red-500/60 line-through text-[8px] font-bold">{String(u.original[col] ?? 'vacío')}</span><span className="text-primary font-black text-[10px] leading-tight">{String(u.record[col] ?? 'vacío')}</span></div>) : String(u.record[col] ?? '-')}
+                                                                        </TableCell>
+                                                                    ); 
+                                                                })}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin registros actualizados</TableCell></TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                            <ScrollBar orientation="horizontal" />
+                                        </ScrollArea>
+                                        {syncResult.updated.length > RESULTS_PAGE_SIZE && (
+                                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2">
+                                                <Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => Math.max(1, p-1))} disabled={resultPageUpdated === 1}>Anterior</Button>
+                                                <Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => p+1)} disabled={resultPageUpdated * RESULTS_PAGE_SIZE >= syncResult.updated.length}>Siguiente</Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
+                        </div>
+                        <div className="grid grid-cols-2 gap-6 pt-12 border-t max-w-5xl mx-auto">
+                            <Button variant="outline" className="h-16 font-black uppercase text-xs rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm" onClick={reset}><RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo</Button>
+                            <Button className="h-16 font-black uppercase text-xs rounded-2xl bg-slate-900 hover:bg-black transition-all shadow-xl active:scale-[0.98]" onClick={() => window.location.reload()}><CheckCircle className="mr-2 h-4 w-4" /> Finalizar Proceso</Button>
+                        </div>
+                    </CardContent>
+                </Card>
             )}
         </div>
     );
