@@ -1,9 +1,8 @@
-
 'use client';
 
 import * as React from 'react';
 import { 
-  BarChart3, Filter, Loader2, RefreshCcw, PieChart as PieIcon, ShoppingCart
+  BarChart3, Filter, Loader2, RefreshCcw, PieChart as PieIcon, ShoppingCart, Eye, ClipboardList
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, isValid, isSameDay, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -67,6 +66,7 @@ export default function SalesDashboardClient({
     });
     
     const [isParetoModalOpen, setIsParetoModalOpen] = React.useState(false);
+    const [isTodayOrdersModalOpen, setIsTodayOrdersModalOpen] = React.useState(false);
     const [paretoPage, setParetoPage] = React.useState(1);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
 
@@ -131,8 +131,8 @@ export default function SalesDashboardClient({
         setTimeout(() => setIsRefreshing(false), 1000);
     };
 
-    const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies } = React.useMemo(() => {
-        const today = new Date();
+    const { sales, kpis, charts, paretoAnalysisData, dynamicCompanies, todaySales } = React.useMemo(() => {
+        const today = startOfDay(new Date());
         
         const filteredSales = initialSales.filter(sale => {
             const companyMatch = company === 'Todos' || sale.tienda === company;
@@ -169,6 +169,7 @@ export default function SalesDashboardClient({
         const productStats: Record<string, { revenue: number, units: number, sku: string }> = {};
         const companyMap: Record<string, number> = {};
         const todayCompanyMap: Record<string, number> = {};
+        const todayRecords: Sale[] = [];
 
         initialSales.forEach(sale => {
             if (sale.fecha_venta) {
@@ -177,6 +178,7 @@ export default function SalesDashboardClient({
                 if (isValid(finalSaleDate) && isSameDay(finalSaleDate, today)) {
                     const c = sale.tienda || 'Otros';
                     todayCompanyMap[c] = (todayCompanyMap[c] || 0) + 1;
+                    todayRecords.push(sale);
                 }
             }
         });
@@ -244,7 +246,12 @@ export default function SalesDashboardClient({
                 }))
             },
             paretoAnalysisData: paretoData,
-            dynamicCompanies: detectedCompanies
+            dynamicCompanies: detectedCompanies,
+            todaySales: todayRecords.sort((a, b) => {
+                const dateA = a.fecha_venta ? new Date(a.fecha_venta).getTime() : 0;
+                const dateB = b.fecha_venta ? new Date(b.fecha_venta).getTime() : 0;
+                return dateB - dateA;
+            })
         };
     }, [initialSales, company, date]);
 
@@ -421,9 +428,20 @@ export default function SalesDashboardClient({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
                     <Card className="min-w-0 overflow-hidden border-none shadow-sm bg-white rounded-xl">
-                        <div className="p-6 border-b bg-muted/5 flex items-center gap-2">
-                            <ShoppingCart className="h-4 w-4 text-primary" />
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest">Pedidos de Hoy por Empresa</h3>
+                        <div className="p-6 border-b bg-muted/5 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ShoppingCart className="h-4 w-4 text-primary" />
+                                <h3 className="text-[10px] font-bold uppercase tracking-widest">Pedidos de Hoy por Empresa</h3>
+                            </div>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 text-[9px] font-black uppercase text-primary gap-1.5 hover:bg-primary/5"
+                                onClick={() => setIsTodayOrdersModalOpen(true)}
+                            >
+                                <Eye className="h-3.5 w-3.5" />
+                                Ver Pedidos
+                            </Button>
                         </div>
                         <div className="h-[350px] p-4">
                             <ResponsiveContainer width="100%" height="100%">
@@ -661,6 +679,7 @@ export default function SalesDashboardClient({
                 </Card>
             </main>
 
+            {/* Modal de Pareto */}
             <Dialog open={isParetoModalOpen} onOpenChange={setIsParetoModalOpen}>
                 <DialogContent className="max-w-5xl h-[85vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden rounded-[32px]">
                     <div className="px-8 py-6 border-b bg-muted/30">
@@ -734,6 +753,65 @@ export default function SalesDashboardClient({
                             <Button variant="outline" size="sm" onClick={() => setParetoPage(p => Math.max(1, p - 1))} disabled={paretoPage === 1} className="border-slate-200">Anterior</Button>
                             <Button variant="outline" size="sm" onClick={() => setParetoPage(p => p+1)} disabled={paretoPage * PARETO_PAGE_SIZE >= paretoAnalysisData.length} className="border-slate-200">Siguiente</Button>
                         </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal de Pedidos de Hoy */}
+            <Dialog open={isTodayOrdersModalOpen} onOpenChange={setIsTodayOrdersModalOpen}>
+                <DialogContent className="max-w-5xl h-[85vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden rounded-[32px]">
+                    <div className="px-8 py-6 border-b bg-[#F0FDF4]/50">
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2 text-[#166534]">
+                                <ShoppingCart className="h-6 w-6" /> Pedidos Registrados el Día de Hoy
+                            </DialogTitle>
+                            <DialogDescription className="text-[#166534]/70 font-medium">Auditoría en tiempo real de las transacciones generadas en la jornada actual.</DialogDescription>
+                        </DialogHeader>
+                    </div>
+                    
+                    <div className="flex-1 overflow-auto p-8">
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white">
+                            <Table>
+                                <TableHeader className="bg-slate-50/50">
+                                    <TableRow className="h-14">
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase"># Venta</TableHead>
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Tienda</TableHead>
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase">SKU</TableHead>
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Producto</TableHead>
+                                        <TableHead className="text-center font-bold px-6 text-[10px] uppercase">Unid.</TableHead>
+                                        <TableHead className="text-right font-bold px-6 text-[10px] uppercase">Total ($)</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {todaySales.length > 0 ? (
+                                        todaySales.map((s, i) => (
+                                            <TableRow key={i} className="h-16 hover:bg-muted/30 transition-colors border-b border-slate-50">
+                                                <TableCell className="px-6 font-bold text-primary text-xs">#{s.num_venta}</TableCell>
+                                                <TableCell className="px-6"><Badge variant="outline" className="text-[9px] font-black">{s.tienda}</Badge></TableCell>
+                                                <TableCell className="px-6 font-mono text-[10px] text-blue-700">{s.sku}</TableCell>
+                                                <TableCell className="px-6 max-w-sm"><div className="font-medium text-xs truncate" title={s.tit_pub || ''}>{s.tit_pub}</div></TableCell>
+                                                <TableCell className="px-6 text-center font-black text-xs">{s.unidades}</TableCell>
+                                                <TableCell className="px-6 text-right font-black text-[#2D5A4C]">{money(s.total)}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-64 text-center">
+                                                <div className="flex flex-col items-center gap-3 opacity-30">
+                                                    <ClipboardList className="h-12 w-12" />
+                                                    <p className="font-black uppercase text-xs tracking-widest text-slate-500">Sin pedidos registrados el día de hoy</p>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    
+                    <div className="px-8 py-6 border-t bg-muted/10 flex items-center justify-between">
+                        <div className="text-xs text-muted-foreground font-medium">Total de hoy: <span className="font-black text-slate-900">{todaySales.length} pedidos</span></div>
+                        <Button variant="outline" onClick={() => setIsTodayOrdersModalOpen(false)} className="rounded-xl font-bold uppercase text-[10px]">Cerrar Visor</Button>
                     </div>
                 </DialogContent>
             </Dialog>
