@@ -46,11 +46,7 @@ export default function ConsumptionClient({
         setIsClient(true);
     }, []);
 
-    // ==========================================
-    // EL MOTOR DEL CONSUMO POR VENTAS
-    // ==========================================
     const consumoData = React.useMemo(() => {
-        // 1. Calcular los días del periodo exacto (Mínimo 1 día)
         let daysInPeriod = 1;
         if (date?.from && date?.to) {
             daysInPeriod = Math.max(1, differenceInDays(endOfDay(date.to), startOfDay(date.from)) + 1);
@@ -58,7 +54,6 @@ export default function ConsumptionClient({
             daysInPeriod = Math.max(1, differenceInDays(endOfDay(new Date()), startOfDay(date.from)) + 1);
         }
 
-        // 2. Filtrar las ventas por fecha y tienda
         const filteredSales = initialSales.filter(sale => {
             if (company !== 'Todos' && sale.tienda !== company) return false;
             if (date?.from) {
@@ -74,7 +69,6 @@ export default function ConsumptionClient({
             return true;
         });
 
-        // 3. Agrupar por SKU y Tienda
         const consumptionMap = new Map<string, any>();
 
         filteredSales.forEach(sale => {
@@ -96,7 +90,6 @@ export default function ConsumptionClient({
             item.ingresoGenerado += (sale.total || 0);
         });
 
-        // 4. Calcular el Consumo Diario Promedio y Ordenar (Velocidad)
         return Array.from(consumptionMap.values()).map(item => ({
             ...item,
             consumoDiarioPromedio: item.unidadesConsumidas / daysInPeriod,
@@ -341,8 +334,9 @@ export default function ConsumptionClient({
                                                             <Warehouse className="h-12 w-12" />
                                                             <p className="font-black uppercase text-xs tracking-widest">No se encontraron productos en inventario</p>
                                                         </div>
-                                                    </TableRow>
-                                                )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
                                         </TableBody>
                                     </Table>
                                     <ScrollBar orientation="horizontal" />
