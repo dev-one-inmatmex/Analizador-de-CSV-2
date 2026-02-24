@@ -307,7 +307,11 @@ export default function ConsumptionClient({
                                                 cursor={{fill: '#f8fafc'}} 
                                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                                             />
-                                            <Bar dataKey="consumoDiarioPromedio" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={20} />
+                                            <Bar dataKey="consumoDiarioPromedio" radius={[0, 4, 4, 0]} barSize={20}>
+                                                {top10Data.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Bar>
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </CardContent>
@@ -372,10 +376,10 @@ export default function ConsumptionClient({
                         <Card className="min-w-0 overflow-hidden border-none shadow-sm rounded-xl bg-white">
                             <div className="p-6 bg-muted/5 flex items-center gap-3">
                                 <Package className="h-5 w-5 text-primary" />
-                                <div>
+                                {<div>
                                     <h3 className="text-xl font-black uppercase tracking-tight">Velocidad de Salida por Producto</h3>
                                     <p className="text-sm text-muted-foreground">Análisis de rotación real con identificación Pareto 80/20.</p>
-                                </div>
+                                </div>}
                             </div>
                             <div className="table-responsive border-t">
                                 <Table>
