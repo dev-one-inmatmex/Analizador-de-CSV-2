@@ -2,36 +2,33 @@
 
 import * as React from 'react';
 import { differenceInDays, startOfDay, endOfDay, parseISO, isValid, subDays } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Package, Filter, Activity, Warehouse, Search, Info } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { 
-  Filter, Loader2, RefreshCcw, Warehouse, Info, TrendingUp, Activity, Search
-} from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import type { Sale } from './page';
 import type { inventario_master } from '@/types/database';
 
 export default function ConsumptionClient({ 
-  initialSales, 
-  allCompanies,
-  inventoryMaster
+    initialSales, 
+    allCompanies,
+    inventoryMaster
 }: { 
-  initialSales: Sale[], 
-  allCompanies: string[],
-  inventoryMaster: inventario_master[]
+    initialSales: Sale[], 
+    allCompanies: string[],
+    inventoryMaster: inventario_master[]
 }) {
-    const { toast } = useToast();
     const [company, setCompany] = React.useState('Todos');
     const [date, setDate] = React.useState<DateRange | undefined>({
       from: subDays(new Date(), 30),
@@ -46,7 +43,11 @@ export default function ConsumptionClient({
         setIsClient(true);
     }, []);
 
+    // ==========================================
+    // MOTOR DE CÁLCULO DE CONSUMO POR VENTAS
+    // ==========================================
     const consumoData = React.useMemo(() => {
+        // 1. Calcular días del periodo
         let daysInPeriod = 1;
         if (date?.from && date?.to) {
             daysInPeriod = Math.max(1, differenceInDays(endOfDay(date.to), startOfDay(date.from)) + 1);
@@ -54,21 +55,26 @@ export default function ConsumptionClient({
             daysInPeriod = Math.max(1, differenceInDays(endOfDay(new Date()), startOfDay(date.from)) + 1);
         }
 
+        // 2. Filtrar ventas por fecha y tienda
         const filteredSales = initialSales.filter(sale => {
             if (company !== 'Todos' && sale.tienda !== company) return false;
             if (date?.from) {
                 try {
                     const saleDate = parseISO(sale.fecha_venta || '');
-                    if (!isValid(saleDate)) return false;
+                    const finalSaleDate = isValid(saleDate) ? saleDate : new Date(sale.fecha_venta || '');
+                    if (!isValid(finalSaleDate)) return false;
+                    
                     const fromTime = startOfDay(date.from).getTime();
                     const toTime = date.to ? endOfDay(date.to).getTime() : endOfDay(date.from).getTime();
-                    const saleTime = saleDate.getTime();
+                    const saleTime = finalSaleDate.getTime();
+                    
                     if (saleTime < fromTime || saleTime > toTime) return false;
                 } catch (e) { return false; }
             }
             return true;
         });
 
+        // 3. Agrupar por SKU y Tienda
         const consumptionMap = new Map<string, any>();
 
         filteredSales.forEach(sale => {
@@ -81,15 +87,14 @@ export default function ConsumptionClient({
                     tienda: sale.tienda || 'OTRA',
                     categoria: sale.categoria || 'Sin categoría',
                     unidadesConsumidas: 0,
-                    ingresoGenerado: 0
                 });
             }
 
             const item = consumptionMap.get(key);
             item.unidadesConsumidas += (sale.unidades || 0);
-            item.ingresoGenerado += (sale.total || 0);
         });
 
+        // 4. Transformar en Array y calcular el Consumo Diario Promedio
         return Array.from(consumptionMap.values()).map(item => ({
             ...item,
             consumoDiarioPromedio: item.unidadesConsumidas / daysInPeriod,
@@ -110,25 +115,22 @@ export default function ConsumptionClient({
         );
     }, [inventoryMaster, invSearch]);
 
-    const handleApplyFilters = () => {
-        toast({ title: 'Cálculo actualizado', description: 'Se ha recalculado la velocidad de consumo.' });
-    };
-
-    if (!isClient) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    if (!isClient) return null;
 
     const totalInvPages = Math.ceil(filteredInventory.length / PAGE_SIZE);
     const paginatedInventory = filteredInventory.slice((invPage - 1) * PAGE_SIZE, invPage * PAGE_SIZE);
 
     return (
-        <div className="flex flex-col min-h-screen bg-muted/20">
-            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+        <div className="flex min-h-screen flex-col bg-muted/40 min-w-0">
+            <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4">
                     <SidebarTrigger />
-                    <h1 className="text-xl font-bold tracking-tight">Consumo (ventas + Siggo)</h1>
+                    <Activity className="h-6 w-6 text-primary" />
+                    <h1 className="text-xl font-bold">Consumo por Ventas (Salidas Reales)</h1>
                 </div>
             </header>
 
-            <main className="flex-1 p-4 md:p-10 space-y-8">
+            <main className="p-4 md:p-8 space-y-8 min-w-0 max-w-full">
                 <Tabs defaultValue="consumption" className="w-full">
                     <TabsList className="bg-muted/40 p-1 mb-8">
                         <TabsTrigger value="consumption" className="text-xs font-bold uppercase">Análisis de Consumo</TabsTrigger>
@@ -136,107 +138,99 @@ export default function ConsumptionClient({
                     </TabsList>
 
                     <TabsContent value="consumption" className="space-y-8 animate-in fade-in duration-500">
-                        <Card className="border-none shadow-sm">
-                            <CardHeader className="flex flex-row items-center gap-4">
-                                <Activity className="h-6 w-6 text-primary" />
-                                <div>
-                                    <CardTitle>Análisis de Velocidad de Ventas</CardTitle>
-                                    <CardDescription>Mide cuántas unidades salen por día para optimizar la recompra.</CardDescription>
+                        {/* FILTROS MAESTROS */}
+                        <Card className="min-w-0 shadow-sm border-none bg-white/50 backdrop-blur-sm rounded-xl">
+                            <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div className="flex items-center gap-4">
+                                    <Filter className="h-6 w-6 text-primary" />
+                                    <div>
+                                        <h3 className="text-lg font-bold">Filtros de Consumo</h3>
+                                        <p className="text-sm text-muted-foreground">Define el periodo para calcular la velocidad de salida.</p>
+                                    </div>
                                 </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                    <div className="space-y-2 lg:col-span-2">
-                                        <Label>Periodo de Análisis</Label>
+                                <div className="flex flex-wrap items-center gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Periodo de Análisis</Label>
                                         <DateRangePicker date={date} onSelect={setDate} />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Tienda / Empresa</Label>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Empresa / Tienda</Label>
                                         <Select value={company} onValueChange={setCompany}>
-                                            <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                                            <SelectTrigger className="w-[200px] bg-white border-slate-200"><SelectValue placeholder="Todas" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="Todos">Todas las tiendas</SelectItem>
-                                                {allCompanies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                                {allCompanies.map(c => (
+                                                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="flex items-end">
-                                        <Button className="w-full font-bold" onClick={handleApplyFilters}>Recalcular</Button>
-                                    </div>
                                 </div>
-                            </CardContent>
+                            </div>
                         </Card>
 
-                        <Card className="border-none shadow-sm overflow-hidden bg-white">
-                            <CardHeader className="bg-muted/5 border-b">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Velocidad de Consumo Diario</CardTitle>
-                                    <div className="flex items-center gap-2 bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-                                        <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                                        <span className="text-[9px] font-black uppercase text-primary">Ranking de Rotación</span>
-                                    </div>
+                        {/* TABLA DE CONSUMO */}
+                        <Card className="min-w-0 overflow-hidden border-none shadow-sm rounded-xl bg-white">
+                            <div className="p-6 bg-muted/5 flex items-center gap-3">
+                                <Package className="h-5 w-5 text-primary" />
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight">Velocidad de Salida por Producto</h3>
+                                    <p className="text-sm text-muted-foreground">Basado estrictamente en transacciones completadas (ml_sales).</p>
                                 </div>
-                            </CardHeader>
-                            <div className="table-responsive">
+                            </div>
+                            <div className="table-responsive border-t">
                                 <Table>
                                     <TableHeader className="bg-muted/30">
-                                        <TableRow className="text-[10px] uppercase font-bold text-muted-foreground h-12">
-                                            <TableHead className="px-6">Producto / SKU</TableHead>
-                                            <TableHead>Empresa</TableHead>
+                                        <TableRow className="text-[11px] uppercase font-bold text-muted-foreground h-12">
+                                            <TableHead>Producto / SKU</TableHead>
+                                            <TableHead>Categoría</TableHead>
+                                            <TableHead className="text-center">Empresa</TableHead>
                                             <TableHead className="text-center">Días Analizados</TableHead>
-                                            <TableHead className="text-center">Unidades Salientes</TableHead>
-                                            <TableHead className="text-right text-primary px-6">Consumo Diario (Velocidad)</TableHead>
+                                            <TableHead className="text-center">Salidas (Pz)</TableHead>
+                                            <TableHead className="text-right text-primary">Consumo Diario</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {consumoData.length > 0 ? (
-                                            consumoData.map((item, idx) => (
-                                                <TableRow key={idx} className="h-16 hover:bg-slate-50 transition-colors">
-                                                    <TableCell className="px-6">
-                                                        <div className="font-bold text-slate-900">{item.sku}</div>
-                                                        <div className="text-[10px] text-muted-foreground truncate max-w-[350px] font-medium" title={item.titulo}>
-                                                            {item.titulo}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="font-bold text-[9px] uppercase">
-                                                            {item.tienda}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-medium text-slate-500">
-                                                        {item.diasAnalizados} d
-                                                    </TableCell>
-                                                    <TableCell className="text-center font-black text-slate-700">
-                                                        {item.unidadesConsumidas.toLocaleString()} pz
-                                                    </TableCell>
-                                                    <TableCell className="text-right px-6">
-                                                        <div className="flex flex-col items-end">
-                                                            <span className="text-xl font-black text-primary tabular-nums">
-                                                                {item.consumoDiarioPromedio.toFixed(2)}
-                                                            </span>
-                                                            <span className="text-[9px] font-bold uppercase text-muted-foreground">pz / día</span>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="h-64 text-center">
-                                                    <div className="flex flex-col items-center gap-3 opacity-20">
-                                                        <TrendingUp className="h-12 w-12" />
-                                                        <p className="font-black uppercase text-xs tracking-widest text-slate-500">Sin ventas detectadas en el periodo</p>
+                                        {consumoData.map((item, idx) => (
+                                            <TableRow key={idx} className="hover:bg-muted/10">
+                                                <TableCell>
+                                                    <div className="font-bold text-slate-900">{item.sku}</div>
+                                                    <div className="text-xs text-muted-foreground truncate max-w-[300px]" title={item.titulo}>
+                                                        {item.titulo}
                                                     </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="text-xs text-muted-foreground">{item.categoria}</span>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Badge variant="outline" className="font-medium bg-slate-50">{item.tienda}</Badge>
+                                                </TableCell>
+                                                <TableCell className="text-center text-sm font-medium text-slate-600">
+                                                    {item.diasAnalizados}
+                                                </TableCell>
+                                                <TableCell className="text-center font-bold text-slate-800">
+                                                    {item.unidadesConsumidas}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="font-black text-primary text-lg">
+                                                        {item.consumoDiarioPromedio.toFixed(2)}
+                                                    </div>
+                                                    <div className="text-[10px] uppercase font-bold text-muted-foreground">
+                                                        pz / día
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {consumoData.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                                                    No hay datos de consumo para los filtros seleccionados.
                                                 </TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
                                 </Table>
                             </div>
-                            <CardFooter className="bg-muted/5 border-t py-4">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                                    Base de datos: {consumoData.length} SKUs procesados con rotación real.
-                                </p>
-                            </CardFooter>
                         </Card>
                     </TabsContent>
 

@@ -8,14 +8,15 @@ export type Sale = ml_sales & { categoria?: string };
 async function getSalesData() {
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
+  // Traemos los últimos 12 meses para tener data suficiente
   const twelveMonthsAgo = subMonths(new Date(), 12);
   const allSales: ml_sales[] = [];
   let from = 0;
   const step = 1000;
   let hasMore = true;
 
-  // Carga exhaustiva para superar el límite de 1000 de Supabase (Motor idéntico al de Ventas)
-  while (hasMore && allSales.length < 50000) {
+  // Fetch paginado de Supabase para superar el límite de 1000 registros
+  while (hasMore && allSales.length < 50000) { 
     const { data, error } = await supabaseAdmin
       .from('ml_sales')
       .select('*')
@@ -29,7 +30,7 @@ async function getSalesData() {
     }
 
     if (data && data.length > 0) {
-      allSales.push(...data);
+      allSales.push(...(data as ml_sales[]));
       if (data.length < step) hasMore = false;
       else from += step;
     } else {
@@ -37,7 +38,7 @@ async function getSalesData() {
     }
   }
 
-  // Enriquecimiento con categorías desde publi_tienda
+  // Enriquecer con categorías desde publi_tienda
   const skus = Array.from(new Set(allSales.map(s => s.sku).filter(Boolean) as string[]));
   let categoryMap = new Map<string, string>();
   
@@ -59,7 +60,10 @@ async function getSalesData() {
   
   const allCompanies = Array.from(new Set(allSales.map(s => s.tienda).filter(Boolean) as string[])).sort();
   
-  return { sales: enrichedSales, allCompanies };
+  return {
+    sales: enrichedSales,
+    allCompanies
+  };
 }
 
 async function getInventoryMaster(): Promise<inventario_master[]> {
@@ -92,17 +96,17 @@ async function getInventoryMaster(): Promise<inventario_master[]> {
   return all;
 }
 
-export default async function MajorMinorSalesPage() {
+export default async function ConsumoVentasPage() {
   const [{ sales, allCompanies }, inventory] = await Promise.all([
     getSalesData(),
     getInventoryMaster()
   ]);
-  
+
   return (
     <ConsumptionClient 
       initialSales={sales} 
-      allCompanies={allCompanies} 
-      inventoryMaster={inventory} 
+      allCompanies={allCompanies}
+      inventoryMaster={inventory}
     />
   );
 }
