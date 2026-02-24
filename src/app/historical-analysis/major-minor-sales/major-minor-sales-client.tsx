@@ -199,8 +199,45 @@ export default function MajorMinorSalesClientPage({
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-                <Card className="lg:col-span-2 border-none shadow-sm"><CardHeader><CardTitle className="text-sm font-bold uppercase">Distribución de Ingresos</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><PieChart><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Pie data={revenueByTypeData} dataKey="value" nameKey="type" innerRadius={60} outerRadius={80} paddingAngle={5} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>{revenueByTypeData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}</Pie><Legend wrapperStyle={{fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold'}} /></PieChart></ResponsiveContainer></CardContent></Card>
-                <Card className="lg:col-span-3 border-none shadow-sm"><CardHeader><CardTitle className="text-sm font-bold uppercase">Top 5 Clientes Mayoristas</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={300}><BarChart data={topWholesaleCustomersData} layout="vertical" margin={{left: 20, right: 40}}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" /><XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} fontSize={10} /><YAxis type="category" dataKey="customer" width={100} fontSize={9} fontWeight="bold" axisLine={false} tickLine={false} /><Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} /><Bar dataKey="revenue" name="Ingresos" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={25} /></BarChart></ResponsiveContainer></CardContent>
+                <Card className="lg:col-span-2 border-none shadow-sm">
+                  <CardHeader><CardTitle className="text-sm font-bold uppercase">Distribución de Ingresos</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} />
+                        <Pie 
+                          data={revenueByTypeData} 
+                          dataKey="value" 
+                          nameKey="type" 
+                          innerRadius={60} 
+                          outerRadius={80} 
+                          paddingAngle={5} 
+                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        >
+                          {revenueByTypeData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Legend wrapperStyle={{fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold'}} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                <Card className="lg:col-span-3 border-none shadow-sm">
+                  <CardHeader><CardTitle className="text-sm font-bold uppercase">Top 5 Clientes Mayoristas</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={topWholesaleCustomersData} layout="vertical" margin={{left: 20, right: 40}}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                        <XAxis type="number" tickFormatter={(value) => `$${(value as number / 1000)}k`} fontSize={10} />
+                        <YAxis type="category" dataKey="customer" width={100} fontSize={9} fontWeight="bold" axisLine={false} tickLine={false} />
+                        <Tooltip formatter={(value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value as number)} />
+                        <Bar dataKey="revenue" name="Ingresos" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={25} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
                 
                 <Card className="lg:col-span-5 border-none shadow-sm overflow-hidden">
                     <CardHeader className="bg-muted/10"><CardTitle className="text-sm font-bold uppercase">Transacciones Recientes</CardTitle></CardHeader>
