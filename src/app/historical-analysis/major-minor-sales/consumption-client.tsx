@@ -5,7 +5,7 @@ import { differenceInDays, startOfDay, endOfDay, parseISO, isValid, subDays } fr
 import { es } from 'date-fns/locale';
 import { 
     Package, Filter, Activity, TrendingUp, Hash, 
-    PieChart as PieIcon, BarChart3, Warehouse, Search, Info, Boxes 
+    PieChart as PieIcon, BarChart3, Warehouse, Search, Info, Boxes, Eye, ClipboardList
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { 
@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Sale } from './page';
 import type { inventario_master } from '@/types/database';
 
@@ -48,6 +49,7 @@ export default function ConsumptionClient({
     const [invSearch, setInvSearch] = React.useState('');
     const [invPage, setInvPage] = React.useState(1);
     const [consPage, setConsPage] = React.useState(1);
+    const [isTop10ModalOpen, setIsTop10ModalOpen] = React.useState(false);
 
     React.useEffect(() => {
         setIsClient(true);
@@ -282,10 +284,18 @@ export default function ConsumptionClient({
                         {/* GRÁFICOS */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
-                                <CardHeader className="bg-muted/5 border-b">
+                                <CardHeader className="bg-muted/5 border-b flex flex-row items-center justify-between space-y-0">
                                     <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
                                         <BarChart3 className="h-4 w-4 text-primary"/> Top 10 Velocidad (Pz/Día)
                                     </CardTitle>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-7 gap-1 font-bold bg-primary/5 border-primary/20 text-[9px] uppercase"
+                                        onClick={() => setIsTop10ModalOpen(true)}
+                                    >
+                                        <Eye className="h-3 w-3" /> Ver Detalle
+                                    </Button>
                                 </CardHeader>
                                 <CardContent className="h-[350px] pt-6">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -552,6 +562,67 @@ export default function ConsumptionClient({
                     </TabsContent>
                 </Tabs>
             </main>
+
+            {/* Modal de Top 10 Velocidad */}
+            <Dialog open={isTop10ModalOpen} onOpenChange={setIsTop10ModalOpen}>
+                <DialogContent className="max-w-4xl h-[80vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden rounded-[32px]">
+                    <div className="px-8 py-6 border-b bg-muted/30">
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
+                                <BarChart3 className="h-6 w-6 text-primary" /> Top 10 Productos con Mayor Velocidad
+                            </DialogTitle>
+                            <DialogDescription>Listado detallado de los productos que rotan más rápido en el almacén.</DialogDescription>
+                        </DialogHeader>
+                    </div>
+                    
+                    <div className="flex-1 overflow-auto p-8">
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white">
+                            <Table>
+                                <TableHeader className="bg-slate-50/50">
+                                    <TableRow className="h-14">
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Producto / SKU</TableHead>
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase text-center">Tienda</TableHead>
+                                        <TableHead className="text-center font-bold px-6 text-[10px] uppercase">Salidas</TableHead>
+                                        <TableHead className="text-right font-bold px-6 text-[10px] uppercase text-primary">Velocidad (Pz/Día)</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {top10Data.length > 0 ? (
+                                        top10Data.map((item, i) => (
+                                            <TableRow key={i} className="h-16 hover:bg-muted/30 transition-colors border-b border-slate-50">
+                                                <TableCell className="px-6">
+                                                    <div className="font-bold text-xs text-slate-900">{item.sku}</div>
+                                                    <div className="text-[10px] text-muted-foreground truncate max-w-[300px]">{item.titulo}</div>
+                                                </TableCell>
+                                                <TableCell className="px-6 text-center">
+                                                    <Badge variant="outline" className="text-[8px] font-black uppercase bg-slate-50">{item.tienda}</Badge>
+                                                </TableCell>
+                                                <TableCell className="px-6 text-center font-bold text-slate-800">{item.unidadesConsumidas}</TableCell>
+                                                <TableCell className="px-6 text-right font-black text-primary text-lg">
+                                                    {item.consumoDiarioPromedio.toFixed(2)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="h-64 text-center">
+                                                <div className="flex flex-col items-center gap-3 opacity-30">
+                                                    <ClipboardList className="h-12 w-12" />
+                                                    <p className="font-black uppercase text-xs tracking-widest text-slate-500">Sin datos registrados</p>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    
+                    <div className="px-8 py-6 border-t bg-muted/10 flex items-center justify-end">
+                        <Button variant="outline" onClick={() => setIsTop10ModalOpen(false)} className="rounded-xl font-bold uppercase text-[10px] px-6 h-10 border-slate-200">Cerrar Visor</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
