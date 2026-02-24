@@ -51,6 +51,16 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
             'responsable', 'descripcion', 'notas'
         ] 
     },
+    inventario_master: {
+        pk: 'sku',
+        columns: [
+            'id', 'sku', 'stock_maestro', 'unidad', 'empresa', 'landed_cost_id',
+            'barcode', 'sat_key', 'unidad_med_sat', 'fech_hora', 'observaciones',
+            'adjuntar_image', 'location_id', 'empaquetado_master', 'cod_siggo',
+            'nombre_siggo', 'min_stock', 'max_stock', 'dias_sin_mov_siggo',
+            'pzs_totales', 'estado_siggo'
+        ]
+    },
     sku_m: { 
         pk: 'sku_mdr', 
         columns: ['sku_mdr', 'cat_mdr', 'piezas_por_sku', 'sku', 'piezas_xcontenedor', 'bodega', 'bloque', 'landed_cost'] 
@@ -74,6 +84,18 @@ const TABLE_SCHEMAS: Record<string, { pk: string; columns: string[] }> = {
 };
 
 const COLUMN_ALIASES: Record<string, Record<string, string>> = {
+    inventario_master: {
+        'SKU': 'sku',
+        'Stock': 'stock_maestro',
+        'Existencias': 'stock_maestro',
+        'Stock Maestro': 'stock_maestro',
+        'Código Siggo': 'cod_siggo',
+        'Nombre Siggo': 'nombre_siggo',
+        'Min Stock': 'min_stock',
+        'Max Stock': 'max_stock',
+        'Empresa': 'empresa',
+        'Unidad': 'unidad'
+    },
     sku_m: {
         'nombre_madre': 'sku_mdr',
         'Categoria_madre': 'cat_mdr',
@@ -156,7 +178,8 @@ const NUMERIC_FIELDS = [
     'monto', 'total', 'unidades', 'price', 'landed_cost', 'costo_envio', 
     'piezas_por_sku', 'num_publicaciones', 'piezas_totales', 'esti_time', 
     'piezas_xcontenedor', 'bloque', 'costo', 'ing_xunidad', 'cargo_venta',
-    'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3'
+    'ing_xenvio', 'costo_enviomp', 'cargo_difpeso', 'anu_reembolsos', 'unidades_2', 'unidades_3',
+    'stock_maestro', 'landed_cost_id', 'barcode', 'sat_key', 'location_id', 'min_stock', 'max_stock', 'dias_sin_mov_siggo', 'pzs_totales'
 ];
 
 const MONTHS_ES: Record<string, number> = {
@@ -168,7 +191,6 @@ function parseMLDate(str: string): string | null {
     if (!str || typeof str !== 'string') return null;
     const cleanStr = str.toLowerCase().trim();
     
-    // Formato completo: "15 de enero de 2024 14:30" o "15 de enero de 2024 | 14:30"
     const fullMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s+de\s+(\d{4})(?:\s+|:|\s*\|\s*)(\d{1,2}):(\d{2})/);
     if (fullMatch) {
         const [_, day, monthStr, year, hour, min] = fullMatch;
@@ -179,7 +201,6 @@ function parseMLDate(str: string): string | null {
         }
     }
 
-    // Formato corto (año actual): "15 de enero | 14:30"
     const shortMatch = cleanStr.match(/(\d{1,2})\s+de\s+([a-zñáéíóú]+)\s*\|\s*(\d{1,2}):(\d{2})/);
     if (shortMatch) {
         const [_, day, monthStr, hour, min] = shortMatch;
@@ -191,7 +212,6 @@ function parseMLDate(str: string): string | null {
         }
     }
 
-    // Formato estándar DD/MM/YYYY o DD-MM-YYYY
     const ddmmyyyy = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (ddmmyyyy) {
         const [_, day, month, year] = ddmmyyyy;
@@ -207,29 +227,14 @@ const IGNORE_COLUMN_VALUE = '--ignore-this-column--';
 
 function parseValue(key: string, value: any, tableName: string): any {
     if (value === undefined || value === null || String(value).trim() === '' || String(value).toLowerCase() === 'null') return null;
-    
-    // Si ya es un objeto Date (viene de Excel con cellDates: true)
-    if (value instanceof Date) {
-        return isNaN(value.getTime()) ? null : value.toISOString();
-    }
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value.toISOString();
 
     const str = String(value).trim();
-    
-    // Limpieza de identificadores críticos para evitar duplicados por formato (ej: #123 vs 123)
-    if (['num_venta', 'sku', 'num_publi', 'sku_mdr', 'id'].includes(key)) {
-        return str.replace(/^#/, '').trim();
-    }
+    if (['num_venta', 'sku', 'num_publi', 'sku_mdr', 'id'].includes(key)) return str.replace(/^#/, '').trim();
 
-    if (tableName === 'ml_sales') {
-        const dateFields = [
-            'fecha_venta', 'f_entrega', 'f_camino', 'f_entregado', 
-            'f_entrega2', 'f_camino2', 'f_entregado2', 'f_revision3'
-        ];
-        if (dateFields.includes(key)) {
-            const parsed = parseMLDate(str);
-            // Si el parseo falla, devolvemos null pero performAnalysis evitará sobrescribir con null
-            return parsed;
-        }
+    if (tableName === 'ml_sales' || tableName === 'inventario_master') {
+        const dateFields = ['fecha_venta', 'f_entrega', 'f_camino', 'f_entregado', 'f_entrega2', 'f_camino2', 'f_entregado2', 'f_revision3', 'fech_hora'];
+        if (dateFields.includes(key)) return parseMLDate(str);
     }
 
     if (NUMERIC_FIELDS.includes(key)) {
@@ -237,36 +242,21 @@ function parseValue(key: string, value: any, tableName: string): any {
         return isNaN(num) ? null : num;
     }
 
-    const booleanFields = [
-        'negocio', 'venta_xpublicidad', 'paquete_varios', 'pertenece_kit', 
-        'r_abierto', 'r_cerrado', 'c_mediacion', 'es_fijo', 'es_recurrente'
-    ];
-    if (booleanFields.includes(key)) {
-        const v = str.toLowerCase();
-        return ['true', '1', 'si', 'sí', 'verdadero', 'yes'].includes(v);
-    }
+    const booleanFields = ['negocio', 'venta_xpublicidad', 'paquete_varios', 'pertenece_kit', 'r_abierto', 'r_cerrado', 'c_mediacion', 'es_fijo', 'es_recurrente'];
+    if (booleanFields.includes(key)) return ['true', '1', 'si', 'sí', 'verdadero', 'yes'].includes(str.toLowerCase());
 
     return str;
 }
 
 function formatErrorDescription(msg: string): string {
-    if (msg.includes('ON CONFLICT DO UPDATE command cannot affect row a second time')) {
-        return 'Conflicto de redundancia: El archivo contiene múltiples registros con el mismo identificador para actualizar en el mismo lote. Por favor, limpia duplicados en tu archivo.';
-    }
-    if (msg.includes('duplicate key value violates unique constraint')) {
-        return 'Violación de Clave Única: Ya existe un registro con este identificador principal en la base de datos y no se puede duplicar.';
-    }
-    if (msg.includes('violates foreign key constraint')) {
-        return 'Error de Referencia: El registro intenta vincularse a un dato que no existe en las tablas maestras.';
-    }
-    if (msg.includes('null value in column')) {
-        return 'Valor Nulo Prohibido: Falta un dato obligatorio requerido por la base de datos.';
-    }
+    if (msg.includes('ON CONFLICT DO UPDATE command cannot affect row a second time')) return 'Conflicto de redundancia: El archivo contiene múltiples registros con el mismo identificador.';
+    if (msg.includes('duplicate key value violates unique constraint')) return 'Violación de Clave Única: Ya existe un registro con este identificador.';
+    if (msg.includes('violates foreign key constraint')) return 'Error de Referencia: El registro intenta vincularse a un dato que no existe.';
+    if (msg.includes('null value in column')) return 'Valor Nulo Prohibido: Falta un dato obligatorio.';
     return `Error técnico: ${msg}`;
 }
 
 type Step = 'upload' | 'converting' | 'sheet-selection' | 'table-selection' | 'mapping' | 'analyzing' | 'preview' | 'syncing' | 'results';
-
 const RESULTS_PAGE_SIZE = 50;
 
 export default function CsvUploader() {
@@ -282,48 +272,29 @@ export default function CsvUploader() {
     const [selectedTable, setSelectedTable] = useState('');
     const [headerMap, setHeaderMap] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(false);
-    
     const [syncProgress, setSyncProgress] = useState(0);
     const [syncCount, setSyncCount] = useState(0);
     const [totalToSync, setTotalToSync] = useState(0);
-
-    const [categorizedData, setCategorizedData] = useState<{
-        new: any[],
-        update: { record: any, original: any }[],
-        unchanged: any[]
-    }>({ new: [], update: [], unchanged: [] });
-
-    const [syncResult, setSyncResult] = useState<{
-        inserted: any[], 
-        updated: { record: any, original: any }[], 
-        unchanged: any[],
-        errors: { batch: number, msg: string }[],
-        syncTime?: string
-    } | null>(null);
-
+    const [categorizedData, setCategorizedData] = useState<{ new: any[], update: { record: any, original: any }[], unchanged: any[] }>({ new: [], update: [], unchanged: [] });
+    const [syncResult, setSyncResult] = useState<{ inserted: any[], updated: { record: any, original: any }[], unchanged: any[], errors: { batch: number, msg: string }[], syncTime?: string } | null>(null);
     const [resultPageInjected, setResultPageInjected] = useState(1);
     const [resultPageUpdated, setResultPageUpdated] = useState(1);
 
     const handleTableSelect = (table: string) => {
         setSelectedTable(table);
         setIsLoading(true);
-
         if (!selectedFile) return;
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            
             if (selectedFile.name.toLowerCase().endsWith('.csv')) {
                 const csvText = new TextDecoder().decode(data);
                 let estadoCount = 0; 
-                
                 Papa.parse(csvText, {
                     header: true,
                     skipEmptyLines: true,
                     transformHeader: (header) => {
                         const trimmedHeader = header.trim();
-                        // Lógica especial para detectar las dos columnas "Estado" de Mercado Libre
                         if (table === 'ml_sales' && trimmedHeader === 'Estado') {
                             estadoCount++;
                             if (estadoCount === 1) return 'Estado Venta';
@@ -332,7 +303,6 @@ export default function CsvUploader() {
                         return trimmedHeader;
                     },
                     beforeFirstChunk: (chunk) => {
-                        // Saltamos las 5 filas de encabezado publicitario que suele tener el reporte de ML
                         if (table === 'ml_sales') {
                             const lines = chunk.split(/\r?\n/);
                             return lines.slice(5).join('\n');
@@ -352,13 +322,11 @@ export default function CsvUploader() {
                     }
                 });
             } else {
-                // Excel: habilitamos cellDates para obtener objetos Date nativos
                 const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
                 const ws = wb.Sheets[selectedSheet || wb.SheetNames[0]];
                 const range = table === 'ml_sales' ? 5 : 0;
                 const json = XLSX.utils.sheet_to_json(ws, { header: 1, range, defval: null }) as any[][];
                 const validRows = json.filter(row => row.some(cell => cell !== null && cell !== ''));
-                
                 if (validRows.length > 0) {
                     let estadoCountExcel = 0; 
                     const h = validRows[0].map(val => {
@@ -386,12 +354,10 @@ export default function CsvUploader() {
         const aliases = COLUMN_ALIASES[table] || {};
         const map: Record<number, string> = {};
         const usedColumns = new Set<string>();
-
         currentHeaders.forEach((h, i) => {
             const hRaw = String(h || '');
             const hClean = hRaw.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
             const hUnder = hRaw.toLowerCase().replace(/\s+/g, '_');
-
             let match = schema.columns.find(c => {
                 if (usedColumns.has(c)) return false;
                 return Object.entries(aliases).some(([aliasHeader, dbCol]) => {
@@ -399,7 +365,6 @@ export default function CsvUploader() {
                     return dbCol === c && (aliasClean === hClean || aliasHeader === hRaw);
                 });
             });
-
             if (!match) {
                 match = schema.columns.find(c => {
                     if (usedColumns.has(c)) return false;
@@ -407,52 +372,36 @@ export default function CsvUploader() {
                     return cClean === hClean || c === hUnder;
                 });
             }
-
             if (match) {
                 map[i] = match;
                 usedColumns.add(match);
-            } else {
-                map[i] = IGNORE_COLUMN_VALUE;
-            }
+            } else map[i] = IGNORE_COLUMN_VALUE;
         });
-
         setHeaderMap(map);
         setCurrentStep('mapping');
     };
 
-    const usedDbColumns = useMemo(() => {
-        return new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE));
-    }, [headerMap]);
-
-    const activeDbColumns = useMemo(() => {
-        if (!selectedTable) return [];
-        return TABLE_SCHEMAS[selectedTable].columns.filter(c => usedDbColumns.has(c));
-    }, [selectedTable, usedDbColumns]);
+    const usedDbColumns = useMemo(() => new Set(Object.values(headerMap).filter(v => v !== IGNORE_COLUMN_VALUE)), [headerMap]);
+    const activeDbColumns = useMemo(() => selectedTable ? TABLE_SCHEMAS[selectedTable].columns.filter(c => usedDbColumns.has(c)) : [], [selectedTable, usedDbColumns]);
 
     const performAnalysis = async () => {
         setIsLoading(true);
         setCurrentStep('analyzing');
         const schema = TABLE_SCHEMAS[selectedTable];
-        
         try {
             const uniqueRecordsMap = new Map<string, any>();
             rawRows.forEach(row => {
                 const obj: any = {};
                 headers.forEach((_, headerIndex) => {
                     const colName = headerMap[headerIndex];
-                    if (colName && colName !== IGNORE_COLUMN_VALUE) {
-                        obj[colName] = parseValue(colName, row[headerIndex], selectedTable);
-                    }
+                    if (colName && colName !== IGNORE_COLUMN_VALUE) obj[colName] = parseValue(colName, row[headerIndex], selectedTable);
                 });
                 const pkValue = String(obj[schema.pk] || '');
-                // Solo procesamos si hay un identificador válido para evitar registros basura
                 if (pkValue) uniqueRecordsMap.set(pkValue, obj);
             });
-
             const allRecords = Array.from(uniqueRecordsMap.values());
             const pks = allRecords.map(r => String(r[schema.pk])).filter(Boolean);
             const existingDataMap = new Map<string, any>();
-            
             if (supabase && pks.length > 0) {
                 const FETCH_BATCH_SIZE = 500;
                 for (let i = 0; i < pks.length; i += FETCH_BATCH_SIZE) {
@@ -461,116 +410,69 @@ export default function CsvUploader() {
                     data?.forEach(row => existingDataMap.set(String(row[schema.pk]), row));
                 }
             }
-
             const newRecs: any[] = [];
             const updateRecs: { record: any, original: any }[] = [];
             const unchangedRecs: any[] = [];
-
             allRecords.forEach(record => {
                 const pkValue = String(record[schema.pk]);
                 const existing = existingDataMap.get(pkValue);
-
-                if (!existing) {
-                    newRecs.push(record);
-                } else {
+                if (!existing) newRecs.push(record);
+                else {
                     let isDifferent = false;
                     for (const col of activeDbColumns) {
-                        const newVal = record[col];
-                        const oldVal = existing[col];
-                        
-                        // Protección crítica: si el nuevo valor es nulo (ej: error de parseo de fecha) 
-                        // no sobrescribimos el valor real que ya existe en la base de datos.
+                        const newVal = record[col], oldVal = existing[col];
                         if (newVal === null && oldVal !== null) continue;
-
-                        const isNumeric = NUMERIC_FIELDS.includes(col);
-                        if (isNumeric) {
-                            const nNew = newVal === null ? 0 : Number(newVal);
-                            const nOld = oldVal === null ? 0 : Number(oldVal);
-                            if (Math.abs(nNew - nOld) > 0.0001) { isDifferent = true; break; }
-                        } else {
-                            if (String(newVal ?? '').trim() !== String(oldVal ?? '').trim()) { isDifferent = true; break; }
-                        }
+                        if (NUMERIC_FIELDS.includes(col)) {
+                            if (Math.abs((newVal ?? 0) - (oldVal ?? 0)) > 0.0001) { isDifferent = true; break; }
+                        } else if (String(newVal ?? '').trim() !== String(oldVal ?? '').trim()) { isDifferent = true; break; }
                     }
                     if (isDifferent) updateRecs.push({ record, original: existing });
                     else unchangedRecs.push(record);
                 }
             });
-
             setCategorizedData({ new: newRecs, update: updateRecs, unchanged: unchangedRecs });
             setCurrentStep('preview');
         } catch (e: any) {
             toast({ title: 'Error de análisis', description: e.message, variant: 'destructive' });
             setCurrentStep('mapping');
-        } finally {
-            setIsLoading(false);
-        }
+        } finally { setIsLoading(false); }
     };
 
     const handleSync = async (mode: 'new' | 'update' | 'all') => {
         setIsLoading(true);
         setCurrentStep('syncing');
         const schema = TABLE_SCHEMAS[selectedTable];
-        
         let recordsToProcess: any[] = [];
         if (mode === 'new') recordsToProcess = categorizedData.new;
         else if (mode === 'update') recordsToProcess = categorizedData.update.map(u => u.record);
         else recordsToProcess = [...categorizedData.new, ...categorizedData.update.map(u => u.record)];
-
         const total = recordsToProcess.length;
-        setTotalToSync(total);
-        setSyncCount(0);
-        setSyncProgress(0);
-
-        const inserted: any[] = [];
-        const updated: { record: any, original: any }[] = [];
-        const unchanged: any[] = [...categorizedData.unchanged];
-        const errors: { batch: number, msg: string }[] = [];
-
+        setTotalToSync(total); setSyncCount(0); setSyncProgress(0);
+        const inserted: any[] = [], updated: { record: any, original: any }[] = [], unchanged: any[] = [...categorizedData.unchanged], errors: { batch: number, msg: string }[] = [];
         if (supabase && total > 0) {
             const SYNC_BATCH_SIZE = 100;
             for (let i = 0; i < total; i += SYNC_BATCH_SIZE) {
                 const batch = recordsToProcess.slice(i, i + SYNC_BATCH_SIZE);
-                // Upsert explícito sobre la PK para evitar duplicados accidentales
                 const { error } = await supabase.from(selectedTable).upsert(batch, { onConflict: schema.pk });
-                
-                if (error) {
-                    errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
-                } else {
-                    batch.forEach(r => {
-                        const originalUpdate = categorizedData.update.find(u => String(u.record[schema.pk]) === String(r[schema.pk]));
-                        if (originalUpdate) {
-                            updated.push(originalUpdate);
-                        } else {
-                            inserted.push(r);
-                        }
-                    });
-                }
+                if (error) errors.push({ batch: Math.floor(i / SYNC_BATCH_SIZE) + 1, msg: error.message });
+                else batch.forEach(r => {
+                    const originalUpdate = categorizedData.update.find(u => String(u.record[schema.pk]) === String(r[schema.pk]));
+                    if (originalUpdate) updated.push(originalUpdate);
+                    else inserted.push(r);
+                });
                 const currentProcessed = Math.min(i + SYNC_BATCH_SIZE, total);
-                setSyncCount(currentProcessed);
-                setSyncProgress(Math.round((currentProcessed / total) * 100));
+                setSyncCount(currentProcessed); setSyncProgress(Math.round((currentProcessed / total) * 100));
             }
         }
-
-        const syncTime = new Date().toLocaleString('es-MX', { 
-            day: 'numeric', 
-            month: 'numeric', 
-            year: 'numeric', 
-            hour: 'numeric', 
-            minute: 'numeric', 
-            second: 'numeric', 
-            hour12: true 
-        }).toLowerCase().replace(/ p\.? m\.?/g, ' p.m.').replace(/ a\.? m\.?/g, ' a.m.');
-
+        const syncTime = new Date().toLocaleString('es-MX');
         await revalidateDashboards();
-
         setSyncResult({ inserted, updated, unchanged, errors, syncTime });
         setCurrentStep('results');
         setIsLoading(false);
     };
 
     const processFile = (f: File) => {
-        setSelectedFile(f);
-        setCurrentStep('converting');
+        setSelectedFile(f); setCurrentStep('converting');
         let progress = 0;
         const interval = setInterval(() => {
             progress += 20;
@@ -581,8 +483,7 @@ export default function CsvUploader() {
                     const data = new Uint8Array(e.target?.result as ArrayBuffer);
                     try {
                         const wb = XLSX.read(data, { type: 'array' });
-                        setWorkbook(wb);
-                        setSheets(wb.SheetNames);
+                        setWorkbook(wb); setSheets(wb.SheetNames);
                         if (f.name.toLowerCase().endsWith('.csv')) setCurrentStep('table-selection');
                         else setCurrentStep('sheet-selection');
                     } catch (err) {
@@ -596,508 +497,48 @@ export default function CsvUploader() {
     };
 
     const reset = () => {
-        setSelectedFile(null);
-        setWorkbook(null);
-        setHeaders([]);
-        setRawRows([]);
-        setSelectedTable('');
-        setHeaderMap({});
-        setCategorizedData({ new: [], update: [], unchanged: [] });
-        setSyncResult(null);
-        setResultPageInjected(1);
-        setResultPageUpdated(1);
-        setCurrentStep('upload');
+        setSelectedFile(null); setWorkbook(null); setHeaders([]); setRawRows([]); setSelectedTable(''); setHeaderMap({}); setCategorizedData({ new: [], update: [], unchanged: [] }); setSyncResult(null); setResultPageInjected(1); setResultPageUpdated(1); setCurrentStep('upload');
     };
 
     return (
         <div className="w-full max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             {currentStep === 'upload' && (
                 <Card className="border-none shadow-2xl bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden">
-                    <CardHeader className="bg-primary/5 pb-8">
-                        <CardTitle className="text-3xl font-black uppercase tracking-tight text-primary flex items-center gap-3">
-                            <UploadCloud className="h-8 w-8" /> Sube tu archivo
-                        </CardTitle>
-                        <CardDescription className="text-lg font-medium text-slate-500">
-                            Sube un archivo .csv o .xlsx para iniciar la sincronización técnica.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-10">
-                        <div 
-                            className="border-2 border-dashed border-primary/20 p-20 text-center rounded-3xl hover:bg-primary/5 hover:border-primary/40 cursor-pointer group transition-all duration-300"
-                            onClick={() => document.getElementById('file-input')?.click()}
-                        >
-                            <div className="mx-auto h-24 w-24 bg-primary/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-500">
-                                <FileSpreadsheet className="h-12 w-12 text-primary" />
-                            </div>
-                            <h3 className="text-2xl font-black uppercase tracking-tight text-slate-800">Seleccionar Documento</h3>
-                            <p className="mt-2 text-slate-500 font-medium">O arrastra y suelta tu archivo aquí (Máx 50MB)</p>
-                            <input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} />
-                        </div>
-                    </CardContent>
+                    <CardHeader className="bg-primary/5 pb-8"><CardTitle className="text-3xl font-black uppercase tracking-tight text-primary flex items-center gap-3"><UploadCloud className="h-8 w-8" /> Sube tu archivo</CardTitle><CardDescription className="text-lg font-medium text-slate-500">Sube un archivo .csv o .xlsx para iniciar la sincronización técnica.</CardDescription></CardHeader>
+                    <CardContent className="p-10"><div className="border-2 border-dashed border-primary/20 p-20 text-center rounded-3xl hover:bg-primary/5 hover:border-primary/40 cursor-pointer group transition-all duration-300" onClick={() => document.getElementById('file-input')?.click()}><div className="mx-auto h-24 w-24 bg-primary/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-500"><FileSpreadsheet className="h-12 w-12 text-primary" /></div><h3 className="text-2xl font-black uppercase tracking-tight text-slate-800">Seleccionar Documento</h3><p className="mt-2 text-slate-500 font-medium">O arrastra y suelta tu archivo aquí (Máx 50MB)</p><input id="file-input" type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => e.target.files && processFile(e.target.files[0])} /></div></CardContent>
                 </Card>
             )}
 
             {currentStep === 'converting' && (
-                <Card className="border-none shadow-2xl bg-white p-20 text-center rounded-3xl space-y-8">
-                    <div className="relative mx-auto h-24 w-24">
-                        <Loader2 className="h-24 w-24 animate-spin text-primary opacity-20" />
-                        <RefreshCcw className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 text-primary animate-bounce" />
-                    </div>
-                    <div className="space-y-4 max-w-md mx-auto">
-                        <h3 className="text-2xl font-black uppercase tracking-tight text-slate-800">Convirtiendo Datos...</h3>
-                        <Progress value={conversionProgress} className="h-3 bg-slate-100" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{conversionProgress}% COMPLETADO</p>
-                    </div>
-                </Card>
+                <Card className="border-none shadow-2xl bg-white p-20 text-center rounded-3xl space-y-8"><div className="relative mx-auto h-24 w-24"><Loader2 className="h-24 w-24 animate-spin text-primary opacity-20" /><RefreshCcw className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-10 w-10 text-primary animate-bounce" /></div><div className="space-y-4 max-w-md mx-auto"><h3 className="text-2xl font-black uppercase tracking-tight text-slate-800">Convirtiendo Datos...</h3><Progress value={conversionProgress} className="h-3 bg-slate-100" /><p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{conversionProgress}% COMPLETADO</p></div></Card>
             )}
 
             {currentStep === 'sheet-selection' && (
-                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
-                        <div>
-                            <CardTitle className="text-xl font-black uppercase tracking-tight">Seleccionar Hoja de Trabajo</CardTitle>
-                            <CardDescription>El archivo Excel contiene múltiples hojas. Elige la correcta.</CardDescription>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 p-10">
-                        {sheets.map(s => (
-                            <Button 
-                                key={s} 
-                                variant="outline" 
-                                className="h-24 font-black uppercase text-xs flex flex-col gap-2 rounded-2xl border-slate-200 hover:border-primary hover:bg-primary/5 transition-all shadow-sm"
-                                onClick={() => { setSelectedSheet(s); setCurrentStep('table-selection'); }}
-                            >
-                                <FileText className="h-5 w-5 opacity-50" />
-                                {s}
-                            </Button>
-                        ))}
-                    </CardContent>
-                </Card>
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative"><CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6"><div><CardTitle className="text-xl font-black uppercase tracking-tight">Seleccionar Hoja de Trabajo</CardTitle><CardDescription>El archivo Excel contiene múltiples hojas. Elige la correcta.</CardDescription></div><Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500 transition-colors"><X className="h-5 w-5" /></Button></CardHeader><CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 p-10">{sheets.map(s => (<Button key={s} variant="outline" className="h-24 font-black uppercase text-xs flex flex-col gap-2 rounded-2xl border-slate-200 hover:border-primary hover:bg-primary/5 transition-all shadow-sm" onClick={() => { setSelectedSheet(s); setCurrentStep('table-selection'); }}><FileText className="h-5 w-5 opacity-50" />{s}</Button>))}</CardContent></Card>
             )}
 
             {currentStep === 'table-selection' && (
-                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
-                        <div>
-                            <CardTitle className="text-xl font-black uppercase tracking-tight">Destino de la Información</CardTitle>
-                            <CardDescription>¿A qué tabla técnica pertenecen estos datos?</CardDescription>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
-                    <CardContent className="p-20 max-w-xl mx-auto space-y-8">
-                        {isLoading ? (
-                            <div className="text-center space-y-4">
-                                <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-                                <p className="font-black text-[10px] uppercase tracking-widest text-slate-400">Preparando motor de procesamiento...</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">TABLA DE DESTINO</Label>
-                                <Select onValueChange={handleTableSelect} value={selectedTable}>
-                                    <SelectTrigger className="h-16 font-black bg-white border-2 border-slate-100 rounded-2xl shadow-sm text-lg focus:ring-primary/20">
-                                        <SelectValue placeholder="Seleccionar tabla..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {Object.keys(TABLE_SCHEMAS).map(t => (
-                                            <SelectItem key={t} value={t} className="font-bold uppercase text-xs py-3">{t.replace(/_/g, ' ')}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-                                    <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                                    <p className="text-xs text-blue-700 leading-relaxed font-medium">
-                                        El sistema intentará mapear automáticamente las columnas basándose en alias técnicos y nombres históricos.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative"><CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6"><div><CardTitle className="text-xl font-black uppercase tracking-tight">Destino de la Información</CardTitle><CardDescription>¿A qué tabla técnica pertenecen estos datos?</CardDescription></div><Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button></CardHeader><CardContent className="p-20 max-w-xl mx-auto space-y-8">{isLoading ? (<div className="text-center space-y-4"><Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" /><p className="font-black text-[10px] uppercase tracking-widest text-slate-400">Preparando motor de procesamiento...</p></div>) : (<div className="space-y-6"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">TABLA DE DESTINO</Label><Select onValueChange={handleTableSelect} value={selectedTable}><SelectTrigger className="h-16 font-black bg-white border-2 border-slate-100 rounded-2xl shadow-sm text-lg focus:ring-primary/20"><SelectValue placeholder="Seleccionar tabla..." /></SelectTrigger><SelectContent className="rounded-xl">{Object.keys(TABLE_SCHEMAS).map(t => (<SelectItem key={t} value={t} className="font-bold uppercase text-xs py-3">{t.replace(/_/g, ' ')}</SelectItem>))}</SelectContent></Select><div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3"><Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" /><p className="text-xs text-blue-700 leading-relaxed font-medium">El sistema intentará mapear automáticamente las columnas basándose en alias técnicos y nombres históricos.</p></div></div>)}</CardContent></Card>
             )}
 
             {currentStep === 'mapping' && (
-                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 px-8 py-6">
-                        <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white">
-                                <ArrowRightLeft className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-xl font-black uppercase tracking-tight">Mapeo Técnico: {selectedTable}</CardTitle>
-                                <CardDescription className="font-medium text-primary/60">Vincula las columnas de tu archivo con los campos de la base de datos.</CardDescription>
-                            </div>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <ScrollArea className="h-[500px]">
-                            <Table>
-                                <TableHeader className="bg-slate-50 sticky top-0 z-10">
-                                    <TableRow className="border-b-0">
-                                        <TableHead className="font-black text-[10px] uppercase tracking-widest px-8 py-4 text-slate-500">Origen (Archivo)</TableHead>
-                                        <TableHead className="font-black text-[10px] uppercase tracking-widest py-4 text-slate-500">Destino (Base de Datos)</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {headers.map((h, i) => (
-                                        <TableRow key={i} className="h-20 hover:bg-slate-50/50 transition-colors border-slate-100">
-                                            <TableCell className="px-8">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="font-black text-sm text-slate-800 uppercase leading-none">{h || 'COLUMNA SIN NOMBRE'}</span>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ÍNDICE #{i}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="pr-8">
-                                                <Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}>
-                                                    <SelectTrigger className={cn(
-                                                        "h-12 text-[11px] rounded-xl transition-all duration-300", 
-                                                        headerMap[i] === IGNORE_COLUMN_VALUE 
-                                                            ? "opacity-40 border-dashed border-slate-300" 
-                                                            : "font-black text-primary border-primary/30 bg-primary/5 shadow-sm"
-                                                    )}>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="rounded-xl max-h-[300px]">
-                                                        <SelectItem value={IGNORE_COLUMN_VALUE} className="italic text-[10px] font-bold text-slate-400">-- IGNORAR ESTA COLUMNA --</SelectItem>
-                                                        {TABLE_SCHEMAS[selectedTable].columns.map(c => (
-                                                            <SelectItem key={c} value={c} disabled={usedDbColumns.has(c) && headerMap[i] !== c} className="uppercase text-[10px] font-bold py-3">{c.replace(/_/g, ' ')}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </ScrollArea>
-                    </CardContent>
-                    <CardFooter className="p-8 border-t bg-slate-50/80">
-                        <Button onClick={performAnalysis} className="w-full h-16 font-black uppercase text-sm shadow-xl rounded-2xl bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]">
-                            <Eye className="mr-3 h-5 w-5" /> Iniciar Análisis Diferencial
-                        </Button>
-                    </CardFooter>
-                </Card>
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative"><CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 px-8 py-6"><div className="flex items-center gap-4"><div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white"><ArrowRightLeft className="h-5 w-5" /></div><div><CardTitle className="text-xl font-black uppercase tracking-tight">Mapeo Técnico: {selectedTable}</CardTitle><CardDescription className="font-medium text-primary/60">Vincula las columnas de tu archivo con los campos de la base de datos.</CardDescription></div></div><Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button></CardHeader><CardContent className="p-0"><ScrollArea className="h-[500px]"><Table><TableHeader className="bg-slate-50 sticky top-0 z-10"><TableRow className="border-b-0"><TableHead className="font-black text-[10px] uppercase tracking-widest px-8 py-4 text-slate-500">Origen (Archivo)</TableHead><TableHead className="font-black text-[10px] uppercase tracking-widest py-4 text-slate-500">Destino (Base de Datos)</TableHead></TableRow></TableHeader><TableBody>{headers.map((h, i) => (<TableRow key={i} className="h-20 hover:bg-slate-50/50 transition-colors border-slate-100"><TableCell className="px-8"><div className="flex flex-col gap-1"><span className="font-black text-sm text-slate-800 uppercase leading-none">{h || 'COLUMNA SIN NOMBRE'}</span><span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ÍNDICE #{i}</span></div></TableCell><TableCell className="pr-8"><Select value={headerMap[i]} onValueChange={v => setHeaderMap({...headerMap, [i]: v})}><SelectTrigger className={cn("h-12 text-[11px] rounded-xl transition-all duration-300", headerMap[i] === IGNORE_COLUMN_VALUE ? "opacity-40 border-dashed border-slate-300" : "font-black text-primary border-primary/30 bg-primary/5 shadow-sm")}><SelectValue /></SelectTrigger><SelectContent className="rounded-xl max-h-[300px]"><SelectItem value={IGNORE_COLUMN_VALUE} className="italic text-[10px] font-bold text-slate-400">-- IGNORAR ESTA COLUMNA --</SelectItem>{TABLE_SCHEMAS[selectedTable].columns.map(c => (<SelectItem key={c} value={c} disabled={usedDbColumns.has(c) && headerMap[i] !== c} className="uppercase text-[10px] font-bold py-3">{c.replace(/_/g, ' ')}</SelectItem>))}</SelectContent></Select></TableCell></TableRow>))}</TableBody></Table></ScrollArea></CardContent><CardFooter className="p-8 border-t bg-slate-50/80"><Button onClick={performAnalysis} className="w-full h-16 font-black uppercase text-sm shadow-xl rounded-2xl bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]"><Eye className="mr-3 h-5 w-5" /> Iniciar Análisis Diferencial</Button></CardFooter></Card>
             )}
 
             {currentStep === 'analyzing' && (
-                <Card className="border-none shadow-2xl bg-white p-24 text-center rounded-3xl">
-                    <div className="relative mx-auto h-24 w-24 mb-8">
-                        <Loader2 className="h-24 w-24 animate-spin text-primary" />
-                        <Layers className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-primary/40 animate-pulse" />
-                    </div>
-                    <h3 className="text-3xl font-black uppercase tracking-tight text-slate-800">Validación en Curso</h3>
-                    <p className="text-slate-500 font-medium max-w-sm mx-auto mt-2">Comparando el archivo contra el 100% de los registros en la base de datos...</p>
-                </Card>
+                <Card className="border-none shadow-2xl bg-white p-24 text-center rounded-3xl"><div className="relative mx-auto h-24 w-24 mb-8"><Loader2 className="h-24 w-24 animate-spin text-primary" /><Layers className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-primary/40 animate-pulse" /></div><h3 className="text-3xl font-black uppercase tracking-tight text-slate-800">Validación en Curso</h3><p className="text-slate-500 font-medium max-w-sm mx-auto mt-2">Comparando el archivo contra el 100% de los registros en la base de datos...</p></Card>
             )}
 
             {currentStep === 'preview' && (
-                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative animate-in zoom-in-95 duration-300">
-                    <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6">
-                        <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 bg-slate-800 rounded-xl flex items-center justify-center text-white">
-                                <CheckCircle className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-xl font-black uppercase tracking-tight">Resultado del Análisis</CardTitle>
-                                <CardDescription className="font-medium text-slate-500">Revisa los cambios detectados antes de confirmar la sincronización.</CardDescription>
-                            </div>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <Tabs defaultValue="nuevos" className="w-full">
-                            <div className="px-8 border-b bg-slate-50/50">
-                                <TabsList className="h-16 bg-transparent gap-10">
-                                    <TabsTrigger value="nuevos" className="font-black uppercase text-[11px] data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-0 h-16">
-                                        Nuevos <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary border-none">{categorizedData.new.length}</Badge>
-                                    </TabsTrigger>
-                                    <TabsTrigger value="actualizar" className="font-black uppercase text-[11px] data-[state=active]:text-amber-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 rounded-none px-0 h-16">
-                                        Con Cambios <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 border-none">{categorizedData.update.length}</Badge>
-                                    </TabsTrigger>
-                                    <TabsTrigger value="sin-cambios" className="font-black uppercase text-[11px] data-[state=active]:text-slate-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-slate-400 rounded-none px-0 h-16">
-                                        Sin Cambios <Badge variant="secondary" className="ml-2 bg-slate-100 text-slate-500 border-none">{categorizedData.unchanged.length}</Badge>
-                                    </TabsTrigger>
-                                </TabsList>
-                            </div>
-                            
-                            {['nuevos', 'actualizar', 'sin-cambios'].map(tab => (
-                                <TabsContent key={tab} value={tab} className="mt-0">
-                                    <ScrollArea className="h-[450px] w-full border-b">
-                                        <Table className="min-w-full">
-                                            <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
-                                                <TableRow className="border-b-0">
-                                                    {activeDbColumns.map(col => (
-                                                        <TableHead key={col} className="font-black text-[10px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
-                                                    ))}
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {tab === 'nuevos' && categorizedData.new.length > 0 ? (
-                                                    categorizedData.new.map((r, i) => (
-                                                        <TableRow key={i} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
-                                                            {activeDbColumns.map(col => <TableCell key={col} className="text-[11px] px-6 font-medium text-slate-700">{String(r[col] ?? '-')}</TableCell>)}
-                                                        </TableRow>
-                                                    ))
-                                                ) : tab === 'actualizar' && categorizedData.update.length > 0 ? (
-                                                    categorizedData.update.map((u, i) => (
-                                                        <TableRow key={i} className="h-16 hover:bg-amber-50/20 transition-colors border-slate-50">
-                                                            {activeDbColumns.map(col => {
-                                                                const isDiff = NUMERIC_FIELDS.includes(col) 
-                                                                    ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 
-                                                                    : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim();
-                                                                
-                                                                return (
-                                                                    <TableCell key={col} className={cn("px-6 text-[11px] font-medium border-r border-slate-50", isDiff ? "bg-amber-50/40" : "text-slate-400 opacity-60")}>
-                                                                        {isDiff ? (
-                                                                            <div className="flex flex-col gap-0.5">
-                                                                                <span className="text-red-500/60 line-through text-[9px] font-bold">{String(u.original[col] ?? 'vacío')}</span>
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <ArrowRight className="h-3 w-3 text-amber-500" />
-                                                                                    <span className="text-primary font-black text-xs">{String(u.record[col] ?? 'vacío')}</span>
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : String(u.record[col] ?? '-')}
-                                                                    </TableCell>
-                                                                );
-                                                            })}
-                                                        </TableRow>
-                                                    ))
-                                                ) : tab === 'sin-cambios' && categorizedData.unchanged.length > 0 ? (
-                                                    categorizedData.unchanged.map((r, i) => (
-                                                        <TableRow key={i} className="h-14 opacity-50 border-slate-50">
-                                                            {activeDbColumns.map(col => <TableCell key={col} className="text-[11px] px-6 font-medium">{String(r[col] ?? '-')}</TableCell>)}
-                                                        </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow>
-                                                        <TableCell colSpan={activeDbColumns.length} className="text-center py-20">
-                                                            <div className="flex flex-col items-center gap-3 opacity-30">
-                                                                <Database className="h-12 w-12" />
-                                                                <p className="font-black uppercase text-xs tracking-widest">Sin registros en esta categoría</p>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                        <ScrollBar orientation="horizontal" />
-                                    </ScrollArea>
-                                </TabsContent>
-                            ))}
-                        </Tabs>
-                    </CardContent>
-                    <CardFooter className="p-8 bg-slate-100/80 flex gap-6 items-center">
-                        <div className="flex-1 flex gap-4">
-                            <Button onClick={() => handleSync('new')} className="h-14 font-black uppercase text-[10px] flex-1 bg-slate-800 hover:bg-slate-900 rounded-2xl shadow-lg transition-all" disabled={categorizedData.new.length === 0}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Insertar Nuevos
-                            </Button>
-                            <Button onClick={() => handleSync('update')} className="h-14 font-black uppercase text-[10px] flex-1 bg-amber-600 hover:bg-amber-700 rounded-2xl shadow-lg transition-all" disabled={categorizedData.update.length === 0}>
-                                <RefreshCcw className="mr-2 h-4 w-4" /> Actualizar Cambios
-                            </Button>
-                            <Button onClick={() => handleSync('all')} className="h-14 font-black uppercase text-[10px] flex-1 bg-primary hover:bg-primary/90 rounded-2xl shadow-xl transition-all active:scale-[0.98]" disabled={categorizedData.new.length === 0 && categorizedData.update.length === 0}>
-                                <Save className="mr-2 h-4 w-4" /> Sincronizar Todo
-                            </Button>
-                        </div>
-                        <div className="w-px h-10 bg-slate-300" />
-                        <div className="text-right flex flex-col justify-center">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL PROCESABLE</span>
-                            <span className="text-xl font-black text-slate-800 leading-none">{categorizedData.new.length + categorizedData.update.length}</span>
-                        </div>
-                    </CardFooter>
-                </Card>
+                <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden relative animate-in zoom-in-95 duration-300"><CardHeader className="flex flex-row items-center justify-between border-b bg-muted/5 px-8 py-6"><div className="flex items-center gap-4"><div className="h-10 w-10 bg-slate-800 rounded-xl flex items-center justify-center text-white"><CheckCircle className="h-5 w-5" /></div><div><CardTitle className="text-xl font-black uppercase tracking-tight">Resultado del Análisis</CardTitle><CardDescription className="font-medium text-slate-500">Revisa los cambios detectados antes de confirmar la sincronización.</CardDescription></div></div><Button variant="ghost" size="icon" onClick={reset} className="rounded-full hover:bg-red-50 hover:text-red-500"><X className="h-5 w-5" /></Button></CardHeader><CardContent className="p-0"><Tabs defaultValue="nuevos" className="w-full"><div className="px-8 border-b bg-slate-50/50"><TabsList className="h-16 bg-transparent gap-10"><TabsTrigger value="nuevos" className="font-black uppercase text-[11px] data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-0 h-16">Nuevos <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary border-none">{categorizedData.new.length}</Badge></TabsTrigger><TabsTrigger value="actualizar" className="font-black uppercase text-[11px] data-[state=active]:text-amber-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 rounded-none px-0 h-16">Con Cambios <Badge variant="secondary" className="ml-2 bg-amber-100 text-amber-700 border-none">{categorizedData.update.length}</Badge></TabsTrigger><TabsTrigger value="sin-cambios" className="font-black uppercase text-[11px] data-[state=active]:text-slate-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-slate-400 rounded-none px-0 h-16">Sin Cambios <Badge variant="secondary" className="ml-2 bg-slate-100 text-slate-500 border-none">{categorizedData.unchanged.length}</Badge></TabsTrigger></TabsList></div>{['nuevos', 'actualizar', 'sin-cambios'].map(tab => (<TabsContent key={tab} value={tab} className="mt-0"><ScrollArea className="h-[450px] w-full border-b"><Table className="min-w-full"><TableHeader className="bg-white sticky top-0 z-10 shadow-sm"><TableRow className="border-b-0">{activeDbColumns.map(col => (<TableHead key={col} className="font-black text-[10px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>))}</TableRow></TableHeader><TableBody>{tab === 'nuevos' && categorizedData.new.length > 0 ? (categorizedData.new.map((r, i) => (<TableRow key={i} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">{activeDbColumns.map(col => (<TableCell key={col} className="text-[11px] px-6 font-medium text-slate-700">{String(r[col] ?? '-')}</TableCell>))}</TableRow>))) : tab === 'actualizar' && categorizedData.update.length > 0 ? (categorizedData.update.map((u, i) => (<TableRow key={i} className="h-16 hover:bg-amber-50/20 transition-colors border-slate-50">{activeDbColumns.map(col => { const isDiff = NUMERIC_FIELDS.includes(col) ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim(); return (<TableCell key={col} className={cn("px-6 text-[11px] font-medium border-r border-slate-50", isDiff ? "bg-amber-50/40" : "text-slate-400 opacity-60")}>{isDiff ? (<div className="flex flex-col gap-0.5"><span className="text-red-500/60 line-through text-[9px] font-bold">{String(u.original[col] ?? 'vacío')}</span><div className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-amber-500" /><span className="text-primary font-black text-xs">{String(u.record[col] ?? 'vacío')}</span></div></div>) : String(u.record[col] ?? '-')}</TableCell>); })}</TableRow>))) : tab === 'sin-cambios' && categorizedData.unchanged.length > 0 ? (categorizedData.unchanged.map((r, i) => (<TableRow key={i} className="h-14 opacity-50 border-slate-50">{activeDbColumns.map(col => (<TableCell key={col} className="text-[11px] px-6 font-medium">{String(r[col] ?? '-')}</TableCell>))}</TableRow>))) : (<TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-20"><div className="flex flex-col items-center gap-3 opacity-30"><Database className="h-12 w-12" /><p className="font-black uppercase text-xs tracking-widest">Sin registros en esta categoría</p></div></TableCell></TableRow>)}</TableBody></Table><ScrollBar orientation="horizontal" /></ScrollArea></TabsContent>))}</Tabs></CardContent><CardFooter className="p-8 bg-slate-100/80 flex gap-6 items-center"><div className="flex-1 flex gap-4"><Button onClick={() => handleSync('new')} className="h-14 font-black uppercase text-[10px] flex-1 bg-slate-800 hover:bg-slate-900 rounded-2xl shadow-lg transition-all" disabled={categorizedData.new.length === 0}><PlusCircle className="mr-2 h-4 w-4" /> Insertar Nuevos</Button><Button onClick={() => handleSync('update')} className="h-14 font-black uppercase text-[10px] flex-1 bg-amber-600 hover:bg-amber-700 rounded-2xl shadow-lg transition-all" disabled={categorizedData.update.length === 0}><RefreshCcw className="mr-2 h-4 w-4" /> Actualizar Cambios</Button><Button onClick={() => handleSync('all')} className="h-14 font-black uppercase text-[10px] flex-1 bg-primary hover:bg-primary/90 rounded-2xl shadow-xl transition-all active:scale-[0.98]" disabled={categorizedData.new.length === 0 && categorizedData.update.length === 0}><Save className="mr-2 h-4 w-4" /> Sincronizar Todo</Button></div><div className="w-px h-10 bg-slate-300" /><div className="text-right flex flex-col justify-center"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TOTAL PROCESABLE</span><span className="text-xl font-black text-slate-800 leading-none">{categorizedData.new.length + categorizedData.update.length}</span></div></CardFooter></Card>
             )}
 
             {currentStep === 'syncing' && (
-                <Card className="border-none shadow-2xl bg-white p-24 text-center space-y-10 rounded-3xl">
-                    <div className="relative mx-auto h-32 w-32">
-                        <Loader2 className="h-32 w-32 animate-spin text-primary opacity-10" />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 bg-primary/5 rounded-full flex items-center justify-center animate-pulse shadow-inner">
-                            <Database className="h-8 w-8 text-primary" />
-                        </div>
-                    </div>
-                    <div className="max-w-md mx-auto space-y-6">
-                        <div className="space-y-2">
-                            <h3 className="text-3xl font-black uppercase tracking-tight text-primary">Inyectando Datos...</h3>
-                            <p className="text-slate-500 font-medium">No cierres esta ventana mientras la operación esté activa.</p>
-                        </div>
-                        <div className="space-y-3">
-                            <Progress value={syncProgress} className="h-4 bg-slate-100 rounded-full overflow-hidden" />
-                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                <span className="bg-primary/10 text-primary px-3 py-1 rounded-full">{syncProgress}% COMPLETADO</span>
-                                <span className="bg-slate-100 px-3 py-1 rounded-full">REGISTROS: {syncCount} / {totalToSync}</span>
-                            </div>
-                        </div>
-                    </div>
-                </Card>
+                <Card className="border-none shadow-2xl bg-white p-24 text-center space-y-10 rounded-3xl"><div className="relative mx-auto h-32 w-32"><Loader2 className="h-32 w-32 animate-spin text-primary opacity-10" /><div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-16 w-16 bg-primary/5 rounded-full flex items-center justify-center animate-pulse shadow-inner"><Database className="h-8 w-8 text-primary" /></div></div><div className="max-w-md mx-auto space-y-6"><div className="space-y-2"><h3 className="text-3xl font-black uppercase tracking-tight text-primary">Inyectando Datos...</h3><p className="text-slate-500 font-medium">No cierres esta ventana mientras la operación esté activa.</p></div><div className="space-y-3"><Progress value={syncProgress} className="h-4 bg-slate-100 rounded-full overflow-hidden" /><div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400"><span className="bg-primary/10 text-primary px-3 py-1 rounded-full">{syncProgress}% COMPLETADO</span><span className="bg-slate-100 px-3 py-1 rounded-full">REGISTROS: {syncCount} / {totalToSync}</span></div></div></div></Card>
             )}
 
             {currentStep === 'results' && syncResult && (
-                <Card className="border-none shadow-2xl overflow-hidden rounded-[40px] relative animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 bg-white">
-                    <div className="p-16 relative">
-                        <Button variant="ghost" size="icon" onClick={reset} className="absolute top-8 right-8 text-slate-400 hover:bg-slate-100 rounded-full"><X className="h-6 w-6" /></Button>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                            <div className="p-10 rounded-[32px] bg-[#F0FDF4] border border-[#DCFCE7] text-center space-y-4">
-                                <p className="text-[11px] font-black uppercase text-[#166534] tracking-widest">Inyectados</p>
-                                <p className="text-7xl font-black text-[#14532D] tabular-nums">{syncResult.inserted.length}</p>
-                            </div>
-                            <div className="p-10 rounded-[32px] bg-[#EFF6FF] border border-[#DBEAFE] text-center space-y-4">
-                                <p className="text-[11px] font-black uppercase text-[#1E40AF] tracking-widest">Sobrescritos</p>
-                                <p className="text-7xl font-black text-[#1E3A8A] tabular-nums">{syncResult.updated.length}</p>
-                            </div>
-                            <div className="p-10 rounded-[32px] bg-[#F8FAFC] border border-[#F1F5F9] text-center space-y-4">
-                                <p className="text-[11px] font-black uppercase text-[#64748B] tracking-widest">Sin Cambios</p>
-                                <p className="text-7xl font-black text-[#334155] tabular-nums">{syncResult.unchanged.length}</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-12 space-y-3 max-w-5xl mx-auto">
-                            <h4 className="text-sm font-black text-slate-900">Registro de Cambios:</h4>
-                            <div className="bg-[#F8FAFC] border border-[#F1F5F9] px-4 py-3 rounded-xl">
-                                <p className="text-[11px] font-medium text-slate-500">
-                                    Sincronización completada el {syncResult.syncTime || new Date().toLocaleString('es-MX')}. Nuevos: {syncResult.inserted.length}, Actualizados: {syncResult.updated.length}, Errores: {syncResult.errors.length}.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <Separator className="mx-16 w-auto bg-slate-100" />
-                    
-                    <CardContent className="p-12 space-y-12">
-                        {syncResult.errors.length > 0 && (
-                            <div className="space-y-6 max-w-5xl mx-auto">
-                                <h3 className="text-base font-black uppercase text-slate-800 tracking-tight flex items-center gap-2">
-                                    <AlertCircle className="h-5 w-5 text-amber-600" /> DETALLE DE ANOMALÍAS:
-                                </h3>
-                                <div className="space-y-4 max-h-[450px] overflow-y-auto pr-4 no-scrollbar">
-                                    {syncResult.errors.map((err, i) => (
-                                        <div key={i} className="group p-8 rounded-3xl bg-white border border-slate-100 shadow-md flex items-start gap-6 hover:shadow-xl transition-all duration-300">
-                                            <div className="relative mt-1">
-                                                <div className="h-4 w-4 rounded-full bg-red-500 animate-ping absolute inset-0 opacity-20" />
-                                                <div className="h-4 w-4 rounded-full bg-red-500 relative ring-4 ring-red-50" />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <p className="font-black text-red-600 text-xs uppercase tracking-widest leading-none">ERROR LOTE #{err.batch}</p>
-                                                <p className="text-slate-700 text-sm font-semibold leading-relaxed">{formatErrorDescription(err.msg)}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="space-y-8 max-w-5xl mx-auto pt-4">
-                            <div className="flex items-center gap-3">
-                                <Database className="h-6 w-6 text-slate-800" />
-                                <h3 className="text-lg font-black uppercase text-slate-800 tracking-tighter">Visor de Registros Procesados:</h3>
-                            </div>
-                            
-                            <Tabs defaultValue="actualizados" className="w-full">
-                                <TabsList className="h-12 bg-slate-100/50 p-1 rounded-2xl mb-8 w-fit border border-slate-100">
-                                    <TabsTrigger value="inyectados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">
-                                        Nuevos Inyectados ({syncResult.inserted.length})
-                                    </TabsTrigger>
-                                    <TabsTrigger value="actualizados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">
-                                        Sobrescritos ({syncResult.updated.length})
-                                    </TabsTrigger>
-                                </TabsList>
-                                
-                                <TabsContent value="inyectados">
-                                    <div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
-                                        <ScrollArea className="h-[500px] w-full bg-white">
-                                            <Table className="min-w-full border-collapse">
-                                                <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
-                                                    <TableRow className="border-b border-slate-100">
-                                                        {activeDbColumns.map(col => (
-                                                            <TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
-                                                        ))}
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {syncResult.inserted.length > 0 ? (
-                                                        syncResult.inserted.slice((resultPageInjected - 1) * RESULTS_PAGE_SIZE, resultPageInjected * RESULTS_PAGE_SIZE).map((r, i) => (
-                                                            <TableRow key={i} className="h-12 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">
-                                                                {activeDbColumns.map(col => <TableCell key={col} className="text-[10px] px-6 font-medium text-slate-600 border-r border-slate-50/50">{String(r[col] ?? '-')}</TableCell>)}
-                                                            </TableRow>
-                                                        ))
-                                                    ) : (
-                                                        <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin nuevos registros inyectados</TableCell></TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
-                                            <ScrollBar orientation="horizontal" />
-                                        </ScrollArea>
-                                        {syncResult.inserted.length > RESULTS_PAGE_SIZE && (
-                                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2">
-                                                <Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => Math.max(1, p-1))} disabled={resultPageInjected === 1}>Anterior</Button>
-                                                <Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => p+1)} disabled={resultPageInjected * RESULTS_PAGE_SIZE >= syncResult.inserted.length}>Siguiente</Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </TabsContent>
-
-                                <TabsContent value="actualizados">
-                                    <div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
-                                        <ScrollArea className="h-[500px] w-full bg-white">
-                                            <Table className="min-w-full border-collapse">
-                                                <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
-                                                    <TableRow className="border-b border-slate-100">
-                                                        {activeDbColumns.map(col => (
-                                                            <TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>
-                                                        ))}
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {syncResult.updated.length > 0 ? (
-                                                        syncResult.updated.slice((resultPageUpdated - 1) * RESULTS_PAGE_SIZE, resultPageUpdated * RESULTS_PAGE_SIZE).map((u, i) => (
-                                                            <TableRow key={i} className="h-20 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">
-                                                                {activeDbColumns.map(col => {
-                                                                    const isDiff = NUMERIC_FIELDS.includes(col) 
-                                                                        ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 
-                                                                        : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim();
-                                                                    
-                                                                    return (
-                                                                        <TableCell key={col} className={cn("px-6 text-[10px] font-medium border-r border-slate-50/50", isDiff ? "bg-amber-50/20" : "text-slate-400 opacity-60")}>
-                                                                            {isDiff ? (
-                                                                                <div className="flex flex-col gap-1">
-                                                                                    <span className="text-red-500/60 line-through text-[8px] font-bold">{String(u.original[col] ?? 'vacío')}</span>
-                                                                                    <span className="text-primary font-black text-[10px] leading-tight">{String(u.record[col] ?? 'vacío')}</span>
-                                                                                </div>
-                                                                            ) : String(u.record[col] ?? '-')}
-                                                                        </TableCell>
-                                                                    );
-                                                                })}
-                                                            </TableRow>
-                                                        ))
-                                                    ) : (
-                                                        <TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin registros actualizados</TableCell></TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
-                                            <ScrollBar orientation="horizontal" />
-                                        </ScrollArea>
-                                        {syncResult.updated.length > RESULTS_PAGE_SIZE && (
-                                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2">
-                                                <Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => Math.max(1, p-1))} disabled={resultPageUpdated === 1}>Anterior</Button>
-                                                <Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => p+1)} disabled={resultPageUpdated * RESULTS_PAGE_SIZE >= syncResult.updated.length}>Siguiente</Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </TabsContent>
-                            </Tabs>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-6 pt-12 border-t max-w-5xl mx-auto">
-                            <Button variant="outline" className="h-16 font-black uppercase text-xs rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm" onClick={reset}>
-                                <RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo
-                            </Button>
-                            <Button className="h-16 font-black uppercase text-xs rounded-2xl bg-slate-900 hover:bg-black transition-all shadow-xl active:scale-[0.98]" onClick={() => window.location.reload()}>
-                                <CheckCircle className="mr-2 h-4 w-4" /> Finalizar Proceso
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                <Card className="border-none shadow-2xl overflow-hidden rounded-[40px] relative animate-in zoom-in-95 slide-in-from-bottom-10 duration-500 bg-white"><div className="p-16 relative"><Button variant="ghost" size="icon" onClick={reset} className="absolute top-8 right-8 text-slate-400 hover:bg-slate-100 rounded-full"><X className="h-6 w-6" /></Button><div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto"><div className="p-10 rounded-[32px] bg-[#F0FDF4] border border-[#DCFCE7] text-center space-y-4"><p className="text-[11px] font-black uppercase text-[#166534] tracking-widest">Inyectados</p><p className="text-7xl font-black text-[#14532D] tabular-nums">{syncResult.inserted.length}</p></div><div className="p-10 rounded-[32px] bg-[#EFF6FF] border border-[#DBEAFE] text-center space-y-4"><p className="text-[11px] font-black uppercase text-[#1E40AF] tracking-widest">Sobrescritos</p><p className="text-7xl font-black text-[#1E3A8A] tabular-nums">{syncResult.updated.length}</p></div><div className="p-10 rounded-[32px] bg-[#F8FAFC] border border-[#F1F5F9] text-center space-y-4"><p className="text-[11px] font-black uppercase text-[#64748B] tracking-widest">Sin Cambios</p><p className="text-7xl font-black text-[#334155] tabular-nums">{syncResult.unchanged.length}</p></div></div><div className="mt-12 space-y-3 max-w-5xl mx-auto"><h4 className="text-sm font-black text-slate-900">Registro de Cambios:</h4><div className="bg-[#F8FAFC] border border-[#F1F5F9] px-4 py-3 rounded-xl"><p className="text-[11px] font-medium text-slate-500">Sincronización completada el {syncResult.syncTime || new Date().toLocaleString('es-MX')}. Nuevos: {syncResult.inserted.length}, Actualizados: {syncResult.updated.length}, Errores: {syncResult.errors.length}.</p></div></div></div><Separator className="mx-16 w-auto bg-slate-100" /><CardContent className="p-12 space-y-12">{syncResult.errors.length > 0 && (<div className="space-y-6 max-w-5xl mx-auto"><h3 className="text-base font-black uppercase text-slate-800 tracking-tight flex items-center gap-2"><AlertCircle className="h-5 w-5 text-amber-600" /> DETALLE DE ANOMALÍAS:</h3><div className="space-y-4 max-h-[450px] overflow-y-auto pr-4 no-scrollbar">{syncResult.errors.map((err, i) => (<div key={i} className="group p-8 rounded-3xl bg-white border border-slate-100 shadow-md flex items-start gap-6 hover:shadow-xl transition-all duration-300"><div className="relative mt-1"><div className="h-4 w-4 rounded-full bg-red-500 animate-ping absolute inset-0 opacity-20" /><div className="h-4 w-4 rounded-full bg-red-500 relative ring-4 ring-red-50" /></div><div className="space-y-2"><p className="font-black text-red-600 text-xs uppercase tracking-widest leading-none">ERROR LOTE #{err.batch}</p><p className="text-slate-700 text-sm font-semibold leading-relaxed">{formatErrorDescription(err.msg)}</p></div></div>))}</div></div>)}<div className="space-y-8 max-w-5xl mx-auto pt-4"><div className="flex items-center gap-3"><Database className="h-6 w-6 text-slate-800" /><h3 className="text-lg font-black uppercase text-slate-800 tracking-tighter">Visor de Registros Procesados:</h3></div><Tabs defaultValue="actualizados" className="w-full"><TabsList className="h-12 bg-slate-100/50 p-1 rounded-2xl mb-8 w-fit border border-slate-100"><TabsTrigger value="inyectados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Nuevos Inyectados ({syncResult.inserted.length})</TabsTrigger><TabsTrigger value="actualizados" className="px-8 font-black uppercase text-[10px] rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Sobrescritos ({syncResult.updated.length})</TabsTrigger></TabsList><TabsContent value="inyectados"><div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm"><ScrollArea className="h-[500px] w-full bg-white"><Table className="min-w-full border-collapse"><TableHeader className="bg-slate-50/50 sticky top-0 z-10"><TableRow className="border-b border-slate-100">{activeDbColumns.map(col => (<TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>))}</TableRow></TableHeader><TableBody>{syncResult.inserted.length > 0 ? (syncResult.inserted.slice((resultPageInjected - 1) * RESULTS_PAGE_SIZE, resultPageInjected * RESULTS_PAGE_SIZE).map((r, i) => (<TableRow key={i} className="h-12 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">{activeDbColumns.map(col => (<TableCell key={col} className="text-[10px] px-6 font-medium text-slate-600 border-r border-slate-50/50">{String(r[col] ?? '-')}</TableCell>))}</TableRow>))) : (<TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin nuevos registros inyectados</TableCell></TableRow>)}</TableBody></Table><ScrollBar orientation="horizontal" /></ScrollArea>{syncResult.inserted.length > RESULTS_PAGE_SIZE && (<div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2"><Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => Math.max(1, p-1))} disabled={resultPageInjected === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setResultPageInjected(p => p+1)} disabled={resultPageInjected * RESULTS_PAGE_SIZE >= syncResult.inserted.length}>Siguiente</Button></div>)}</div></TabsContent><TabsContent value="actualizados"><div className="rounded-3xl border border-slate-100 overflow-hidden shadow-sm"><ScrollArea className="h-[500px] w-full bg-white"><Table className="min-w-full border-collapse"><TableHeader className="bg-slate-50/50 sticky top-0 z-10"><TableRow className="border-b border-slate-100">{activeDbColumns.map(col => (<TableHead key={col} className="font-black text-[9px] uppercase px-6 py-4 whitespace-nowrap text-slate-400">{col.replace(/_/g, ' ')}</TableHead>))}</TableRow></TableHeader><TableBody>{syncResult.updated.length > 0 ? (syncResult.updated.slice((resultPageUpdated - 1) * RESULTS_PAGE_SIZE, resultPageUpdated * RESULTS_PAGE_SIZE).map((u, i) => (<TableRow key={i} className="h-20 border-b border-slate-50 hover:bg-slate-50/30 transition-colors">{activeDbColumns.map(col => { const isDiff = NUMERIC_FIELDS.includes(col) ? Math.abs(Number(u.record[col]) - Number(u.original[col])) > 0.0001 : String(u.record[col] ?? '').trim() !== String(u.original[col] ?? '').trim(); return (<TableCell key={col} className={cn("px-6 text-[10px] font-medium border-r border-slate-50/50", isDiff ? "bg-amber-50/20" : "text-slate-400 opacity-60")}>{isDiff ? (<div className="flex flex-col gap-1"><span className="text-red-500/60 line-through text-[8px] font-bold">{String(u.original[col] ?? 'vacío')}</span><span className="text-primary font-black text-[10px] leading-tight">{String(u.record[col] ?? 'vacío')}</span></div>) : String(u.record[col] ?? '-')}</TableCell>); })}</TableRow>))) : (<TableRow><TableCell colSpan={activeDbColumns.length} className="text-center py-24 italic text-slate-300 font-bold uppercase text-[10px]">Sin registros actualizados</TableCell></TableRow>)}</TableBody></Table><ScrollBar orientation="horizontal" /></ScrollArea>{syncResult.updated.length > RESULTS_PAGE_SIZE && (<div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center gap-2"><Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => Math.max(1, p-1))} disabled={resultPageUpdated === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setResultPageUpdated(p => p+1)} disabled={resultPageUpdated * RESULTS_PAGE_SIZE >= syncResult.updated.length}>Siguiente</Button></div>)}</div></TabsContent></Tabs></div><div className="grid grid-cols-2 gap-6 pt-12 border-t max-w-5xl mx-auto"><Button variant="outline" className="h-16 font-black uppercase text-xs rounded-2xl border-2 border-slate-100 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm" onClick={reset}><RefreshCcw className="mr-2 h-4 w-4" /> Procesar otro archivo</Button><Button className="h-16 font-black uppercase text-xs rounded-2xl bg-slate-900 hover:bg-black transition-all shadow-xl active:scale-[0.98]" onClick={() => window.location.reload()}><CheckCircle className="mr-2 h-4 w-4" /> Finalizar Proceso</Button></div></CardContent></Card>
             )}
         </div>
     );

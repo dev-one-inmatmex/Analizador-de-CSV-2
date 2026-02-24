@@ -178,3 +178,27 @@ export interface publi_xsku {
   sku: string;
   num_publicaciones: number | null;
 }
+
+export interface inventario_master {
+  id: number;
+  sku: string;
+  stock_maestro: number | null;
+  unidad: string | null;
+  empresa: string | null;
+  landed_cost_id: number | null;
+  barcode: number | null;
+  sat_key: number | null;
+  unidad_med_sat: string | null;
+  fech_hora: string | Date | null;
+  observaciones: string | null;
+  adjuntar_image: string;
+  location_id: number | null;
+  empaquetado_master: string | null;
+  cod_siggo: string | null;
+  nombre_siggo: string | null;
+  min_stock: number | null;
+  max_stock: number | null;
+  dias_sin_mov_siggo: number | null;
+  pzs_totales: number | null;
+  estado_siggo: string | null;
+}
