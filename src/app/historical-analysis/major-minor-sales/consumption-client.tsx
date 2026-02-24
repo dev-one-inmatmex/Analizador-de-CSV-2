@@ -50,6 +50,7 @@ export default function ConsumptionClient({
     const [invPage, setInvPage] = React.useState(1);
     const [consPage, setConsPage] = React.useState(1);
     const [isTop10ModalOpen, setIsTop10ModalOpen] = React.useState(false);
+    const [isSkuPieModalOpen, setIsSkuPieModalOpen] = React.useState(false);
 
     React.useEffect(() => {
         setIsClient(true);
@@ -345,10 +346,18 @@ export default function ConsumptionClient({
                             </Card>
 
                             <Card className="shadow-sm border-none bg-white rounded-xl overflow-hidden">
-                                <CardHeader className="bg-muted/5 border-b">
+                                <CardHeader className="bg-muted/5 border-b flex flex-row items-center justify-between space-y-0">
                                     <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tight">
                                         <Boxes className="h-4 w-4 text-primary"/> Salidas por SKU
                                     </CardTitle>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-7 gap-1 font-bold bg-primary/5 border-primary/20 text-[9px] uppercase"
+                                        onClick={() => setIsSkuPieModalOpen(true)}
+                                    >
+                                        <Eye className="h-3 w-3" /> Ver Detalle
+                                    </Button>
                                 </CardHeader>
                                 <CardContent className="h-[350px] pt-6">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -624,6 +633,68 @@ export default function ConsumptionClient({
                     
                     <div className="px-8 py-6 border-t bg-muted/10 flex items-center justify-end">
                         <Button variant="outline" onClick={() => setIsTop10ModalOpen(false)} className="rounded-xl font-bold uppercase text-[10px] px-6 h-10 border-slate-200">Cerrar Visor</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal de Salidas por SKU */}
+            <Dialog open={isSkuPieModalOpen} onOpenChange={setIsSkuPieModalOpen}>
+                <DialogContent className="max-w-4xl h-[80vh] flex flex-col border-none shadow-2xl p-0 overflow-hidden rounded-[32px]">
+                    <div className="px-8 py-6 border-b bg-muted/30">
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2">
+                                <Boxes className="h-6 w-6 text-primary" /> Detalle de Salidas por SKU
+                            </DialogTitle>
+                            <DialogDescription>Desglose del volumen de unidades consumidas por cada producto clave.</DialogDescription>
+                        </DialogHeader>
+                    </div>
+                    
+                    <div className="flex-1 overflow-auto p-8">
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white">
+                            <Table>
+                                <TableHeader className="bg-slate-50/50">
+                                    <TableRow className="h-14">
+                                        <TableHead className="font-bold px-6 text-[10px] uppercase">Producto / SKU</TableHead>
+                                        <TableHead className="text-right font-bold px-6 text-[10px] uppercase">Unidades Salientes (Pz)</TableHead>
+                                        <TableHead className="text-right font-bold px-6 text-[10px] uppercase">% Participación</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {skuPieData.length > 0 ? (
+                                        skuPieData.map((item, i) => {
+                                            const total = skuPieData.reduce((sum, s) => sum + s.value, 0);
+                                            const percent = (item.value / (total || 1)) * 100;
+                                            return (
+                                                <TableRow key={i} className="h-16 hover:bg-muted/30 transition-colors border-b border-slate-50">
+                                                    <TableCell className="px-6">
+                                                        <div className="font-bold text-xs text-slate-900 uppercase">{item.name}</div>
+                                                    </TableCell>
+                                                    <TableCell className="px-6 text-right font-black text-slate-800">
+                                                        {item.value.toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell className="px-6 text-right font-bold text-primary">
+                                                        {percent.toFixed(1)}%
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="h-64 text-center">
+                                                <div className="flex flex-col items-center gap-3 opacity-30">
+                                                    <ClipboardList className="h-12 w-12" />
+                                                    <p className="font-black uppercase text-xs tracking-widest text-slate-500">Sin datos registrados</p>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    
+                    <div className="px-8 py-6 border-t bg-muted/10 flex items-center justify-end">
+                        <Button variant="outline" onClick={() => setIsSkuPieModalOpen(false)} className="rounded-xl font-bold uppercase text-[10px] px-6 h-10 border-slate-200">Cerrar Visor</Button>
                     </div>
                 </DialogContent>
             </Dialog>
