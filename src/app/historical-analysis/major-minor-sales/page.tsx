@@ -1,12 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabaseClient'
 import ConsumptionClient from './consumption-client';
 import { subMonths } from 'date-fns';
-import type { ml_sales, inventario_master } from '@/types/database';
+import type { ml_sales } from '@/types/database';
 
 export type Sale = ml_sales & { categoria?: string };
 
-// Exporting Transaction type to fix the import error in major-minor-sales-client.tsx
-// even if this specific type is not used in the new Consumo logic.
 export type Transaction = {
   id: string;
   customer: string;
@@ -76,47 +74,13 @@ async function getSalesData() {
   };
 }
 
-async function getInventoryMaster(): Promise<inventario_master[]> {
-  if (!supabaseAdmin) return [];
-  const all: inventario_master[] = [];
-  let from = 0;
-  const step = 1000;
-  let hasMore = true;
-
-  try {
-    while (hasMore) {
-      const { data, error } = await supabaseAdmin
-        .from('inventario_master')
-        .select('*')
-        .order('sku', { ascending: true })
-        .range(from, from + step - 1);
-      
-      if (error) throw error;
-      if (data && data.length > 0) {
-        all.push(...(data as inventario_master[]));
-        if (data.length < step) hasMore = false;
-        else from += step;
-      } else {
-        hasMore = false;
-      }
-    }
-  } catch (e) {
-    console.error('Error fetching inventory master:', e);
-  }
-  return all;
-}
-
 export default async function ConsumoVentasPage() {
-  const [{ sales, allCompanies }, inventory] = await Promise.all([
-    getSalesData(),
-    getInventoryMaster()
-  ]);
+  const { sales, allCompanies } = await getSalesData();
 
   return (
     <ConsumptionClient 
       initialSales={sales} 
       allCompanies={allCompanies}
-      inventoryMaster={inventory}
     />
   );
 }
