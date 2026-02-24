@@ -172,7 +172,7 @@ export default function MajorMinorSalesClientPage({
         <Tabs defaultValue="consumption" className="w-full">
           <TabsList className="bg-muted/40 p-1 mb-8">
             <TabsTrigger value="consumption" className="text-xs font-bold uppercase">Análisis de Consumo</TabsTrigger>
-            <TabsTrigger value="inventory" className="text-xs font-bold uppercase">Inventario Maestro (Siggo)</TabsTrigger>
+            <TabsTrigger value="inventory" className="text-xs font-bold uppercase">Filtrado por categorías</TabsTrigger>
           </TabsList>
 
           <TabsContent value="consumption" className="space-y-8 animate-in fade-in duration-500">

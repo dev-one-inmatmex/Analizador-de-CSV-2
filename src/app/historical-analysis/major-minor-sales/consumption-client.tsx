@@ -566,9 +566,9 @@ export default function ConsumptionClient({
                                     Mostrando {paginatedInventory.length} de {filteredInventory.length} productos
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase mr-4">Página {invPage} de {Math.ceil(filteredInventory.length / 50) || 1}</span>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase mr-4">Página {invPage} de {totalInvPages || 1}</span>
                                     <Button variant="outline" size="sm" onClick={() => setInvPage(p => Math.max(1, p - 1))} disabled={invPage === 1} className="h-8 text-[9px] font-black border-slate-200">ANTERIOR</Button>
-                                    <Button variant="outline" size="sm" onClick={() => setInvPage(p => Math.min(Math.ceil(filteredInventory.length / 50), p + 1))} disabled={invPage >= Math.ceil(filteredInventory.length / 50)} className="h-8 text-[9px] font-black border-slate-200">SIGUIENTE</Button>
+                                    <Button variant="outline" size="sm" onClick={() => setInvPage(p => Math.min(totalInvPages, p + 1))} disabled={invPage >= totalInvPages} className="h-8 text-[9px] font-black border-slate-200">SIGUIENTE</Button>
                                 </div>
                             </CardFooter>
                         </Card>

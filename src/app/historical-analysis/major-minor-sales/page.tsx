@@ -5,6 +5,16 @@ import type { ml_sales, inventario_master } from '@/types/database';
 
 export type Sale = ml_sales & { categoria?: string };
 
+// Exporting Transaction type to fix the import error in major-minor-sales-client.tsx
+// even if this specific type is not used in the new Consumo logic.
+export type Transaction = {
+  id: string;
+  customer: string;
+  amount: number;
+  type: 'Mayorista' | 'Minorista';
+  date: string;
+};
+
 async function getSalesData() {
   if (!supabaseAdmin) return { sales: [], allCompanies: [] };
   
