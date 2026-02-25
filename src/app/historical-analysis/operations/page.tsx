@@ -10,15 +10,16 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
-  Bell, Search, Filter, Download, Activity,
-  PieChart as PieChartIcon, Truck, History, X,
-  Save, CalendarDays, FileText, FileDown,
-  SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Target, TrendingUp, Hammer, Info, Eye, AlertTriangle
+  Search, Filter, Activity,
+  PieChart as PieChartIcon, Target, TrendingUp, Hammer, Save, CalendarDays, FileText,
+  SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye, Download
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line, Area
 } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -28,10 +29,7 @@ import {
     EMPRESAS,
     TIPOS_TRANSACCION,
     CANALES_ASOCIADOS,
-    METODOS_PAGO,
-    BANCOS,
-    CUENTAS,
-    CLASIFICACIONES_OPERATIVAS
+    METODOS_PAGO
 } from './schemas';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
@@ -56,21 +54,9 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Separator } from '@/components/ui/separator';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
-
-function getEnhancedValue(baseValue: string, notes: string | null | undefined, prefix: string): string {
-    if (!notes) return baseValue;
-    const match = notes.match(new RegExp(`\\[${prefix}: (.*?)\\]`));
-    return (match && match[1]) ? match[1] : baseValue;
-}
-
-function cleanNotes(notes: string | null | undefined): string {
-    if (!notes) return '';
-    return notes.replace(/\[(Empresa|Método|Banco|Cuenta):.*?\]\s*/g, '').trim();
-}
 
 // FORMULARIO DE TRANSACCIÓN CON TRIPLE CASCADA
 function TransactionForm({ transaction, onSubmit, catalogs }: any) {
@@ -80,16 +66,18 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
             ...transaction,
             fecha: parseISO(transaction.fecha),
             monto: Number(transaction.monto),
-            empresa: EMPRESAS.includes(transaction.empresa) ? transaction.empresa : 'OTRA',
-            especificar_empresa: getEnhancedValue(transaction.empresa, transaction.notas, 'Empresa'),
-            metodo_pago: METODOS_PAGO.includes(transaction.metodo_pago) ? transaction.metodo_pago : 'OTRO',
-            especificar_metodo_pago: getEnhancedValue(transaction.metodo_pago, transaction.notas, 'Método'),
-            banco: BANCOS.includes(transaction.banco) ? transaction.banco : 'OTRO',
-            especificar_banco: getEnhancedValue(transaction.banco, transaction.notas, 'Banco'),
-            cuenta: CUENTAS.includes(transaction.cuenta) ? transaction.cuenta : 'OTRO',
-            especificar_cuenta: getEnhancedValue(transaction.cuenta, transaction.notas, 'Cuenta'),
+            empresa: transaction.empresa,
+            tipo_transaccion: transaction.tipo_transaccion,
+            tipo_gasto_impacto: transaction.tipo_gasto_impacto,
+            area_funcional: transaction.area_funcional,
+            categoria_macro: transaction.categoria_macro,
+            categoria: transaction.categoria,
+            subcategoria_especifica: transaction.subcategoria_especifica,
+            canal_asociado: transaction.canal_asociado || 'GENERAL',
+            responsable: transaction.responsable || '',
             descripcion: transaction.descripcion || '',
-            notas: cleanNotes(transaction.notas),
+            notas: transaction.notas || '',
+            es_fijo: transaction.es_fijo || false,
             es_nomina_mixta: false
         } : {
             fecha: new Date(),
@@ -102,12 +90,9 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
             categoria: undefined,
             subcategoria_especifica: undefined,
             canal_asociado: 'GENERAL',
-            clasificacion_operativa: 'DIRECTO',
             es_fijo: false,
             es_recurrente: false,
             metodo_pago: '',
-            banco: '',
-            cuenta: '',
             responsable: '',
             descripcion: '',
             notas: '',
@@ -117,19 +102,13 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
 
     const watchedMacro = useWatch({ control: form.control, name: 'categoria_macro' });
     const watchedCat = useWatch({ control: form.control, name: 'categoria' });
-    const currentEmpresa = useWatch({ control: form.control, name: 'empresa' });
-    const currentMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
-    const currentBanco = useWatch({ control: form.control, name: 'banco' });
-    const currentCuenta = useWatch({ control: form.control, name: 'cuenta' });
     const currentImpactId = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
 
-    // Lógica de Nómina
     const isNomina = React.useMemo(() => {
         const impact = catalogs.impactos.find((i: any) => i.id === currentImpactId);
         return impact?.nombre?.toUpperCase().includes('NOMINA');
     }, [catalogs.impactos, currentImpactId]);
 
-    // FILTRADO EN CASCADA
     const filteredCategories = React.useMemo(() => {
         if (!watchedMacro) return [];
         return catalogs.categorias.filter((c: any) => c.categoria_macro_id === watchedMacro);
@@ -140,19 +119,18 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
         return catalogs.subcategorias.filter((s: any) => s.categoria_id === watchedCat);
     }, [catalogs.subcategorias, watchedCat]);
 
-    // RESETER AL CAMBIAR PADRES
     React.useEffect(() => {
-        if (watchedMacro) {
+        if (watchedMacro && !transaction) {
             form.setValue('categoria', undefined as any);
             form.setValue('subcategoria_especifica', undefined as any);
         }
-    }, [watchedMacro, form]);
+    }, [watchedMacro, form, transaction]);
 
     React.useEffect(() => {
-        if (watchedCat) {
+        if (watchedCat && !transaction) {
             form.setValue('subcategoria_especifica', undefined as any);
         }
-    }, [watchedCat, form]);
+    }, [watchedCat, form, transaction]);
 
     return (
         <Form {...form}>
@@ -228,7 +206,6 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                         </FormItem>
                     )} />
 
-                    {/* TRIPLE CASCADA */}
                     <FormField control={form.control} name="categoria_macro" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Macro (Nivel 1)</FormLabel>
@@ -292,11 +269,11 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                 <div className="flex gap-4">
                     <FormField control={form.control} name="es_fijo" render={({ field }) => (
                         <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormControl><Switch checked={!!field.value} onCheckedChange={field.onChange} /></FormControl>
                             <FormLabel>Gasto Fijo</FormLabel>
                         </FormItem>
                     )} />
-                    {isNomina && (
+                    {isNomina && !transaction && (
                         <FormField control={form.control} name="es_nomina_mixta" render={({ field }) => (
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
@@ -316,7 +293,6 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
     );
 }
 
-// COMPONENTE PRINCIPAL
 export default function OperationsPage() {
     const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion'>('inicio');
     const [transactions, setTransactions] = React.useState<gastos_diarios[]>([]);
@@ -326,7 +302,6 @@ export default function OperationsPage() {
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
     const [isClient, setIsClient] = React.useState(false);
 
-    // CATÁLOGOS DINÁMICOS (5 TABLAS)
     const [catalogs, setCatalogs] = React.useState({
         impactos: [] as cat_tipo_gasto_impacto[],
         areas: [] as cat_area_funcional[],
@@ -353,11 +328,11 @@ export default function OperationsPage() {
         if (!supabase) return;
         try {
             const [imp, ar, mac, cat, sub] = await Promise.all([
-                supabase.from('cat_tipo_gasto_impacto').select('*').order('nombre'),
-                supabase.from('cat_area_funcional').select('*').order('nombre'),
-                supabase.from('cat_categoria_macro').select('*').order('nombre'),
-                supabase.from('cat_categoria').select('*').order('nombre'),
-                supabase.from('cat_subcategoria').select('*').order('nombre')
+                supabase.from('cat_tipos_gasto_impacto').select('*').order('nombre'),
+                supabase.from('cat_areas_funcionales').select('*').order('nombre'),
+                supabase.from('cat_categorias_macro').select('*').order('nombre'),
+                supabase.from('cat_categorias').select('*').order('nombre'),
+                supabase.from('cat_subcategorias').select('*').order('nombre')
             ]);
             setCatalogs({
                 impactos: imp.data || [],
@@ -399,7 +374,7 @@ export default function OperationsPage() {
             const impact = catalogs.impactos.find(i => i.id === finalValues.tipo_gasto_impacto);
             const isNominaImpact = impact?.nombre?.toUpperCase().includes('NOMINA');
 
-            if (isNominaImpact && finalValues.es_nomina_mixta) {
+            if (isNominaImpact && finalValues.es_nomina_mixta && !editingTransaction) {
                 for (const dest of biConfig.payrollTemplate) {
                     if (dest.porcentaje <= 0) continue;
                     const fraccionado = {
@@ -461,9 +436,21 @@ export default function OperationsPage() {
                             </SelectContent>
                         </Select>
                         <div className="flex items-center gap-1 ml-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(prev => add(prev, { months: -1 }))}><ChevronLeft className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                let interval = { months: -1 };
+                                if (periodType === 'six_months') interval = { months: -6 };
+                                if (periodType === 'year') interval = { years: -1 };
+                                if (periodType === 'day') interval = { days: -1 };
+                                setCurrentDate(prev => add(prev, interval));
+                            }}><ChevronLeft className="h-4 w-4" /></Button>
                             <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(prev => add(prev, { months: 1 }))}><ChevronRight className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                let interval = { months: 1 };
+                                if (periodType === 'six_months') interval = { months: 6 };
+                                if (periodType === 'year') interval = { years: 1 };
+                                if (periodType === 'day') interval = { days: 1 };
+                                setCurrentDate(prev => add(prev, interval));
+                            }}><ChevronRight className="h-4 w-4" /></Button>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -495,7 +482,6 @@ export default function OperationsPage() {
     );
 }
 
-// VISTA DE INSIGHTS (INICIO) - RESOLUCIÓN DE IDs
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, catalogs, biConfig }: any) {
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
     const [selectedDayData, setSelectedDayData] = React.useState<any>(null);
@@ -516,8 +502,8 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
                     fixedCosts += monto;
                     if (impactName.includes('NOMINA') || subName.includes('sueldo')) rubrosFijos.nomina += monto;
                     else if (subName.includes('renta') || desc.includes('arrendamiento')) rubrosFijos.renta += monto;
-                    else if (['cfe', 'agua', 'internet'].some(s => subName.includes(s) || desc.includes(s))) rubrosFijos.servicios += monto;
-                    else if (subName.includes('software') || subName.includes('saas')) rubrosFijos.software += monto;
+                    else if (['cfe', 'agua', 'internet', 'teléfono'].some(s => subName.includes(s) || desc.includes(s))) rubrosFijos.servicios += monto;
+                    else if (['software', 'saas', 'shopify', 'suscripción'].some(s => subName.includes(s) || desc.includes(s))) rubrosFijos.software += monto;
                 }
             } else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += monto;
         });
@@ -642,10 +628,70 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
     );
 }
 
-// VISTA DE INFORMES - RESOLUCIÓN DE IDs
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction, catalogs, biConfig, periodType }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const periodLabel = periodType === 'month' ? 'Mensual' : periodType === 'year' ? 'Anual' : periodType === 'six_months' ? 'Semestral' : 'Diario';
+
+    const downloadPDF = (t: any) => {
+        const doc = new jsPDF();
+        const macroName = catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-';
+        const catName = catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-';
+        const subName = catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-';
+        const areaName = catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-';
+        const impactName = catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-';
+
+        doc.setFontSize(20);
+        doc.setTextColor(45, 90, 76);
+        doc.text('COMPROBANTE DE MOVIMIENTO', 105, 20, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generado el: ${new Date().toLocaleString()}`, 195, 10, { align: 'right' });
+
+        doc.setDrawColor(200);
+        doc.line(20, 25, 190, 25);
+
+        autoTable(doc, {
+            startY: 35,
+            theme: 'striped',
+            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255] },
+            body: [
+                ['FECHA', t.fecha],
+                ['EMPRESA', t.empresa],
+                ['TIPO', t.tipo_transaccion],
+                ['MONTO', money(t.monto)],
+                ['RESPONSABLE', t.responsable || '-'],
+                ['CANAL', String(t.canal_asociado || '-').replace(/_/g, ' ')],
+                ['ESTADO', t.es_fijo ? 'GASTO FIJO' : 'GASTO VARIABLE'],
+            ],
+        });
+
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text('CLASIFICACIÓN TÉCNICA', 20, (doc as any).lastAutoTable.finalY + 15);
+
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY + 20,
+            theme: 'plain',
+            body: [
+                ['IMPACTO (FASE 1)', impactName],
+                ['ÁREA FUNCIONAL (FASE 2)', areaName],
+                ['MACRO (NIVEL 1)', macroName],
+                ['CATEGORÍA (NIVEL 2)', catName],
+                ['SUBCATEGORÍA (NIVEL 3)', subName],
+            ],
+        });
+
+        if (t.descripcion || t.notas) {
+            doc.text('OBSERVACIONES', 20, (doc as any).lastAutoTable.finalY + 15);
+            doc.setFontSize(10);
+            doc.setTextColor(80);
+            const obsText = `Descripción: ${t.descripcion || 'Sin descripción'}\nNotas: ${t.notas || 'Sin notas'}`;
+            doc.text(obsText, 20, (doc as any).lastAutoTable.finalY + 22, { maxWidth: 170 });
+        }
+
+        doc.save(`movimiento_${t.id}_${t.fecha}.pdf`);
+    };
 
     const { breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(t.tipo_transaccion)).reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0);
@@ -663,7 +709,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     const filtered = transactions.filter((t: any) => {
         const sub = catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '';
-        return sub.toLowerCase().includes(searchQuery.toLowerCase()) || (t.responsable || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const macro = catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '';
+        const resp = t.responsable || '';
+        return [sub, macro, resp].some(str => str.toLowerCase().includes(searchQuery.toLowerCase()));
     });
 
     return (
@@ -686,48 +734,60 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             </Card>
 
             <Card className="border-none shadow-sm bg-white overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div><CardTitle className="text-xl font-bold">Historial de Movimientos ({periodLabel})</CardTitle></div>
-                    <div className="flex gap-2">
-                        <div className="relative"><Input placeholder="Buscar..." className="h-9 w-[200px]" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-6">
+                    <CardTitle className="text-xl font-black uppercase tracking-tight">Historial de Movimientos ({periodLabel})</CardTitle>
+                    <div className="relative w-72">
+                        <Input placeholder="Buscar..." className="h-10 pl-4 pr-10 border-slate-200 rounded-xl" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     </div>
                 </CardHeader>
                 <div className="table-responsive border-t">
-                    <Table className="min-w-[2000px]">
-                        <TableHeader className="bg-muted/10"><TableRow className="h-12">
-                            <TableHead className="font-bold uppercase text-[10px]">Fecha</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px]">Empresa</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px]">Impacto</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px]">Área</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px]">Macro</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px]">Categoría</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px]">Subcategoría</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px]">Responsable</TableHead>
-                            <TableHead className="text-right font-bold uppercase text-[10px] px-6">Monto</TableHead>
-                            <TableHead className="w-[100px] text-center">Acciones</TableHead>
-                        </TableRow></TableHeader>
+                    <Table>
+                        <TableHeader className="bg-slate-50/50">
+                            <TableRow className="h-12 border-b-slate-100">
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-8">MACRO</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400">CATEGORÍA</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400">SUBCATEGORÍA</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400">RESPONSABLE</TableHead>
+                                <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 pr-8">MONTO</TableHead>
+                                <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
                         <TableBody>
-                            {filtered.map((t: any) => (
-                                <TableRow key={t.id} className="h-14">
-                                    <TableCell className="text-[11px]">{t.fecha}</TableCell>
-                                    <TableCell><Badge variant="outline" className="text-[10px]">{t.empresa}</Badge></TableCell>
-                                    <TableCell className="text-[10px] uppercase">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px] font-bold text-[#2D5A4C] uppercase">{catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px] font-bold">{t.responsable}</TableCell>
-                                    <TableCell className="text-right font-bold text-sm px-6">{money(t.monto)}</TableCell>
+                            {filtered.length > 0 ? filtered.map((t: any) => (
+                                <TableRow key={t.id} className="h-16 hover:bg-slate-50/50 transition-colors border-slate-100">
+                                    <TableCell className="px-8 font-black text-[10px] uppercase text-[#2D5A4C]">
+                                        {catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}
+                                    </TableCell>
+                                    <TableCell className="font-bold text-[10px] uppercase text-slate-400">
+                                        {catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}
+                                    </TableCell>
+                                    <TableCell className="font-black text-[10px] uppercase text-[#2D5A4C]">
+                                        {catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}
+                                    </TableCell>
+                                    <TableCell className="font-black text-[10px] text-slate-900">{t.responsable || '-'}</TableCell>
+                                    <TableCell className="text-right font-black text-sm pr-8">{money(t.monto)}</TableCell>
                                     <TableCell className="text-center px-2">
-                                        <div className="flex items-center justify-center gap-1">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => onEditTransaction(t)}>Editar</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => onDeleteTransaction(t.id)}>Eliminar</DropdownMenuItem></DropdownMenuContent>
-                                            </DropdownMenu>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="rounded-xl border-slate-100 shadow-xl">
+                                                <DropdownMenuItem onClick={() => downloadPDF(t)} className="font-bold text-xs uppercase cursor-pointer"><Download className="mr-2 h-3.5 w-3.5" /> Descargar PDF</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => onEditTransaction(t)} className="font-bold text-xs uppercase cursor-pointer"><Pencil className="mr-2 h-3.5 w-3.5" /> Editar</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-destructive font-bold text-xs uppercase cursor-pointer" onClick={() => onDeleteTransaction(t.id)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-64 text-center">
+                                        <div className="flex flex-col items-center gap-3 opacity-20">
+                                            <FileText className="h-12 w-12" />
+                                            <p className="font-black uppercase text-xs tracking-widest">Sin movimientos registrados</p>
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )}
                         </TableBody>
                     </Table>
                 </div>
@@ -736,7 +796,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     );
 }
 
-// VISTA DE PRESUPUESTOS
 function BudgetsView({ transactions, catalogs }: any) {
     const budgetStats = React.useMemo(() => {
         return catalogs.macros.map((cat: any) => {
@@ -768,7 +827,6 @@ function BudgetsView({ transactions, catalogs }: any) {
     );
 }
 
-// PANTALLA 1: MÓDULO DE CONFIGURACIÓN DE CATÁLOGOS (CRUD COMPLETO)
 function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -778,11 +836,11 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const tablesMap: Record<string, string> = {
-        impactos: 'cat_tipo_gasto_impacto',
-        areas: 'cat_area_funcional',
-        macros: 'cat_categoria_macro',
-        categorias: 'cat_categoria',
-        subcategorias: 'cat_subcategoria'
+        impactos: 'cat_tipos_gasto_impacto',
+        areas: 'cat_areas_funcionales',
+        macros: 'cat_categorias_macro',
+        categorias: 'cat_categorias',
+        subcategorias: 'cat_subcategorias'
     };
 
     const handleOpenDialog = (item: any = null) => {
@@ -841,8 +899,6 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
         } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     };
 
-    const currentList = catalogs[activeTab] || [];
-
     return (
         <div className="space-y-10">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -866,12 +922,11 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
                                 <TabsContent key={tab} value={tab} className="mt-0">
                                     <ScrollArea className="h-[400px]">
                                         <Table>
-                                            <TableHeader className="bg-slate-50 sticky top-0 z-10"><TableRow><TableHead className="font-black text-[10px] uppercase px-8">ID</TableHead><TableHead className="font-black text-[10px] uppercase">Nombre</TableHead>{(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase">Relación</TableHead>}<TableHead className="font-black text-[10px] uppercase">Estado</TableHead><TableHead className="w-20"></TableHead></TableRow></TableHeader>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10"><TableRow><TableHead className="font-black text-[10px] uppercase px-8">Nombre</TableHead>{(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase">Relación</TableHead>}<TableHead className="font-black text-[10px] uppercase">Estado</TableHead><TableHead className="w-20"></TableHead></TableRow></TableHeader>
                                             <TableBody>
                                                 {(catalogs[tab] || []).map((item: any) => (
                                                     <TableRow key={item.id} className={cn("h-14", !item.activo && "opacity-50")}>
-                                                        <TableCell className="px-8 font-mono text-xs text-slate-400">#{item.id}</TableCell>
-                                                        <TableCell className="font-bold text-xs uppercase">{item.nombre}</TableCell>
+                                                        <TableCell className="px-8 font-bold text-xs uppercase">{item.nombre}</TableCell>
                                                         {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] uppercase">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
                                                         {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] uppercase">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
                                                         <TableCell><Badge variant={item.activo ? 'default' : 'secondary'} className="text-[8px] uppercase">{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
