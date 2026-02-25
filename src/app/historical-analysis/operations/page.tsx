@@ -671,58 +671,77 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const areaName = catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-';
         const impactName = catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-';
 
-        doc.setFontSize(20);
-        doc.setTextColor(45, 90, 76);
-        doc.text('COMPROBANTE DE MOVIMIENTO', 105, 20, { align: 'center' });
+        // Estilo exacto como la imagen de referencia
+        // Fondo verde para el encabezado
+        doc.setFillColor(45, 90, 76);
+        doc.rect(0, 0, 210, 40, 'F');
+
+        // Título del reporte en blanco
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPORTE DE MOVIMIENTO FINANCIERO', 20, 20);
         
+        // Subtítulo con ID y Fecha
         doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Generado el: ${new Date().toLocaleString()}`, 195, 10, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.text(`ID REGISTRO: #${t.id} | FECHA: ${t.fecha}`, 20, 30);
 
-        doc.setDrawColor(200);
-        doc.line(20, 25, 190, 25);
+        // Sección RESUMEN GENERAL
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('RESUMEN GENERAL', 20, 55);
 
         autoTable(doc, {
-            startY: 35,
+            startY: 60,
             theme: 'striped',
-            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255] },
+            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255], fontStyle: 'bold' },
+            bodyStyles: { fontSize: 10 },
+            columnStyles: { 0: { fontStyle: 'bold', width: 60 } },
             body: [
-                ['ID REGISTRO', `#${t.id}`],
-                ['FECHA', t.fecha],
-                ['EMPRESA', t.empresa],
-                ['TIPO', t.tipo_transaccion],
-                ['MONTO', money(t.monto)],
-                ['RESPONSABLE', t.responsable || '-'],
-                ['CANAL', String(t.canal_asociado || '-').replace(/_/g, ' ')],
-                ['ESTADO', t.es_fijo ? 'GASTO FIJO' : 'GASTO VARIABLE'],
+                ['Concepto', subName],
+                ['Monto', money(t.monto)],
+                ['Tipo', t.tipo_transaccion],
+                ['Empresa', t.empresa],
+                ['Impacto (Nivel 1)', impactName],
+                ['Área (Nivel 2)', areaName],
+                ['Categoría Macro', macroName],
+                ['Canal Asociado', String(t.canal_asociado || 'GENERAL').replace(/_/g, ' ')],
+                ['Atribución', String(t.clasificacion_operativa || 'DIRECTO').replace(/_/g, ' ')],
+                ['Responsable', t.responsable || '-'],
             ],
         });
 
-        doc.setFontSize(12);
-        doc.setTextColor(0);
-        doc.text('CLASIFICACIÓN TÉCNICA', 20, (doc as any).lastAutoTable.finalY + 15);
+        // Sección DETALLES DE PAGO
+        const nextY = (doc as any).lastAutoTable.finalY + 15;
+        doc.setFontSize(14);
+        doc.text('DETALLES DE PAGO', 20, nextY);
 
         autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY + 20,
-            theme: 'plain',
+            startY: nextY + 5,
+            theme: 'grid',
+            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255], fontStyle: 'bold' },
             body: [
-                ['IMPACTO (FASE 1)', impactName],
-                ['ÁREA FUNCIONAL (FASE 2)', areaName],
-                ['MACRO (NIVEL 1)', macroName],
-                ['CATEGORÍA (NIVEL 2)', catName],
-                ['SUBCATEGORÍA (NIVEL 3)', subName],
+                [String(t.metodo_pago || '-').replace(/_/g, ' '), t.banco || '-', t.cuenta || '-'],
             ],
+            head: [['Método', 'Banco', 'Cuenta']],
         });
 
-        if (t.descripcion || t.notas) {
-            doc.text('OBSERVACIONES', 20, (doc as any).lastAutoTable.finalY + 15);
-            doc.setFontSize(10);
-            doc.setTextColor(80);
-            const obsText = `Descripción: ${t.descripcion || 'Sin descripción'}\nNotas: ${t.notas || 'Sin notas'}`;
-            doc.text(obsText, 20, (doc as any).lastAutoTable.finalY + 22, { maxWidth: 170 });
-        }
+        // Sección DESCRIPCIÓN Y NOTAS
+        const notesY = (doc as any).lastAutoTable.finalY + 15;
+        doc.setFontSize(12);
+        doc.text('DESCRIPCIÓN Y NOTAS:', 20, notesY);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text(t.descripcion || '-', 20, notesY + 10, { maxWidth: 170 });
 
-        doc.save(`movimiento_${t.id}_${t.fecha}.pdf`);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Notas adicionales:', 20, notesY + 30);
+        doc.setFont('helvetica', 'normal');
+        doc.text(t.notas || '-', 20, notesY + 40, { maxWidth: 170 });
+
+        doc.save(`reporte_movimiento_${t.id}_${t.fecha}.pdf`);
     };
 
     const { breakevenChart } = React.useMemo(() => {
@@ -734,7 +753,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             const varCosts = sales * (1 - (biConfig.contributionMargin / 100));
             return { name: `$${Math.round(sales/1000)}k`, Ventas: sales, CostosTotales: fijos + varCosts, CostosFijos: fijos };
         });
-        return { breakevenChart: bep };
+        return { breakevenChart: bpe };
     }, [transactions, biConfig]);
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
