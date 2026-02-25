@@ -32,7 +32,10 @@ import {
     EMPRESAS,
     TIPOS_TRANSACCION,
     CANALES_ASOCIADOS,
-    METODOS_PAGO
+    CLASIFICACIONES_OPERATIVAS,
+    METODOS_PAGO,
+    BANCOS,
+    CUENTAS
 } from './schemas';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
@@ -78,10 +81,14 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
             categoria: transaction.categoria,
             subcategoria_especifica: transaction.subcategoria_especifica,
             canal_asociado: transaction.canal_asociado || 'GENERAL',
+            clasificacion_operativa: transaction.clasificacion_operativa || 'DIRECTO',
             responsable: transaction.responsable || '',
             descripcion: transaction.descripcion || '',
             notas: transaction.notas || '',
             es_fijo: transaction.es_fijo || false,
+            metodo_pago: transaction.metodo_pago || '',
+            banco: transaction.banco || '',
+            cuenta: transaction.cuenta || '',
             es_nomina_mixta: false
         } : {
             fecha: new Date(),
@@ -94,9 +101,12 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
             categoria: undefined,
             subcategoria_especifica: undefined,
             canal_asociado: 'GENERAL',
+            clasificacion_operativa: 'DIRECTO',
             es_fijo: false,
             es_recurrente: false,
             metodo_pago: '',
+            banco: '',
+            cuenta: '',
             responsable: '',
             descripcion: '',
             notas: '',
@@ -254,6 +264,17 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                         </FormItem>
                     )} />
 
+                    <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase">Clasificación Operativa</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                                <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                <SelectContent>{CLASIFICACIONES_OPERATIVAS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+
                     <FormField control={form.control} name="responsable" render={({ field }) => (
                         <FormItem><FormLabel className="text-[10px] font-bold uppercase">Responsable</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 border-slate-200 rounded-xl" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -264,6 +285,28 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                             <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+
+                    <FormField control={form.control} name="banco" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase">Banco</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                                <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+
+                    <FormField control={form.control} name="cuenta" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase">Cuenta</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                                <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                                <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
                         </FormItem>
@@ -287,9 +330,15 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     )}
                 </div>
 
-                <FormField control={form.control} name="descripcion" render={({ field }) => (
-                    <FormItem><FormLabel className="text-[10px] font-bold uppercase">Descripción</FormLabel><FormControl><Textarea {...field} value={field.value ?? ''} className="border-slate-200 rounded-xl" /></FormControl><FormMessage /></FormItem>
-                )} />
+                <div className="space-y-4">
+                    <FormField control={form.control} name="descripcion" render={({ field }) => (
+                        <FormItem><FormLabel className="text-[10px] font-bold uppercase">Descripción</FormLabel><FormControl><Textarea {...field} value={field.value ?? ''} className="border-slate-200 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                    )} />
+
+                    <FormField control={form.control} name="notas" render={({ field }) => (
+                        <FormItem><FormLabel className="text-[10px] font-bold uppercase">Notas Adicionales</FormLabel><FormControl><Textarea {...field} value={field.value ?? ''} className="border-slate-200 rounded-xl h-20" placeholder="Breves observaciones técnicas..." /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
 
                 <DialogFooter><Button type="submit" className="w-full h-12 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-xl shadow-lg"><Save className="mr-2 h-4 w-4" /> Guardar Registro</Button></DialogFooter>
             </form>
@@ -671,23 +720,18 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const areaName = catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-';
         const impactName = catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-';
 
-        // Estilo exacto como la imagen de referencia
-        // Fondo verde para el encabezado
         doc.setFillColor(45, 90, 76);
         doc.rect(0, 0, 210, 40, 'F');
 
-        // Título del reporte en blanco
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
         doc.text('REPORTE DE MOVIMIENTO FINANCIERO', 20, 20);
         
-        // Subtítulo con ID y Fecha
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text(`ID REGISTRO: #${t.id} | FECHA: ${t.fecha}`, 20, 30);
 
-        // Sección RESUMEN GENERAL
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
@@ -713,7 +757,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             ],
         });
 
-        // Sección DETALLES DE PAGO
         const nextY = (doc as any).lastAutoTable.finalY + 15;
         doc.setFontSize(14);
         doc.text('DETALLES DE PAGO', 20, nextY);
@@ -728,7 +771,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             head: [['Método', 'Banco', 'Cuenta']],
         });
 
-        // Sección DESCRIPCIÓN Y NOTAS
         const notesY = (doc as any).lastAutoTable.finalY + 15;
         doc.setFontSize(12);
         doc.text('DESCRIPCIÓN Y NOTAS:', 20, notesY);
@@ -885,7 +927,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <p className="text-lg font-black text-slate-800">{viewDetail?.fecha}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría</p>
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría (F5)</p>
                                     <p className="text-lg font-black text-slate-800">{catalogs.subcategorias.find((s: any) => s.id === viewDetail?.subcategoria_especifica)?.nombre || '-'}</p>
                                 </div>
                                 <div className="space-y-1">
@@ -913,7 +955,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.cuenta || '-'}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto</p>
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto (F1)</p>
                                     <p className="text-lg font-black text-slate-800">{catalogs.impactos.find((i: any) => i.id === viewDetail?.tipo_gasto_impacto)?.nombre || '-'}</p>
                                 </div>
                                 <div className="space-y-1">
@@ -921,8 +963,12 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <p className="text-lg font-black text-slate-800">{viewDetail?.responsable || '-'}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Área</p>
-                                    <p className="text-lg font-black text-slate-800">{catalogs.areas.find((a: any) => a.id === viewDetail?.area_funcional)?.nombre || '-'}</p>
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Canal (F6)</p>
+                                    <p className="text-lg font-black text-slate-800 uppercase">{String(viewDetail?.canal_asociado || '-').replace(/_/g, ' ')}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Clasificación (F7)</p>
+                                    <p className="text-lg font-black text-slate-800 uppercase">{String(viewDetail?.clasificacion_operativa || '-').replace(/_/g, ' ')}</p>
                                 </div>
                             </div>
 
@@ -934,7 +980,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <p className="text-sm font-medium text-slate-600 leading-relaxed">{viewDetail?.descripcion || '-'}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas</p>
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
                                     <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
                                 </div>
                             </div>
