@@ -1010,8 +1010,9 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
         );
         
         const maxSales = Math.max(ingresoTotal * 1.5, 200000);
-        const chartBEP = Array.from({ length: 11 }, (_, i) => {
-            const sales = (maxSales / 10) * i;
+        const steps = 10;
+        const chartBEP = Array.from({ length: steps + 1 }, (_, i) => {
+            const sales = (maxSales / steps) * i;
             const margin = 0.40;
             const varCosts = sales * (1 - margin);
             return {
@@ -1146,26 +1147,29 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
     return (
         <div className="space-y-8">
             <Card className="border-none shadow-sm bg-white overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between pb-4">
-                    <div className="space-y-1">
-                        <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" /> Punto de Equilibrio ({periodLabel})
-                        </CardTitle>
-                        <CardDescription>Cruce entre Ingresos y Costos Totales basado en Gasto Fijo del periodo.</CardDescription>
-                    </div>
+                <CardHeader className="flex flex-col gap-1 pb-4">
+                    <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                        <TrendingUp className="h-6 w-6 text-primary" /> Punto de Equilibrio ({periodLabel})
+                    </CardTitle>
+                    <CardDescription className="text-sm font-medium text-slate-500">
+                        Cruce entre Ingresos y Costos Totales basado en Gasto Fijo del periodo.
+                    </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-8">
-                    <div className="h-[300px]">
+                <CardContent className="pt-6">
+                    <div className="h-[400px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={breakevenChart}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} />
-                                <YAxis fontSize={9} axisLine={false} tickLine={false} tickFormatter={v => `$${v/1000}k`} />
-                                <Tooltip formatter={(v: number) => money(v)} />
-                                <Legend verticalAlign="top" align="right" height={36} iconType="line" />
-                                <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.1} stroke="#3b82f6" strokeWidth={2} name="Ingresos" />
-                                <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={false} name="Costos Totales" />
-                                <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeDasharray="5 5" dot={false} name="Base Fija" />
+                            <ComposedChart data={breakevenChart} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontWeight: 600}} />
+                                <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontWeight: 600}} tickFormatter={v => `$${Math.round(v/1000)}k`} />
+                                <Tooltip 
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                                    formatter={(v: number) => money(v)} 
+                                />
+                                <Legend verticalAlign="top" align="right" height={40} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px', fontWeight: 'bold' }} />
+                                <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.08} stroke="#3b82f6" strokeWidth={3} name="Ingresos" />
+                                <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e', strokeWidth: 2 }} activeDot={{ r: 6 }} name="Costos Totales" />
+                                <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Base Fija" />
                             </ComposedChart>
                         </ResponsiveContainer>
                     </div>
