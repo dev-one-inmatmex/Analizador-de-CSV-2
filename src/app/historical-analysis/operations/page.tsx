@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -18,7 +17,7 @@ import {
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line, Area
+  ResponsiveContainer, Tooltip, XAxis, YAxis, RechartsCell, Cell, ComposedChart, Line, Area
 } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -38,7 +37,7 @@ import {
 } from './schemas';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
-import { obtenerDashboardPresupuestos, guardarPresupuestoFirebase, eliminarPresupuestoFirebase } from '@/lib/firebaseBudgetService';
+import { obtenerMetasFirebase, guardarPresupuestoFirebase, eliminarPresupuestoFirebase } from '@/lib/firebaseBudgetService';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -1028,7 +1027,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 }
 
 function BudgetsView({ transactions, catalogs, currentDate }: any) {
-    const [budgetData, setBudgetData] = React.useState<ResumenSeguimientoPresupuesto[]>([]);
+    const [metas, setMetas] = React.useState<Record<number, number>>({});
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
     const [isAjustarOpen, setIsAjustarOpen] = React.useState(false);
@@ -1036,79 +1035,85 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     const [newAmount, setNewAmount] = React.useState<string>("");
     const { toast } = useToast();
 
-    // Calculamos mes y año del contexto actual de forma persistente
     const mes = React.useMemo(() => currentDate.getMonth() + 1, [currentDate]);
     const anio = React.useMemo(() => currentDate.getFullYear(), [currentDate]);
 
-    const loadBudgets = React.useCallback(async () => {
-        if (!catalogs.macros || catalogs.macros.length === 0) return;
-        
+    // 1. Cargar metas de Firebase (Solo una vez por mes/anio)
+    const loadMetas = React.useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await obtenerDashboardPresupuestos(mes, anio, catalogs.macros, transactions);
-            setBudgetData(data);
+            const data = await obtenerMetasFirebase(mes, anio);
+            setMetas(data);
         } catch (e) {
-            console.error("Error cargando presupuestos:", e);
+            console.error("Error cargando metas:", e);
         } finally {
             setIsLoading(false);
         }
-    }, [mes, anio, catalogs.macros, transactions]);
+    }, [mes, anio]);
 
     React.useEffect(() => {
-        loadBudgets();
-    }, [loadBudgets]);
+        loadMetas();
+    }, [loadMetas]);
+
+    // 2. Cálculo ultra-rápido en memoria del ejecutado
+    const budgetData = React.useMemo(() => {
+        if (!catalogs.macros) return [];
+
+        const ejecutadoPorCat: Record<number, number> = {};
+        transactions.forEach((t: any) => {
+            if (!t.fecha || !['GASTO', 'COMPRA'].includes(t.tipo_transaccion) || !t.categoria_macro) return;
+            
+            const parts = t.fecha.split('-');
+            if (parseInt(parts[0]) === anio && parseInt(parts[1]) === mes) {
+                const id = Number(t.categoria_macro);
+                ejecutadoPorCat[id] = (ejecutadoPorCat[id] || 0) + (Number(t.monto) || 0);
+            }
+        });
+
+        return catalogs.macros.map((cat: any) => {
+            const presupuesto = metas[cat.id] || 0;
+            const ejecutado = ejecutadoPorCat[cat.id] || 0;
+            return {
+                id: cat.id,
+                nombre: cat.nombre,
+                presupuesto,
+                ejecutado,
+                disponible: presupuesto - ejecutado,
+                progreso: presupuesto > 0 ? Math.min(100, (ejecutado / presupuesto) * 100) : 0
+            };
+        });
+    }, [catalogs.macros, transactions, metas, mes, anio]);
 
     const handleSaveBudget = async () => {
-        if (!selectedMacroId || !newAmount) {
-            toast({ 
-                title: "Atención", 
-                description: "Debe seleccionar una categoría y un monto válido.", 
-                variant: "destructive" 
-            });
-            return;
-        }
-
+        if (!selectedMacroId || !newAmount) return;
         setIsSaving(true);
         try {
             const montoNum = parseFloat(newAmount);
-            if (isNaN(montoNum)) throw new Error("Monto inválido");
-
             await guardarPresupuestoFirebase(Number(selectedMacroId), montoNum, mes, anio);
             
-            toast({ title: "Éxito", description: "Presupuesto actualizado en Firebase." });
+            // Actualización local inmediata para feedback instantáneo
+            setMetas(prev => ({ ...prev, [Number(selectedMacroId)]: montoNum }));
+            
+            toast({ title: "Éxito", description: "Presupuesto sincronizado." });
             setIsAjustarOpen(false);
-            setSelectedMacroId("");
-            setNewAmount("");
-            await loadBudgets();
-        } catch (e: any) {
-            console.error("Error al guardar presupuesto:", e);
-            toast({ 
-                title: "Error", 
-                description: "No se pudo sincronizar con Firebase. Verifique su conexión.", 
-                variant: "destructive" 
-            });
+        } catch (e) {
+            toast({ title: "Error", description: "Fallo en Firebase.", variant: "destructive" });
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleEditBudget = (item: ResumenSeguimientoPresupuesto) => {
-        setSelectedMacroId(item.id.toString());
-        setNewAmount(item.presupuesto.toString());
-        setIsAjustarOpen(true);
-    };
-
     const handleDeleteBudget = async (id: number) => {
         try {
             await eliminarPresupuestoFirebase(id, mes, anio);
-            toast({ title: "Meta eliminada", description: "El presupuesto se ha restablecido a cero." });
-            loadBudgets();
+            setMetas(prev => ({ ...prev, [id]: 0 }));
+            toast({ title: "Meta eliminada" });
         } catch (e) {
-            toast({ title: "Error", description: "No se pudo eliminar el presupuesto.", variant: "destructive" });
+            toast({ title: "Error", variant: "destructive" });
         }
     };
 
-    if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    if (isLoading && Object.keys(metas).length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <div className="space-y-10 animate-in fade-in duration-500">
@@ -1163,7 +1168,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {budgetData.length > 0 ? budgetData.map((item: ResumenSeguimientoPresupuesto) => (
+                {budgetData.length > 0 ? budgetData.map((item: any) => (
                     <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6 hover:shadow-md transition-shadow relative group">
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.nombre}</span>
@@ -1178,7 +1183,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="rounded-xl">
-                                        <DropdownMenuItem onClick={() => handleEditBudget(item)} className="text-[10px] font-black uppercase cursor-pointer">
+                                        <DropdownMenuItem onClick={() => { setSelectedMacroId(item.id.toString()); setNewAmount(item.presupuesto.toString()); setIsAjustarOpen(true); }} className="text-[10px] font-black uppercase cursor-pointer">
                                             <Pencil className="mr-2 h-3 w-3" /> Editar Meta
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
@@ -1227,7 +1232,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {budgetData.map((item: ResumenSeguimientoPresupuesto) => (
+                                {budgetData.map((item: any) => (
                                     <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
                                         <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
                                         <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>

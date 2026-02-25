@@ -1,25 +1,21 @@
-
 import { collection, doc, setDoc, updateDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebaseConfig";
-import type { ResumenSeguimientoPresupuesto, cat_categoria_macro } from "@/types/database";
+import type { cat_categoria_macro } from "@/types/database";
 
 /**
  * @fileOverview Servicio de Presupuestos en Firebase.
- * Sigue la REGLA DE ORO: Solo lee presupuestos de Firebase y procesa gastos de Supabase.
+ * Optimizado para alto rendimiento: solo maneja persistencia de metas.
  */
 
-// 1. PROPONER / EDITAR (Respeta tus botones de Nuevo Presupuesto / Ajustar)
+// 1. PROPONER / EDITAR (Upsert)
 export async function guardarPresupuestoFirebase(
   categoriaMacroId: number, 
   monto: number, 
   mes: number, 
   anio: number
 ): Promise<void> {
-  if (!db) {
-    throw new Error("No hay conexión con Firestore.");
-  }
+  if (!db) throw new Error("No hay conexión con Firestore.");
   
-  // El ID predecible hace que Firebase actualice si existe, o cree si no existe (Upsert)
   const docId = `macro_${categoriaMacroId}_${mes}_${anio}`;
   const presupuestoRef = doc(db, "presupuestos_macro", docId);
 
@@ -37,7 +33,7 @@ export async function guardarPresupuestoFirebase(
   }
 }
 
-// 2. ELIMINAR (Pone la meta en 0 para no romper tu historial visual)
+// 2. ELIMINAR (Pone la meta en 0)
 export async function eliminarPresupuestoFirebase(
   categoriaMacroId: number, 
   mes: number, 
@@ -58,19 +54,14 @@ export async function eliminarPresupuestoFirebase(
   }
 }
 
-// 3. EL MOTOR DE CÁLCULO (Optimizado para carga instantánea)
-// REGLA DE ORO: No consultamos gastos en Firebase, usamos los ya cargados de Supabase.
-export async function obtenerDashboardPresupuestos(
+// 3. OBTENER METAS (Optimizado para carga única)
+export async function obtenerMetasFirebase(
   mes: number, 
-  anio: number, 
-  catalogoCategorias: cat_categoria_macro[],
-  gastosMensuales: any[] 
-): Promise<ResumenSeguimientoPresupuesto[]> {
-  
-  if (!db) return [];
+  anio: number
+): Promise<Record<number, number>> {
+  if (!db) return {};
 
   try {
-    // A. Consultar las metas del mes actual en Firestore (Operación ligera)
     const qPresupuestos = query(
       collection(db, "presupuestos_macro"), 
       where("mes", "==", mes), 
@@ -84,45 +75,9 @@ export async function obtenerDashboardPresupuestos(
       metasPorCategoria[data.categoria_macro_id] = Number(data.monto_asignado) || 0;
     });
 
-    // B. Calcular el ejecutado basándonos exclusivamente en los datos inyectados
-    const ejecutadoPorCategoria: Record<number, number> = {};
-    
-    // Filtramos los gastos por el mes y año específicos para el cálculo de presupuesto
-    gastosMensuales.forEach(gasto => {
-      if (!gasto.fecha) return;
-      
-      // gasto.fecha viene en formato YYYY-MM-DD
-      const parts = gasto.fecha.split('-');
-      const anioGasto = parseInt(parts[0]);
-      const mesGasto = parseInt(parts[1]);
-
-      if (
-        mesGasto === mes && 
-        anioGasto === anio &&
-        ['GASTO', 'COMPRA'].includes(gasto.tipo_transaccion) && 
-        gasto.categoria_macro
-      ) {
-        const catId = Number(gasto.categoria_macro);
-        ejecutadoPorCategoria[catId] = (ejecutadoPorCategoria[catId] || 0) + (Number(gasto.monto) || 0);
-      }
-    });
-
-    // C. Retornar la estructura exacta para la UI
-    return catalogoCategorias.map(cat => {
-      const presupuesto = metasPorCategoria[cat.id] || 0;
-      const ejecutado = ejecutadoPorCategoria[cat.id] || 0;
-      
-      return {
-        id: cat.id,
-        nombre: cat.nombre,
-        presupuesto: presupuesto,
-        ejecutado: ejecutado,
-        disponible: presupuesto - ejecutado,
-        progreso: presupuesto > 0 ? Math.min(100, (ejecutado / presupuesto) * 100) : 0
-      };
-    });
+    return metasPorCategoria;
   } catch (error) {
-    console.error("Error en motor de presupuestos:", error);
-    return [];
+    console.error("Error al obtener metas de Firebase:", error);
+    return {};
   }
 }
