@@ -12,9 +12,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Search, Filter, Activity,
-  PieChart as PieChartIcon, Target, TrendingUp, Hammer, Save, CalendarDays, FileText,
-  SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye, Download,
-  ExternalLink,
+  Target, TrendingUp, Hammer, Save, CalendarDays, FileText,
+  SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
   FileDown
 } from 'lucide-react';
 import { 
@@ -64,7 +63,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Separator } from '@/components/ui/separator';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
-const COLORS = ['#2D5A4C', '#3b82f6', '#f43f5e', '#eab308', '#8b5cf6', '#06b6d4', '#f97316'];
 
 // FORMULARIO DE TRANSACCIÓN CON TRIPLE CASCADA
 function TransactionForm({ transaction, onSubmit, catalogs }: any) {
@@ -1009,7 +1007,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         </div>
                     </ScrollArea>
 
-                    <div className="px-8 sm:px-10 py-8 border-t bg-slate-50 flex flex-wrap items-center justify-between gap-4">
+                    <div className="px-8 sm:p-10 py-8 border-t bg-slate-50 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex gap-3">
                             <Button variant="outline" onClick={() => setViewDetail(null)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200">Cerrar</Button>
                             <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200 flex gap-2">
@@ -1032,14 +1030,15 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 function BudgetsView({ transactions, catalogs, currentDate }: any) {
     const [budgetData, setBudgetData] = React.useState<ResumenSeguimientoPresupuesto[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
+    const [isSaving, setIsSaving] = React.useState(false);
     const [isAjustarOpen, setIsAjustarOpen] = React.useState(false);
     const [selectedMacroId, setSelectedMacroId] = React.useState<string>("");
     const [newAmount, setNewAmount] = React.useState<string>("");
     const { toast } = useToast();
 
-    // Calculamos mes y año del contexto actual
-    const mes = currentDate.getUTCMonth() + 1;
-    const anio = currentDate.getUTCFullYear();
+    // Calculamos mes y año del contexto actual de forma persistente
+    const mes = React.useMemo(() => currentDate.getMonth() + 1, [currentDate]);
+    const anio = React.useMemo(() => currentDate.getFullYear(), [currentDate]);
 
     const loadBudgets = React.useCallback(async () => {
         if (!catalogs.macros || catalogs.macros.length === 0) return;
@@ -1061,18 +1060,35 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
 
     const handleSaveBudget = async () => {
         if (!selectedMacroId || !newAmount) {
-            toast({ title: "Atención", description: "Debe seleccionar una categoría y un monto.", variant: "destructive" });
+            toast({ 
+                title: "Atención", 
+                description: "Debe seleccionar una categoría y un monto válido.", 
+                variant: "destructive" 
+            });
             return;
         }
+
+        setIsSaving(true);
         try {
-            await guardarPresupuestoFirebase(Number(selectedMacroId), Number(newAmount), mes, anio);
-            toast({ title: "Presupuesto actualizado", description: "La meta se ha guardado en Firebase." });
+            const montoNum = parseFloat(newAmount);
+            if (isNaN(montoNum)) throw new Error("Monto inválido");
+
+            await guardarPresupuestoFirebase(Number(selectedMacroId), montoNum, mes, anio);
+            
+            toast({ title: "Éxito", description: "Presupuesto actualizado en Firebase." });
             setIsAjustarOpen(false);
             setSelectedMacroId("");
             setNewAmount("");
-            loadBudgets();
-        } catch (e) {
-            toast({ title: "Error", description: "No se pudo guardar el presupuesto.", variant: "destructive" });
+            await loadBudgets();
+        } catch (e: any) {
+            console.error("Error al guardar presupuesto:", e);
+            toast({ 
+                title: "Error", 
+                description: "No se pudo sincronizar con Firebase. Verifique su conexión.", 
+                variant: "destructive" 
+            });
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -1092,7 +1108,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
         }
     };
 
-    if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <div className="space-y-10 animate-in fade-in duration-500">
@@ -1103,32 +1119,44 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                 </div>
                 <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
                     <DialogTrigger asChild>
-                        <Button className="bg-[#2D5A4C] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
+                        <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
                             <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="rounded-[32px] border-none shadow-2xl">
                         <DialogHeader>
                             <DialogTitle className="text-2xl font-black uppercase tracking-tighter">GESTIONAR PRESUPUESTO</DialogTitle>
-                            <DialogDescription className="text-xs font-bold uppercase">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}.</DialogDescription>
+                            <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}.</DialogDescription>
                         </DialogHeader>
                         <div className="py-6 space-y-6">
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Macro</Label>
                                 <Select value={selectedMacroId} onValueChange={setSelectedMacroId}>
-                                    <SelectTrigger className="h-12 rounded-xl border-slate-200"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                    <SelectTrigger className="h-14 rounded-xl border-slate-100 bg-slate-50/50"><SelectValue placeholder="Seleccionar categoría..." /></SelectTrigger>
                                     <SelectContent className="rounded-xl">
-                                        {catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}
+                                        {catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()} className="uppercase text-xs font-bold">{m.nombre}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monto Asignado ($)</Label>
-                                <Input type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="h-12 rounded-xl border-slate-200 font-bold" placeholder="0.00" />
+                                <Input 
+                                    type="number" 
+                                    value={newAmount} 
+                                    onChange={(e) => setNewAmount(e.target.value)} 
+                                    className="h-14 rounded-xl border-slate-100 bg-slate-50/50 font-black text-lg px-5" 
+                                    placeholder="0.00" 
+                                />
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button onClick={handleSaveBudget} className="w-full h-12 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-xl shadow-lg">GUARDAR EN FIREBASE</Button>
+                            <Button 
+                                onClick={handleSaveBudget} 
+                                disabled={isSaving}
+                                className="w-full h-14 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-[0.98]"
+                            >
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'GUARDAR EN FIREBASE'}
+                            </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>

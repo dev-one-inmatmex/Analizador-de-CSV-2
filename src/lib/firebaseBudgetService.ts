@@ -1,3 +1,4 @@
+
 import { collection, doc, setDoc, updateDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import type { ResumenSeguimientoPresupuesto, cat_categoria_macro } from "@/types/database";
@@ -14,19 +15,26 @@ export async function guardarPresupuestoFirebase(
   mes: number, 
   anio: number
 ): Promise<void> {
-  if (!db) return;
+  if (!db) {
+    throw new Error("No hay conexión con Firestore.");
+  }
   
   // El ID predecible hace que Firebase actualice si existe, o cree si no existe (Upsert)
   const docId = `macro_${categoriaMacroId}_${mes}_${anio}`;
   const presupuestoRef = doc(db, "presupuestos_macro", docId);
 
-  await setDoc(presupuestoRef, {
-    categoria_macro_id: categoriaMacroId,
-    monto_asignado: monto,
-    mes,
-    anio,
-    updated_at: new Date().toISOString()
-  }, { merge: true });
+  try {
+    await setDoc(presupuestoRef, {
+      categoria_macro_id: categoriaMacroId,
+      monto_asignado: monto,
+      mes,
+      anio,
+      updated_at: new Date().toISOString()
+    }, { merge: true });
+  } catch (error) {
+    console.error("Error al guardar en Firebase:", error);
+    throw error;
+  }
 }
 
 // 2. ELIMINAR (Pone la meta en 0 para no romper tu historial visual)
@@ -39,10 +47,15 @@ export async function eliminarPresupuestoFirebase(
   const docId = `macro_${categoriaMacroId}_${mes}_${anio}`;
   const presupuestoRef = doc(db, "presupuestos_macro", docId);
 
-  await updateDoc(presupuestoRef, {
-    monto_asignado: 0,
-    updated_at: new Date().toISOString()
-  });
+  try {
+    await updateDoc(presupuestoRef, {
+      monto_asignado: 0,
+      updated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error al eliminar presupuesto:", error);
+    throw error;
+  }
 }
 
 // 3. EL MOTOR DE CÁLCULO (Optimizado para carga instantánea)
@@ -68,20 +81,20 @@ export async function obtenerDashboardPresupuestos(
     const metasPorCategoria: Record<number, number> = {};
     snapPresupuestos.forEach(doc => {
       const data = doc.data();
-      metasPorCategoria[data.categoria_macro_id] = data.monto_asignado;
+      metasPorCategoria[data.categoria_macro_id] = Number(data.monto_asignado) || 0;
     });
 
     // B. Calcular el ejecutado basándonos exclusivamente en los datos inyectados
-    // Esto hace que la carga sea instantánea al no ir a la red por los gastos.
     const ejecutadoPorCategoria: Record<number, number> = {};
     
     // Filtramos los gastos por el mes y año específicos para el cálculo de presupuesto
     gastosMensuales.forEach(gasto => {
       if (!gasto.fecha) return;
       
-      const fechaGasto = new Date(gasto.fecha);
-      const mesGasto = fechaGasto.getUTCMonth() + 1;
-      const anioGasto = fechaGasto.getUTCFullYear();
+      // gasto.fecha viene en formato YYYY-MM-DD
+      const parts = gasto.fecha.split('-');
+      const anioGasto = parseInt(parts[0]);
+      const mesGasto = parseInt(parts[1]);
 
       if (
         mesGasto === mes && 
@@ -89,7 +102,8 @@ export async function obtenerDashboardPresupuestos(
         ['GASTO', 'COMPRA'].includes(gasto.tipo_transaccion) && 
         gasto.categoria_macro
       ) {
-        ejecutadoPorCategoria[gasto.categoria_macro] = (ejecutadoPorCategoria[gasto.categoria_macro] || 0) + (Number(gasto.monto) || 0);
+        const catId = Number(gasto.categoria_macro);
+        ejecutadoPorCategoria[catId] = (ejecutadoPorCategoria[catId] || 0) + (Number(gasto.monto) || 0);
       }
     });
 
