@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -778,12 +779,20 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     </div>
                 </CardHeader>
                 <div className="table-responsive border-t border-slate-50">
-                    <Table>
+                    <Table className="min-w-[2800px]">
                         <TableHeader className="bg-slate-50/50">
                             <TableRow className="h-14 border-b-slate-100">
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-10 tracking-widest">MACRO</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CATEGORÍA</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">SUBCATEGORÍA</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ID</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">FECHA</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">EMPRESA</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">TIPO</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">IMPACTO (F1)</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ÁREA (F2)</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MACRO (F3)</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CATEGORÍA (F4)</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">SUBCATEGORÍA (F5)</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CANAL (F6)</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CLASIFICACIÓN (F7)</TableHead>
                                 <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">RESPONSABLE</TableHead>
                                 <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 pr-10 tracking-widest">MONTO</TableHead>
                                 <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest">ACCIONES</TableHead>
@@ -792,7 +801,13 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <TableBody>
                             {filtered.length > 0 ? filtered.map((t: any) => (
                                 <TableRow key={t.id} className="h-20 hover:bg-slate-50/50 transition-all duration-200 border-slate-50 group">
-                                    <TableCell className="px-10 font-black text-[11px] uppercase text-[#2D5A4C]">
+                                    <TableCell className="px-6 font-mono text-[10px] text-slate-400">#{t.id}</TableCell>
+                                    <TableCell className="px-6 text-[10px] font-bold text-slate-600 whitespace-nowrap">{t.fecha}</TableCell>
+                                    <TableCell className="px-6"><Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200">{t.empresa}</Badge></TableCell>
+                                    <TableCell className="px-6"><Badge variant="secondary" className="text-[9px] font-black uppercase bg-slate-100 text-slate-500 border-none">{t.tipo_transaccion}</Badge></TableCell>
+                                    <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
+                                    <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
+                                    <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
                                         {catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}
                                     </TableCell>
                                     <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-400">
@@ -801,8 +816,10 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
                                         {catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}
                                     </TableCell>
+                                    <TableCell className="px-6 text-[10px] font-black uppercase text-slate-400">{String(t.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
+                                    <TableCell className="px-6 text-[10px] font-bold uppercase text-slate-400">{String(t.clasificacion_operativa || '-').replace(/_/g, ' ')}</TableCell>
                                     <TableCell className="px-6 font-black text-[10px] uppercase text-slate-900">{t.responsable || '-'}</TableCell>
-                                    <TableCell className="text-right font-black text-base pr-10 tabular-nums">{money(t.monto)}</TableCell>
+                                    <TableCell className="text-right font-black text-base pr-10 tabular-nums text-[#2D5A4C]">{money(t.monto)}</TableCell>
                                     <TableCell className="text-center px-4">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100 group-hover:scale-110 transition-transform"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -818,7 +835,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-80 text-center">
+                                    <TableCell colSpan={14} className="h-80 text-center">
                                         <div className="flex flex-col items-center gap-4 opacity-20">
                                             <FileText className="h-16 w-16" />
                                             <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
@@ -828,6 +845,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             )}
                         </TableBody>
                     </Table>
+                    <ScrollBar orientation="horizontal" />
                 </div>
             </Card>
 
@@ -1047,6 +1065,7 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
                                     <ScrollArea className="h-[450px]">
                                         <Table>
                                             <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0"><TableRow className="border-b-0">
+                                                <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
                                                 <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
                                                 {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
                                                 <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Estado</TableHead>
@@ -1055,6 +1074,7 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
                                             <TableBody>
                                                 {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
                                                     <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
+                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
                                                         <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
                                                         {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
                                                         {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
