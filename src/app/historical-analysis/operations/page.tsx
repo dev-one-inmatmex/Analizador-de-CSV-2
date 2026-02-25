@@ -778,74 +778,76 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                     </div>
                 </CardHeader>
-                <div className="table-responsive border-t border-slate-50">
-                    <Table className="min-w-[2800px]">
-                        <TableHeader className="bg-slate-50/50">
-                            <TableRow className="h-14 border-b-slate-100">
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ID</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">FECHA</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">EMPRESA</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">TIPO</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">IMPACTO (F1)</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ÁREA (F2)</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MACRO (F3)</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CATEGORÍA (F4)</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">SUBCATEGORÍA (F5)</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CANAL (F6)</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CLASIFICACIÓN (F7)</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">RESPONSABLE</TableHead>
-                                <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 pr-10 tracking-widest">MONTO</TableHead>
-                                <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest">ACCIONES</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filtered.length > 0 ? filtered.map((t: any) => (
-                                <TableRow key={t.id} className="h-20 hover:bg-slate-50/50 transition-all duration-200 border-slate-50 group">
-                                    <TableCell className="px-6 font-mono text-[10px] text-slate-400">#{t.id}</TableCell>
-                                    <TableCell className="px-6 text-[10px] font-bold text-slate-600 whitespace-nowrap">{t.fecha}</TableCell>
-                                    <TableCell className="px-6"><Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200">{t.empresa}</Badge></TableCell>
-                                    <TableCell className="px-6"><Badge variant="secondary" className="text-[9px] font-black uppercase bg-slate-100 text-slate-500 border-none">{t.tipo_transaccion}</Badge></TableCell>
-                                    <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
-                                    <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
-                                    <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
-                                        {catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}
-                                    </TableCell>
-                                    <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-400">
-                                        {catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}
-                                    </TableCell>
-                                    <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
-                                        {catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}
-                                    </TableCell>
-                                    <TableCell className="px-6 text-[10px] font-black uppercase text-slate-400">{String(t.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
-                                    <TableCell className="px-6 text-[10px] font-bold uppercase text-slate-400">{String(t.clasificacion_operativa || '-').replace(/_/g, ' ')}</TableCell>
-                                    <TableCell className="px-6 font-black text-[10px] uppercase text-slate-900">{t.responsable || '-'}</TableCell>
-                                    <TableCell className="text-right font-black text-base pr-10 tabular-nums text-[#2D5A4C]">{money(t.monto)}</TableCell>
-                                    <TableCell className="text-center px-4">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100 group-hover:scale-110 transition-transform"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="rounded-2xl border-slate-100 shadow-2xl p-2 w-48">
-                                                <DropdownMenuItem onClick={() => setViewDetail(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Eye className="mr-2 h-3.5 w-3.5" /> Ver Detalle</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => downloadPDF(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><FileDown className="mr-2 h-3.5 w-3.5" /> Descargar PDF</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => onEditTransaction(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro</DropdownMenuItem>
-                                                <DropdownMenuSeparator className="my-1 bg-slate-50" />
-                                                <DropdownMenuItem className="text-destructive font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5" onClick={() => onDeleteTransaction(t.id)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
+                <div className="border-t border-slate-50">
+                    <ScrollArea className="w-full">
+                        <Table className="min-w-[2800px]">
+                            <TableHeader className="bg-slate-50/50">
+                                <TableRow className="h-14 border-b-slate-100">
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ID</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">FECHA</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">EMPRESA</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">TIPO</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">IMPACTO (F1)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ÁREA (F2)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MACRO (F3)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CATEGORÍA (F4)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">SUBCATEGORÍA (F5)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CANAL (F6)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CLASIFICACIÓN (F7)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">RESPONSABLE</TableHead>
+                                    <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 pr-10 tracking-widest">MONTO</TableHead>
+                                    <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest">ACCIONES</TableHead>
                                 </TableRow>
-                            )) : (
-                                <TableRow>
-                                    <TableCell colSpan={14} className="h-80 text-center">
-                                        <div className="flex flex-col items-center gap-4 opacity-20">
-                                            <FileText className="h-16 w-16" />
-                                            <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                    <ScrollBar orientation="horizontal" />
+                            </TableHeader>
+                            <TableBody>
+                                {filtered.length > 0 ? filtered.map((t: any) => (
+                                    <TableRow key={t.id} className="h-20 hover:bg-slate-50/50 transition-all duration-200 border-slate-50 group">
+                                        <TableCell className="px-6 font-mono text-[10px] text-slate-400">#{t.id}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-bold text-slate-600 whitespace-nowrap">{t.fecha}</TableCell>
+                                        <TableCell className="px-6"><Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200">{t.empresa}</Badge></TableCell>
+                                        <TableCell className="px-6"><Badge variant="secondary" className="text-[9px] font-black uppercase bg-slate-100 text-slate-500 border-none">{t.tipo_transaccion}</Badge></TableCell>
+                                        <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
+                                        <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
+                                            {catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}
+                                        </TableCell>
+                                        <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-400">
+                                            {catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}
+                                        </TableCell>
+                                        <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
+                                            {catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}
+                                        </TableCell>
+                                        <TableCell className="px-6 text-[10px] font-black uppercase text-slate-400">{String(t.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-bold uppercase text-slate-400">{String(t.clasificacion_operativa || '-').replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="px-6 font-black text-[10px] uppercase text-slate-900">{t.responsable || '-'}</TableCell>
+                                        <TableCell className="text-right font-black text-base pr-10 tabular-nums text-[#2D5A4C]">{money(t.monto)}</TableCell>
+                                        <TableCell className="text-center px-4">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100 group-hover:scale-110 transition-transform"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="rounded-2xl border-slate-100 shadow-2xl p-2 w-48">
+                                                    <DropdownMenuItem onClick={() => setViewDetail(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Eye className="mr-2 h-3.5 w-3.5" /> Ver Detalle</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => downloadPDF(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><FileDown className="mr-2 h-3.5 w-3.5" /> Descargar PDF</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => onEditTransaction(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro</DropdownMenuItem>
+                                                    <DropdownMenuSeparator className="my-1 bg-slate-50" />
+                                                    <DropdownMenuItem className="text-destructive font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5" onClick={() => onDeleteTransaction(t.id)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={14} className="h-80 text-center">
+                                            <div className="flex flex-col items-center gap-4 opacity-20">
+                                                <FileText className="h-16 w-16" />
+                                                <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
                 </div>
             </Card>
 
