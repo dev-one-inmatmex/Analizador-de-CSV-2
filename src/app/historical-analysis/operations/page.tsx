@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -39,10 +38,11 @@ import {
 } from './schemas';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
+import { obtenerDashboardPresupuestos, guardarPresupuestoFirebase } from '@/lib/firebaseBudgetService';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -55,7 +55,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import type { gastos_diarios, cat_tipo_gasto_impacto, cat_area_funcional, cat_categoria_macro, cat_categoria, cat_subcategoria } from '@/types/database';
+import type { gastos_diarios, cat_tipo_gasto_impacto, cat_area_funcional, cat_categoria_macro, cat_categoria, cat_subcategoria, ResumenSeguimientoPresupuesto } from '@/types/database';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -529,7 +529,7 @@ export default function OperationsPage() {
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
                 {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={deleteExpenseAction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
-                {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} />}
+                {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} biConfig={biConfig} setBiConfig={setBiConfig} onRefresh={fetchCatalogs} />}
             </main>
 
@@ -917,15 +917,14 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                                 <FileText className="h-16 w-16" />
                                                 <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
                                             </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                        <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
-                </div>
-            </Card>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                    </div>
+                </Card>
 
             <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
                 <DialogContent className="max-w-2xl w-[95vw] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
@@ -1028,32 +1027,142 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     );
 }
 
-function BudgetsView({ transactions, catalogs }: any) {
-    const budgetStats = React.useMemo(() => {
-        return catalogs.macros.map((cat: any) => {
-            const spent = transactions
-                .filter((t: any) => t.categoria_macro === cat.id && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
-                .reduce((acc: number, curr: any) => acc + (Number(curr.monto) || 0), 0);
-            return { name: cat.nombre, spent, budget: 0, available: 0 };
-        });
-    }, [transactions, catalogs]);
+function BudgetsView({ transactions, catalogs, currentDate }: any) {
+    const [budgetData, setBudgetData] = React.useState<ResumenSeguimientoPresupuesto[]>([]);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [isAjustarOpen, setIsAjustarOpen] = React.useState(false);
+    const [selectedMacroId, setSelectedMacroId] = React.useState<string>("");
+    const [newAmount, setNewAmount] = React.useState<string>("");
+    const { toast } = useToast();
+
+    const mes = currentDate.getMonth() + 1;
+    const anio = currentDate.getFullYear();
+
+    const loadBudgets = React.useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await obtenerDashboardPresupuestos(mes, anio, catalogs.macros, transactions);
+            setBudgetData(data);
+        } catch (e) {
+            console.error("Error cargando presupuestos:", e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [mes, anio, catalogs.macros, transactions]);
+
+    React.useEffect(() => {
+        loadBudgets();
+    }, [loadBudgets]);
+
+    const handleSaveBudget = async () => {
+        if (!selectedMacroId || !newAmount) return;
+        try {
+            await guardarPresupuestoFirebase(Number(selectedMacroId), Number(newAmount), mes, anio);
+            toast({ title: "Presupuesto actualizado", description: "La meta se ha guardado en Firebase." });
+            setIsAjustarOpen(false);
+            loadBudgets();
+        } catch (e) {
+            toast({ title: "Error", description: "No se pudo guardar el presupuesto.", variant: "destructive" });
+        }
+    };
+
+    if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <div className="space-y-10">
-            <div className="flex items-center justify-between"><h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2><Button className="bg-[#2D5A4C] font-bold h-11 px-6 rounded-xl shadow-sm"><Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto</Button></div>
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
+                <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
+                    <DialogTrigger asChild>
+                        <Button className="bg-[#2D5A4C] font-bold h-11 px-6 rounded-xl shadow-sm"><Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto</Button>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[32px] border-none shadow-2xl">
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Gestionar Presupuesto</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es })}.</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-6 space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Macro</Label>
+                                <Select value={selectedMacroId} onValueChange={setSelectedMacroId}>
+                                    <SelectTrigger className="h-12 rounded-xl border-slate-200"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monto Asignado ($)</Label>
+                                <Input type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="h-12 rounded-xl border-slate-200 font-bold" />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={handleSaveBudget} className="w-full h-12 bg-primary font-black uppercase text-xs rounded-xl shadow-lg">Guardar en Firebase</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {budgetStats.map((item: any) => (
-                    <Card key={item.name} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6">
-                        <div className="flex justify-between items-center mb-4"><span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.name}</span><Badge variant="secondary" className="bg-slate-50 text-slate-500 font-black text-[10px]">0%</Badge></div>
-                        <div className="mb-6"><h3 className="text-3xl font-black text-slate-900">{money(item.spent)}</h3></div>
-                        <div className="space-y-3"><div className="flex justify-between items-end text-[9px] font-black uppercase tracking-tighter"><span className="text-slate-400">CONSUMO</span><span className="text-slate-500">META: $0.00</span></div><Progress value={0} className="h-2 bg-slate-100" /></div>
+                {budgetData.map((item: ResumenSeguimientoPresupuesto) => (
+                    <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.nombre}</span>
+                            <Badge variant="secondary" className={cn("font-black text-[10px] border-none px-2 py-0.5", item.progreso > 90 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500")}>
+                                {item.progreso.toFixed(0)}%
+                            </Badge>
+                        </div>
+                        <div className="mb-6"><h3 className="text-3xl font-black text-slate-900">{money(item.ejecutado)}</h3></div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-end text-[9px] font-black uppercase tracking-tighter">
+                                <span className="text-slate-400">CONSUMO</span>
+                                <span className="text-slate-500">META: {money(item.presupuesto)}</span>
+                            </div>
+                            <Progress value={item.progreso} className="h-2 bg-slate-100" />
+                        </div>
                     </Card>
                 ))}
             </div>
             
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
-                <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b"><FileText className="h-6 w-6 text-primary" /><div><CardTitle className="text-lg font-black uppercase tracking-tight">Seguimiento de Presupuestos</CardTitle><CardDescription className="text-xs font-bold uppercase">Auditoría detallada de ejecución por categoría macro.</CardDescription></div></CardHeader>
-                <div className="table-responsive"><Table><TableHeader className="bg-slate-50/50"><TableRow><TableHead className="font-black text-[10px] uppercase">Categoría</TableHead><TableHead className="font-black text-[10px] uppercase text-right">Presupuesto</TableHead><TableHead className="font-black text-[10px] uppercase text-right">Ejecutado</TableHead><TableHead className="font-black text-[10px] uppercase text-right">Disponible</TableHead><TableHead className="font-black text-[10px] uppercase">Estado</TableHead></TableRow></TableHeader><TableBody>{budgetStats.map((item: any) => (<TableRow key={item.name} className="h-14"><TableCell className="font-bold text-xs uppercase">{item.name}</TableCell><TableCell className="text-right font-medium text-slate-400">$0.00</TableCell><TableCell className="text-right font-black text-[#2D5A4C]">{money(item.spent)}</TableCell><TableCell className="text-right font-black">$0.00</TableCell><TableCell className="w-[150px]"><Progress value={0} className="h-1.5" /></TableCell></TableRow>))}</TableBody></Table></div>
+                <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b">
+                    <FileText className="h-6 w-6 text-primary" />
+                    <div>
+                        <CardTitle className="text-lg font-black uppercase tracking-tight">Seguimiento de Presupuestos</CardTitle>
+                        <CardDescription className="text-xs font-bold uppercase">Auditoría detallada de ejecución por categoría macro.</CardDescription>
+                    </div>
+                </CardHeader>
+                <div className="table-responsive">
+                    <Table>
+                        <TableHeader className="bg-slate-50/50">
+                            <TableRow>
+                                <TableHead className="font-black text-[10px] uppercase px-8">Categoría</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-right">Presupuesto</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-right">Ejecutado</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-right">Disponible</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase px-10">Estado</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {budgetData.map((item: ResumenSeguimientoPresupuesto) => (
+                                <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
+                                    <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
+                                    <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>
+                                    <TableCell className="text-right font-black text-[#2D5A4C]">{money(item.ejecutado)}</TableCell>
+                                    <TableCell className={cn("text-right font-black", item.disponible < 0 ? "text-red-500" : "text-slate-800")}>
+                                        {money(item.disponible)}
+                                    </TableCell>
+                                    <TableCell className="w-[200px] px-10">
+                                        <div className="flex items-center gap-3">
+                                            <Progress value={item.progreso} className="h-1.5 flex-1" />
+                                            <span className="text-[9px] font-black text-slate-400 w-8">{item.progreso.toFixed(0)}%</span>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </Card>
         </div>
     );

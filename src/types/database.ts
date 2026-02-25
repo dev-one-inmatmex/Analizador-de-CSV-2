@@ -227,3 +227,27 @@ export interface inventario_master {
   pz_empaquetado_master: number | null;
   bloque: string | null;
 }
+
+// ============================================================================
+// --- TIPOS PARA PRESUPUESTOS FIREBASE (RESPETANDO REGLA DE ORO) ---
+// ============================================================================
+
+export interface presupuestos_macro {
+  id?: string;                  // Formato estricto: `macro_${categoria_macro_id}_${mes}_${anio}`
+  categoria_macro_id: number;   // FK lógica a cat_categoria_macro.id
+  monto_asignado: number;       // La Meta
+  mes: number;                  // 1-12
+  anio: number;                 // Ej. 2024
+  created_at?: string | null; 
+  updated_at?: string | null; 
+}
+
+// Esta interfaz es idéntica a lo que tu UI ya pinta. No romperá tus columnas.
+export interface ResumenSeguimientoPresupuesto {
+  id: number;
+  nombre: string;
+  presupuesto: number;
+  ejecutado: number;
+  disponible: number;
+  progreso: number;
+}
