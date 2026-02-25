@@ -748,11 +748,12 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 ['Monto', money(t.monto)],
                 ['Tipo', t.tipo_transaccion],
                 ['Empresa', t.empresa],
-                ['Impacto (Nivel 1)', impactName],
-                ['Área (Nivel 2)', areaName],
-                ['Categoría Macro', macroName],
-                ['Canal Asociado', String(t.canal_asociado || 'GENERAL').replace(/_/g, ' ')],
-                ['Atribución', String(t.clasificacion_operativa || 'DIRECTO').replace(/_/g, ' ')],
+                ['Impacto (F1)', impactName],
+                ['Área (F2)', areaName],
+                ['Categoría Macro (F3)', macroName],
+                ['Categoría (F4)', catName],
+                ['Canal Asociado (F6)', String(t.canal_asociado || 'GENERAL').replace(/_/g, ' ')],
+                ['Atribución (F7)', String(t.clasificacion_operativa || 'DIRECTO').replace(/_/g, ' ')],
                 ['Responsable', t.responsable || '-'],
             ],
         });
@@ -841,7 +842,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 </CardHeader>
                 <div className="border-t border-slate-50">
                     <ScrollArea className="w-full">
-                        <Table className="min-w-[2800px]">
+                        <Table className="min-w-[3200px]">
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow className="h-14 border-b-slate-100">
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ID</TableHead>
@@ -856,8 +857,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CANAL (F6)</TableHead>
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CLASIFICACIÓN (F7)</TableHead>
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">RESPONSABLE</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">PAGO</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">BANCO</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CUENTA</TableHead>
                                     <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 pr-10 tracking-widest">MONTO</TableHead>
-                                    <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest">ACCIONES</TableHead>
+                                    <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest sticky right-0 bg-white z-10">ACCIONES</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -881,8 +885,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="px-6 text-[10px] font-black uppercase text-slate-400">{String(t.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
                                         <TableCell className="px-6 text-[10px] font-bold uppercase text-slate-400">{String(t.clasificacion_operativa || '-').replace(/_/g, ' ')}</TableCell>
                                         <TableCell className="px-6 font-black text-[10px] uppercase text-slate-900">{t.responsable || '-'}</TableCell>
+                                        <TableCell className="px-6 text-[10px] uppercase text-slate-500">{String(t.metodo_pago || '-').replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="px-6 text-[10px] uppercase text-slate-500">{t.banco || '-'}</TableCell>
+                                        <TableCell className="px-6 text-[10px] uppercase text-slate-500">{t.cuenta || '-'}</TableCell>
                                         <TableCell className="text-right font-black text-base pr-10 tabular-nums text-[#2D5A4C]">{money(t.monto)}</TableCell>
-                                        <TableCell className="text-center px-4">
+                                        <TableCell className="text-center px-4 sticky right-0 bg-white group-hover:bg-slate-50/50 transition-colors">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100 group-hover:scale-110 transition-transform"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="rounded-2xl border-slate-100 shadow-2xl p-2 w-48">
@@ -897,7 +904,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={14} className="h-80 text-center">
+                                        <TableCell colSpan={17} className="h-80 text-center">
                                             <div className="flex flex-col items-center gap-4 opacity-20">
                                                 <FileText className="h-16 w-16" />
                                                 <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
