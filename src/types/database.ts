@@ -4,34 +4,37 @@ export interface Usuario {
     email: string;
 } 
 
+export interface cat_tipo_gasto_impacto {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+
+export interface cat_area_funcional {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+
+export interface cat_categoria_macro {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+
+export interface cat_subcategoria {
+  id: number;
+  nombre: string;
+  categoria_macro_id: number;
+  activo: boolean;
+}
+
 /**
  * Definición completa de tipos para el sistema de finanzas
  */
 
 export type Empresa = 'MTM' | 'TAL' | 'DOMESKA' | 'OTRA';
 export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA' | 'AJUSTE' | 'COMPRA' | 'VENTA';
-export type TipoGastoImpacto = 
-  | 'COSTO_MERCANCIA_COGS' 
-  | 'GASTO_OPERATIVO' 
-  | 'GASTO_ADMINISTRATIVO' 
-  | 'GASTO_COMERCIAL' 
-  | 'GASTO_LOGISTICO' 
-  | 'GASTO_FINANCIERO' 
-  | 'NOMINA' 
-  | 'INVERSION_CAPEX' 
-  | 'IMPUESTOS';
-
-export type AreaFuncional = 
-  | 'VENTAS_ECOMMERCE' 
-  | 'VENTAS_MAYOREO' 
-  | 'LOGISTICA' 
-  | 'COMPRAS' 
-  | 'ADMINISTRACION' 
-  | 'MARKETING' 
-  | 'DIRECCION' 
-  | 'PRODUCCION' 
-  | 'SISTEMAS' 
-  | 'RECURSOS_HUMANOS';
 
 export type CanalAsociado = 
   | 'MERCADO_LIBRE' 
@@ -42,29 +45,38 @@ export type CanalAsociado =
   | 'GENERAL';
 
 export type ClasificacionOperativa = 'DIRECTO' | 'SEMI_DIRECTO' | 'COMPARTIDO';
-export type CategoriaMacro = 'OPERATIVO' | 'COMERCIAL' | 'ADMINISTRATIVO' | 'FINANCIERO' | 'NOMINA';
 export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'PAYPAL' | 'OTRO';
 export type Banco = 'BBVA' | 'SANTANDER' | 'BANAMEX' | 'MERCADO_PAGO' | 'OTRO';
 export type Cuenta = 'OPERATIVA' | 'FISCAL' | 'CAJA_CHICA' | 'OTRO';
 
-export interface gastos_diarios{
-  id?: number; 
-  fecha: string;
-  empresa: string;
-  tipo_transaccion: string;
-  tipo_gasto_impacto: string | null;
-  area_funcional: string | null;
-  categoria_macro: string;
-  subcategoria_especifica: string;
-  canal_asociado: string;
-  clasificacion_operativa: string | null;
-  es_fijo: boolean;
-  es_recurrente: boolean;
+export interface gastos_diarios {
+  id?: number;
+  created_at?: string | null;
+  fecha: string; // formato YYYY-MM-DD
+  empresa: Empresa;
+  capturista?: string | null; // UUID
+  tipo_transaccion: TipoTransaccion;
+  
+  // --- CAMPOS MIGRADOS A CATÁLOGOS DINÁMICOS (FKs) ---
+  tipo_gasto_impacto: number | null;
+  area_funcional: number | null;
+  categoria_macro: number | null;
+  subcategoria_especifica: number | null;
+  // ---------------------------------------------
+
+  canal_asociado?: CanalAsociado | null;
+  clasificacion_operativa?: ClasificacionOperativa | null;
+  es_fijo?: boolean | null;
+  es_recurrente?: boolean | null;
   monto: number;
-  metodo_pago: string;
-  banco: string;
-  cuenta: string;
+  metodo_pago: MetodoPago;
+  metodo_pago_especificar?: string | null;
+  banco?: Banco | null;
+  banco_especificar?: string | null;
+  cuenta?: Cuenta | null; 
+  cuenta_especificar?: string | null;
   responsable?: string | null;
+  comprobante_url?: string | null;
   descripcion?: string | null;
   notas?: string | null;
 }
