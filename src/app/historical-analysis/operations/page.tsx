@@ -16,7 +16,7 @@ import {
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
   Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
   PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2, FileDown, AlertTriangle,
-  SlidersHorizontal
+  SlidersHorizontal, CheckCircle2
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -48,7 +48,7 @@ import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './ac
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel, FormDescription } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -402,6 +402,19 @@ export default function OperationsPage() {
     const [filterArea, setFilterArea] = React.useState<string>('TODAS');
     const [filterImpact, setFilterImpact] = React.useState<string>('TODOS');
 
+    // CONFIGURACIÓN BI DINÁMICA
+    const [biConfig, setBiConfig] = React.useState({
+        contributionMargin: 40,
+        historyDays: 180,
+        independentUnit: true,
+        budgetNotifications: true,
+        payrollTemplate: [
+            { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60, color: '#2D5A4C' },
+            { label: 'Mayoreo', canal: 'MAYOREO', porcentaje: 30, color: '#3b82f6' },
+            { label: 'Físico', canal: 'FISICO', porcentaje: 10, color: '#f43f5e' }
+        ]
+    });
+
     React.useEffect(() => {
         setIsClient(true);
         setCurrentDate(startOfDay(new Date()));
@@ -501,25 +514,21 @@ export default function OperationsPage() {
             let result;
             
             if (finalValues.tipo_gasto_impacto === 'NOMINA' && finalValues.es_nomina_mixta) {
-                const distribucion = [
-                    { canal: 'MERCADO_LIBRE', porcentaje: 0.60 },
-                    { canal: 'MAYOREO', porcentaje: 0.30 },
-                    { canal: 'FISICO', porcentaje: 0.10 }
-                ];
-
-                for (const dest of distribucion) {
+                // USAR LA PLANTILLA CONFIGURADA EN BI
+                for (const dest of biConfig.payrollTemplate) {
+                    if (dest.porcentaje <= 0) continue;
                     const fraccionado = {
                         ...(finalValues as any),
-                        monto: Number(finalValues.monto) * dest.porcentaje,
+                        monto: Number(finalValues.monto) * (dest.porcentaje / 100),
                         canal_asociado: dest.canal as any,
                         clasificacion_operativa: 'SEMI_DIRECTO' as any,
-                        notas: `${finalValues.notas || ''} [Sueldo fraccionado ${dest.porcentaje * 100}% - Nómina Mixta]`.trim(),
+                        notas: `${finalValues.notas || ''} [Sueldo fraccionado ${dest.porcentaje}% - Nómina Mixta BI]`.trim(),
                         es_nomina_mixta: false 
                     };
                     const res = await addExpenseAction(fraccionado);
                     if (res.error) throw new Error(res.error);
                 }
-                result = { data: "Nómina mixta registrada exitosamente." };
+                result = { data: "Nómina mixta registrada exitosamente con plantilla BI." };
             } else {
                 if (editingTransaction && editingTransaction.id) {
                     result = await updateExpenseAction(editingTransaction.id, finalValues as any);
@@ -653,8 +662,8 @@ export default function OperationsPage() {
             </div>
 
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
-                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} />}
-                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} periodType={periodType} onEditTransaction={handleEdit} onDeleteTransaction={handleDelete} />}
+                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} biConfig={biConfig} />}
+                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} periodType={periodType} onEditTransaction={handleEdit} onDeleteTransaction={handleDelete} biConfig={biConfig} />}
                 {currentView === 'presupuestos' && (
                     <BudgetsView 
                         transactions={transactions} 
@@ -670,6 +679,8 @@ export default function OperationsPage() {
                         setImpacts={setImpacts}
                         subcategories={subcategoriesMap}
                         setSubcategories={setSubcategoriesMap}
+                        biConfig={biConfig}
+                        setBiConfig={setBiConfig}
                     />
                 )}
             </main>
@@ -689,7 +700,7 @@ export default function OperationsPage() {
     );
 }
 
-function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, periodType }: any) {
+function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, periodType, biConfig }: any) {
     const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[] } | null>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -724,7 +735,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
             else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += (t.monto || 0);
         });
         
-        const margenPromedio = 0.40; 
+        const margenPromedio = (biConfig.contributionMargin || 40) / 100; 
         const metaSupervivencia = fixedCosts / (margenPromedio || 1);
         
         return { 
@@ -736,7 +747,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
             progresoSupervivencia: Math.min(100, (income / (metaSupervivencia || 1)) * 100),
             rubrosFijos
         };
-    }, [transactions]);
+    }, [transactions, biConfig.contributionMargin]);
 
     const pieData = React.useMemo(() => [
         { name: 'Ingresos', value: stats.totalIncome, color: '#3b82f6' },
@@ -985,7 +996,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
     );
 }
 
-function ReportsView({ transactions, isLoading, periodType, onEditTransaction, onDeleteTransaction }: any) {
+function ReportsView({ transactions, isLoading, periodType, onEditTransaction, onDeleteTransaction, biConfig }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [showFilter, setSearchShowFilter] = React.useState(false);
     const [selectedDetail, setSelectedDetail] = React.useState<gastos_diarios | null>(null);
@@ -1013,7 +1024,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
         const steps = 10;
         const chartBEP = Array.from({ length: steps + 1 }, (_, i) => {
             const sales = (maxSales / steps) * i;
-            const margin = 0.40;
+            const margin = (biConfig.contributionMargin || 40) / 100;
             const varCosts = sales * (1 - margin);
             return {
                 name: `$${Math.round(sales/1000)}k`,
@@ -1033,7 +1044,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
             },
             breakevenChart: chartBEP
         };
-    }, [transactions]);
+    }, [transactions, biConfig.contributionMargin]);
 
     const filteredTransactions = React.useMemo(() => {
         if (!searchQuery) return transactions;
@@ -1443,11 +1454,11 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{cat}</Label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                                    <Input 
+                                    <input 
                                         type="number" 
                                         defaultValue={budgets[cat]} 
-                                        onChange={(e) => setBudgets({ ...budgets, [cat]: Number(e.target.value) })} 
-                                        className="h-12 pl-8 font-black text-slate-700 border-slate-100 focus:border-primary/30 rounded-xl" 
+                                        onBlur={(e) => setBudgets({ ...budgets, [cat]: Number(e.target.value) })} 
+                                        className="h-12 w-full pl-8 font-black text-slate-700 border border-slate-100 focus:border-primary/30 rounded-xl outline-none" 
                                     />
                                 </div>
                             </div>
@@ -1462,10 +1473,12 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
     );
 }
 
-function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: any) {
+function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, biConfig, setBiConfig }: any) {
     const [newImpact, setNewImpact] = React.useState('');
     const [newSub, setNewSub] = React.useState('');
     const [selectedImpact, setSelectedImpact] = React.useState(impacts[0] || '');
+    const [isPayrollDialogOpen, setIsPayrollDialogOpen] = React.useState(false);
+    const { toast } = useToast();
 
     const addImpact = () => {
         if (!newImpact) return;
@@ -1486,9 +1499,27 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
         }
     };
 
+    const handlePayrollUpdate = (index: number, val: string) => {
+        const num = Math.min(100, Math.max(0, parseInt(val) || 0));
+        const newTemplate = [...biConfig.payrollTemplate];
+        newTemplate[index].porcentaje = num;
+        
+        // Autocorregir el resto para que sume 100? Mejor solo validar al guardar.
+        setBiConfig({ ...biConfig, payrollTemplate: newTemplate });
+    };
+
+    const saveBiConfig = () => {
+        const total = biConfig.payrollTemplate.reduce((acc: number, curr: any) => acc + curr.porcentaje, 0);
+        if (total !== 100) {
+            toast({ title: "Error de Validación", description: `La suma de la nómina mixta debe ser exactamente 100% (Actual: ${total}%)`, variant: "destructive" });
+            return;
+        }
+        toast({ title: "Configuración Guardada", description: "Los parámetros BI y la plantilla de nómina han sido actualizados." });
+        setIsPayrollDialogOpen(false);
+    };
+
     return (
         <div className="space-y-10">
-            {/* PANLES SUPERIORES: PARÁMETROS BI Y NÓMINA MIXTA */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* PARÁMETROS BI */}
                 <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden">
@@ -1508,7 +1539,12 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                                 <p className="text-xs text-muted-foreground font-medium">Valor utilizado para calcular el Punto de Equilibrio mensual.</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Input type="number" defaultValue="40" className="w-20 text-center font-black text-lg h-12" />
+                                <input 
+                                    type="number" 
+                                    value={biConfig.contributionMargin} 
+                                    onChange={(e) => setBiConfig({ ...biConfig, contributionMargin: parseInt(e.target.value) || 0 })}
+                                    className="w-20 text-center font-black text-lg h-12 border rounded-xl outline-none focus:border-primary/30" 
+                                />
                                 <span className="font-black text-slate-400">%</span>
                             </div>
                         </div>
@@ -1518,7 +1554,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                                 <p className="text-sm font-black text-slate-800 uppercase leading-none">Días de Historial de Datos</p>
                                 <p className="text-xs text-muted-foreground font-medium">Periodo de datos para el cálculo de promedios de gasto fijo.</p>
                             </div>
-                            <Select defaultValue="180">
+                            <Select value={String(biConfig.historyDays)} onValueChange={(v) => setBiConfig({ ...biConfig, historyDays: parseInt(v) })}>
                                 <SelectTrigger className="w-[160px] h-12 font-black uppercase text-xs border-slate-200">
                                     <SelectValue placeholder="Periodo" />
                                 </SelectTrigger>
@@ -1535,7 +1571,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                                 <p className="text-sm font-black text-slate-800 uppercase leading-none">Unidad Independiente Malla Sombra</p>
                                 <p className="text-xs text-muted-foreground font-medium">Aislar financieramente el taller de producción.</p>
                             </div>
-                            <Switch defaultChecked />
+                            <Switch checked={biConfig.independentUnit} onCheckedChange={(v) => setBiConfig({ ...biConfig, independentUnit: v })} />
                         </div>
 
                         <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-50">
@@ -1543,17 +1579,16 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                                 <p className="text-sm font-black text-slate-800 uppercase leading-none">Notificaciones de Presupuesto</p>
                                 <p className="text-xs text-muted-foreground font-medium">Alertar cuando una categoría supere el 90% del límite.</p>
                             </div>
-                            <Switch defaultChecked />
+                            <Switch checked={biConfig.budgetNotifications} onCheckedChange={(v) => setBiConfig({ ...biConfig, budgetNotifications: v })} />
                         </div>
                     </CardContent>
                     <CardFooter className="bg-slate-50 p-6 flex justify-end">
-                        <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs h-11 px-8 rounded-xl shadow-md">Guardar Configuración</Button>
+                        <Button onClick={saveBiConfig} className="bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs h-11 px-8 rounded-xl shadow-md">Guardar Configuración</Button>
                     </CardFooter>
                 </Card>
 
-                {/* COLUMNA DERECHA: NÓMINA MIXTA Y ESTADO DE SALUD */}
+                {/* COLUMNA DERECHA */}
                 <div className="space-y-8">
-                    {/* NÓMINA MIXTA */}
                     <Card className="border-none shadow-sm bg-white overflow-hidden">
                         <CardHeader className="flex flex-row items-center gap-3 bg-[#F0FDF4]/50 border-b">
                             <Hammer className="h-4 w-4 text-[#2D5A4C]" />
@@ -1562,46 +1597,70 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
                         <CardContent className="p-6 space-y-6">
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reparto actual para auditoría de esfuerzo:</p>
                             <div className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between text-[10px] font-black uppercase">
-                                        <span>Mercado Libre</span>
-                                        <span>60%</span>
+                                {biConfig.payrollTemplate.map((item: any) => (
+                                    <div key={item.canal} className="space-y-1.5">
+                                        <div className="flex justify-between text-[10px] font-black uppercase">
+                                            <span>{item.label}</span>
+                                            <span>{item.porcentaje}%</span>
+                                        </div>
+                                        <Progress value={item.porcentaje} className="h-1.5 bg-slate-100" style={{'--progress-fill': item.color} as any} />
                                     </div>
-                                    <Progress value={60} className="h-1.5 bg-slate-100 [&>div]:bg-[#2D5A4C]" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between text-[10px] font-black uppercase">
-                                        <span>Mayoreo</span>
-                                        <span>30%</span>
-                                    </div>
-                                    <Progress value={30} className="h-1.5 bg-slate-100 [&>div]:bg-blue-500" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <div className="flex justify-between text-[10px] font-black uppercase">
-                                        <span>Físico</span>
-                                        <span>10%</span>
-                                    </div>
-                                    <Progress value={10} className="h-1.5 bg-slate-100 [&>div]:bg-rose-500" />
-                                </div>
+                                ))}
                             </div>
-                            <Button variant="outline" className="w-full h-10 border-slate-200 font-black uppercase text-[10px] rounded-xl hover:bg-slate-50">Editar Plantilla</Button>
+                            <Button variant="outline" onClick={() => setIsPayrollDialogOpen(true)} className="w-full h-10 border-slate-200 font-black uppercase text-[10px] rounded-xl hover:bg-slate-50">Editar Plantilla</Button>
                         </CardContent>
                     </Card>
 
-                    {/* ESTADO DE SALUD BI */}
                     <Card className="border-none shadow-lg bg-[#24483D] text-white overflow-hidden">
                         <CardContent className="p-8 space-y-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Estado de Salud BI</p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Estado de Salud BI</p>
+                                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            </div>
                             <h3 className="text-3xl font-black tracking-tight leading-none">Optimizada</h3>
                             <p className="text-xs text-white/70 leading-relaxed font-medium">
-                                Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros.
+                                Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros y el margen del {biConfig.contributionMargin}%.
                             </p>
                         </CardContent>
                     </Card>
                 </div>
             </div>
 
-            {/* SECCIONES ORIGINALES: ESTRUCTURA DE IMPACTOS Y SUBCATEGORÍAS */}
+            {/* MODAL EDICIÓN NÓMINA */}
+            <Dialog open={isPayrollDialogOpen} onOpenChange={setIsPayrollDialogOpen}>
+                <DialogContent className="max-w-md rounded-[32px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Plantilla de Nómina Mixta</DialogTitle>
+                        <DialogDescription>Define cómo se distribuyen los sueldos mixtos entre los canales de venta.</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-6 space-y-6">
+                        {biConfig.payrollTemplate.map((item: any, idx: number) => (
+                            <div key={item.canal} className="flex items-center justify-between gap-4">
+                                <Label className="text-[10px] font-black uppercase w-32">{item.label}</Label>
+                                <div className="flex items-center gap-2 flex-1">
+                                    <input 
+                                        type="number" 
+                                        value={item.porcentaje} 
+                                        onChange={(e) => handlePayrollUpdate(idx, e.target.value)}
+                                        className="w-full h-10 px-3 text-right font-black border rounded-xl outline-none" 
+                                    />
+                                    <span className="font-bold text-slate-400">%</span>
+                                </div>
+                            </div>
+                        ))}
+                        <div className="pt-4 border-t flex justify-between items-center">
+                            <span className="text-xs font-black uppercase text-slate-400">Total Distribución:</span>
+                            <span className={cn("text-lg font-black", biConfig.payrollTemplate.reduce((a: any, b: any) => a + b.porcentaje, 0) === 100 ? "text-primary" : "text-destructive")}>
+                                {biConfig.payrollTemplate.reduce((a: any, b: any) => a + b.porcentaje, 0)}%
+                            </span>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={saveBiConfig} className="w-full h-12 bg-slate-900 rounded-xl font-black uppercase text-xs">Guardar Cambios</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card className="border-none shadow-sm bg-white">
                     <CardHeader><CardTitle className="text-lg font-black uppercase">Estructura de Impactos</CardTitle></CardHeader>
