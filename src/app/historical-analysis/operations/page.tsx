@@ -564,6 +564,25 @@ export default function OperationsPage() {
         setIsFormOpen(true);
     }, []);
 
+    const navigatePeriod = (direction: 'prev' | 'next') => {
+        const factor = direction === 'next' ? 1 : -1;
+        switch (periodType) {
+            case 'day':
+                setCurrentDate(prev => add(prev, { days: factor }));
+                break;
+            case 'six_months':
+                setCurrentDate(prev => add(prev, { months: factor * 6 }));
+                break;
+            case 'year':
+                setCurrentDate(prev => add(prev, { years: factor }));
+                break;
+            case 'month':
+            default:
+                setCurrentDate(prev => add(prev, { months: factor }));
+                break;
+        }
+    };
+
     if (!isClient) {
         return (
             <div className="flex h-screen w-full items-center justify-center">
@@ -605,11 +624,17 @@ export default function OperationsPage() {
                             <SelectContent>
                                 <SelectItem value="day" className="text-xs font-bold uppercase">Día Seleccionado</SelectItem>
                                 <SelectItem value="month" className="text-xs font-bold uppercase">Mes Actual</SelectItem>
-                                <SelectItem value="six_months" className="text-xs font-bold uppercase">Últimos 6 Meses</SelectItem>
-                                <SelectItem value="year" className="text-xs font-bold uppercase">Año Actual</SelectItem>
+                                <SelectItem value="six_months" className="text-xs font-bold uppercase">Semestre (6 Meses)</SelectItem>
+                                <SelectItem value="year" className="text-xs font-bold uppercase">Año Fiscal</SelectItem>
                             </SelectContent>
                         </Select>
                         
+                        <div className="flex items-center gap-1 ml-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigatePeriod('prev')}><ChevronLeft className="h-4 w-4" /></Button>
+                            <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigatePeriod('next')}><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
+
                         {periodType === 'day' && (
                             <Popover>
                                 <PopoverTrigger asChild>
@@ -885,15 +910,8 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <Card className="border-none shadow-sm overflow-hidden bg-white">
                     <div className="flex items-center justify-between px-6 py-3 border-b">
                         <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-black text-[#2D5A4C] tracking-widest">Periodo de Análisis</span>
+                            <span className="text-[10px] uppercase font-black text-[#2D5A4C] tracking-widest">Línea de Tiempo</span>
                             <span className="text-sm font-black uppercase">{format(currentDate, 'MMMM yyyy', { locale: es })}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
-                            <div className="flex items-center">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: -1 }))}><ChevronLeft className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentDate(add(currentDate, { months: 1 }))}><ChevronRight className="h-4 w-4" /></Button>
-                            </div>
                         </div>
                     </div>
                     <div className="flex items-center px-2 py-4">
@@ -1504,7 +1522,6 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
         const newTemplate = [...biConfig.payrollTemplate];
         newTemplate[index].porcentaje = num;
         
-        // Autocorregir el resto para que sume 100? Mejor solo validar al guardar.
         setBiConfig({ ...biConfig, payrollTemplate: newTemplate });
     };
 
