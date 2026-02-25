@@ -568,7 +568,7 @@ export default function OperationsPage() {
             <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
                 <div className="flex items-center gap-4 min-w-0">
                     <SidebarTrigger />
-                    <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">Gastos diarios</h1>
+                    <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">Gastos financieros</h1>
                     <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4 hidden md:block">
                         <TabsList className="bg-muted/40 h-9 p-1 border">
                             <TabsTrigger value="inicio" className="text-xs font-bold uppercase tracking-tighter">Inicio</TabsTrigger>
@@ -1344,53 +1344,114 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
                 .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
             const budget = budgets[cat] || 0;
             const percent = budget > 0 ? (spent / budget) * 100 : 0;
-            return { name: cat, spent, budget, percent };
+            const available = budget - spent;
+            return { name: cat, spent, budget, percent, available };
         });
     }, [transactions, categories, budgets]);
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-10">
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-black uppercase tracking-tight">Presupuestos por Categoría</h2>
-                <Button onClick={() => setIsBudgetDialogOpen(true)} className="bg-primary font-bold"><Settings2 className="mr-2 h-4 w-4" /> Ajustar Metas</Button>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
+                <Button onClick={() => setIsBudgetDialogOpen(true)} className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm">
+                    <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
+                </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {budgetStats.map((item: any) => (
-                    <Card key={item.name} className="border-none shadow-sm bg-white">
-                        <CardHeader className="pb-4">
-                            <div className="flex justify-between items-start">
-                                <div><Badge variant="outline" className="text-primary">{item.name}</Badge><p className="text-xs text-muted-foreground mt-2">Asignado: {money(item.budget)}</p></div>
-                                <div className="text-right"><p className={cn("text-2xl font-black", item.spent > item.budget ? "text-destructive" : "")}>{money(item.spent)}</p><p className="text-[9px] font-black text-slate-400 uppercase">Ejecutado</p></div>
+                    <Card key={item.name} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.name}</span>
+                            <Badge variant="secondary" className="bg-slate-50 text-slate-500 font-black text-[10px] px-2 py-0.5 border-none">
+                                {item.percent.toFixed(0)}%
+                            </Badge>
+                        </div>
+                        <div className="mb-6">
+                            <h3 className="text-3xl font-black text-slate-900">{money(item.spent)}</h3>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-end text-[9px] font-black uppercase tracking-tighter">
+                                <span className="text-slate-400">CONSUMO</span>
+                                <span className="text-slate-500">META: {money(item.budget)}</span>
                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-[10px] font-black uppercase"><span>Progreso</span><span>{item.percent.toFixed(1)}%</span></div>
-                                <Progress value={item.percent} className={cn("h-2", item.percent > 90 ? "[&>div]:bg-destructive" : "")} />
-                            </div>
-                            {item.spent > item.budget && (
-                                <div className="p-3 bg-destructive/5 rounded-lg border border-destructive/10 flex items-center gap-3 text-destructive animate-pulse">
-                                    <AlertTriangle className="h-4 w-4" /><p className="text-[10px] font-bold uppercase">Excedente de {money(item.spent - item.budget)}</p>
-                                </div>
-                            )}
-                        </CardContent>
+                            <Progress value={item.percent} className={cn("h-2 bg-slate-100", item.percent > 90 ? "[&>div]:bg-destructive" : "[&>div]:bg-[#2D5A4C]")} />
+                        </div>
                     </Card>
                 ))}
             </div>
 
+            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px]">
+                <CardHeader className="flex flex-col gap-1 p-8 bg-muted/5 border-b">
+                    <div className="flex items-center gap-3">
+                        <FileText className="h-6 w-6 text-[#2D5A4C]" />
+                        <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800">Seguimiento de Presupuestos</CardTitle>
+                    </div>
+                    <CardDescription className="text-sm font-medium text-slate-500 ml-9">
+                        Resumen de metas mensuales por categoría macro financiera.
+                    </CardDescription>
+                </CardHeader>
+                <div className="table-responsive">
+                    <Table>
+                        <TableHeader className="bg-slate-50/50">
+                            <TableRow className="h-12 border-b border-slate-100">
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 px-8">CATEGORÍA</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400">PRESUPUESTO</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400">EJECUTADO</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400">DISPONIBLE</TableHead>
+                                <TableHead className="font-black text-[10px] uppercase text-slate-400 text-center">ESTADO</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {budgetStats.map((item: any) => (
+                                <TableRow key={item.name} className="h-16 hover:bg-slate-50/50 border-b border-slate-50 last:border-0 transition-colors">
+                                    <TableCell className="px-8 font-black text-[11px] uppercase text-slate-700 tracking-tighter">{item.name}</TableCell>
+                                    <TableCell className="font-bold text-xs text-slate-600">{money(item.budget)}</TableCell>
+                                    <TableCell className="font-black text-xs text-[#2D5A4C]">{money(item.spent)}</TableCell>
+                                    <TableCell className={cn("font-bold text-xs", item.available < 0 ? "text-destructive" : "text-slate-500")}>
+                                        {money(item.available)}
+                                    </TableCell>
+                                    <TableCell className="w-[200px] px-6">
+                                        <div className="space-y-1.5">
+                                            <div className="flex justify-between text-[8px] font-black uppercase opacity-60">
+                                                <span>Uso</span>
+                                                <span>{item.percent.toFixed(1)}%</span>
+                                            </div>
+                                            <Progress value={item.percent} className="h-1.5 bg-slate-100" />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </Card>
+
             <Dialog open={isBudgetDialogOpen} onOpenChange={setIsBudgetDialogOpen}>
-                <DialogContent>
-                    <DialogHeader><DialogTitle>Configurar Presupuestos</DialogTitle><DialogDescription>Define los techos financieros mensuales para cada categoría macro.</DialogDescription></DialogHeader>
-                    <div className="space-y-4 py-4">
+                <DialogContent className="max-w-md rounded-[32px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Ajustar Presupuestos</DialogTitle>
+                        <DialogDescription>Define los techos financieros mensuales para cada categoría macro.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-6 py-6">
                         {categories.map((cat: string) => (
-                            <div key={cat} className="flex items-center justify-between gap-4">
-                                <span className="text-xs font-bold uppercase w-1/2">{cat}</span>
-                                <Input type="number" defaultValue={budgets[cat]} onChange={(e) => setBudgets({ ...budgets, [cat]: Number(e.target.value) })} className="w-1/2" />
+                            <div key={cat} className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{cat}</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                                    <Input 
+                                        type="number" 
+                                        defaultValue={budgets[cat]} 
+                                        onChange={(e) => setBudgets({ ...budgets, [cat]: Number(e.target.value) })} 
+                                        className="h-12 pl-8 font-black text-slate-700 border-slate-100 focus:border-primary/30 rounded-xl" 
+                                    />
+                                </div>
                             </div>
                         ))}
                     </div>
-                    <DialogFooter><Button onClick={() => setIsBudgetDialogOpen(false)} className="w-full">Guardar Cambios</Button></DialogFooter>
+                    <DialogFooter>
+                        <Button onClick={() => setIsBudgetDialogOpen(false)} className="w-full bg-[#2D5A4C] h-12 font-black uppercase text-xs rounded-xl shadow-lg">Confirmar Metas</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
