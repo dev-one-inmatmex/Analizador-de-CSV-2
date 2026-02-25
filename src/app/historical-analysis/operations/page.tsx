@@ -823,8 +823,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                             <FileText className="h-16 w-16" />
                                             <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
                                         </div>
-                                    </TableRow>
-                                )}
+                                    </TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </div>
