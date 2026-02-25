@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -14,7 +15,8 @@ import {
   Bell, Search, Filter, Download, Activity,
   Wallet, PieChart as PieChartIcon, Truck, Package, Info, Hammer, TrendingUp, Target,
   Settings2, Eye, Calendar as CalendarIcon, History, X, Settings as SettingsIcon,
-  PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2, FileDown, AlertTriangle
+  PlusCircle, Edit2, Save, HelpCircle, CalendarDays, FileText, User, CreditCard, Landmark, Building2, FileDown, AlertTriangle,
+  SlidersHorizontal
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -1420,48 +1422,166 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories }: 
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card className="border-none shadow-sm bg-white">
-                <CardHeader><CardTitle className="text-lg font-black uppercase">Estructura de Impactos</CardTitle></CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="flex gap-2">
-                        <Input placeholder="NUEVO IMPACTO..." value={newImpact} onChange={(e) => setNewImpact(e.target.value)} />
-                        <Button onClick={addImpact}><Plus className="h-4 w-4" /></Button>
-                    </div>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                        {impacts.map((i: string) => (
-                            <div key={i} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 group">
-                                <span className="text-xs font-black uppercase">{i.replace(/_/g, ' ')}</span>
-                                <Button variant="ghost" size="icon" onClick={() => setImpacts(impacts.filter((imp: string) => imp !== i))} className="h-8 w-8 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm bg-white">
-                <CardHeader><CardTitle className="text-lg font-black uppercase">Subcategorías por Impacto</CardTitle></CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                        <Select value={selectedImpact} onValueChange={setSelectedImpact}>
-                            <SelectTrigger><SelectValue placeholder="SELECCIONAR IMPACTO" /></SelectTrigger>
-                            <SelectContent>{impacts.map((i: string) => <SelectItem key={i} value={i} className="font-bold text-[10px] uppercase">{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <div className="flex gap-2">
-                            <Input placeholder="NUEVA SUBCATEGORÍA..." value={newSub} onChange={(e) => setNewSub(e.target.value)} />
-                            <Button onClick={addSub}><Plus className="h-4 w-4" /></Button>
+        <div className="space-y-10">
+            {/* PANLES SUPERIORES: PARÁMETROS BI Y NÓMINA MIXTA */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* PARÁMETROS BI */}
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5">
+                        <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
+                            <SlidersHorizontal className="h-5 w-5" />
                         </div>
-                    </div>
-                    <div className="space-y-2 max-h-[230px] overflow-y-auto">
-                        {(subcategories[selectedImpact] || []).map((s: string) => (
-                            <div key={s} className="flex items-center justify-between p-3 rounded-xl border bg-slate-50 group">
-                                <span className="text-xs font-bold text-slate-600">{s}</span>
-                                <Button variant="ghost" size="icon" onClick={() => setSubcategories({ ...subcategories, [selectedImpact]: subcategories[selectedImpact].filter((sub: string) => sub !== s) })} className="h-8 w-8 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
+                        <div>
+                            <CardTitle className="text-lg font-black uppercase tracking-tight">Parámetros BI</CardTitle>
+                            <CardDescription className="text-xs font-medium">Configura los valores clave para la auditoría y motor de inteligencia financiera.</CardDescription>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-8">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-800 uppercase leading-none">Margen de Contribución Promedio</p>
+                                <p className="text-xs text-muted-foreground font-medium">Valor utilizado para calcular el Punto de Equilibrio mensual.</p>
                             </div>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
+                            <div className="flex items-center gap-2">
+                                <Input type="number" defaultValue="40" className="w-20 text-center font-black text-lg h-12" />
+                                <span className="font-black text-slate-400">%</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-50">
+                            <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-800 uppercase leading-none">Días de Historial de Datos</p>
+                                <p className="text-xs text-muted-foreground font-medium">Periodo de datos para el cálculo de promedios de gasto fijo.</p>
+                            </div>
+                            <Select defaultValue="180">
+                                <SelectTrigger className="w-[160px] h-12 font-black uppercase text-xs border-slate-200">
+                                    <SelectValue placeholder="Periodo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="90" className="font-bold text-xs uppercase">90 Días</SelectItem>
+                                    <SelectItem value="180" className="font-bold text-xs uppercase">180 Días</SelectItem>
+                                    <SelectItem value="365" className="font-bold text-xs uppercase">1 Año</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-50">
+                            <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-800 uppercase leading-none">Unidad Independiente Malla Sombra</p>
+                                <p className="text-xs text-muted-foreground font-medium">Aislar financieramente el taller de producción.</p>
+                            </div>
+                            <Switch defaultChecked />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-50">
+                            <div className="space-y-1">
+                                <p className="text-sm font-black text-slate-800 uppercase leading-none">Notificaciones de Presupuesto</p>
+                                <p className="text-xs text-muted-foreground font-medium">Alertar cuando una categoría supere el 90% del límite.</p>
+                            </div>
+                            <Switch defaultChecked />
+                        </div>
+                    </CardContent>
+                    <CardFooter className="bg-slate-50 p-6 flex justify-end">
+                        <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs h-11 px-8 rounded-xl shadow-md">Guardar Configuración</Button>
+                    </CardFooter>
+                </Card>
+
+                {/* COLUMNA DERECHA: NÓMINA MIXTA Y ESTADO DE SALUD */}
+                <div className="space-y-8">
+                    {/* NÓMINA MIXTA */}
+                    <Card className="border-none shadow-sm bg-white overflow-hidden">
+                        <CardHeader className="flex flex-row items-center gap-3 bg-[#F0FDF4]/50 border-b">
+                            <Hammer className="h-4 w-4 text-[#2D5A4C]" />
+                            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reparto actual para auditoría de esfuerzo:</p>
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between text-[10px] font-black uppercase">
+                                        <span>Mercado Libre</span>
+                                        <span>60%</span>
+                                    </div>
+                                    <Progress value={60} className="h-1.5 bg-slate-100 [&>div]:bg-[#2D5A4C]" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between text-[10px] font-black uppercase">
+                                        <span>Mayoreo</span>
+                                        <span>30%</span>
+                                    </div>
+                                    <Progress value={30} className="h-1.5 bg-slate-100 [&>div]:bg-blue-500" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between text-[10px] font-black uppercase">
+                                        <span>Físico</span>
+                                        <span>10%</span>
+                                    </div>
+                                    <Progress value={10} className="h-1.5 bg-slate-100 [&>div]:bg-rose-500" />
+                                </div>
+                            </div>
+                            <Button variant="outline" className="w-full h-10 border-slate-200 font-black uppercase text-[10px] rounded-xl hover:bg-slate-50">Editar Plantilla</Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* ESTADO DE SALUD BI */}
+                    <Card className="border-none shadow-lg bg-[#24483D] text-white overflow-hidden">
+                        <CardContent className="p-8 space-y-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Estado de Salud BI</p>
+                            <h3 className="text-3xl font-black tracking-tight leading-none">Optimizada</h3>
+                            <p className="text-xs text-white/70 leading-relaxed font-medium">
+                                Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            {/* SECCIONES ORIGINALES: ESTRUCTURA DE IMPACTOS Y SUBCATEGORÍAS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card className="border-none shadow-sm bg-white">
+                    <CardHeader><CardTitle className="text-lg font-black uppercase">Estructura de Impactos</CardTitle></CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="flex gap-2">
+                            <Input placeholder="NUEVO IMPACTO..." value={newImpact} onChange={(e) => setNewImpact(e.target.value)} />
+                            <Button onClick={addImpact} className="bg-slate-800 hover:bg-slate-900"><Plus className="h-4 w-4" /></Button>
+                        </div>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                            {impacts.map((i: string) => (
+                                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 group hover:border-slate-200 transition-colors">
+                                    <span className="text-[10px] font-black uppercase tracking-tighter text-slate-700">{i.replace(/_/g, ' ')}</span>
+                                    <Button variant="ghost" size="icon" onClick={() => setImpacts(impacts.filter((imp: string) => imp !== i))} className="h-8 w-8 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white">
+                    <CardHeader><CardTitle className="text-lg font-black uppercase">Subcategorías por Impacto</CardTitle></CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-4">
+                            <Select value={selectedImpact} onValueChange={setSelectedImpact}>
+                                <SelectTrigger className="h-12 border-slate-200 font-bold text-[10px] uppercase">
+                                    <SelectValue placeholder="SELECCIONAR IMPACTO" />
+                                </SelectTrigger>
+                                <SelectContent>{impacts.map((i: string) => <SelectItem key={i} value={i} className="font-bold text-[10px] uppercase">{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                            </Select>
+                            <div className="flex gap-2">
+                                <Input placeholder="NUEVA SUBCATEGORÍA..." value={newSub} onChange={(e) => setNewSub(e.target.value)} />
+                                <Button onClick={addSub} className="bg-slate-800 hover:bg-slate-900"><Plus className="h-4 w-4" /></Button>
+                            </div>
+                        </div>
+                        <div className="space-y-2 max-h-[230px] overflow-y-auto pr-2">
+                            {(subcategories[selectedImpact] || []).map((s: string) => (
+                                <div key={s} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 group hover:border-slate-200 transition-colors">
+                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">{s}</span>
+                                    <Button variant="ghost" size="icon" onClick={() => setSubcategories({ ...subcategories, [selectedImpact]: subcategories[selectedImpact].filter((sub: string) => sub !== s) })} className="h-8 w-8 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
