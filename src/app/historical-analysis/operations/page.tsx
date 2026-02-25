@@ -332,11 +332,11 @@ export default function OperationsPage() {
         if (!supabase) return;
         try {
             const [imp, ar, mac, cat, sub] = await Promise.all([
-                supabase.from('cat_tipos_gasto_impacto').select('*').order('nombre'),
-                supabase.from('cat_areas_funcionales').select('*').order('nombre'),
-                supabase.from('cat_categorias_macro').select('*').order('nombre'),
-                supabase.from('cat_categorias').select('*').order('nombre'),
-                supabase.from('cat_subcategorias').select('*').order('nombre')
+                supabase.from('cat_tipo_gasto_impacto').select('*').order('nombre'),
+                supabase.from('cat_area_funcional').select('*').order('nombre'),
+                supabase.from('cat_categoria_macro').select('*').order('nombre'),
+                supabase.from('cat_categoria').select('*').order('nombre'),
+                supabase.from('cat_subcategoria').select('*').order('nombre')
             ]);
             setCatalogs({
                 impactos: imp.data || [],
@@ -851,7 +851,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 </div>
             </Card>
 
-            {/* MODAL DE DETALLE - RÉPLICA DE IMAGEN */}
             <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
                 <DialogContent className="max-w-3xl rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
                     <div className="p-10 space-y-10">
@@ -981,11 +980,11 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const TABLES = {
-        impactos: 'cat_tipos_gasto_impacto',
-        areas: 'cat_areas_funcionales',
-        macros: 'cat_categorias_macro',
-        categorias: 'cat_categorias',
-        subcategorias: 'cat_subcategorias'
+        impactos: 'cat_tipo_gasto_impacto',
+        areas: 'cat_area_funcional',
+        macros: 'cat_categoria_macro',
+        categorias: 'cat_categoria',
+        subcategorias: 'cat_subcategoria'
     };
 
     const handleOpenDialog = (item: any = null) => {
@@ -1066,13 +1065,15 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
                                 <TabsContent key={tab} value={tab} className="mt-0">
                                     <ScrollArea className="h-[450px]">
                                         <Table>
-                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0"><TableRow className="border-b-0">
-                                                <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
-                                                <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
-                                                {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
-                                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Estado</TableHead>
-                                                <TableHead className="w-32"></TableHead>
-                                            </TableRow></TableHeader>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
+                                                <TableRow className="border-b-0">
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
+                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
+                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
+                                                    <TableHead className="w-32"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
                                             <TableBody>
                                                 {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
                                                     <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
@@ -1080,7 +1081,7 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
                                                         <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
                                                         {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
                                                         {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
-                                                        <TableCell><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
                                                         <TableCell className="pr-8">
                                                             <div className="flex justify-end gap-2">
                                                                 <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
