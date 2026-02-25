@@ -441,7 +441,7 @@ export default function OperationsPage() {
                         </Select>
                         <div className="flex items-center gap-1 ml-2">
                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => {
-                                let interval = { months: -1 };
+                                let interval: any = { months: -1 };
                                 if (periodType === 'six_months') interval = { months: -6 };
                                 if (periodType === 'year') interval = { years: -1 };
                                 if (periodType === 'day') interval = { days: -1 };
@@ -449,7 +449,7 @@ export default function OperationsPage() {
                             }}><ChevronLeft className="h-4 w-4" /></Button>
                             <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200 px-3" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => {
-                                let interval = { months: 1 };
+                                let interval: any = { months: 1 };
                                 if (periodType === 'six_months') interval = { months: 6 };
                                 if (periodType === 'year') interval = { years: 1 };
                                 if (periodType === 'day') interval = { days: 1 };
@@ -698,7 +698,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             theme: 'striped',
             headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255], fontStyle: 'bold' },
             bodyStyles: { fontSize: 10 },
-            columnStyles: { 0: { fontStyle: 'bold', width: 60 } },
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 } },
             body: [
                 ['Concepto', subName],
                 ['Monto', money(t.monto)],
@@ -753,7 +753,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             const varCosts = sales * (1 - (biConfig.contributionMargin / 100));
             return { name: `$${Math.round(sales/1000)}k`, Ventas: sales, CostosTotales: fijos + varCosts, CostosFijos: fijos };
         });
-        return { breakevenChart: bpe };
+        return { breakevenChart: bep };
     }, [transactions, biConfig]);
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;

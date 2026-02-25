@@ -43,7 +43,6 @@ export interface cat_subcategoria {
   activo: boolean;
 }
 
-
 // --- ENUMS ORIGINALES ---
 export type Empresa = 'MTM' | 'TAL' | 'DOMESKA' | 'OTRA';
 export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA' | 'AJUSTE' | 'COMPRA' | 'VENTA';
