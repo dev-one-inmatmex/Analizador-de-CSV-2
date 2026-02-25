@@ -912,7 +912,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={17} className="h-80 text-center">
+                                        <TableCell colSpan={17} className="h-80 text-center"/>
                                             <div className="flex flex-col items-center gap-4 opacity-20">
                                                 <FileText className="h-16 w-16" />
                                                 <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
@@ -1035,12 +1035,18 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     const [newAmount, setNewAmount] = React.useState<string>("");
     const { toast } = useToast();
 
-    const mes = currentDate.getMonth() + 1;
-    const anio = currentDate.getFullYear();
+    // Calculamos mes y año del contexto actual
+    const mes = currentDate.getUTCMonth() + 1;
+    const anio = currentDate.getUTCFullYear();
 
     const loadBudgets = React.useCallback(async () => {
+        // Solo intentamos cargar si hay categorías macro
+        if (!catalogs.macros || catalogs.macros.length === 0) return;
+        
         setIsLoading(true);
         try {
+            // El motor ahora procesa localmente los gastos pasados por parámetro, 
+            // solo va a Firebase por las metas (muy rápido).
             const data = await obtenerDashboardPresupuestos(mes, anio, catalogs.macros, transactions);
             setBudgetData(data);
         } catch (e) {
@@ -1069,9 +1075,12 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-10 animate-in fade-in duration-500">
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
+                <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
+                    <p className="text-xs font-bold uppercase text-slate-400 mt-1">Periodo: {format(currentDate, 'MMMM yyyy', { locale: es })}</p>
+                </div>
                 <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
                     <DialogTrigger asChild>
                         <Button className="bg-[#2D5A4C] font-bold h-11 px-6 rounded-xl shadow-sm"><Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto</Button>
@@ -1097,15 +1106,15 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button onClick={handleSaveBudget} className="w-full h-12 bg-primary font-black uppercase text-xs rounded-xl shadow-lg">Guardar en Firebase</Button>
+                            <Button onClick={handleSaveBudget} className="w-full h-12 bg-[#2D5A4C] font-black uppercase text-xs rounded-xl shadow-lg">Guardar Meta</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {budgetData.map((item: ResumenSeguimientoPresupuesto) => (
-                    <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6">
+                {budgetData.length > 0 ? budgetData.map((item: ResumenSeguimientoPresupuesto) => (
+                    <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6 hover:shadow-md transition-shadow">
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.nombre}</span>
                             <Badge variant="secondary" className={cn("font-black text-[10px] border-none px-2 py-0.5", item.progreso > 90 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500")}>
@@ -1121,49 +1130,56 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                             <Progress value={item.progreso} className="h-2 bg-slate-100" />
                         </div>
                     </Card>
-                ))}
+                )) : (
+                    <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-[32px]">
+                        <Info className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                        <p className="text-sm font-bold uppercase text-slate-400">No hay metas configuradas para este periodo.</p>
+                    </div>
+                )}
             </div>
             
-            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
-                <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b">
-                    <FileText className="h-6 w-6 text-primary" />
-                    <div>
-                        <CardTitle className="text-lg font-black uppercase tracking-tight">Seguimiento de Presupuestos</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase">Auditoría detallada de ejecución por categoría macro.</CardDescription>
-                    </div>
-                </CardHeader>
-                <div className="table-responsive">
-                    <Table>
-                        <TableHeader className="bg-slate-50/50">
-                            <TableRow>
-                                <TableHead className="font-black text-[10px] uppercase px-8">Categoría</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-right">Presupuesto</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-right">Ejecutado</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase text-right">Disponible</TableHead>
-                                <TableHead className="font-black text-[10px] uppercase px-10">Estado</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {budgetData.map((item: ResumenSeguimientoPresupuesto) => (
-                                <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
-                                    <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
-                                    <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>
-                                    <TableCell className="text-right font-black text-[#2D5A4C]">{money(item.ejecutado)}</TableCell>
-                                    <TableCell className={cn("text-right font-black", item.disponible < 0 ? "text-red-500" : "text-slate-800")}>
-                                        {money(item.disponible)}
-                                    </TableCell>
-                                    <TableCell className="w-[200px] px-10">
-                                        <div className="flex items-center gap-3">
-                                            <Progress value={item.progreso} className="h-1.5 flex-1" />
-                                            <span className="text-[9px] font-black text-slate-400 w-8">{item.progreso.toFixed(0)}%</span>
-                                        </div>
-                                    </TableCell>
+            {budgetData.length > 0 && (
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
+                    <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b">
+                        <FileText className="h-6 w-6 text-primary" />
+                        <div>
+                            <CardTitle className="text-lg font-black uppercase tracking-tight">Seguimiento de Presupuestos</CardTitle>
+                            <CardDescription className="text-xs font-bold uppercase">Auditoría detallada de ejecución por categoría macro.</CardDescription>
+                        </div>
+                    </CardHeader>
+                    <div className="table-responsive">
+                        <Table>
+                            <TableHeader className="bg-slate-50/50">
+                                <TableRow>
+                                    <TableHead className="font-black text-[10px] uppercase px-8">Categoría</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-right">Presupuesto</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-right">Ejecutado</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-right">Disponible</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase px-10">Estado</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </Card>
+                            </TableHeader>
+                            <TableBody>
+                                {budgetData.map((item: ResumenSeguimientoPresupuesto) => (
+                                    <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
+                                        <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
+                                        <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>
+                                        <TableCell className="text-right font-black text-[#2D5A4C]">{money(item.ejecutado)}</TableCell>
+                                        <TableCell className={cn("text-right font-black", item.disponible < 0 ? "text-red-500" : "text-slate-800")}>
+                                            {money(item.disponible)}
+                                        </TableCell>
+                                        <TableCell className="w-[200px] px-10">
+                                            <div className="flex items-center gap-3">
+                                                <Progress value={item.progreso} className="h-1.5 flex-1" />
+                                                <span className="text-[9px] font-black text-slate-400 w-8">{item.progreso.toFixed(0)}%</span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </Card>
+            )}
         </div>
     );
 }
