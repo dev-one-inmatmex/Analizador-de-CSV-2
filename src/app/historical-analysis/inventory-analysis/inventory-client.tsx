@@ -119,15 +119,15 @@ export default function InventoryAnalysisClient({
                 ) : (
                     <>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">SKUs Maestros</CardHeader><CardContent><div className="text-3xl font-black">{inventoryKpis.totalSkuM}</div></CardContent></Card>
-                            <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Vínculos Siggo</CardHeader><CardContent><div className="text-3xl font-black">{inventoryKpis.totalSkus}</div></CardContent></Card>
+                            <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">SKUs Madre</CardHeader><CardContent><div className="text-3xl font-black">{inventoryKpis.totalSkuM}</div></CardContent></Card>
+                            <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">SKUS</CardHeader><CardContent><div className="text-3xl font-black">{inventoryKpis.totalSkus}</div></CardContent></Card>
                             <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">SKUs Alternos</CardHeader><CardContent><div className="text-3xl font-black">{inventoryKpis.totalAlternos}</div></CardContent></Card>
                             <Card className="border-none shadow-sm"><CardHeader className="pb-2 text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Costo Ponderado</CardHeader><CardContent><div className="text-3xl font-black text-primary">{money(inventoryKpis.avgLandedCost)}</div></CardContent></Card>
                         </div>
 
                         <Tabs defaultValue="maestro" className="w-full">
                             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent gap-8">
-                                <TabsTrigger value="maestro" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">1. Catálogo Maestro (sku_m)</TabsTrigger>
+                                <TabsTrigger value="maestro" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">1. Catálogo categorías madre (sku_m)</TabsTrigger>
                                 <TabsTrigger value="costos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">2. Historial de Costos (sku_costos)</TabsTrigger>
                                 <TabsTrigger value="alternos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">3. Relaciones Alternas (sku_alterno)</TabsTrigger>
                                 <TabsTrigger value="siggo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 pb-3 font-bold uppercase tracking-tighter text-xs">4. SKU MASTER - DICCIONARIO SIGGO</TabsTrigger>
@@ -144,7 +144,7 @@ export default function InventoryAnalysisClient({
                                                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">SKU Madre (ID)</Label><Input name="sku_mdr" required placeholder="Ej: MX-MALLA-100" /></div>
                                                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Categoría Madre</Label><Input name="cat_mdr" placeholder="Ej: Malla Sombra" /></div>
                                                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Piezas por SKU</Label><Input name="piezas_por_sku" type="number" placeholder="1" /></div>
-                                                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">SKU Siggo</Label><Input name="sku" placeholder="Código Siggo" /></div>
+                                                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">SKU</Label><Input name="sku" placeholder="Código Siggo" /></div>
                                                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Landed Cost Actual</Label><Input name="landed_cost" type="number" step="0.01" required placeholder="0.00" /></div>
                                                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Pzs por Contenedor</Label><Input name="piezas_xcontenedor" type="number" /></div>
                                                     <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Bodega</Label><Input name="bodega" placeholder="Nombre bodega" /></div>
@@ -218,7 +218,7 @@ export default function InventoryAnalysisClient({
                                                 <TableHead className="font-bold uppercase text-[10px] text-right">Landed Cost</TableHead>
                                                 <TableHead className="font-bold uppercase text-[10px]">Proveedor</TableHead>
                                                 <TableHead className="font-bold uppercase text-[10px] text-center">Pzs Cont.</TableHead>
-                                                <TableHead className="font-bold uppercase text-[10px]">SKU Siggo</TableHead>
+                                                <TableHead className="font-bold uppercase text-[10px]">SKU</TableHead>
                                                 <TableHead className="font-bold uppercase text-[10px] text-center">Esti Time</TableHead>
                                             </TableRow></TableHeader>
                                             <TableBody>

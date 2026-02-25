@@ -143,7 +143,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <DialogHeader>
                     <DialogTitle>{transaction ? 'Editar Registro' : 'Nueva Transacción'}</DialogTitle>
-                    <DialogDescription>Clasifica el movimiento siguiendo las 7 fases de auditoría financiera.</DialogDescription>
+                    <DialogDescription>Clasifica el movimiento siguiendo la evaluación financiera.</DialogDescription>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -751,10 +751,18 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 if (t.es_fijo) {
                     fixedCosts += (t.monto || 0);
                     const sub = (t.subcategoria_especifica || '').toLowerCase();
-                    if (sub.includes('renta')) rubrosFijos.renta += t.monto;
-                    else if (t.tipo_gasto_impacto === 'NOMINA') rubrosFijos.nomina += t.monto;
-                    else if (['cfe', 'agua', 'internet'].some(s => sub.includes(s))) rubrosFijos.servicios += t.monto;
-                    else if (sub.includes('software')) rubrosFijos.software += t.monto;
+                    const desc = (t.descripcion || '').toLowerCase();
+                    
+                    // Lógica de detección de rubros fijos
+                    if (sub.includes('renta') || desc.includes('arrendamiento')) {
+                        rubrosFijos.renta += t.monto;
+                    } else if (t.tipo_gasto_impacto === 'NOMINA' || sub.includes('sueldo') || sub.includes('nómina')) {
+                        rubrosFijos.nomina += t.monto;
+                    } else if (['cfe', 'agua', 'internet', 'luz', 'teléfono'].some(s => sub.includes(s) || desc.includes(s))) {
+                        rubrosFijos.servicios += t.monto;
+                    } else if (sub.includes('software') || sub.includes('saas') || desc.includes('shopify') || desc.includes('adobe')) {
+                        rubrosFijos.software += t.monto;
+                    }
                 }
             }
             else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += (t.monto || 0);
@@ -877,19 +885,21 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 </Card>
                 
                 <Card className="border-none shadow-sm bg-white overflow-hidden">
-                    <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Estructura del Gasto Fijo</p></CardHeader>
-                    <CardContent className="h-[150px] p-0">
+                    <CardHeader className="pb-2">
+                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">ESTRUCTURA DEL GASTO FIJO</p>
+                    </CardHeader>
+                    <CardContent className="h-[180px] p-0">
                         <ResponsiveContainer width="100%" height="100%">
                             <RechartsBarChart data={[
                                 { name: 'Nómina', value: stats.rubrosFijos.nomina },
                                 { name: 'Renta', value: stats.rubrosFijos.renta },
                                 { name: 'Servicios', value: stats.rubrosFijos.servicios },
                                 { name: 'Software', value: stats.rubrosFijos.software }
-                            ]} layout="vertical" margin={{ left: 10, right: 30, top: 10, bottom: 10 }}>
+                            ]} layout="vertical" margin={{ left: 20, right: 40, top: 20, bottom: 20 }}>
                                 <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" fontSize={9} width={60} axisLine={false} tickLine={false} />
-                                <Tooltip formatter={(v: number) => money(v)} cursor={{fill: 'transparent'}} />
-                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={12} />
+                                <YAxis dataKey="name" type="category" fontSize={11} width={80} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontWeight: 600}} />
+                                <Tooltip formatter={(v: number) => money(v)} cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={16} />
                             </RechartsBarChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -993,7 +1003,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
-                            <History className="h-6 w-6 text-primary" /> Auditoría de {selectedDayData?.title}: {selectedDayData?.day}
+                            <History className="h-6 w-6 text-primary" /> Evaluación de {selectedDayData?.title}: {selectedDayData?.day}
                         </DialogTitle>
                         <DialogDescription>Listado detallado de transacciones registradas.</DialogDescription>
                     </DialogHeader>
@@ -1269,7 +1279,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                 <CardHeader className="flex flex-row items-center justify-between pb-8">
                     <div className="space-y-1">
                         <CardTitle className="text-xl font-bold text-[#1e293b]">Historial de Movimientos ({periodLabel})</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground">Auditoría detallada de todos los campos registrados.</CardDescription>
+                        <CardDescription className="text-sm text-muted-foreground">Evaluación detallada de todos los campos registrados.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <div className="flex items-center gap-2">
@@ -1369,7 +1379,7 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                         </div>
                         <div className="col-span-2 pt-4 border-t space-y-4">
                             <div><p className="text-[10px] font-black text-slate-400 uppercase">Descripción</p><p className="text-sm">{selectedDetail?.descripcion || '-'}</p></div>
-                            <div><p className="text-[10px] font-black text-slate-400 uppercase">Notas de Auditoría</p><p className="text-sm italic">{cleanNotes(selectedDetail?.notas) || '-'}</p></div>
+                            <div><p className="text-[10px] font-black text-slate-400 uppercase">Notas</p><p className="text-sm italic">{cleanNotes(selectedDetail?.notas) || '-'}</p></div>
                         </div>
                     </div>
                     <DialogFooter className="flex justify-between sm:justify-between items-center w-full border-t pt-4">
@@ -1564,7 +1574,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                         </div>
                         <div>
                             <CardTitle className="text-lg font-black uppercase tracking-tight">Parámetros BI</CardTitle>
-                            <CardDescription className="text-xs font-medium">Configura los valores clave para la auditoría y motor de inteligencia financiera.</CardDescription>
+                            <CardDescription className="text-xs font-medium">Configura los valores clave para la evaluación y motor de inteligencia financiera.</CardDescription>
                         </div>
                     </CardHeader>
                     <CardContent className="p-8 space-y-8">
@@ -1630,7 +1640,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Nómina Mixta</CardTitle>
                         </CardHeader>
                         <CardContent className="p-6 space-y-6">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reparto actual para auditoría de esfuerzo:</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reparto actual para la evaluación de esfuerzo:</p>
                             <div className="space-y-4">
                                 {biConfig.payrollTemplate.map((item: any) => (
                                     <div key={item.canal} className="space-y-1.5">
