@@ -4,6 +4,11 @@ export interface Usuario {
     email: string;
 } 
 
+/**
+ * Definición completa de tipos para el sistema de finanzas
+ */
+
+// --- 5 CATÁLOGOS DINÁMICOS ---
 export interface cat_tipo_gasto_impacto {
   id: number;
   nombre: string;
@@ -22,17 +27,24 @@ export interface cat_categoria_macro {
   activo: boolean;
 }
 
-export interface cat_subcategoria {
+// Nivel 2: Categoría (Depende de Macro)
+export interface cat_categoria {
   id: number;
   nombre: string;
   categoria_macro_id: number;
   activo: boolean;
 }
 
-/**
- * Definición completa de tipos para el sistema de finanzas
- */
+// Nivel 3: Subcategoría (Depende de Categoría)
+export interface cat_subcategoria {
+  id: number;
+  nombre: string;
+  categoria_id: number;
+  activo: boolean;
+}
 
+
+// --- ENUMS ORIGINALES ---
 export type Empresa = 'MTM' | 'TAL' | 'DOMESKA' | 'OTRA';
 export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA' | 'AJUSTE' | 'COMPRA' | 'VENTA';
 
@@ -49,6 +61,8 @@ export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJ
 export type Banco = 'BBVA' | 'SANTANDER' | 'BANAMEX' | 'MERCADO_PAGO' | 'OTRO';
 export type Cuenta = 'OPERATIVA' | 'FISCAL' | 'CAJA_CHICA' | 'OTRO';
 
+
+// --- TABLA PRINCIPAL ACTUALIZADA ---
 export interface gastos_diarios {
   id?: number;
   created_at?: string | null;
@@ -57,12 +71,13 @@ export interface gastos_diarios {
   capturista?: string | null; // UUID
   tipo_transaccion: TipoTransaccion;
   
-  // --- CAMPOS MIGRADOS A CATÁLOGOS DINÁMICOS (FKs) ---
+  // --- CAMPOS DINÁMICOS (FKs) CON TRIPLE CASCADA ---
   tipo_gasto_impacto: number | null;
   area_funcional: number | null;
-  categoria_macro: number | null;
-  subcategoria_especifica: number | null;
-  // ---------------------------------------------
+  categoria_macro: number | null;        // Nivel 1
+  categoria: number | null;              // Nivel 2 (NUEVO)
+  subcategoria_especifica: number | null;// Nivel 3
+  // ---------------------------------------------------
 
   canal_asociado?: CanalAsociado | null;
   clasificacion_operativa?: ClasificacionOperativa | null;

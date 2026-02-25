@@ -13,15 +13,12 @@ import {
   Bell, Search, Filter, Download, Activity,
   PieChart as PieChartIcon, Truck, History, X,
   Save, CalendarDays, FileText, FileDown,
-  SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Target, TrendingUp, Hammer, Info, Eye
+  SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Target, TrendingUp, Hammer, Info, Eye, AlertTriangle
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell as RechartsCell, ComposedChart, Line, Area
 } from 'recharts';
-import * as XLSX from 'xlsx';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -54,7 +51,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import type { gastos_diarios, cat_tipo_gasto_impacto, cat_area_funcional, cat_categoria_macro, cat_subcategoria } from '@/types/database';
+import type { gastos_diarios, cat_tipo_gasto_impacto, cat_area_funcional, cat_categoria_macro, cat_categoria, cat_subcategoria } from '@/types/database';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -75,16 +72,7 @@ function cleanNotes(notes: string | null | undefined): string {
     return notes.replace(/\[(Empresa|Método|Banco|Cuenta):.*?\]\s*/g, '').trim();
 }
 
-function DetailItem({ label, value }: { label: string, value: any }) {
-    return (
-        <div className="space-y-1">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-            <p className="text-xs font-bold text-slate-700 truncate">{value || '-'}</p>
-        </div>
-    );
-}
-
-// FORMULARIO DE TRANSACCIÓN ACTUALIZADO CON CATÁLOGOS DINÁMICOS Y CASCADA
+// FORMULARIO DE TRANSACCIÓN CON TRIPLE CASCADA
 function TransactionForm({ transaction, onSubmit, catalogs }: any) {
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(expenseFormSchema),
@@ -111,6 +99,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
             tipo_gasto_impacto: undefined,
             area_funcional: undefined,
             categoria_macro: undefined,
+            categoria: undefined,
             subcategoria_especifica: undefined,
             canal_asociado: 'GENERAL',
             clasificacion_operativa: 'DIRECTO',
@@ -127,39 +116,50 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
     });
 
     const watchedMacro = useWatch({ control: form.control, name: 'categoria_macro' });
+    const watchedCat = useWatch({ control: form.control, name: 'categoria' });
     const currentEmpresa = useWatch({ control: form.control, name: 'empresa' });
     const currentMetodo = useWatch({ control: form.control, name: 'metodo_pago' });
     const currentBanco = useWatch({ control: form.control, name: 'banco' });
     const currentCuenta = useWatch({ control: form.control, name: 'cuenta' });
     const currentImpactId = useWatch({ control: form.control, name: 'tipo_gasto_impacto' });
 
-    // Determinar si es nómina basándose en el nombre del catálogo
+    // Lógica de Nómina
     const isNomina = React.useMemo(() => {
         const impact = catalogs.impactos.find((i: any) => i.id === currentImpactId);
         return impact?.nombre?.toUpperCase().includes('NOMINA');
     }, [catalogs.impactos, currentImpactId]);
 
-    // Filtrar subcategorías en cascada
-    const filteredSubs = React.useMemo(() => {
+    // FILTRADO EN CASCADA
+    const filteredCategories = React.useMemo(() => {
         if (!watchedMacro) return [];
-        return catalogs.subcategorias.filter((s: any) => s.categoria_macro_id === watchedMacro);
-    }, [catalogs.subcategorias, watchedMacro]);
+        return catalogs.categorias.filter((c: any) => c.categoria_macro_id === watchedMacro);
+    }, [catalogs.categorias, watchedMacro]);
 
-    // Reset de subcategoría al cambiar macro
+    const filteredSubs = React.useMemo(() => {
+        if (!watchedCat) return [];
+        return catalogs.subcategorias.filter((s: any) => s.categoria_id === watchedCat);
+    }, [catalogs.subcategorias, watchedCat]);
+
+    // RESETER AL CAMBIAR PADRES
     React.useEffect(() => {
         if (watchedMacro) {
-            const currentSub = form.getValues('subcategoria_especifica');
-            const belongs = catalogs.subcategorias.some((s: any) => s.id === currentSub && s.categoria_macro_id === watchedMacro);
-            if (!belongs) form.setValue('subcategoria_especifica', undefined as any);
+            form.setValue('categoria', undefined as any);
+            form.setValue('subcategoria_especifica', undefined as any);
         }
-    }, [watchedMacro, catalogs.subcategorias, form]);
+    }, [watchedMacro, form]);
+
+    React.useEffect(() => {
+        if (watchedCat) {
+            form.setValue('subcategoria_especifica', undefined as any);
+        }
+    }, [watchedCat, form]);
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <DialogHeader>
                     <DialogTitle>{transaction ? 'Editar Registro' : 'Nueva Transacción'}</DialogTitle>
-                    <DialogDescription>Clasifica el movimiento siguiendo la arquitectura de 7 fases.</DialogDescription>
+                    <DialogDescription>Clasifica el movimiento siguiendo la arquitectura jerárquica de 5 niveles.</DialogDescription>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -187,15 +187,9 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                         </FormItem>
                     )} />
 
-                    {currentEmpresa === 'OTRA' && (
-                        <FormField control={form.control} name="especificar_empresa" render={({ field }) => (
-                            <FormItem><FormLabel>Especificar Empresa</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    )}
-
                     <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Tipo de Transacción</FormLabel>
+                            <FormLabel>Tipo</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
@@ -234,9 +228,10 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                         </FormItem>
                     )} />
 
+                    {/* TRIPLE CASCADA */}
                     <FormField control={form.control} name="categoria_macro" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Categoría Macro (Fase 3)</FormLabel>
+                            <FormLabel>Macro (Nivel 1)</FormLabel>
                             <Select onValueChange={v => field.onChange(Number(v))} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
@@ -245,11 +240,22 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                         </FormItem>
                     )} />
 
-                    <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
+                    <FormField control={form.control} name="categoria" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Subcategoría (Fase 4)</FormLabel>
+                            <FormLabel>Categoría (Nivel 2)</FormLabel>
                             <Select onValueChange={v => field.onChange(Number(v))} value={field.value?.toString()} disabled={!watchedMacro}>
                                 <FormControl><SelectTrigger><SelectValue placeholder={watchedMacro ? "Seleccionar" : "Elija Macro primero"} /></SelectTrigger></FormControl>
+                                <SelectContent>{filteredCategories.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+
+                    <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Subcategoría (Nivel 3)</FormLabel>
+                            <Select onValueChange={v => field.onChange(Number(v))} value={field.value?.toString()} disabled={!watchedCat}>
+                                <FormControl><SelectTrigger><SelectValue placeholder={watchedCat ? "Seleccionar" : "Elija Categoría primero"} /></SelectTrigger></FormControl>
                                 <SelectContent>{filteredSubs.map((s: any) => <SelectItem key={s.id} value={s.id.toString()}>{s.nombre}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
@@ -258,7 +264,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
 
                     <FormField control={form.control} name="canal_asociado" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Canal Asociado (Fase 6)</FormLabel>
+                            <FormLabel>Canal Asociado</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
@@ -267,72 +273,17 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                         </FormItem>
                     )} />
 
-                    <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Atribución (Fase 7)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value ? String(field.value) : undefined}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                <SelectContent>{CLASIFICACIONES_OPERATIVAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
+                    <FormField control={form.control} name="responsable" render={({ field }) => (
+                        <FormItem><FormLabel>Responsable</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
 
                     <FormField control={form.control} name="metodo_pago" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Método de Pago</FormLabel>
+                            <FormLabel>Pago</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                             </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-
-                    {currentMetodo === 'OTRO' && (
-                        <FormField control={form.control} name="especificar_metodo_pago" render={({ field }) => (
-                            <FormItem><FormLabel>Especificar Método</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    )}
-
-                    <FormField control={form.control} name="banco" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Banco</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-
-                    {currentBanco === 'OTRO' && (
-                        <FormField control={form.control} name="especificar_banco" render={({ field }) => (
-                            <FormItem><FormLabel>Especificar Banco</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    )}
-
-                    <FormField control={form.control} name="cuenta" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Cuenta</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-
-                    {currentCuenta === 'OTRO' && (
-                        <FormField control={form.control} name="especificar_cuenta" render={({ field }) => (
-                            <FormItem><FormLabel>Especificar Cuenta</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    )}
-
-                    <FormField control={form.control} name="responsable" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Responsable</FormLabel>
-                            <FormControl><Input {...field} value={field.value ?? ''} /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )} />
@@ -342,13 +293,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="es_fijo" render={({ field }) => (
                         <FormItem className="flex items-center space-x-2 space-y-0">
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel>Gasto Fijo (Fase 5)</FormLabel>
-                        </FormItem>
-                    )} />
-                    <FormField control={form.control} name="es_recurrente" render={({ field }) => (
-                        <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel>Recurrente</FormLabel>
+                            <FormLabel>Gasto Fijo</FormLabel>
                         </FormItem>
                     )} />
                     {isNomina && (
@@ -363,10 +308,6 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
 
                 <FormField control={form.control} name="descripcion" render={({ field }) => (
                     <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                )} />
-
-                <FormField control={form.control} name="notas" render={({ field }) => (
-                    <FormItem><FormLabel>Notas</FormLabel><FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )} />
 
                 <DialogFooter><Button type="submit" className="w-full bg-[#2D5A4C] font-bold"><Save className="mr-2 h-4 w-4" /> Guardar Registro</Button></DialogFooter>
@@ -385,52 +326,47 @@ export default function OperationsPage() {
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
     const [isClient, setIsClient] = React.useState(false);
 
-    // ESTADO PARA CATÁLOGOS DINÁMICOS
+    // CATÁLOGOS DINÁMICOS (5 TABLAS)
     const [catalogs, setCatalogs] = React.useState({
         impactos: [] as cat_tipo_gasto_impacto[],
         areas: [] as cat_area_funcional[],
         macros: [] as cat_categoria_macro[],
+        categorias: [] as cat_categoria[],
         subcategorias: [] as cat_subcategoria[]
     });
 
     const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
-    const [filterArea, setFilterArea] = React.useState<string>('TODAS');
-    const [filterImpact, setFilterImpact] = React.useState<string>('TODOS');
 
     const [biConfig, setBiConfig] = React.useState({
         contributionMargin: 40,
-        historyDays: 180,
-        independentUnit: true,
-        budgetNotifications: true,
         payrollTemplate: [
-            { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60, color: '#2D5A4C' },
-            { label: 'Mayoreo', canal: 'MAYOREO', porcentaje: 30, color: '#3b82f6' },
-            { label: 'Físico', canal: 'FISICO', porcentaje: 10, color: '#f43f5e' }
+            { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60 },
+            { label: 'Mayoreo', canal: 'MAYOREO', porcentaje: 30 },
+            { label: 'Físico', canal: 'FISICO', porcentaje: 10 }
         ]
     });
 
     const { toast } = useToast();
 
-    // FETCH DE CATÁLOGOS AL CARGAR
     const fetchCatalogs = React.useCallback(async () => {
         if (!supabase) return;
         try {
-            const [imp, ar, mac, sub] = await Promise.all([
-                supabase.from('cat_tipo_gasto_impacto').select('*').eq('activo', true).order('nombre'),
-                supabase.from('cat_area_funcional').select('*').eq('activo', true).order('nombre'),
-                supabase.from('cat_categoria_macro').select('*').eq('activo', true).order('nombre'),
-                supabase.from('cat_subcategoria').select('*').eq('activo', true).order('nombre')
+            const [imp, ar, mac, cat, sub] = await Promise.all([
+                supabase.from('cat_tipo_gasto_impacto').select('*').order('nombre'),
+                supabase.from('cat_area_funcional').select('*').order('nombre'),
+                supabase.from('cat_categoria_macro').select('*').order('nombre'),
+                supabase.from('cat_categoria').select('*').order('nombre'),
+                supabase.from('cat_subcategoria').select('*').order('nombre')
             ]);
             setCatalogs({
                 impactos: imp.data || [],
                 areas: ar.data || [],
                 macros: mac.data || [],
+                categorias: cat.data || [],
                 subcategorias: sub.data || []
             });
-        } catch (e) {
-            console.error('Error fetching catalogs:', e);
-        }
+        } catch (e) { console.error('Error fetching catalogs:', e); }
     }, []);
 
     const fetchAllData = React.useCallback(async () => {
@@ -442,57 +378,24 @@ export default function OperationsPage() {
                 case 'day': start = startOfDay(currentDate); end = endOfDay(currentDate); break;
                 case 'six_months': start = startOfMonth(subMonths(currentDate, 5)); end = endOfMonth(currentDate); break;
                 case 'year': start = startOfYear(currentDate); end = endOfYear(currentDate); break;
-                case 'month':
                 default: start = startOfMonth(currentDate); end = endOfMonth(currentDate); break;
             }
 
-            const allFetched: gastos_diarios[] = [];
-            let from = 0;
-            const step = 1000;
-            let hasMore = true;
-
-            while (hasMore) {
-                let query = supabase
-                    .from('gastos_diarios')
-                    .select('*')
-                    .gte('fecha', format(start, 'yyyy-MM-dd'))
-                    .lte('fecha', format(end, 'yyyy-MM-dd'));
-
-                if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
-                // Si el filtro no es 'TODAS', necesitamos buscar por ID si se migró también el filtro, 
-                // pero por ahora asumimos que los filtros de UI son compatibles con el esquema.
-                
-                const { data, error } = await query.order('fecha', { ascending: false }).range(from, from + step - 1);
-                if (error) throw error;
-                if (data && data.length > 0) {
-                    allFetched.push(...(data as gastos_diarios[]));
-                    if (data.length < step) hasMore = false; else from += step;
-                } else hasMore = false;
-            }
-            setTransactions(allFetched);
-        } catch (e: any) {
-            toast({ title: "Error", description: "No se pudieron cargar los movimientos.", variant: "destructive" });
-        } finally { setIsLoading(false); }
+            let query = supabase.from('gastos_diarios').select('*').gte('fecha', format(start, 'yyyy-MM-dd')).lte('fecha', format(end, 'yyyy-MM-dd'));
+            if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
+            const { data, error } = await query.order('fecha', { ascending: false });
+            if (error) throw error;
+            setTransactions(data || []);
+        } catch (e: any) { toast({ title: "Error", description: "No se pudieron cargar los movimientos.", variant: "destructive" }); }
+        finally { setIsLoading(false); }
     }, [currentDate, periodType, filterCompany, toast]);
 
-    React.useEffect(() => {
-        setIsClient(true);
-        fetchCatalogs();
-    }, [fetchCatalogs]);
-
-    React.useEffect(() => { 
-        if (isClient) fetchAllData(); 
-    }, [fetchAllData, isClient]);
+    React.useEffect(() => { setIsClient(true); fetchCatalogs(); }, [fetchCatalogs]);
+    React.useEffect(() => { if (isClient) fetchAllData(); }, [fetchAllData, isClient]);
 
     const handleSave = async (values: TransactionFormValues) => {
         try {
             const finalValues = { ...values };
-            if (values.empresa === 'OTRA' && values.especificar_empresa) finalValues.empresa = values.especificar_empresa as any;
-            if (values.metodo_pago === 'OTRO' && values.especificar_metodo_pago) finalValues.metodo_pago = values.especificar_metodo_pago as any;
-            if (values.banco === 'OTRO' && values.especificar_banco) finalValues.banco = values.especificar_banco as any;
-            if (values.cuenta === 'OTRO' && values.especificar_cuenta) finalValues.cuenta = values.especificar_cuenta as any;
-
-            let result;
             const impact = catalogs.impactos.find(i => i.id === finalValues.tipo_gasto_impacto);
             const isNominaImpact = impact?.nombre?.toUpperCase().includes('NOMINA');
 
@@ -510,19 +413,19 @@ export default function OperationsPage() {
                     const res = await addExpenseAction(fraccionado as any);
                     if (res.error) throw new Error(res.error);
                 }
-                result = { data: "Nómina mixta registrada exitosamente." };
             } else {
-                if (editingTransaction && editingTransaction.id) result = await updateExpenseAction(editingTransaction.id, finalValues as any);
+                let result;
+                if (editingTransaction?.id) result = await updateExpenseAction(editingTransaction.id, finalValues as any);
                 else result = await addExpenseAction(finalValues as any);
+                if (result.error) throw new Error(result.error);
             }
 
-            if (result.error) throw new Error(result.error);
-            toast({ title: "Éxito", description: result.data || "Guardado correctamente." });
+            toast({ title: "Éxito", description: "Registro guardado correctamente." });
             setIsFormOpen(false); setEditingTransaction(null); fetchAllData();
         } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     };
 
-    if (!isClient) return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
+    if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <div className="flex h-screen flex-col bg-muted/20 min-w-0">
@@ -549,7 +452,7 @@ export default function OperationsPage() {
                     <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
                         <Select value={periodType} onValueChange={(v: any) => setPeriodType(v)}>
-                            <SelectTrigger className="h-8 w-[160px] text-xs font-bold uppercase"><SelectValue placeholder="Periodo" /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[160px] text-xs font-bold uppercase"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="day" className="text-xs font-bold uppercase">Día Seleccionado</SelectItem>
                                 <SelectItem value="month" className="text-xs font-bold uppercase">Mes Actual</SelectItem>
@@ -577,9 +480,9 @@ export default function OperationsPage() {
             </div>
 
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
-                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
+                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
                 {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={deleteExpenseAction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
-                {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} budgets={{}} setBudgets={() => {}} />}
+                {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} />}
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} biConfig={biConfig} setBiConfig={setBiConfig} onRefresh={fetchCatalogs} />}
             </main>
 
@@ -592,8 +495,8 @@ export default function OperationsPage() {
     );
 }
 
-// VISTA DE INSIGHTS (INICIO) CON RESOLUCIÓN DE NOMBRES
-function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, catalogs, biConfig, periodType }: any) {
+// VISTA DE INSIGHTS (INICIO) - RESOLUCIÓN DE IDs
+function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, catalogs, biConfig }: any) {
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
     const [selectedDayData, setSelectedDayData] = React.useState<any>(null);
 
@@ -620,10 +523,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
         });
         
         const meta = fixedCosts / ((biConfig.contributionMargin || 40) / 100);
-        return { 
-            balance: income - expense, totalExpense: expense, totalIncome: income, 
-            fixedCosts, meta, progreso: Math.min(100, (income / (meta || 1)) * 100), rubrosFijos 
-        };
+        return { balance: income - expense, totalExpense: expense, totalIncome: income, fixedCosts, meta, progreso: Math.min(100, (income / (meta || 1)) * 100), rubrosFijos };
     }, [transactions, catalogs, biConfig]);
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -647,7 +547,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
                         <div className="h-[120px] w-[120px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie data={[{ name: 'Ingresos', value: stats.totalIncome, color: '#3b82f6' }, { name: 'Gastos', value: stats.totalExpense, color: '#f43f5e' }]} innerRadius={35} outerRadius={50} paddingAngle={5} dataKey="value">
+                                    <Pie data={[{ name: 'Ingresos', value: stats.totalIncome }, { name: 'Gastos', value: stats.totalExpense }]} innerRadius={35} outerRadius={50} paddingAngle={5} dataKey="value">
                                         <RechartsCell fill="#3b82f6" /><RechartsCell fill="#f43f5e" />
                                     </Pie>
                                     <Tooltip formatter={(v: number) => money(v)} />
@@ -705,7 +605,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
             </Card>
 
             <Card className="border-none shadow-sm p-6 bg-white overflow-hidden">
-                <div className="mb-6"><CardTitle className="text-lg font-bold flex items-center gap-2"><Activity className="h-5 w-5 text-primary" /> Flujo de Caja Diario</CardTitle><CardDescription>Comparativa diaria de ingresos y gastos.</CardDescription></div>
+                <div className="mb-6"><CardTitle className="text-lg font-bold flex items-center gap-2"><Activity className="h-5 w-5 text-primary" /> Flujo de Caja Diario</CardTitle></div>
                 <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <RechartsBarChart data={barChartData}>
@@ -720,7 +620,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
 
             <Dialog open={!!selectedDayData} onOpenChange={() => setSelectedDayData(null)}>
                 <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
-                    <DialogHeader><DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter"><History className="h-6 w-6 text-primary" /> Auditoría de {selectedDayData?.title}: {selectedDayData?.day}</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">Auditoría de {selectedDayData?.title}: {selectedDayData?.day}</DialogTitle></DialogHeader>
                     <ScrollArea className="flex-1 mt-4">
                         <Table>
                             <TableHeader><TableRow className="bg-muted/50"><TableHead className="font-bold text-[10px] uppercase">Concepto</TableHead><TableHead className="font-bold text-[10px] uppercase">Canal</TableHead><TableHead className="font-bold text-[10px] uppercase">Tipo</TableHead><TableHead className="text-right font-bold text-[10px] uppercase">Monto</TableHead></TableRow></TableHeader>
@@ -728,7 +628,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
                                 {selectedDayData?.records.map((r: any) => (
                                     <TableRow key={r.id}>
                                         <TableCell><div className="font-bold text-xs">{catalogs.subcategorias.find((s: any) => s.id === r.subcategoria_especifica)?.nombre || '-'}</div></TableCell>
-                                        <TableCell className="text-[10px] font-medium uppercase">{r.canal_asociado?.replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="text-[10px] font-medium uppercase">{String(r.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
                                         <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase">{r.tipo_transaccion}</Badge></TableCell>
                                         <TableCell className="text-right font-bold text-xs">{money(r.monto)}</TableCell>
                                     </TableRow>
@@ -742,34 +642,22 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
     );
 }
 
-// VISTA DE INFORMES CON RESOLUCIÓN DE NOMBRES
+// VISTA DE INFORMES - RESOLUCIÓN DE IDs
 function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction, catalogs, biConfig, periodType }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
-    const [selectedDetail, setSelectedDetail] = React.useState<any>(null);
-
     const periodLabel = periodType === 'month' ? 'Mensual' : periodType === 'year' ? 'Anual' : periodType === 'six_months' ? 'Semestral' : 'Diario';
 
-    const { logisticsData, breakevenChart } = React.useMemo(() => {
+    const { breakevenChart } = React.useMemo(() => {
         const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(t.tipo_transaccion)).reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0);
         const fijos = transactions.filter((t: any) => t.es_fijo && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion)).reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0);
-        
-        const log = transactions.filter((t: any) => {
-            const area = catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre?.toUpperCase() || '';
-            return area.includes('LOGISTICA');
-        });
-
         const max = Math.max(ingresos * 1.5, 200000);
         const bep = Array.from({ length: 11 }, (_, i) => {
             const sales = (max / 10) * i;
             const varCosts = sales * (1 - (biConfig.contributionMargin / 100));
             return { name: `$${Math.round(sales/1000)}k`, Ventas: sales, CostosTotales: fijos + varCosts, CostosFijos: fijos };
         });
-
-        return { 
-            logisticsData: { total: log.reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0), breakdown: [] }, 
-            breakevenChart: bep 
-        };
-    }, [transactions, catalogs, biConfig]);
+        return { breakevenChart: bep };
+    }, [transactions, biConfig]);
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -785,9 +673,8 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 <CardContent className="pt-6">
                     <div className="h-[400px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={breakevenChart} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" fontSize={10} axisLine={false} /><YAxis fontSize={10} axisLine={false} tickFormatter={v => `$${Math.round(v/1000)}k`} />
+                            <ComposedChart data={breakevenChart}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="name" fontSize={10} axisLine={false} /><YAxis fontSize={10} axisLine={false} tickFormatter={v => `$${Math.round(v/1000)}k`} />
                                 <Tooltip formatter={(v: number) => money(v)} /><Legend verticalAlign="top" align="right" height={40} iconType="circle" />
                                 <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.08} stroke="#3b82f6" strokeWidth={3} name="Ingresos" />
                                 <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e' }} name="Costos Totales" />
@@ -800,41 +687,39 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
             <Card className="border-none shadow-sm bg-white overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <div><CardTitle className="text-xl font-bold">Historial de Movimientos</CardTitle><CardDescription>Auditoría de las 7 fases operativas.</CardDescription></div>
+                    <div><CardTitle className="text-xl font-bold">Historial de Movimientos ({periodLabel})</CardTitle></div>
                     <div className="flex gap-2">
                         <div className="relative"><Input placeholder="Buscar..." className="h-9 w-[200px]" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /><Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /></div>
-                        <Button variant="outline" size="sm" onClick={() => {}} className="h-9 border-slate-200"><Download className="mr-2 h-4 w-4" /> Excel</Button>
                     </div>
                 </CardHeader>
                 <div className="table-responsive border-t">
                     <Table className="min-w-[2000px]">
-                        <TableHeader className="bg-muted/10"><TableRow className="h-12 border-b">
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Fecha</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Empresa</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Impacto</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Área</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Subcat</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Macro</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Canal</TableHead>
-                            <TableHead className="font-bold uppercase text-[10px] text-slate-500">Responsable</TableHead>
-                            <TableHead className="text-right font-bold uppercase text-[10px] text-slate-500 px-6">Monto</TableHead>
+                        <TableHeader className="bg-muted/10"><TableRow className="h-12">
+                            <TableHead className="font-bold uppercase text-[10px]">Fecha</TableHead>
+                            <TableHead className="font-bold uppercase text-[10px]">Empresa</TableHead>
+                            <TableHead className="font-bold uppercase text-[10px]">Impacto</TableHead>
+                            <TableHead className="font-bold uppercase text-[10px]">Área</TableHead>
+                            <TableHead className="font-bold uppercase text-[10px]">Macro</TableHead>
+                            <TableHead className="font-bold uppercase text-[10px]">Categoría</TableHead>
+                            <TableHead className="font-bold uppercase text-[10px]">Subcategoría</TableHead>
+                            <TableHead className="font-bold uppercase text-[10px]">Responsable</TableHead>
+                            <TableHead className="text-right font-bold uppercase text-[10px] px-6">Monto</TableHead>
                             <TableHead className="w-[100px] text-center">Acciones</TableHead>
                         </TableRow></TableHeader>
                         <TableBody>
                             {filtered.map((t: any) => (
-                                <TableRow key={t.id} className="h-14 border-b">
+                                <TableRow key={t.id} className="h-14">
                                     <TableCell className="text-[11px]">{t.fecha}</TableCell>
                                     <TableCell><Badge variant="outline" className="text-[10px]">{t.empresa}</Badge></TableCell>
                                     <TableCell className="text-[10px] uppercase">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
                                     <TableCell className="text-[10px] uppercase">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px]">{catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px] font-bold text-[#2D5A4C] uppercase">{catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{t.canal_asociado?.replace(/_/g, ' ')}</TableCell>
+                                    <TableCell className="text-[10px] uppercase">{catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}</TableCell>
+                                    <TableCell className="text-[10px] uppercase">{catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}</TableCell>
+                                    <TableCell className="text-[10px] font-bold text-[#2D5A4C] uppercase">{catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}</TableCell>
                                     <TableCell className="text-[10px] font-bold">{t.responsable}</TableCell>
                                     <TableCell className="text-right font-bold text-sm px-6">{money(t.monto)}</TableCell>
                                     <TableCell className="text-center px-2">
                                         <div className="flex items-center justify-center gap-1">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setSelectedDetail(t)}><Eye className="h-4 w-4" /></Button>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => onEditTransaction(t)}>Editar</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => onDeleteTransaction(t.id)}>Eliminar</DropdownMenuItem></DropdownMenuContent>
@@ -852,19 +737,19 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 }
 
 // VISTA DE PRESUPUESTOS
-function BudgetsView({ transactions, catalogs, budgets, setBudgets }: any) {
+function BudgetsView({ transactions, catalogs }: any) {
     const budgetStats = React.useMemo(() => {
         return catalogs.macros.map((cat: any) => {
             const spent = transactions
                 .filter((t: any) => t.categoria_macro === cat.id && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
                 .reduce((acc: number, curr: any) => acc + (Number(curr.monto) || 0), 0);
-            return { name: cat.nombre, spent, budget: 0, percent: 0, available: 0 };
+            return { name: cat.nombre, spent, budget: 0, available: 0 };
         });
     }, [transactions, catalogs]);
 
     return (
         <div className="space-y-10">
-            <div className="flex items-center justify-between"><h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2><Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm"><Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto</Button></div>
+            <div className="flex items-center justify-between"><h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2><Button className="bg-[#2D5A4C] font-bold h-11 px-6 rounded-xl shadow-sm"><Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto</Button></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {budgetStats.map((item: any) => (
                     <Card key={item.name} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6">
@@ -874,43 +759,89 @@ function BudgetsView({ transactions, catalogs, budgets, setBudgets }: any) {
                     </Card>
                 ))}
             </div>
+            
+            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
+                <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b"><FileText className="h-6 w-6 text-primary" /><div><CardTitle className="text-lg font-black uppercase tracking-tight">Seguimiento de Presupuestos</CardTitle><CardDescription className="text-xs font-bold uppercase">Auditoría detallada de ejecución por categoría macro.</CardDescription></div></CardHeader>
+                <div className="table-responsive"><Table><TableHeader className="bg-slate-50/50"><TableRow><TableHead className="font-black text-[10px] uppercase">Categoría</TableHead><TableHead className="font-black text-[10px] uppercase text-right">Presupuesto</TableHead><TableHead className="font-black text-[10px] uppercase text-right">Ejecutado</TableHead><TableHead className="font-black text-[10px] uppercase text-right">Disponible</TableHead><TableHead className="font-black text-[10px] uppercase">Estado</TableHead></TableRow></TableHeader><TableBody>{budgetStats.map((item: any) => (<TableRow key={item.name} className="h-14"><TableCell className="font-bold text-xs uppercase">{item.name}</TableCell><TableCell className="text-right font-medium text-slate-400">$0.00</TableCell><TableCell className="text-right font-black text-[#2D5A4C]">{money(item.spent)}</TableCell><TableCell className="text-right font-black">$0.00</TableCell><TableCell className="w-[150px]"><Progress value={0} className="h-1.5" /></TableCell></TableRow>))}</TableBody></Table></div>
+            </Card>
         </div>
     );
 }
 
-// PANTALLA 1: MÓDULO DE CONFIGURACIÓN DE CATÁLOGOS
+// PANTALLA 1: MÓDULO DE CONFIGURACIÓN DE CATÁLOGOS (CRUD COMPLETO)
 function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
     const { toast } = useToast();
-    const [isAddOpen, setIsAddOpen] = React.useState(false);
-    const [newName, setNewName] = React.useState('');
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [editingItem, setEditingItem] = React.useState<any>(null);
     const [activeTab, setActiveTab] = React.useState('impactos');
-    const [selectedMacroId, setSelectedMacroId] = React.useState<string>('');
+    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    const handleAdd = async () => {
-        if (!newName || !supabase) return;
+    const tablesMap: Record<string, string> = {
+        impactos: 'cat_tipo_gasto_impacto',
+        areas: 'cat_area_funcional',
+        macros: 'cat_categoria_macro',
+        categorias: 'cat_categoria',
+        subcategorias: 'cat_subcategoria'
+    };
+
+    const handleOpenDialog = (item: any = null) => {
+        if (item) {
+            setEditingItem(item);
+            setFormData({ 
+                nombre: item.nombre, 
+                parentId: (activeTab === 'categorias' ? item.categoria_macro_id : item.categoria_id)?.toString() || '' 
+            });
+        } else {
+            setEditingItem(null);
+            setFormData({ nombre: '', parentId: '' });
+        }
+        setIsDialogOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!formData.nombre || !supabase) return;
         setIsSubmitting(true);
         try {
-            const table = activeTab === 'impactos' ? 'cat_tipo_gasto_impacto' : 
-                          activeTab === 'areas' ? 'cat_area_funcional' : 
-                          activeTab === 'macros' ? 'cat_categoria_macro' : 'cat_subcategoria';
+            const tableName = tablesMap[activeTab];
+            const payload: any = { nombre: formData.nombre, activo: true };
             
-            const payload: any = { nombre: newName, activo: true };
-            if (activeTab === 'subcategorias') {
-                if (!selectedMacroId) throw new Error("Debe seleccionar una Categoría Macro.");
-                payload.categoria_macro_id = Number(selectedMacroId);
+            if (activeTab === 'categorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
+                payload.categoria_macro_id = Number(formData.parentId);
+            } else if (activeTab === 'subcategorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
+                payload.categoria_id = Number(formData.parentId);
             }
 
-            const { error } = await supabase.from(table).insert([payload]);
-            if (error) throw error;
+            let error;
+            if (editingItem) {
+                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
+                error = err;
+            } else {
+                const { error: err } = await supabase.from(tableName).insert([payload]);
+                error = err;
+            }
 
-            toast({ title: "Éxito", description: "Nueva categoría añadida correctamente." });
-            setNewName(''); setSelectedMacroId(''); setIsAddOpen(false);
+            if (error) throw error;
+            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
+            setIsDialogOpen(false);
             onRefresh();
-        } catch (e: any) {
-            toast({ title: "Error", description: e.message, variant: "destructive" });
-        } finally { setIsSubmitting(false); }
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+        finally { setIsSubmitting(false); }
     };
+
+    const handleToggleStatus = async (item: any) => {
+        if (!supabase) return;
+        try {
+            const { error } = await supabase.from(tablesMap[activeTab]).update({ activo: !item.activo }).eq('id', item.id);
+            if (error) throw error;
+            toast({ title: "Éxito", description: "Estado actualizado." });
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    };
+
+    const currentList = catalogs[activeTab] || [];
 
     return (
         <div className="space-y-10">
@@ -918,28 +849,39 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
                 <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden">
                     <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5">
                         <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500"><SlidersHorizontal className="h-5 w-5" /></div>
-                        <div><CardTitle className="text-lg font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription>Administre las bases maestras para la auditoría técnica.</CardDescription></div>
+                        <div><CardTitle className="text-lg font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription>CRUD de bases maestras para la auditoría técnica.</CardDescription></div>
                     </CardHeader>
                     <CardContent className="p-0">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
-                                <TabsList className="bg-transparent h-12 gap-8">
-                                    <TabsTrigger value="impactos" className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-12">Impactos (F1)</TabsTrigger>
-                                    <TabsTrigger value="areas" className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-12">Áreas (F2)</TabsTrigger>
-                                    <TabsTrigger value="macros" className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-12">Macros (F3)</TabsTrigger>
-                                    <TabsTrigger value="subcategorias" className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-12">Subs (F4)</TabsTrigger>
+                                <TabsList className="bg-transparent h-12 gap-6">
+                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-12">{tab}</TabsTrigger>
+                                    ))}
                                 </TabsList>
-                                <Button onClick={() => setIsAddOpen(true)} className="mb-3 bg-[#2D5A4C] h-9 text-[10px] font-black uppercase"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] h-9 text-[10px] font-black uppercase"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
                             </div>
 
-                            {['impactos', 'areas', 'macros', 'subcategorias'].map(tab => (
+                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
                                 <TabsContent key={tab} value={tab} className="mt-0">
                                     <ScrollArea className="h-[400px]">
                                         <Table>
-                                            <TableHeader className="bg-slate-50 sticky top-0"><TableRow><TableHead className="font-black text-[10px] uppercase px-8">ID</TableHead><TableHead className="font-black text-[10px] uppercase">Nombre</TableHead>{tab === 'subcategorias' && <TableHead className="font-black text-[10px] uppercase">Macro Vinculada</TableHead>}<TableHead className="font-black text-[10px] uppercase">Estado</TableHead></TableRow></TableHeader>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10"><TableRow><TableHead className="font-black text-[10px] uppercase px-8">ID</TableHead><TableHead className="font-black text-[10px] uppercase">Nombre</TableHead>{(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase">Relación</TableHead>}<TableHead className="font-black text-[10px] uppercase">Estado</TableHead><TableHead className="w-20"></TableHead></TableRow></TableHeader>
                                             <TableBody>
-                                                {(catalogs[tab === 'subcategorias' ? 'subcategorias' : tab === 'macros' ? 'macros' : tab === 'areas' ? 'areas' : 'impactos'] || []).map((item: any) => (
-                                                    <TableRow key={item.id} className="h-14"><TableCell className="px-8 font-mono text-xs text-slate-400">#{item.id}</TableCell><TableCell className="font-bold text-xs uppercase">{item.nombre}</TableCell>{tab === 'subcategorias' && <TableCell><Badge variant="secondary" className="text-[9px] uppercase">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}<TableCell><Badge variant={item.activo ? 'default' : 'outline'} className="text-[8px] uppercase">{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell></TableRow>
+                                                {(catalogs[tab] || []).map((item: any) => (
+                                                    <TableRow key={item.id} className={cn("h-14", !item.activo && "opacity-50")}>
+                                                        <TableCell className="px-8 font-mono text-xs text-slate-400">#{item.id}</TableCell>
+                                                        <TableCell className="font-bold text-xs uppercase">{item.nombre}</TableCell>
+                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] uppercase">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] uppercase">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        <TableCell><Badge variant={item.activo ? 'default' : 'secondary'} className="text-[8px] uppercase">{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-1">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(item)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
@@ -958,25 +900,40 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
                                 {biConfig.payrollTemplate.map((item: any) => (
                                     <div key={item.canal} className="space-y-1.5"><div className="flex justify-between text-[10px] font-black uppercase"><span>{item.label}</span><span>{item.porcentaje}%</span></div><Progress value={item.porcentaje} className="h-1.5" /></div>
                                 ))}
-                            </div><Button variant="outline" className="w-full h-10 border-slate-200 font-black uppercase text-[10px] rounded-xl">Editar Plantilla</Button>
+                            </div>
                         </CardContent>
                     </Card>
                     <Card className="border-none shadow-lg bg-[#24483D] text-white overflow-hidden">
-                        <CardContent className="p-8 space-y-4"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-widest text-white/60">Salud BI</p><CheckCircle2 className="h-4 w-4 text-emerald-400" /></div><h3 className="text-3xl font-black">Optimizada</h3><p className="text-xs text-white/70 leading-relaxed font-medium">Arquitectura relacional activa. Los cálculos son automáticos basados en los catálogos vinculados.</p></CardContent>
+                        <CardContent className="p-8 space-y-4"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-widest text-white/60">Salud BI</p><CheckCircle2 className="h-4 w-4 text-emerald-400" /></div><h3 className="text-3xl font-black">Arquitectura Activa</h3><p className="text-xs text-white/70 leading-relaxed font-medium">Relaciones de 5 niveles optimizadas para el análisis técnico profundo.</p></CardContent>
                     </Card>
                 </div>
             </div>
 
-            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent className="max-w-md rounded-[32px]">
-                    <DialogHeader><DialogTitle className="text-2xl font-black uppercase tracking-tighter">Añadir Categoría</DialogTitle><DialogDescription>Ingrese el nombre de la nueva entrada para el catálogo {activeTab}.</DialogDescription></DialogHeader>
+                    <DialogHeader><DialogTitle className="text-2xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle><DialogDescription>Gestione la base maestra para {activeTab}.</DialogDescription></DialogHeader>
                     <div className="py-6 space-y-6">
-                        <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Nombre de Categoría</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ej: Nueva Subdivisión" className="h-12 border-slate-100 rounded-xl" /></div>
+                        <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Nombre</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-12 border-slate-100 rounded-xl" /></div>
+                        
+                        {activeTab === 'categorias' && (
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Macro Vinculada (Obligatorio)</Label>
+                                <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                    <SelectTrigger className="h-12 border-slate-100 rounded-xl"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
+                                    <SelectContent>{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
                         {activeTab === 'subcategorias' && (
-                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Categoría Macro (Relación Obligatoria)</Label><Select value={selectedMacroId} onValueChange={setSelectedMacroId}><SelectTrigger className="h-12 border-slate-100 rounded-xl"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger><SelectContent>{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent></Select></div>
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase">Categoría Vinculada (Obligatorio)</Label>
+                                <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                    <SelectTrigger className="h-12 border-slate-100 rounded-xl"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
+                                    <SelectContent>{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
                         )}
                     </div>
-                    <DialogFooter><Button onClick={handleAdd} disabled={isSubmitting || !newName || (activeTab === 'subcategorias' && !selectedMacroId)} className="w-full h-12 bg-slate-900 rounded-xl font-black uppercase text-xs">Confirmar Inserción</Button></DialogFooter>
+                    <DialogFooter><Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="w-full h-12 bg-slate-900 rounded-xl font-black uppercase text-xs">Confirmar Operación</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

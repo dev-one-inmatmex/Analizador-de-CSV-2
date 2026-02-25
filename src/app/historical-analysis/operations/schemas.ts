@@ -29,12 +29,13 @@ export const expenseFormSchema = z.object({
   tipo_transaccion: z.string({ required_error: "Seleccione tipo." }),
   monto: z.coerce.number().positive("El monto debe ser mayor a 0"),
   
-  // --- CAMPOS MIGRADOS A IDs NUMÉRICOS (FKs) ---
-  tipo_gasto_impacto: z.number({ required_error: "Seleccione Impacto (Nivel 1)." }),
-  area_funcional: z.number({ required_error: "Seleccione Área (Nivel 2)." }),
-  subcategoria_especifica: z.number({ required_error: "Seleccione Subcategoría (Nivel 3)." }),
-  categoria_macro: z.number({ required_error: "Seleccione macro." }),
-  // ---------------------------------------------
+  // --- CAMPOS DINÁMICOS (FKs) ---
+  tipo_gasto_impacto: z.number({ required_error: "Seleccione Impacto (F1)." }),
+  area_funcional: z.number({ required_error: "Seleccione Área (F2)." }),
+  categoria_macro: z.number({ required_error: "Seleccione Macro (F3)." }),
+  categoria: z.number({ required_error: "Seleccione Categoría (F4)." }),
+  subcategoria_especifica: z.number({ required_error: "Seleccione Subcategoría (F5)." }),
+  // -----------------------------
 
   canal_asociado: z.string({ required_error: "Seleccione canal." }),
   clasificacion_operativa: z.string().nullable().optional(),
