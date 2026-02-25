@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -428,33 +427,10 @@ export default function OperationsPage() {
 
     const { toast } = useToast();
 
-    // PERSISTENCIA LOCAL
     React.useEffect(() => {
         setIsClient(true);
         setCurrentDate(startOfDay(new Date()));
-
-        const savedImpacts = localStorage.getItem('finance_impacts');
-        const savedSubs = localStorage.getItem('finance_subcategories');
-        const savedMacro = localStorage.getItem('finance_macro');
-        const savedBi = localStorage.getItem('finance_bi_config');
-        const savedBudgets = localStorage.getItem('finance_budgets');
-
-        if (savedImpacts) setImpacts(JSON.parse(savedImpacts));
-        if (savedSubs) setSubcategoriesMap(JSON.parse(savedSubs));
-        if (savedMacro) setMacroCategories(JSON.parse(savedMacro));
-        if (savedBi) setBiConfig(JSON.parse(savedBi));
-        if (savedBudgets) setBudgetsMap(JSON.parse(savedBudgets));
     }, []);
-
-    React.useEffect(() => {
-        if (isClient) {
-            localStorage.setItem('finance_impacts', JSON.stringify(impacts));
-            localStorage.setItem('finance_subcategories', JSON.stringify(subcategoriesMap));
-            localStorage.setItem('finance_macro', JSON.stringify(macroCategories));
-            localStorage.setItem('finance_bi_config', JSON.stringify(biConfig));
-            localStorage.setItem('finance_budgets', JSON.stringify(budgetsMap));
-        }
-    }, [impacts, subcategoriesMap, macroCategories, biConfig, budgetsMap, isClient]);
 
     const fetchAllData = React.useCallback(async () => {
         const supabaseClient = supabase;
@@ -1699,7 +1675,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                                 Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros y el margen del {biConfig.contributionMargin}%.
                             </p>
                         </CardContent>
-                    </div>
+                    </Card>
                 </div>
             </div>
 
