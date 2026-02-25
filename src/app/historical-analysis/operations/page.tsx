@@ -710,7 +710,7 @@ export default function OperationsPage() {
                 )}
             </main>
 
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+            <Dialog open={isFormOpen} onOpenChange={isFormOpen => { if(!isFormOpen) { setIsFormOpen(false); setEditingTransaction(null); } }}>
                 <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
                     <TransactionForm 
                         transaction={editingTransaction} 
@@ -726,7 +726,7 @@ export default function OperationsPage() {
 }
 
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, periodType, biConfig }: any) {
-    const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[] } | null>(null);
+    const [selectedDayData, setSelectedDayData] = React.useState<{ day: string, records: any[], title: string } | null>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
@@ -819,16 +819,6 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
             };
         });
     }, [transactions, currentDate, periodType]);
-
-    const handleChartClick = (data: any) => {
-        if (data && data.activePayload && data.activePayload.length > 0) {
-            const dayInfo = data.activePayload[0].payload;
-            setSelectedDayData({
-                day: format(dayInfo.fullDate, periodType === 'month' || periodType === 'day' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
-                records: dayInfo.records
-            });
-        }
-    };
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -958,14 +948,42 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 </div>
                 <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <RechartsBarChart data={barChartData} onClick={handleChartClick} style={{ cursor: 'pointer' }}>
+                        <RechartsBarChart data={barChartData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                             <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
                             <Tooltip cursor={{fill: '#f8fafc'}} formatter={(v: number) => money(v)} />
                             <Legend verticalAlign="top" align="right" height={36} iconType="circle" />
-                            <RechartsBar dataKey="Ingresos" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
-                            <RechartsBar dataKey="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={20} />
+                            <RechartsBar 
+                                dataKey="Ingresos" 
+                                fill="#3b82f6" 
+                                radius={[4, 4, 0, 0]} 
+                                barSize={20} 
+                                style={{ cursor: 'pointer' }}
+                                onClick={(data) => {
+                                    const payload = data.payload;
+                                    setSelectedDayData({
+                                        day: format(payload.fullDate, periodType === 'month' || periodType === 'day' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
+                                        records: payload.records.filter((r: any) => ['INGRESO', 'VENTA'].includes(r.tipo_transaccion)),
+                                        title: 'Ingresos'
+                                    });
+                                }}
+                            />
+                            <RechartsBar 
+                                dataKey="Gastos" 
+                                fill="#f43f5e" 
+                                radius={[4, 4, 0, 0]} 
+                                barSize={20} 
+                                style={{ cursor: 'pointer' }}
+                                onClick={(data) => {
+                                    const payload = data.payload;
+                                    setSelectedDayData({
+                                        day: format(payload.fullDate, periodType === 'month' || periodType === 'day' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
+                                        records: payload.records.filter((r: any) => ['GASTO', 'COMPRA'].includes(r.tipo_transaccion)),
+                                        title: 'Gastos'
+                                    });
+                                }}
+                            />
                         </RechartsBarChart>
                     </ResponsiveContainer>
                 </div>
@@ -975,7 +993,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
-                            <History className="h-6 w-6 text-primary" /> Auditoría del Periodo: {selectedDayData?.day}
+                            <History className="h-6 w-6 text-primary" /> Auditoría de {selectedDayData?.title}: {selectedDayData?.day}
                         </DialogTitle>
                         <DialogDescription>Listado detallado de transacciones registradas.</DialogDescription>
                     </DialogHeader>
