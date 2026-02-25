@@ -86,6 +86,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
             descripcion: transaction.descripcion || '',
             notas: transaction.notas || '',
             es_fijo: transaction.es_fijo || false,
+            es_recurrente: transaction.es_recurrente || false,
             metodo_pago: transaction.metodo_pago || '',
             banco: transaction.banco || '',
             cuenta: transaction.cuenta || '',
@@ -313,11 +314,17 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     )} />
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex gap-6 border-y py-4 border-slate-50">
                     <FormField control={form.control} name="es_fijo" render={({ field }) => (
                         <FormItem className="flex items-center space-x-2 space-y-0">
                             <FormControl><Switch checked={!!field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <FormLabel className="text-[10px] font-black uppercase">Gasto Fijo</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase tracking-tighter">Gasto Fijo</FormLabel>
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="es_recurrente" render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2 space-y-0">
+                            <FormControl><Switch checked={!!field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <FormLabel className="text-[10px] font-black uppercase tracking-tighter">Gasto Recurrente</FormLabel>
                         </FormItem>
                     )} />
                     {isNomina && !transaction && (
@@ -755,6 +762,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 ['Canal Asociado (F6)', String(t.canal_asociado || 'GENERAL').replace(/_/g, ' ')],
                 ['Atribución (F7)', String(t.clasificacion_operativa || 'DIRECTO').replace(/_/g, ' ')],
                 ['Responsable', t.responsable || '-'],
+                ['Propiedades', `${t.es_fijo ? '[FIJO]' : ''} ${t.es_recurrente ? '[RECURRENTE]' : ''}`.trim() || 'N/A'],
             ],
         });
 
@@ -924,7 +932,13 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     <ScrollArea className="max-h-[85vh] no-scrollbar">
                         <div className="p-8 sm:p-10 space-y-10">
                             <DialogHeader>
-                                <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-slate-900">Detalle del Movimiento</DialogTitle>
+                                <div className="flex items-center justify-between">
+                                    <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-slate-900">Detalle del Movimiento</DialogTitle>
+                                    <div className="flex gap-2">
+                                        {viewDetail?.es_fijo && <Badge className="bg-slate-900 text-white font-black text-[8px] uppercase">FIJO</Badge>}
+                                        {viewDetail?.es_recurrente && <Badge className="bg-blue-600 text-white font-black text-[8px] uppercase">RECURRENTE</Badge>}
+                                    </div>
+                                </div>
                                 <DialogDescription className="text-xs font-bold uppercase text-slate-400 tracking-widest">ID Registro: #{viewDetail?.id}</DialogDescription>
                             </DialogHeader>
 
@@ -988,7 +1002,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || '-'}</p>
                                 </div>
                             </div>
                         </div>
