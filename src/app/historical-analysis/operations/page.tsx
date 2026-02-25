@@ -415,11 +415,6 @@ export default function OperationsPage() {
         ]
     });
 
-    React.useEffect(() => {
-        setIsClient(true);
-        setCurrentDate(startOfDay(new Date()));
-    }, []);
-
     const [macroCategories, setMacroCategories] = React.useState<string[]>(CATEGORIAS_MACRO);
     const [impacts, setImpacts] = React.useState<string[]>(TIPO_GASTO_IMPACTO_LIST);
     const [subcategoriesMap, setSubcategoriesMap] = React.useState<Record<string, string[]>>(SUBCATEGORIAS_NIVEL_3_DEFAULT);
@@ -432,6 +427,34 @@ export default function OperationsPage() {
     });
 
     const { toast } = useToast();
+
+    // PERSISTENCIA LOCAL
+    React.useEffect(() => {
+        setIsClient(true);
+        setCurrentDate(startOfDay(new Date()));
+
+        const savedImpacts = localStorage.getItem('finance_impacts');
+        const savedSubs = localStorage.getItem('finance_subcategories');
+        const savedMacro = localStorage.getItem('finance_macro');
+        const savedBi = localStorage.getItem('finance_bi_config');
+        const savedBudgets = localStorage.getItem('finance_budgets');
+
+        if (savedImpacts) setImpacts(JSON.parse(savedImpacts));
+        if (savedSubs) setSubcategoriesMap(JSON.parse(savedSubs));
+        if (savedMacro) setMacroCategories(JSON.parse(savedMacro));
+        if (savedBi) setBiConfig(JSON.parse(savedBi));
+        if (savedBudgets) setBudgetsMap(JSON.parse(savedBudgets));
+    }, []);
+
+    React.useEffect(() => {
+        if (isClient) {
+            localStorage.setItem('finance_impacts', JSON.stringify(impacts));
+            localStorage.setItem('finance_subcategories', JSON.stringify(subcategoriesMap));
+            localStorage.setItem('finance_macro', JSON.stringify(macroCategories));
+            localStorage.setItem('finance_bi_config', JSON.stringify(biConfig));
+            localStorage.setItem('finance_budgets', JSON.stringify(budgetsMap));
+        }
+    }, [impacts, subcategoriesMap, macroCategories, biConfig, budgetsMap, isClient]);
 
     const fetchAllData = React.useCallback(async () => {
         const supabaseClient = supabase;
@@ -1526,6 +1549,13 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
     const [isPayrollDialogOpen, setIsPayrollDialogOpen] = React.useState(false);
     const { toast } = useToast();
 
+    // Actualizar selectedImpact si el actual deja de existir
+    React.useEffect(() => {
+        if (!impacts.includes(selectedImpact)) {
+            setSelectedImpact(impacts[0] || '');
+        }
+    }, [impacts, selectedImpact]);
+
     const addImpact = () => {
         if (!newImpact) return;
         const formatted = newImpact.toUpperCase().replace(/\s+/g, '_');
@@ -1533,6 +1563,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
             setImpacts([...impacts, formatted]);
             setSubcategories({ ...subcategories, [formatted]: [] });
             setNewImpact('');
+            toast({ title: "Impacto añadido", description: `Se ha creado el impacto ${formatted}` });
         }
     };
 
@@ -1542,6 +1573,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
         if (!currentSubs.includes(newSub)) {
             setSubcategories({ ...subcategories, [selectedImpact]: [...currentSubs, newSub] });
             setNewSub('');
+            toast({ title: "Subcategoría añadida", description: `Se añadió ${newSub} a ${selectedImpact}` });
         }
     };
 
@@ -1667,7 +1699,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                                 Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros y el margen del {biConfig.contributionMargin}%.
                             </p>
                         </CardContent>
-                    </Card>
+                    </div>
                 </div>
             </div>
 
@@ -1707,12 +1739,13 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
             </Dialog>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* ESTRUCTURA DE IMPACTOS */}
                 <Card className="border-none shadow-sm bg-white">
                     <CardHeader><CardTitle className="text-lg font-black uppercase">Estructura de Impactos</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
                         <div className="flex gap-2">
                             <Input placeholder="NUEVO IMPACTO..." value={newImpact} onChange={(e) => setNewImpact(e.target.value)} />
-                            <Button onClick={addImpact} className="bg-slate-800 hover:bg-slate-900"><Plus className="h-4 w-4" /></Button>
+                            <Button onClick={addImpact} className="bg-slate-800 hover:bg-slate-900 h-10 w-10 p-0 shrink-0"><Plus className="h-4 w-4" /></Button>
                         </div>
                         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
                             {impacts.map((i: string) => (
@@ -1725,6 +1758,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                     </CardContent>
                 </Card>
 
+                {/* SUBCATEGORÍAS POR IMPACTO */}
                 <Card className="border-none shadow-sm bg-white">
                     <CardHeader><CardTitle className="text-lg font-black uppercase">Subcategorías por Impacto</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
@@ -1737,7 +1771,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                             </Select>
                             <div className="flex gap-2">
                                 <Input placeholder="NUEVA SUBCATEGORÍA..." value={newSub} onChange={(e) => setNewSub(e.target.value)} />
-                                <Button onClick={addSub} className="bg-slate-800 hover:bg-slate-900"><Plus className="h-4 w-4" /></Button>
+                                <Button onClick={addSub} className="bg-slate-800 hover:bg-slate-900 h-10 w-10 p-0 shrink-0"><Plus className="h-4 w-4" /></Button>
                             </div>
                         </div>
                         <div className="space-y-2 max-h-[230px] overflow-y-auto pr-2">
