@@ -852,78 +852,80 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             </Card>
 
             <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
-                <DialogContent className="max-w-3xl rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
-                    <div className="p-10 space-y-10">
-                        <DialogHeader>
-                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-slate-900">Detalle del Movimiento</DialogTitle>
-                            <DialogDescription className="text-sm font-bold uppercase text-slate-400 tracking-widest">ID Registro: #{viewDetail?.id}</DialogDescription>
-                        </DialogHeader>
+                <DialogContent className="max-w-2xl w-[95vw] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
+                    <ScrollArea className="max-h-[85vh] no-scrollbar">
+                        <div className="p-8 sm:p-10 space-y-10">
+                            <DialogHeader>
+                                <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-slate-900">Detalle del Movimiento</DialogTitle>
+                                <DialogDescription className="text-xs font-bold uppercase text-slate-400 tracking-widest">ID Registro: #{viewDetail?.id}</DialogDescription>
+                            </DialogHeader>
 
-                        <div className="grid grid-cols-2 gap-x-12 gap-y-8">
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Fecha</p>
-                                <p className="text-lg font-black text-slate-800">{viewDetail?.fecha}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-8">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Fecha</p>
+                                    <p className="text-lg font-black text-slate-800">{viewDetail?.fecha}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría</p>
+                                    <p className="text-lg font-black text-slate-800">{catalogs.subcategorias.find((s: any) => s.id === viewDetail?.subcategoria_especifica)?.nombre || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Empresa</p>
+                                    <p className="text-lg font-black text-slate-800">{viewDetail?.empresa}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Método</p>
+                                    <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.metodo_pago?.replace(/_/g, ' ') || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Monto</p>
+                                    <p className="text-2xl font-black text-[#2D5A4C]">{money(viewDetail?.monto)}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Banco</p>
+                                    <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.banco || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</p>
+                                    <p className="text-lg font-black text-slate-800">{viewDetail?.tipo_transaccion}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cuenta</p>
+                                    <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.cuenta || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto</p>
+                                    <p className="text-lg font-black text-slate-800">{catalogs.impactos.find((i: any) => i.id === viewDetail?.tipo_gasto_impacto)?.nombre || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Responsable</p>
+                                    <p className="text-lg font-black text-slate-800">{viewDetail?.responsable || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Área</p>
+                                    <p className="text-lg font-black text-slate-800">{catalogs.areas.find((a: any) => a.id === viewDetail?.area_funcional)?.nombre || '-'}</p>
+                                </div>
                             </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría</p>
-                                <p className="text-lg font-black text-slate-800">{catalogs.subcategorias.find((s: any) => s.id === viewDetail?.subcategoria_especifica)?.nombre || '-'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Empresa</p>
-                                <p className="text-lg font-black text-slate-800">{viewDetail?.empresa}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Método</p>
-                                <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.metodo_pago?.replace(/_/g, ' ') || '-'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Monto</p>
-                                <p className="text-2xl font-black text-[#2D5A4C]">{money(viewDetail?.monto)}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Banco</p>
-                                <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.banco || '-'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</p>
-                                <p className="text-lg font-black text-slate-800">{viewDetail?.tipo_transaccion}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cuenta</p>
-                                <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.cuenta || '-'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto</p>
-                                <p className="text-lg font-black text-slate-800">{catalogs.impactos.find((i: any) => i.id === viewDetail?.tipo_gasto_impacto)?.nombre || '-'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Responsable</p>
-                                <p className="text-lg font-black text-slate-800">{viewDetail?.responsable || '-'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Área</p>
-                                <p className="text-lg font-black text-slate-800">{catalogs.areas.find((a: any) => a.id === viewDetail?.area_funcional)?.nombre || '-'}</p>
+
+                            <Separator className="bg-slate-100" />
+
+                            <div className="space-y-6">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Descripción</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed">{viewDetail?.descripcion || '-'}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
+                                </div>
                             </div>
                         </div>
+                    </ScrollArea>
 
-                        <Separator className="bg-slate-100" />
-
-                        <div className="space-y-6">
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Descripción</p>
-                                <p className="text-sm font-medium text-slate-600 leading-relaxed">{viewDetail?.descripcion || '-'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas</p>
-                                <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="px-10 py-8 border-t bg-slate-50 flex items-center justify-between">
+                    <div className="px-8 sm:px-10 py-8 border-t bg-slate-50 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex gap-3">
-                            <Button variant="outline" onClick={() => setViewDetail(null)} className="h-12 px-8 font-black uppercase text-[10px] rounded-xl border-slate-200">Cerrar</Button>
-                            <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-12 px-8 font-black uppercase text-[10px] rounded-xl border-slate-200 flex gap-2">
+                            <Button variant="outline" onClick={() => setViewDetail(null)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200">Cerrar</Button>
+                            <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200 flex gap-2">
                                 <FileDown className="h-4 w-4" /> PDF
                             </Button>
                         </div>
