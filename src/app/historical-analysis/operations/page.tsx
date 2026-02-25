@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -38,7 +39,7 @@ import {
 } from './schemas';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
-import { obtenerDashboardPresupuestos, guardarPresupuestoFirebase } from '@/lib/firebaseBudgetService';
+import { obtenerDashboardPresupuestos, guardarPresupuestoFirebase, eliminarPresupuestoFirebase } from '@/lib/firebaseBudgetService';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -912,19 +913,20 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={17} className="h-80 text-center"/>
+                                        <TableCell colSpan={17} className="h-80 text-center">
                                             <div className="flex flex-col items-center gap-4 opacity-20">
                                                 <FileText className="h-16 w-16" />
                                                 <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
                                             </div>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
-                    </div>
-                </Card>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                        <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                </div>
+            </Card>
 
             <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
                 <DialogContent className="max-w-2xl w-[95vw] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
@@ -1040,13 +1042,10 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     const anio = currentDate.getUTCFullYear();
 
     const loadBudgets = React.useCallback(async () => {
-        // Solo intentamos cargar si hay categorías macro
         if (!catalogs.macros || catalogs.macros.length === 0) return;
         
         setIsLoading(true);
         try {
-            // El motor ahora procesa localmente los gastos pasados por parámetro, 
-            // solo va a Firebase por las metas (muy rápido).
             const data = await obtenerDashboardPresupuestos(mes, anio, catalogs.macros, transactions);
             setBudgetData(data);
         } catch (e) {
@@ -1061,14 +1060,35 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     }, [loadBudgets]);
 
     const handleSaveBudget = async () => {
-        if (!selectedMacroId || !newAmount) return;
+        if (!selectedMacroId || !newAmount) {
+            toast({ title: "Atención", description: "Debe seleccionar una categoría y un monto.", variant: "destructive" });
+            return;
+        }
         try {
             await guardarPresupuestoFirebase(Number(selectedMacroId), Number(newAmount), mes, anio);
             toast({ title: "Presupuesto actualizado", description: "La meta se ha guardado en Firebase." });
             setIsAjustarOpen(false);
+            setSelectedMacroId("");
+            setNewAmount("");
             loadBudgets();
         } catch (e) {
             toast({ title: "Error", description: "No se pudo guardar el presupuesto.", variant: "destructive" });
+        }
+    };
+
+    const handleEditBudget = (item: ResumenSeguimientoPresupuesto) => {
+        setSelectedMacroId(item.id.toString());
+        setNewAmount(item.presupuesto.toString());
+        setIsAjustarOpen(true);
+    };
+
+    const handleDeleteBudget = async (id: number) => {
+        try {
+            await eliminarPresupuestoFirebase(id, mes, anio);
+            toast({ title: "Meta eliminada", description: "El presupuesto se ha restablecido a cero." });
+            loadBudgets();
+        } catch (e) {
+            toast({ title: "Error", description: "No se pudo eliminar el presupuesto.", variant: "destructive" });
         }
     };
 
@@ -1083,12 +1103,14 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                 </div>
                 <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
                     <DialogTrigger asChild>
-                        <Button className="bg-[#2D5A4C] font-bold h-11 px-6 rounded-xl shadow-sm"><Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto</Button>
+                        <Button className="bg-[#2D5A4C] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
+                            <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
+                        </Button>
                     </DialogTrigger>
                     <DialogContent className="rounded-[32px] border-none shadow-2xl">
                         <DialogHeader>
-                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">Gestionar Presupuesto</DialogTitle>
-                            <DialogDescription className="text-xs font-bold uppercase">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es })}.</DialogDescription>
+                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">GESTIONAR PRESUPUESTO</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}.</DialogDescription>
                         </DialogHeader>
                         <div className="py-6 space-y-6">
                             <div className="space-y-2">
@@ -1102,11 +1124,11 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monto Asignado ($)</Label>
-                                <Input type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="h-12 rounded-xl border-slate-200 font-bold" />
+                                <Input type="number" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} className="h-12 rounded-xl border-slate-200 font-bold" placeholder="0.00" />
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button onClick={handleSaveBudget} className="w-full h-12 bg-[#2D5A4C] font-black uppercase text-xs rounded-xl shadow-lg">Guardar Meta</Button>
+                            <Button onClick={handleSaveBudget} className="w-full h-12 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-xl shadow-lg">GUARDAR EN FIREBASE</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -1114,12 +1136,30 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {budgetData.length > 0 ? budgetData.map((item: ResumenSeguimientoPresupuesto) => (
-                    <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6 hover:shadow-md transition-shadow">
+                    <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6 hover:shadow-md transition-shadow relative group">
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.nombre}</span>
-                            <Badge variant="secondary" className={cn("font-black text-[10px] border-none px-2 py-0.5", item.progreso > 90 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500")}>
-                                {item.progreso.toFixed(0)}%
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className={cn("font-black text-[10px] border-none px-2 py-0.5", item.progreso > 90 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500")}>
+                                    {item.progreso.toFixed(0)}%
+                                </Badge>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <MoreVertical className="h-3 w-3" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="rounded-xl">
+                                        <DropdownMenuItem onClick={() => handleEditBudget(item)} className="text-[10px] font-black uppercase cursor-pointer">
+                                            <Pencil className="mr-2 h-3 w-3" /> Editar Meta
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => handleDeleteBudget(item.id)} className="text-[10px] font-black uppercase text-destructive cursor-pointer">
+                                            <Trash2 className="mr-2 h-3 w-3" /> Eliminar
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
                         <div className="mb-6"><h3 className="text-3xl font-black text-slate-900">{money(item.ejecutado)}</h3></div>
                         <div className="space-y-3">
