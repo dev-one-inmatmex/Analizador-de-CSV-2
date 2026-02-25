@@ -162,7 +162,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="empresa" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Empresa</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
                             </Select>
@@ -183,7 +183,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Tipo de Transacción</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                             </Select>
@@ -202,9 +202,9 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="tipo_gasto_impacto" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Impacto (Nivel 1)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                <SelectContent>{dynamicImpacts.map((i: string) => <SelectItem key={i} value={i}>{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                <SelectContent>{dynamicImpacts.map((i: string) => <SelectItem key={i} value={i}>{String(i).replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
                         </FormItem>
@@ -213,9 +213,9 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="area_funcional" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Área Funcional (Nivel 2)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                <SelectContent>{AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a}>{a.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                <SelectContent>{AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a}>{String(a).replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
                         </FormItem>
@@ -224,7 +224,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="subcategoria_especifica" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Subcategoría (Nivel 3)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                     {(dynamicSubcategories[currentImpact] || []).map((s: string) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -238,7 +238,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="categoria_macro" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Categoría Macro</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{dynamicMacro.map((m: string) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                             </Select>
@@ -249,9 +249,9 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="canal_asociado" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Canal Asociado</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                                <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{String(c).replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
                         </FormItem>
@@ -260,7 +260,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Clasificación Operativa</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value ? String(field.value) : undefined}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{CLASIFICACIONES_OPERATIVAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                             </Select>
@@ -271,7 +271,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="metodo_pago" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Método de Pago</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                             </Select>
@@ -292,7 +292,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="banco" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Banco</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                             </Select>
@@ -313,7 +313,7 @@ function TransactionForm({ transaction, onSubmit, dynamicImpacts, dynamicSubcate
                     <FormField control={form.control} name="cuenta" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Cuenta</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                             </Select>
@@ -668,7 +668,7 @@ export default function OperationsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="TODAS" className="text-xs font-bold uppercase">Todas las Áreas</SelectItem>
-                                {AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a} className="text-xs font-bold uppercase">{a.replace(/_/g, ' ')}</SelectItem>)}
+                                {AREAS_FUNCIONALES.map(a => <SelectItem key={a} value={a} className="text-xs font-bold uppercase">{String(a).replace(/_/g, ' ')}</SelectItem>)}
                             </SelectContent>
                         </Select>
 
@@ -678,7 +678,7 @@ export default function OperationsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="TODOS" className="text-xs font-bold uppercase">Todos los Impactos</SelectItem>
-                                {impacts.map(i => <SelectItem key={i} value={i} className="text-xs font-bold uppercase">{i.replace(/_/g, ' ')}</SelectItem>)}
+                                {impacts.map(i => <SelectItem key={i} value={i} className="text-xs font-bold uppercase">{String(i).replace(/_/g, ' ')}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -745,26 +745,27 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
         let rubrosFijos = { nomina: 0, renta: 0, servicios: 0, software: 0 };
 
         transactions.forEach((t: any) => {
+            const monto = Number(t.monto) || 0;
             if (['GASTO', 'COMPRA'].includes(t.tipo_transaccion)) {
-                expense += (t.monto || 0);
+                expense += monto;
                 if (t.es_fijo) {
-                    fixedCosts += (t.monto || 0);
-                    const sub = (t.subcategoria_especifica || '').toLowerCase();
-                    const desc = (t.descripcion || '').toLowerCase();
+                    fixedCosts += monto;
+                    const sub = String(t.subcategoria_especifica || '').toLowerCase();
+                    const desc = String(t.descripcion || '').toLowerCase();
+                    const impact = String(t.tipo_gasto_impacto || '').toUpperCase();
                     
-                    // Lógica de detección de rubros fijos
                     if (sub.includes('renta') || desc.includes('arrendamiento')) {
-                        rubrosFijos.renta += t.monto;
-                    } else if (t.tipo_gasto_impacto === 'NOMINA' || sub.includes('sueldo') || sub.includes('nómina')) {
-                        rubrosFijos.nomina += t.monto;
+                        rubrosFijos.renta += monto;
+                    } else if (impact === 'NOMINA' || sub.includes('sueldo') || sub.includes('nómina')) {
+                        rubrosFijos.nomina += monto;
                     } else if (['cfe', 'agua', 'internet', 'luz', 'teléfono'].some(s => sub.includes(s) || desc.includes(s))) {
-                        rubrosFijos.servicios += t.monto;
+                        rubrosFijos.servicios += monto;
                     } else if (sub.includes('software') || sub.includes('saas') || desc.includes('shopify') || desc.includes('adobe')) {
-                        rubrosFijos.software += t.monto;
+                        rubrosFijos.software += monto;
                     }
                 }
             }
-            else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += (t.monto || 0);
+            else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += monto;
         });
         
         const margenPromedio = (biConfig.contributionMargin || 40) / 100; 
@@ -814,8 +815,9 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
             });
             let expense = 0, income = 0;
             dayT.forEach((t: any) => {
-                if (['GASTO', 'COMPRA'].includes(t.tipo_transaccion)) expense += (t.monto || 0);
-                else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += (t.monto || 0);
+                const m = Number(t.monto) || 0;
+                if (['GASTO', 'COMPRA'].includes(t.tipo_transaccion)) expense += m;
+                else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += m;
             });
             return { 
                 name: format(step, periodType === 'month' || periodType === 'day' ? 'd' : 'MMM', { locale: es }), 
@@ -973,8 +975,8 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                                     const payload = data.payload;
                                     setSelectedDayData({
                                         day: format(payload.fullDate, periodType === 'month' || periodType === 'day' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
-                                        records: payload.records.filter((r: any) => ['INGRESO', 'VENTA'].includes(r.tipo_transaccion)),
-                                        title: 'Ingresos'
+                                        records: payload.records.filter((r: any) => ['INGRESO', 'VENTA'].includes(String(r.tipo_transaccion).toUpperCase())),
+                                        title: 'Auditoría de Ingresos'
                                     });
                                 }}
                             />
@@ -988,8 +990,8 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                                     const payload = data.payload;
                                     setSelectedDayData({
                                         day: format(payload.fullDate, periodType === 'month' || periodType === 'day' ? 'eeee d \'de\' MMMM' : 'MMMM yyyy', { locale: es }),
-                                        records: payload.records.filter((r: any) => ['GASTO', 'COMPRA'].includes(r.tipo_transaccion)),
-                                        title: 'Gastos'
+                                        records: payload.records.filter((r: any) => ['GASTO', 'COMPRA'].includes(String(r.tipo_transaccion).toUpperCase())),
+                                        title: 'Auditoría de Gastos'
                                     });
                                 }}
                             />
@@ -1002,7 +1004,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                 <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase tracking-tighter">
-                            <History className="h-6 w-6 text-primary" /> Evaluación de {selectedDayData?.title}: {selectedDayData?.day}
+                            <History className="h-6 w-6 text-primary" /> {selectedDayData?.title}: {selectedDayData?.day}
                         </DialogTitle>
                         <DialogDescription>Listado detallado de transacciones registradas.</DialogDescription>
                     </DialogHeader>
@@ -1021,12 +1023,12 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, pe
                                     selectedDayData.records.map((r: any) => (
                                         <TableRow key={r.id}>
                                             <TableCell>
-                                                <div className="font-bold text-xs">{r.tipo_gasto_impacto?.replace(/_/g, ' ')}</div>
+                                                <div className="font-bold text-xs">{String(r.tipo_gasto_impacto ?? '').replace(/_/g, ' ')}</div>
                                                 <div className="text-[10px] text-muted-foreground">{r.subcategoria_especifica}</div>
                                             </TableCell>
-                                            <TableCell className="text-[10px] font-medium uppercase">{r.canal_asociado?.replace(/_/g, ' ')}</TableCell>
-                                            <TableCell><Badge variant={['INGRESO', 'VENTA'].includes(r.tipo_transaccion) ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase">{r.tipo_transaccion}</Badge></TableCell>
-                                            <TableCell className={cn("text-right font-bold text-xs", ['GASTO', 'COMPRA'].includes(r.tipo_transaccion) ? "text-slate-900" : "text-primary")}>{money(r.monto)}</TableCell>
+                                            <TableCell className="text-[10px] font-medium uppercase">{String(r.canal_asociado ?? '').replace(/_/g, ' ')}</TableCell>
+                                            <TableCell><Badge variant={['INGRESO', 'VENTA'].includes(String(r.tipo_transaccion).toUpperCase()) ? 'default' : 'secondary'} className="text-[8px] font-bold uppercase">{r.tipo_transaccion}</Badge></TableCell>
+                                            <TableCell className={cn("text-right font-bold text-xs", ['GASTO', 'COMPRA'].includes(String(r.tipo_transaccion).toUpperCase()) ? "text-slate-900" : "text-primary")}>{money(r.monto)}</TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
@@ -1056,13 +1058,13 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
     }, [periodType]);
 
     const { logisticsData, chartsData, breakevenChart } = React.useMemo(() => {
-        const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(t.tipo_transaccion));
-        const gastos = transactions.filter((t: any) => ['GASTO', 'COMPRA'].includes(t.tipo_transaccion));
-        const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
-        const costosFijos = gastos.filter((g: any) => g.es_fijo).reduce((a: number, b: any) => a + (b.monto || 0), 0);
+        const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(String(t.tipo_transaccion).toUpperCase()));
+        const gastos = transactions.filter((t: any) => ['GASTO', 'COMPRA'].includes(String(t.tipo_transaccion).toUpperCase()));
+        const ingresoTotal = ingresos.reduce((acc: number, curr: any) => acc + (Number(curr.monto) || 0), 0);
+        const costosFijos = gastos.filter((g: any) => g.es_fijo).reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0);
         
         const gastosLogistica = gastos.filter((g: any) => 
-            g.area_funcional === 'LOGISTICA' || g.tipo_gasto_impacto === 'GASTO_LOGISTICO'
+            String(g.area_funcional).toUpperCase() === 'LOGISTICA' || String(g.tipo_gasto_impacto).toUpperCase() === 'GASTO_LOGISTICO'
         );
         
         const maxSales = Math.max(ingresoTotal * 1.5, 200000);
@@ -1081,11 +1083,11 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
 
         return {
             logisticsData: {
-                total: gastosLogistica.reduce((a: number, b: any) => a + (b.monto || 0), 0),
-                breakdown: Object.entries(gastosLogistica.reduce((acc: any, g: any) => { const cat = g.subcategoria_especifica || 'Otros'; acc[cat] = (acc[cat] || 0) + (g.monto || 0); return acc; }, {})).map(([name, value]) => ({ name, value }))
+                total: gastosLogistica.reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0),
+                breakdown: Object.entries(gastosLogistica.reduce((acc: any, g: any) => { const cat = g.subcategoria_especifica || 'Otros'; acc[cat] = (acc[cat] || 0) + (Number(g.monto) || 0); return acc; }, {})).map(([name, value]) => ({ name, value }))
             },
             chartsData: {
-                areas: Object.entries(gastos.reduce((acc: any, t: any) => { acc[t.area_funcional] = (acc[t.area_funcional] || 0) + (t.monto || 0); return acc; }, {})).map(([name, value]) => ({ name: (name as string).replace(/_/g, ' '), value })),
+                areas: Object.entries(gastos.reduce((acc: any, t: any) => { const area = String(t.area_funcional ?? 'OTROS').toUpperCase(); acc[area] = (acc[area] || 0) + (Number(t.monto) || 0); return acc; }, {})).map(([name, value]) => ({ name: (name as string).replace(/_/g, ' '), value })),
             },
             breakevenChart: chartBEP
         };
@@ -1095,20 +1097,20 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
         if (!searchQuery) return transactions;
         const q = searchQuery.toLowerCase();
         return transactions.filter((t: any) => 
-            (t.responsable?.toLowerCase() || '').includes(q) ||
-            (t.notas?.toLowerCase() || '').includes(q) ||
-            (t.subcategoria_especifica?.toLowerCase() || '').includes(q) ||
-            (t.canal_asociado?.toLowerCase() || '').includes(q) ||
-            (t.empresa?.toLowerCase() || '').includes(q) ||
-            (t.area_funcional?.toLowerCase() || '').includes(q) ||
-            (t.banco?.toLowerCase() || '').includes(q)
+            (String(t.responsable ?? '').toLowerCase()).includes(q) ||
+            (String(t.notas ?? '').toLowerCase()).includes(q) ||
+            (String(t.subcategoria_especifica ?? '').toLowerCase()).includes(q) ||
+            (String(t.canal_asociado ?? '').toLowerCase()).includes(q) ||
+            (String(t.empresa ?? '').toLowerCase()).includes(q) ||
+            (String(t.area_funcional ?? '').toLowerCase()).includes(q) ||
+            (String(t.banco ?? '').toLowerCase()).includes(q)
         );
     }, [transactions, searchQuery]);
 
     const handleExport = () => {
         const ws = XLSX.utils.json_to_sheet(filteredTransactions.map((t: any) => ({
             Fecha: t.fecha,
-            Empresa: getEnhancedValue(t.empresa, t.notas, 'Empresa'),
+            Empresa: getEnhancedValue(String(t.empresa), t.notas, 'Empresa'),
             'Tipo Transacción': t.tipo_transaccion,
             Monto: t.monto,
             'Tipo Gasto': t.tipo_gasto_impacto,
@@ -1119,9 +1121,9 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
             'Atribución': t.clasificacion_operativa,
             Fijo: t.es_fijo ? 'SÍ' : 'NO',
             Recurrente: t.es_recurrente ? 'SÍ' : 'NO',
-            'Método Pago': getEnhancedValue(t.metodo_pago, t.notas, 'Método'),
-            Banco: getEnhancedValue(t.banco, t.notas, 'Banco'),
-            Cuenta: getEnhancedValue(t.cuenta, t.notas, 'Cuenta'),
+            'Método Pago': getEnhancedValue(String(t.metodo_pago), t.notas, 'Método'),
+            Banco: getEnhancedValue(String(t.banco), t.notas, 'Banco'),
+            Cuenta: getEnhancedValue(String(t.cuenta), t.notas, 'Cuenta'),
             Responsable: t.responsable,
             Descripción: t.descripcion,
             Notas: cleanNotes(t.notas)
@@ -1134,10 +1136,10 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
     const handleExportSinglePDF = (detail: gastos_diarios) => {
         const doc = new jsPDF();
         const cleanNote = cleanNotes(detail.notas);
-        const empresa = getEnhancedValue(detail.empresa, detail.notas, 'Empresa');
-        const metodo = getEnhancedValue(detail.metodo_pago, detail.notas, 'Método');
-        const banco = getEnhancedValue(detail.banco, detail.notas, 'Banco');
-        const cuenta = getEnhancedValue(detail.cuenta, detail.notas, 'Cuenta');
+        const empresa = getEnhancedValue(String(detail.empresa), detail.notas, 'Empresa');
+        const metodo = getEnhancedValue(String(detail.metodo_pago), detail.notas, 'Método');
+        const banco = getEnhancedValue(String(detail.banco), detail.notas, 'Banco');
+        const cuenta = getEnhancedValue(String(detail.cuenta), detail.notas, 'Cuenta');
 
         doc.setFillColor(45, 90, 76);
         doc.rect(0, 0, 210, 40, 'F');
@@ -1159,10 +1161,10 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                 ['Monto', money(detail.monto)],
                 ['Tipo', detail.tipo_transaccion],
                 ['Empresa', empresa],
-                ['Impacto (Nivel 1)', detail.tipo_gasto_impacto?.replace(/_/g, ' ')],
-                ['Área (Nivel 2)', detail.area_funcional?.replace(/_/g, ' ')],
+                ['Impacto (Nivel 1)', String(detail.tipo_gasto_impacto ?? '').replace(/_/g, ' ')],
+                ['Área (Nivel 2)', String(detail.area_funcional ?? '').replace(/_/g, ' ')],
                 ['Categoría Macro', detail.categoria_macro],
-                ['Canal Asociado', detail.canal_asociado?.replace(/_/g, ' ')],
+                ['Canal Asociado', String(detail.canal_asociado ?? '').replace(/_/g, ' ')],
                 ['Atribución', detail.clasificacion_operativa || '-'],
                 ['Responsable', detail.responsable || 'N/A'],
             ],
@@ -1318,19 +1320,19 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                             {filteredTransactions.map((t: gastos_diarios) => (
                                 <TableRow key={t.id} className="hover:bg-muted/5 h-14 border-b">
                                     <TableCell className="text-[11px] font-medium text-slate-600">{t.fecha}</TableCell>
-                                    <TableCell><Badge variant="outline" className="text-[10px]">{getEnhancedValue(t.empresa, t.notas, 'Empresa')}</Badge></TableCell>
-                                    <TableCell><Badge variant={['INGRESO', 'VENTA'].includes(t.tipo_transaccion) ? 'default' : 'secondary'} className="text-[8px] font-black">{t.tipo_transaccion}</Badge></TableCell>
-                                    <TableCell className="text-[10px] uppercase">{t.tipo_gasto_impacto?.replace(/_/g, ' ')}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{t.area_funcional?.replace(/_/g, ' ')}</TableCell>
+                                    <TableCell><Badge variant="outline" className="text-[10px]">{getEnhancedValue(String(t.empresa), t.notas, 'Empresa')}</Badge></TableCell>
+                                    <TableCell><Badge variant={['INGRESO', 'VENTA'].includes(String(t.tipo_transaccion).toUpperCase()) ? 'default' : 'secondary'} className="text-[8px] font-black">{t.tipo_transaccion}</Badge></TableCell>
+                                    <TableCell className="text-[10px] uppercase">{t.tipo_gasto_impacto ? String(t.tipo_gasto_impacto).replace(/_/g, ' ') : '-'}</TableCell>
+                                    <TableCell className="text-[10px] uppercase">{t.area_funcional ? String(t.area_funcional).replace(/_/g, ' ') : '-'}</TableCell>
                                     <TableCell className="text-[10px]">{t.subcategoria_especifica}</TableCell>
                                     <TableCell className="text-[10px] font-bold text-[#2D5A4C] uppercase">{t.categoria_macro}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{t.canal_asociado?.replace(/_/g, ' ')}</TableCell>
+                                    <TableCell className="text-[10px] uppercase">{t.canal_asociado ? String(t.canal_asociado).replace(/_/g, ' ') : '-'}</TableCell>
                                     <TableCell className="text-[9px] uppercase">{t.clasificacion_operativa || '-'}</TableCell>
                                     <TableCell className="text-[10px] font-bold">{t.responsable || '-'}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{getEnhancedValue(t.metodo_pago, t.notas, 'Método')}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{getEnhancedValue(t.banco, t.notas, 'Banco')}</TableCell>
-                                    <TableCell className="text-[10px] uppercase">{getEnhancedValue(t.cuenta, t.notas, 'Cuenta')}</TableCell>
-                                    <TableCell className={cn("text-right font-bold text-sm sticky right-0 bg-white shadow-[-4px_0_10px_rgba(0,0,0,0.05)] px-6", ['GASTO', 'COMPRA'].includes(t.tipo_transaccion) ? "text-slate-900" : "text-primary")}>{money(t.monto)}</TableCell>
+                                    <TableCell className="text-[10px] uppercase">{getEnhancedValue(String(t.metodo_pago), t.notas, 'Método')}</TableCell>
+                                    <TableCell className="text-[10px] uppercase">{getEnhancedValue(String(t.banco), t.notas, 'Banco')}</TableCell>
+                                    <TableCell className="text-[10px] uppercase">{getEnhancedValue(String(t.cuenta), t.notas, 'Cuenta')}</TableCell>
+                                    <TableCell className={cn("text-right font-bold text-sm sticky right-0 bg-white shadow-[-4px_0_10px_rgba(0,0,0,0.05)] px-6", ['GASTO', 'COMPRA'].includes(String(t.tipo_transaccion).toUpperCase()) ? "text-slate-900" : "text-primary")}>{money(t.monto)}</TableCell>
                                     <TableCell className="sticky right-0 bg-white border-l text-center px-2">
                                         <div className="flex items-center justify-center gap-1">
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setSelectedDetail(t)}><Eye className="h-4 w-4" /></Button>
@@ -1359,17 +1361,17 @@ function ReportsView({ transactions, isLoading, periodType, onEditTransaction, o
                     <div className="grid grid-cols-2 gap-6 py-4">
                         <div className="space-y-4">
                             <DetailItem label="Fecha" value={selectedDetail?.fecha} />
-                            <DetailItem label="Empresa" value={getEnhancedValue(selectedDetail?.empresa || '', selectedDetail?.notas, 'Empresa')} />
+                            <DetailItem label="Empresa" value={getEnhancedValue(String(selectedDetail?.empresa || ''), selectedDetail?.notas, 'Empresa')} />
                             <DetailItem label="Monto" value={money(selectedDetail?.monto)} />
                             <DetailItem label="Tipo" value={selectedDetail?.tipo_transaccion} />
-                            <DetailItem label="Impacto" value={selectedDetail?.tipo_gasto_impacto?.replace(/_/g, ' ')} />
-                            <DetailItem label="Área" value={selectedDetail?.area_funcional?.replace(/_/g, ' ')} />
+                            <DetailItem label="Impacto" value={selectedDetail?.tipo_gasto_impacto ? String(selectedDetail?.tipo_gasto_impacto).replace(/_/g, ' ') : '-'} />
+                            <DetailItem label="Área" value={selectedDetail?.area_funcional ? String(selectedDetail?.area_funcional).replace(/_/g, ' ') : '-'} />
                         </div>
                         <div className="space-y-4">
                             <DetailItem label="Subcategoría" value={selectedDetail?.subcategoria_especifica} />
-                            <DetailItem label="Método" value={getEnhancedValue(selectedDetail?.metodo_pago || '', selectedDetail?.notas, 'Método')} />
-                            <DetailItem label="Banco" value={getEnhancedValue(selectedDetail?.banco || '', selectedDetail?.notas, 'Banco')} />
-                            <DetailItem label="Cuenta" value={getEnhancedValue(selectedDetail?.cuenta || '', selectedDetail?.notas, 'Cuenta')} />
+                            <DetailItem label="Método" value={getEnhancedValue(String(selectedDetail?.metodo_pago || ''), selectedDetail?.notas, 'Método')} />
+                            <DetailItem label="Banco" value={getEnhancedValue(String(selectedDetail?.banco || ''), selectedDetail?.notas, 'Banco')} />
+                            <DetailItem label="Cuenta" value={getEnhancedValue(String(selectedDetail?.cuenta || ''), selectedDetail?.notas, 'Cuenta')} />
                             <DetailItem label="Responsable" value={selectedDetail?.responsable} />
                             <div className="flex gap-2">
                                 {selectedDetail?.es_fijo && <Badge>FIJO</Badge>}
@@ -1400,8 +1402,8 @@ function BudgetsView({ transactions, categories, budgets, setBudgets, setCategor
     const budgetStats = React.useMemo(() => {
         return categories.map((cat: string) => {
             const spent = transactions
-                .filter((t: any) => t.categoria_macro === cat && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
-                .reduce((acc: number, curr: any) => acc + (curr.monto || 0), 0);
+                .filter((t: any) => t.categoria_macro === cat && ['GASTO', 'COMPRA'].includes(String(t.tipo_transaccion).toUpperCase()))
+                .reduce((acc: number, curr: any) => acc + (Number(curr.monto) || 0), 0);
             const budget = budgets[cat] || 0;
             const percent = budget > 0 ? (spent / budget) * 100 : 0;
             const available = budget - spent;
@@ -1726,7 +1728,7 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
                             {impacts.map((i: string) => (
                                 <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 group hover:border-slate-200 transition-colors">
-                                    <span className="text-[10px] font-black uppercase tracking-tighter text-slate-700">{i.replace(/_/g, ' ')}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-tighter text-slate-700">{String(i).replace(/_/g, ' ')}</span>
                                     <Button variant="ghost" size="icon" onClick={() => setImpacts(impacts.filter((imp: string) => imp !== i))} className="h-8 w-8 text-slate-300 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             ))}
@@ -1739,11 +1741,11 @@ function SettingsView({ impacts, setImpacts, subcategories, setSubcategories, bi
                     <CardHeader><CardTitle className="text-lg font-black uppercase">Subcategorías por Impacto</CardTitle></CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-4">
-                            <Select value={selectedImpact} onValueChange={setSelectedImpact}>
+                            <Select value={String(selectedImpact)} onValueChange={setSelectedImpact}>
                                 <SelectTrigger className="h-12 border-slate-200 font-bold text-[10px] uppercase">
                                     <SelectValue placeholder="SELECCIONAR IMPACTO" />
                                 </SelectTrigger>
-                                <SelectContent>{impacts.map((i: string) => <SelectItem key={i} value={i} className="font-bold text-[10px] uppercase">{i.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                                <SelectContent>{impacts.map((i: string) => <SelectItem key={i} value={i} className="font-bold text-[10px] uppercase">{String(i).replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                             </Select>
                             <div className="flex gap-2">
                                 <Input placeholder="NUEVA SUBCATEGORÍA..." value={newSub} onChange={(e) => setNewSub(e.target.value)} />
