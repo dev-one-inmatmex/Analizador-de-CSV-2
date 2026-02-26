@@ -19,7 +19,7 @@ import {
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area
 } from 'recharts';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { useToast } from '@/hooks/use-toast';
@@ -452,6 +452,40 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
         }
     };
 
+    const downloadBudgetPDF = () => {
+        const doc = new jsPDF();
+        doc.setFillColor(45, 90, 76);
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPORTE DE SEGUIMIENTO PRESUPUESTARIO', 20, 20);
+        doc.setFontSize(10);
+        doc.text(`PERIODO: ${format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}`, 20, 30);
+
+        const tableData = budgetData
+            .filter(item => item.presupuesto > 0 || item.ejecutado > 0)
+            .map(item => [
+                item.nombre,
+                money(item.presupuesto),
+                money(item.ejecutado),
+                money(item.disponible),
+                `${item.progreso.toFixed(1)}%`,
+                item.estado_registro === 'SIN_REGISTRO' ? '-' : `${item.estado_registro} (${item.ultima_actualizacion ? format(new Date(item.ultima_actualizacion), 'dd MMM HH:mm', { locale: es }) : '-'})`
+            ]);
+
+        autoTable(doc, {
+            startY: 50,
+            head: [['Categoría Macro', 'Presupuesto', 'Ejecutado', 'Disponible', 'Progreso', 'Historial']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255] },
+            styles: { fontSize: 9 }
+        });
+
+        doc.save(`seguimiento_presupuesto_${format(currentDate, 'yyyy_MM')}.pdf`);
+    };
+
     if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     const filteredBudgets = budgetData.filter(item => item.presupuesto > 0 || item.ejecutado > 0);
@@ -463,49 +497,54 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                     <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
                     <p className="text-xs font-bold uppercase text-slate-400 mt-1">Periodo: {format(currentDate, 'MMMM yyyy', { locale: es })}</p>
                 </div>
-                <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="rounded-[32px] border-none shadow-2xl">
-                        <DialogHeader>
-                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">GESTIONAR PRESUPUESTO</DialogTitle>
-                            <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}.</DialogDescription>
-                        </DialogHeader>
-                        <div className="py-6 space-y-6">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Macro</Label>
-                                <Select value={selectedMacroId} onValueChange={setSelectedMacroId}>
-                                    <SelectTrigger className="h-14 rounded-xl border-slate-100 bg-slate-50/50"><SelectValue placeholder="Seleccionar categoría..." /></SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()} className="uppercase text-xs font-bold">{m.nombre}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monto Asignado ($)</Label>
-                                <Input 
-                                    type="number" 
-                                    value={newAmount} 
-                                    onChange={(e) => setNewAmount(e.target.value)} 
-                                    className="h-14 rounded-xl border-slate-100 bg-slate-50/50 font-black text-lg px-5" 
-                                    placeholder="0.00" 
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button 
-                                onClick={handleSaveBudget} 
-                                disabled={isSaving}
-                                className="w-full h-14 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-[0.98]"
-                            >
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'GUARDAR EN BASE DE DATOS'}
+                <div className="flex gap-3">
+                    <Button variant="outline" className="h-11 px-6 rounded-xl border-slate-200 font-bold" onClick={downloadBudgetPDF}>
+                        <FileDown className="mr-2 h-4 w-4" /> Exportar Seguimiento
+                    </Button>
+                    <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
+                                <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
                             </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                        </DialogTrigger>
+                        <DialogContent className="rounded-[32px] border-none shadow-2xl">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-black uppercase tracking-tighter">GESTIONAR PRESUPUESTO</DialogTitle>
+                                <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}.</DialogDescription>
+                            </DialogHeader>
+                            <div className="py-6 space-y-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Macro</Label>
+                                    <Select value={selectedMacroId} onValueChange={setSelectedMacroId}>
+                                        <SelectTrigger className="h-14 rounded-xl border-slate-100 bg-slate-50/50"><SelectValue placeholder="Seleccionar categoría..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            {catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()} className="uppercase text-xs font-bold">{m.nombre}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monto Asignado ($)</Label>
+                                    <Input 
+                                        type="number" 
+                                        value={newAmount} 
+                                        onChange={(e) => setNewAmount(e.target.value)} 
+                                        className="h-14 rounded-xl border-slate-100 bg-slate-50/50 font-black text-lg px-5" 
+                                        placeholder="0.00" 
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button 
+                                    onClick={handleSaveBudget} 
+                                    disabled={isSaving}
+                                    className="w-full h-14 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-[0.98]"
+                                >
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'GUARDAR EN BASE DE DATOS'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -1193,7 +1232,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 )}
                             </TableBody>
                         </Table>
-                        <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                 </div>
             </Card>
@@ -1292,6 +1330,180 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         >
                             Editar Movimiento
                         </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function SettingsView({ catalogs, onRefresh }: { catalogs: any, onRefresh: () => void }) {
+    const { toast } = useToast();
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [editingItem, setEditingItem] = React.useState<any>(null);
+    const [activeTab, setActiveTab] = React.useState('impactos');
+    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const TABLES = {
+        impactos: 'cat_tipo_gasto_impacto',
+        areas: 'cat_area_funcional',
+        macros: 'cat_categoria_macro',
+        categorias: 'cat_categoria',
+        subcategorias: 'cat_subcategoria'
+    };
+
+    const handleOpenDialog = (item: any = null) => {
+        if (item) {
+            setEditingItem(item);
+            const parentIdVal = activeTab === 'categorias' ? item.categoria_macro_id : activeTab === 'subcategorias' ? item.categoria_id : '';
+            setFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
+        } else {
+            setEditingItem(null);
+            setFormData({ nombre: '', parentId: '' });
+        }
+        setIsDialogOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!formData.nombre || !supabase) return;
+        setIsSubmitting(true);
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const payload: any = { nombre: formData.nombre, activo: true };
+            
+            if (activeTab === 'categorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
+                payload.categoria_macro_id = Number(formData.parentId);
+            } else if (activeTab === 'subcategorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
+                payload.categoria_id = Number(formData.parentId);
+            }
+
+            let error;
+            if (editingItem) {
+                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
+                error = err;
+            } else {
+                const { error: err } = await supabase.from(tableName).insert([payload]);
+                error = err;
+            }
+
+            if (error) throw error;
+            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
+            setIsDialogOpen(false);
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const handleToggleStatus = async (item: any) => {
+        if (!supabase) return;
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const { error } = await supabase.from(tableName).update({ activo: !item.activo }).eq('id', item.id);
+            if (error) throw error;
+            toast({ title: "Éxito", description: "Estado del registro actualizado." });
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    };
+
+    return (
+        <div className="space-y-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5 p-8">
+                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
+                        <div><CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription></div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
+                                <TabsList className="bg-transparent h-12 gap-8">
+                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                            </div>
+
+                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                <TabsContent key={tab} value={tab} className="mt-0">
+                                    <ScrollArea className="h-[450px]">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
+                                                <TableRow className="border-b-0">
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
+                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
+                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
+                                                    <TableHead className="w-32"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
+                                                    <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
+                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
+                                                        <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
+                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                        <TableCell className="pr-8">
+                                                            <div className="flex justify-end gap-2">
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-4 w-4" /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+                            ))}
+                        </Tabs>
+                    </CardContent>
+                </Card>
+
+                <div className="space-y-8">
+                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-2xl">
+                        <CardContent className="p-10 space-y-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Salud Financiera BI</p><CheckCircle2 className="h-5 w-5 text-emerald-400" /></div><h3 className="text-3xl font-black leading-tight">Arquitectura Dinámica Activa</h3><p className="text-xs text-white/70 leading-relaxed font-bold uppercase tracking-wide">Relaciones de 5 niveles sincronizadas para el análisis técnico profundo.</p></CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
+                    <div className="p-10 space-y-8">
+                        <DialogHeader>
+                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeTab}.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-6">
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
+                            
+                            {activeTab === 'categorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Macro Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {activeTab === 'subcategorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t flex gap-4">
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
+                        <Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
                     </div>
                 </DialogContent>
             </Dialog>
