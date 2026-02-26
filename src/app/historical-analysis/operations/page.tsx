@@ -435,7 +435,6 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
             const mesActual = currentDate.getMonth() + 1;
             const anioActual = currentDate.getFullYear();
 
-            // Para eliminar físicamente o poner a 0, usamos el motor V3
             const { error } = await supabase.rpc('guardar_presupuesto_v3', {
                 p_macro_id: Number(id),
                 p_monto: 0,
@@ -455,7 +454,6 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
 
     if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
-    // Filtramos para que solo aparezcan tarjetas con presupuesto > 0 o ejecución > 0
     const filteredBudgets = budgetData.filter(item => item.presupuesto > 0 || item.ejecutado > 0);
 
     return (
@@ -554,7 +552,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                 )}
             </div>
             
-            {budgetData.length > 0 && (
+            {filteredBudgets.length > 0 && (
                 <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                     <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b">
                         <FileText className="h-6 w-6 text-primary" />
@@ -575,7 +573,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {budgetData.map((item: DashboardPresupuestoV3) => (
+                                {filteredBudgets.map((item: DashboardPresupuestoV3) => (
                                     <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
                                         <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
                                         <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>
@@ -600,7 +598,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
     );
 }
 
-function SettingsView({ catalogs, onRefresh }: { catalogs: any, biConfig: any, setBiConfig: any, onRefresh: () => void }) {
+function SettingsView({ catalogs, onRefresh }: { catalogs: any, onRefresh: () => void }) {
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const [editingItem, setEditingItem] = React.useState<any>(null);
@@ -1450,7 +1448,7 @@ export default function OperationsPage() {
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
                 {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
                 {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
-                {currentView === 'configuracion' && <SettingsView catalogs={catalogs} biConfig={biConfig} setBiConfig={setBiConfig} onRefresh={fetchCatalogs} />}
+                {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} />}
             </main>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
