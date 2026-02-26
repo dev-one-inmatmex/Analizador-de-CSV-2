@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -1193,10 +1192,9 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
     );
 }
 
-function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction, catalogs, biConfig, periodType }: any) {
+function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction, catalogs, biConfig }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [viewDetail, setViewDetail] = React.useState<any>(null);
-    const periodLabel = periodType === 'month' ? 'Mensual' : periodType === 'year' ? 'Anual' : periodType === 'six_months' ? 'Semestral' : 'Diario';
 
     const downloadPDF = (t: any) => {
         const doc = new jsPDF();
@@ -1274,18 +1272,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         doc.save(`reporte_movimiento_${t.id}_${t.fecha}.pdf`);
     };
 
-    const { breakevenChart } = React.useMemo(() => {
-        const ingresos = transactions.filter((t: any) => ['INGRESO', 'VENTA'].includes(t.tipo_transaccion)).reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0);
-        const fijos = transactions.filter((t: any) => t.es_fijo && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion)).reduce((a: number, b: any) => a + (Number(b.monto) || 0), 0);
-        const max = Math.max(ingresos * 1.5, 200000);
-        const bep = Array.from({ length: 11 }, (_, i) => {
-            const sales = (max / 10) * i;
-            const varCosts = sales * (1 - (biConfig.contributionMargin / 100));
-            return { name: `$${Math.round(sales/1000)}k`, Ventas: sales, CostosTotales: fijos + varCosts, CostosFijos: fijos };
-        });
-        return { breakevenChart: bep };
-    }, [transactions, biConfig]);
-
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     const filtered = transactions.filter((t: any) => {
@@ -1297,30 +1283,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-8">
-            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
-                <CardHeader><CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><TrendingUp className="h-6 w-6 text-[#2D5A4C]" /> Punto de Equilibrio ({periodLabel})</CardTitle></CardHeader>
-                <CardContent className="pt-6">
-                    <div className="h-[400px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={breakevenChart}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="name" fontSize={10} axisLine={false} tick={{fill: '#94a3b8', fontWeight: 700}} />
-                                <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={v => `$${Math.round(v/1000)}k`} tick={{fill: '#94a3b8', fontWeight: 700}} />
-                                <Tooltip formatter={(v: number) => money(v)} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'}} />
-                                <Legend verticalAlign="top" align="right" height={40} iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase'}} />
-                                <Area type="monotone" dataKey="Ventas" fill="#3b82f6" fillOpacity={0.08} stroke="#3b82f6" strokeWidth={3} name="Ingresos" />
-                                <Line type="monotone" dataKey="CostosTotales" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e' }} name="Costos Totales" />
-                                <Line type="monotone" dataKey="CostosFijos" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Base Fija" />
-                            </ComposedChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
-            </Card>
-
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                 <CardHeader className="flex flex-col md:flex-row md:items-center justify-between pb-8 pt-10 px-10">
                     <div>
-                        <CardTitle className="text-2xl font-black uppercase tracking-tighter">Historial de Movimientos</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase text-slate-400 mt-1">Auditoría completa del periodo {periodLabel}.</CardDescription>
+                        <CardTitle className="text-2xl font-black uppercase tracking-tighter">HISTORIAL DE MOVIMIENTOS</CardTitle>
+                        <CardDescription className="text-xs font-bold uppercase text-slate-400 mt-1">AUDITORÍA COMPLETA DEL PERIODO MENSUAL.</CardDescription>
                     </div>
                     <div className="relative w-full md:w-80 mt-4 md:mt-0">
                         <Input placeholder="BUSCAR POR CONCEPTO O ID..." className="h-12 pl-5 pr-12 border-slate-100 rounded-2xl bg-slate-50 font-bold uppercase text-[10px] focus:ring-primary/20" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -1329,7 +1296,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 </CardHeader>
                 <div className="border-t border-slate-50">
                     <ScrollArea className="w-full">
-                        <Table className="min-w-[3200px]">
+                        <Table className="min-w-[1800px]">
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow className="h-14 border-b-slate-100">
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ID</TableHead>
@@ -1340,14 +1307,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ÁREA (F2)</TableHead>
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MACRO (F3)</TableHead>
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CATEGORÍA (F4)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">SUBCATEGORÍA (F5)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CANAL (F6)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CLASIFICACIÓN (F7)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">RESPONSABLE</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">PAGO</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">BANCO</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CUENTA</TableHead>
-                                    <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 pr-10 tracking-widest">MONTO</TableHead>
                                     <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest sticky right-0 bg-white z-10">ACCIONES</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -1358,24 +1317,14 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="px-6 text-[10px] font-bold text-slate-600 whitespace-nowrap">{t.fecha}</TableCell>
                                         <TableCell className="px-6"><Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200">{t.empresa}</Badge></TableCell>
                                         <TableCell className="px-6"><Badge variant="secondary" className="text-[9px] font-black uppercase bg-slate-100 text-slate-500 border-none">{t.tipo_transaccion}</Badge></TableCell>
-                                        <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
-                                        <TableCell className="px-6 text-[10px] font-medium text-slate-500">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-medium text-slate-500 uppercase">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-medium text-slate-500 uppercase">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
                                         <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
                                             {catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}
                                         </TableCell>
                                         <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-400">
                                             {catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}
                                         </TableCell>
-                                        <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
-                                            {catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}
-                                        </TableCell>
-                                        <TableCell className="px-6 text-[10px] font-black uppercase text-slate-400">{String(t.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
-                                        <TableCell className="px-6 text-[10px] font-bold uppercase text-slate-400">{String(t.clasificacion_operativa || '-').replace(/_/g, ' ')}</TableCell>
-                                        <TableCell className="px-6 font-black text-[10px] uppercase text-slate-900">{t.responsable || '-'}</TableCell>
-                                        <TableCell className="px-6 text-[10px] uppercase text-slate-500">{String(t.metodo_pago || '-').replace(/_/g, ' ')}</TableCell>
-                                        <TableCell className="px-6 text-[10px] uppercase text-slate-500">{t.banco || '-'}</TableCell>
-                                        <TableCell className="px-6 text-[10px] uppercase text-slate-500">{t.cuenta || '-'}</TableCell>
-                                        <TableCell className="text-right font-black text-base pr-10 tabular-nums text-[#2D5A4C]">{money(t.monto)}</TableCell>
                                         <TableCell className="text-center px-4 sticky right-0 bg-white group-hover:bg-slate-50/50 transition-colors">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100 group-hover:scale-110 transition-transform"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -1391,7 +1340,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={17} className="h-80 text-center">
+                                        <TableCell colSpan={9} className="h-80 text-center">
                                             <div className="flex flex-col items-center gap-4 opacity-20">
                                                 <FileText className="h-16 w-16" />
                                                 <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
@@ -1480,7 +1429,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || '-'}</p>
                                 </div>
                             </div>
                         </div>
@@ -1490,7 +1439,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <div className="flex gap-3">
                             <Button variant="outline" onClick={() => setViewDetail(null)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200">Cerrar</Button>
                             <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200 flex gap-2">
-                                <FileDown className="h-4 w-4" /> PDF
+                                <FileDown className="h-4 w-4" /> Descargar PDF
                             </Button>
                         </div>
                         <Button 
@@ -1691,7 +1640,7 @@ export default function OperationsPage() {
 
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
-                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
+                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} />}
                 {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} biConfig={biConfig} setBiConfig={setBiConfig} />}
             </main>
