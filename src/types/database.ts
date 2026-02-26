@@ -4,10 +4,7 @@ export interface Usuario {
     email: string;
 } 
 
-/**
- * Definición completa de tipos para el sistema de finanzas
- */
-
+/**Definición completa de tipos para el sistema de finanzas*/
 // --- 5 CATÁLOGOS DINÁMICOS ---
 export interface cat_tipo_gasto_impacto {
   id: number;

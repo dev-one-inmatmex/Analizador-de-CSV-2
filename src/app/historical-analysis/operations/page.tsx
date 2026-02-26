@@ -20,8 +20,8 @@ import {
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area
 } from 'recharts';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import jsPDF from 'jsPDF';
+import autoTable from 'jsPDF-autotable';
 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
