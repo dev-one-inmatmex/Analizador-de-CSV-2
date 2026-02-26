@@ -369,7 +369,7 @@ export default function OperationsPage() {
     const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
 
-    const [biConfig, setBiConfig] = React.setBiConfig] = React.useState({
+    const [biConfig, setBiConfig] = React.useState({
         contributionMargin: 40,
         payrollTemplate: [
             { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60 },
@@ -497,7 +497,7 @@ export default function OperationsPage() {
                                 if (periodType === 'six_months') interval = { months: -6 };
                                 if (periodType === 'year') interval = { years: -1 };
                                 if (periodType === 'day') interval = { days: -1 };
-                                setCurrentDate(prev => add(prev, interval));
+                                setCurrentDate((prev: Date) => add(prev, interval));
                             }}><ChevronLeft className="h-4 w-4" /></Button>
                             <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200 px-3" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => {
@@ -505,7 +505,7 @@ export default function OperationsPage() {
                                 if (periodType === 'six_months') interval = { months: 6 };
                                 if (periodType === 'year') interval = { years: 1 };
                                 if (periodType === 'day') interval = { days: 1 };
-                                setCurrentDate(prev => add(prev, interval));
+                                setCurrentDate((prev: Date) => add(prev, interval));
                             }}><ChevronRight className="h-4 w-4" /></Button>
                         </div>
                     </div>
@@ -558,8 +558,8 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
                     fixedCosts += monto;
                     if (impactName.includes('NOMINA') || subName.includes('sueldo')) rubrosFijos.nomina += monto;
                     else if (subName.includes('renta') || desc.includes('arrendamiento')) rubrosFijos.renta += monto;
-                    else if (['cfe', 'agua', 'internet', 'teléfono'].some(s => subName.includes(s) || desc.includes(s))) rubrosFijos.servicios += monto;
-                    else if (['software', 'saas', 'shopify', 'suscripción'].some(s => subName.includes(s) || desc.includes(s))) rubrosFijos.software += monto;
+                    else if (['cfe', 'agua', 'internet', 'teléfono'].some((s: string) => subName.includes(s) || desc.includes(s))) rubrosFijos.servicios += monto;
+                    else if (['software', 'saas', 'shopify', 'suscripción'].some((s: string) => subName.includes(s) || desc.includes(s))) rubrosFijos.software += monto;
                 }
             } else if (['INGRESO', 'VENTA'].includes(t.tipo_transaccion)) income += monto;
         });
@@ -605,7 +605,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
 
                 <Card className="border-none shadow-sm bg-white rounded-2xl">
                     <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Gasto Fijo Real</p><CardTitle className="text-3xl font-black text-[#2D5A4C] tabular-nums">{money(stats.fixedCosts)}</Target.fixedCosts)}</CardTitle></div>
+                        <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Gasto Fijo Real</p><CardTitle className="text-3xl font-black text-[#2D5A4C] tabular-nums">{money(stats.fixedCosts)}</CardTitle></div>
                         <Target className="h-6 w-6 text-[#2D5A4C] opacity-20" />
                     </CardHeader>
                     <CardContent className="pt-2">
@@ -635,7 +635,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
                 <div className="flex items-center px-2 py-6">
                     <ScrollArea className="flex-1" viewportRef={scrollContainerRef}>
                         <div className="flex gap-3 px-6 pb-2">
-                            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i) => (
+                            {eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map((day, i: number) => (
                                 <button key={i} onClick={() => setCurrentDate(day)} className={cn("flex flex-col items-center justify-center min-w-[60px] h-20 rounded-2xl transition-all duration-300", isSameDay(day, currentDate) ? "bg-[#2D5A4C] text-white shadow-xl scale-105" : "hover:bg-slate-50 text-slate-400 font-bold")}>
                                     <span className="text-[10px] uppercase font-black opacity-60 mb-1">{format(day, 'eee', { locale: es }).substring(0, 3)}</span>
                                     <span className="text-xl font-black">{format(day, 'd')}</span>
@@ -1036,6 +1036,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     const loadMetas = React.useCallback(async () => {
         setIsLoading(true);
         try {
+            if (!supabase) return;
             const mes = currentDate.getMonth() + 1;
             const anio = currentDate.getFullYear();
             
@@ -1064,7 +1065,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     }, [loadMetas]);
 
     const handleSaveBudget = async () => {
-        if (!selectedMacroId || !newAmount) return;
+        if (!selectedMacroId || !newAmount || !supabase) return;
         setIsSaving(true);
         
         try {
@@ -1106,6 +1107,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
 
     const handleDeleteBudget = async (id: number) => {
         try {
+            if (!supabase) return;
             const mesActual = currentDate.getMonth() + 1;
             const anioActual = currentDate.getFullYear();
 
@@ -1201,7 +1203,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => handleDeleteBudget(item.id)} className="text-[10px] font-black uppercase text-destructive cursor-pointer">
-                                            <Trash2 className="mr-2 h-3 w-3" /> Eliminar
+                                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
