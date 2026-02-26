@@ -605,7 +605,10 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
 
                 <Card className="border-none shadow-sm bg-white rounded-2xl">
                     <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Gasto Fijo Real</p><CardTitle className="text-3xl font-black text-[#2D5A4C] tabular-nums">{money(stats.fixedCosts)}</CardTitle></div>
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Gasto Fijo Real</p>
+                            <CardTitle className="text-3xl font-black text-[#2D5A4C] tabular-nums">{money(stats.fixedCosts)}</CardTitle>
+                        </div>
                         <Target className="h-6 w-6 text-[#2D5A4C] opacity-20" />
                     </CardHeader>
                     <CardContent className="pt-2">
@@ -1062,7 +1065,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
 
     React.useEffect(() => {
         loadMetas();
-    }, [loadMetas]);
+    }, [loadMetas, transactions]); // Re-fetch budget stats if transactions in parent change
 
     const handleSaveBudget = async () => {
         if (!selectedMacroId || !newAmount || !supabase) return;
