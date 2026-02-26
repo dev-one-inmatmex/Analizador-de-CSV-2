@@ -349,199 +349,425 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
     );
 }
 
-export default function OperationsPage() {
-    const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion'>('inicio');
-    const [transactions, setTransactions] = React.useState<gastos_diarios[]>([]);
+function BudgetsView({ transactions, catalogs, currentDate }: { transactions: gastos_diarios[], catalogs: any, currentDate: Date }) {
+    const [budgetData, setBudgetData] = React.useState<DashboardPresupuestoV3[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
-    const [isFormOpen, setIsFormOpen] = React.useState(false);
-    const [editingTransaction, setEditingTransaction] = React.useState<gastos_diarios | null>(null);
-    const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
-    const [isClient, setIsClient] = React.useState(false);
-
-    const [catalogs, setCatalogs] = React.useState({
-        impactos: [] as cat_tipo_gasto_impacto[],
-        areas: [] as cat_area_funcional[],
-        macros: [] as cat_categoria_macro[],
-        categorias: [] as cat_categoria[],
-        subcategorias: [] as cat_subcategoria[]
-    });
-
-    const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
-    const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
-
-    const [biConfig, setBiConfig] = React.useState({
-        contributionMargin: 40,
-        payrollTemplate: [
-            { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60 },
-            { label: 'Mayoreo', canal: 'MAYOREO', porcentaje: 30 },
-            { label: 'Físico', canal: 'FISICO', porcentaje: 10 }
-        ]
-    });
-
+    const [isSaving, setIsSaving] = React.useState(false);
+    const [isAjustarOpen, setIsAjustarOpen] = React.useState(false);
+    const [selectedMacroId, setSelectedMacroId] = React.useState<string>("");
+    const [newAmount, setNewAmount] = React.useState<string>("");
     const { toast } = useToast();
 
-    const fetchCatalogs = React.useCallback(async () => {
-        if (!supabase) return;
-        try {
-            const [imp, ar, mac, cat, sub] = await Promise.all([
-                supabase.from('cat_tipo_gasto_impacto').select('*').order('nombre'),
-                supabase.from('cat_area_funcional').select('*').order('nombre'),
-                supabase.from('cat_categoria_macro').select('*').order('nombre'),
-                supabase.from('cat_categoria').select('*').order('nombre'),
-                supabase.from('cat_subcategoria').select('*').order('nombre')
-            ]);
-            setCatalogs({
-                impactos: imp.data || [],
-                areas: ar.data || [],
-                macros: mac.data || [],
-                categorias: cat.data || [],
-                subcategorias: sub.data || []
-            });
-        } catch (e) { console.error('Error fetching catalogs:', e); }
-    }, []);
-
-    const fetchAllData = React.useCallback(async () => {
-        if (!supabase) return;
+    const loadMetas = React.useCallback(async () => {
         setIsLoading(true);
         try {
-            let start, end;
-            switch (periodType) {
-                case 'day': start = startOfDay(currentDate); end = endOfDay(currentDate); break;
-                case 'six_months': start = startOfMonth(subMonths(currentDate, 5)); end = endOfMonth(currentDate); break;
-                case 'year': start = startOfYear(currentDate); end = endOfYear(currentDate); break;
-                default: start = startOfMonth(currentDate); end = endOfMonth(currentDate); break;
+            if (!supabase) return;
+            const mes = currentDate.getMonth() + 1;
+            const anio = currentDate.getFullYear();
+            
+            const { data, error } = await supabase.rpc('obtener_dashboard_financiero_v3', {
+                p_mes: mes,
+                p_anio: anio
+            });
+            
+            if (error) {
+                console.error("Error leyendo BD:", error);
+                return;
             }
 
-            let query = supabase.from('gastos_diarios').select('*').gte('fecha', format(start, 'yyyy-MM-dd')).lte('fecha', format(end, 'yyyy-MM-dd'));
-            if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
-            const { data, error } = await query.order('fecha', { ascending: false });
-            if (error) throw error;
-            setTransactions(data || []);
-        } catch (e: any) { toast({ title: "Error", description: "No se pudieron cargar los movimientos.", variant: "destructive" }); }
-        finally { setIsLoading(false); }
-    }, [currentDate, periodType, filterCompany, toast]);
+            if (data) {
+                setBudgetData(data); 
+            }
+        } catch (error) {
+            console.error("Error cargando dashboard v3:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentDate]);
 
-    React.useEffect(() => { setIsClient(true); fetchCatalogs(); }, [fetchCatalogs]);
-    React.useEffect(() => { if (isClient) fetchAllData(); }, [fetchAllData, isClient]);
+    React.useEffect(() => {
+        loadMetas();
+    }, [loadMetas, transactions]);
 
-    const handleSave = async (values: TransactionFormValues) => {
+    const handleSaveBudget = async () => {
+        if (!selectedMacroId || !newAmount || !supabase) return;
+        setIsSaving(true);
+        
         try {
-            const finalValues = { ...values };
-            const impact = catalogs.impactos.find(i => i.id === finalValues.tipo_gasto_impacto);
-            const isNominaImpact = impact?.nombre?.toUpperCase().includes('NOMINA');
-
-            if (isNominaImpact && finalValues.es_nomina_mixta && !editingTransaction) {
-                for (const dest of biConfig.payrollTemplate) {
-                    if (dest.porcentaje <= 0) continue;
-                    const fraccionado = {
-                        ...finalValues,
-                        monto: Number(finalValues.monto) * (dest.porcentaje / 100),
-                        canal_asociado: dest.canal as any,
-                        clasificacion_operativa: 'SEMI_DIRECTO' as any,
-                        notas: `${finalValues.notas || ''} [Sueldo fraccionado ${dest.porcentaje}% - Nómina Mixta BI]`.trim(),
-                        es_nomina_mixta: false 
-                    };
-                    const res = await addExpenseAction(fraccionado as any);
-                    if (res.error) throw new Error(res.error);
-                }
-            } else {
-                let result;
-                if (editingTransaction?.id) result = await updateExpenseAction(editingTransaction.id, finalValues as any);
-                else result = await addExpenseAction(finalValues as any);
-                if (result.error) throw new Error(result.error);
+            const montoLimpio = parseFloat(String(newAmount).replace(/[^0-9.-]+/g, ""));
+            
+            if (isNaN(montoLimpio) || montoLimpio < 0) {
+                toast({ title: "Error", description: "Ingresa un monto válido", variant: "destructive" });
+                setIsSaving(false);
+                return;
             }
 
-            toast({ title: "Éxito", description: "Registro guardado correctamente." });
-            setIsFormOpen(false); setEditingTransaction(null); fetchAllData();
-        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
-    };
+            const mesActual = currentDate.getMonth() + 1;
+            const anioActual = currentDate.getFullYear();
 
-    const handleDeleteTransaction = async (id: number) => {
-        const res = await deleteExpenseAction(id);
-        if (res.data) {
-            toast({ title: "Éxito", description: res.data });
-            fetchAllData();
-        } else {
-            toast({ title: "Error", description: res.error, variant: "destructive" });
+            const { error } = await supabase.rpc('guardar_presupuesto_v3', {
+                p_macro_id: Number(selectedMacroId),
+                p_monto: montoLimpio,
+                p_mes: mesActual,
+                p_anio: anioActual
+            });
+
+            if (error) throw error;
+
+            await loadMetas(); 
+            toast({ title: "Éxito", description: "Presupuesto asignado al período correctamente." });
+            
+            setIsAjustarOpen(false);
+            setNewAmount("");
+            setSelectedMacroId("");
+
+        } catch (e: any) {
+            console.error("Error al guardar presupuesto:", e);
+            toast({ title: "Error", description: "No se pudo guardar la asignación.", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    const handleDeleteBudget = async (id: number) => {
+        try {
+            if (!supabase) return;
+            const mesActual = currentDate.getMonth() + 1;
+            const anioActual = currentDate.getFullYear();
+
+            // Para eliminar físicamente o poner a 0, usamos el motor V3
+            const { error } = await supabase.rpc('guardar_presupuesto_v3', {
+                p_macro_id: Number(id),
+                p_monto: 0,
+                p_mes: mesActual,
+                p_anio: anioActual
+            });
+
+            if (error) throw error;
+
+            await loadMetas(); 
+            toast({ title: "Eliminado", description: "La asignación ha sido removida." });
+        } catch (e: any) {
+            console.error("Error al eliminar:", e);
+            toast({ title: "Error", description: "No se pudo eliminar el presupuesto.", variant: "destructive" });
+        }
+    };
+
+    if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+
+    // Filtramos para que solo aparezcan tarjetas con presupuesto > 0 o ejecución > 0
+    const filteredBudgets = budgetData.filter(item => item.presupuesto > 0 || item.ejecutado > 0);
 
     return (
-        <div className="flex h-screen flex-col bg-muted/20 min-w-0">
-            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
-                <div className="flex items-center gap-4 min-w-0">
-                    <SidebarTrigger />
-                    <h1 className="text-xl font-bold tracking-tight">Gastos financieros</h1>
-                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4 hidden md:block">
-                        <TabsList className="bg-muted/40 h-9 p-1 border">
-                            <TabsTrigger value="inicio" className="text-xs font-bold uppercase">Inicio</TabsTrigger>
-                            <TabsTrigger value="informes" className="text-xs font-bold uppercase">Informes</TabsTrigger>
-                            <TabsTrigger value="presupuestos" className="text-xs font-bold uppercase">Presupuestos</TabsTrigger>
-                            <TabsTrigger value="configuracion" className="text-xs font-bold uppercase">Configuración</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+        <div className="space-y-10 animate-in fade-in duration-500">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
+                    <p className="text-xs font-bold uppercase text-slate-400 mt-1">Periodo: {format(currentDate, 'MMMM yyyy', { locale: es })}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button size="sm" className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-9 shadow-sm" onClick={() => { setEditingTransaction(null); setIsFormOpen(true); }}><Plus className="mr-1.5 h-4 w-4" /> Nueva</Button>
-                </div>
-            </header>
-
-            <div className="bg-white border-b px-4 py-3 sm:px-6">
-                <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        <Select value={periodType} onValueChange={(v: any) => setPeriodType(v)}>
-                            <SelectTrigger className="h-8 w-[160px] text-xs font-bold uppercase border-slate-200"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="day" className="text-xs font-bold uppercase">Día Seleccionado</SelectItem>
-                                <SelectItem value="month" className="text-xs font-bold uppercase">Mes Actual</SelectItem>
-                                <SelectItem value="six_months" className="text-xs font-bold uppercase">Semestre (6 Meses)</SelectItem>
-                                <SelectItem value="year" className="text-xs font-bold uppercase">Año Fiscal</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <div className="flex items-center gap-1 ml-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => {
-                                let interval: any = { months: -1 };
-                                if (periodType === 'six_months') interval = { months: -6 };
-                                if (periodType === 'year') interval = { years: -1 };
-                                if (periodType === 'day') interval = { days: -1 };
-                                setCurrentDate((prev: Date) => add(prev, interval));
-                            }}><ChevronLeft className="h-4 w-4" /></Button>
-                            <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200 px-3" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => {
-                                let interval: any = { months: 1 };
-                                if (periodType === 'six_months') interval = { months: 6 };
-                                if (periodType === 'year') interval = { years: 1 };
-                                if (periodType === 'day') interval = { days: 1 };
-                                setCurrentDate((prev: Date) => add(prev, interval));
-                            }}><ChevronRight className="h-4 w-4" /></Button>
+                <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
+                    <DialogTrigger asChild>
+                        <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
+                            <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[32px] border-none shadow-2xl">
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">GESTIONAR PRESUPUESTO</DialogTitle>
+                            <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}.</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-6 space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Macro</Label>
+                                <Select value={selectedMacroId} onValueChange={setSelectedMacroId}>
+                                    <SelectTrigger className="h-14 rounded-xl border-slate-100 bg-slate-50/50"><SelectValue placeholder="Seleccionar categoría..." /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()} className="uppercase text-xs font-bold">{m.nombre}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monto Asignado ($)</Label>
+                                <Input 
+                                    type="number" 
+                                    value={newAmount} 
+                                    onChange={(e) => setNewAmount(e.target.value)} 
+                                    className="h-14 rounded-xl border-slate-100 bg-slate-50/50 font-black text-lg px-5" 
+                                    placeholder="0.00" 
+                                />
+                            </div>
                         </div>
+                        <DialogFooter>
+                            <Button 
+                                onClick={handleSaveBudget} 
+                                disabled={isSaving}
+                                className="w-full h-14 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-[0.98]"
+                            >
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'GUARDAR EN BASE DE DATOS'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredBudgets.length > 0 ? filteredBudgets.map((item: DashboardPresupuestoV3) => (
+                    <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6 hover:shadow-md transition-shadow relative group">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.nombre}</span>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className={cn("font-black text-[10px] border-none px-2 py-0.5", item.progreso > 90 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500")}>
+                                    {item.progreso.toFixed(0)}%
+                                </Badge>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
+                                            <MoreVertical className="h-3 w-3" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="rounded-xl">
+                                        <DropdownMenuItem onClick={() => { setSelectedMacroId(item.id.toString()); setNewAmount(item.presupuesto.toString()); setIsAjustarOpen(true); }} className="text-[10px] font-black uppercase cursor-pointer">
+                                            <Pencil className="mr-2 h-3 w-3" /> Editar Meta
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => handleDeleteBudget(item.id)} className="text-[10px] font-black uppercase text-destructive cursor-pointer">
+                                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </div>
+                        <div className="mb-6"><h3 className="text-3xl font-black text-slate-900">{money(item.ejecutado)}</h3></div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-end text-[9px] font-black uppercase tracking-tighter">
+                                <span className="text-slate-400">CONSUMO</span>
+                                <span className="text-slate-500">META: {money(item.presupuesto)}</span>
+                            </div>
+                            <Progress value={item.progreso} className="h-2 bg-slate-100" />
+                        </div>
+                    </Card>
+                )) : (
+                    <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-[32px]">
+                        <Info className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                        <p className="text-sm font-bold uppercase text-slate-400">No hay metas configuradas para este periodo.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Filter className="h-4 w-4 text-muted-foreground" />
-                        <Select value={filterCompany} onValueChange={setFilterCompany}>
-                            <SelectTrigger className="h-8 w-[130px] text-xs font-bold uppercase border-slate-200"><SelectValue placeholder="Empresa" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="TODAS" className="text-xs font-bold uppercase">Todas</SelectItem>
-                                {EMPRESAS.map(e => <SelectItem key={e} value={e} className="text-xs font-bold uppercase">{e}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                )}
+            </div>
+            
+            {budgetData.length > 0 && (
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
+                    <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b">
+                        <FileText className="h-6 w-6 text-primary" />
+                        <div>
+                            <CardTitle className="text-lg font-black uppercase tracking-tight">Seguimiento de Presupuestos</CardTitle>
+                            <CardDescription className="text-xs font-bold uppercase">Auditoría detallada de ejecución por categoría macro.</CardDescription>
+                        </div>
+                    </CardHeader>
+                    <div className="table-responsive">
+                        <Table>
+                            <TableHeader className="bg-slate-50/50">
+                                <TableRow>
+                                    <TableHead className="font-black text-[10px] uppercase px-8">Categoría</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-right">Presupuesto</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-right">Ejecutado</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-right">Disponible</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase px-10">Estado</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {budgetData.map((item: DashboardPresupuestoV3) => (
+                                    <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
+                                        <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
+                                        <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>
+                                        <TableCell className="text-right font-black text-[#2D5A4C]">{money(item.ejecutado)}</TableCell>
+                                        <TableCell className={cn("text-right font-black", item.disponible < 0 ? "text-red-500" : "text-slate-800")}>
+                                            {money(item.disponible)}
+                                        </TableCell>
+                                        <TableCell className="w-[200px] px-10">
+                                            <div className="flex items-center gap-3">
+                                                <Progress value={item.progreso} className="h-1.5 flex-1" />
+                                                <span className="text-[9px] font-black text-slate-400 w-8">{item.progreso.toFixed(0)}%</span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     </div>
+                </Card>
+            )}
+        </div>
+    );
+}
+
+function SettingsView({ catalogs, onRefresh }: { catalogs: any, biConfig: any, setBiConfig: any, onRefresh: () => void }) {
+    const { toast } = useToast();
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [editingItem, setEditingItem] = React.useState<any>(null);
+    const [activeTab, setActiveTab] = React.useState('impactos');
+    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const TABLES = {
+        impactos: 'cat_tipo_gasto_impacto',
+        areas: 'cat_area_funcional',
+        macros: 'cat_categoria_macro',
+        categorias: 'cat_categoria',
+        subcategorias: 'cat_subcategoria'
+    };
+
+    const handleOpenDialog = (item: any = null) => {
+        if (item) {
+            setEditingItem(item);
+            const parentIdVal = activeTab === 'categorias' ? item.categoria_macro_id : activeTab === 'subcategorias' ? item.categoria_id : '';
+            setFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
+        } else {
+            setEditingItem(null);
+            setFormData({ nombre: '', parentId: '' });
+        }
+        setIsDialogOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!formData.nombre || !supabase) return;
+        setIsSubmitting(true);
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const payload: any = { nombre: formData.nombre, activo: true };
+            
+            if (activeTab === 'categorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
+                payload.categoria_macro_id = Number(formData.parentId);
+            } else if (activeTab === 'subcategorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
+                payload.categoria_id = Number(formData.parentId);
+            }
+
+            let error;
+            if (editingItem) {
+                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
+                error = err;
+            } else {
+                const { error: err } = await supabase.from(tableName).insert([payload]);
+                error = err;
+            }
+
+            if (error) throw error;
+            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
+            setIsDialogOpen(false);
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const handleToggleStatus = async (item: any) => {
+        if (!supabase) return;
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const { error } = await supabase.from(tableName).update({ activo: !item.activo }).eq('id', item.id);
+            if (error) throw error;
+            toast({ title: "Éxito", description: "Estado del registro actualizado." });
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    };
+
+    return (
+        <div className="space-y-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5 p-8">
+                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
+                        <div><CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription></div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
+                                <TabsList className="bg-transparent h-12 gap-8">
+                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                            </div>
+
+                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                <TabsContent key={tab} value={tab} className="mt-0">
+                                    <ScrollArea className="h-[450px]">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
+                                                <TableRow className="border-b-0">
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
+                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
+                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
+                                                    <TableHead className="w-32"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
+                                                    <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
+                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
+                                                        <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
+                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                        <TableCell className="pr-8">
+                                                            <div className="flex justify-end gap-2">
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-4 w-4" /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+                            ))}
+                        </Tabs>
+                    </CardContent>
+                </Card>
+
+                <div className="space-y-8">
+                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-2xl">
+                        <CardContent className="p-10 space-y-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Salud Financiera BI</p><CheckCircle2 className="h-5 w-5 text-emerald-400" /></div><h3 className="text-3xl font-black leading-tight">Arquitectura Dinámica Activa</h3><p className="text-xs text-white/70 leading-relaxed font-bold uppercase tracking-wide">Relaciones de 5 niveles sincronizadas para el análisis técnico profundo.</p></CardContent>
+                    </Card>
                 </div>
             </div>
 
-            <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
-                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
-                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
-                {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
-                {currentView === 'configuracion' && <SettingsView catalogs={catalogs} biConfig={biConfig} setBiConfig={setBiConfig} onRefresh={fetchCatalogs} />}
-            </main>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
+                    <div className="p-10 space-y-8">
+                        <DialogHeader>
+                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeTab}.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-6">
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
+                            
+                            {activeTab === 'categorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Macro Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
 
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] border-none shadow-2xl">
-                    <TransactionForm transaction={editingTransaction} onSubmit={handleSave} catalogs={catalogs} />
+                            {activeTab === 'subcategorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t flex gap-4">
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
+                        <Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
@@ -1037,433 +1263,199 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     );
 }
 
-function BudgetsView({ transactions, catalogs, currentDate }: any) {
-    const [budgetData, setBudgetData] = React.useState<DashboardPresupuestoV3[]>([]);
+export default function OperationsPage() {
+    const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion'>('inicio');
+    const [transactions, setTransactions] = React.useState<gastos_diarios[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
-    const [isSaving, setIsSaving] = React.useState(false);
-    const [isAjustarOpen, setIsAjustarOpen] = React.useState(false);
-    const [selectedMacroId, setSelectedMacroId] = React.useState<string>("");
-    const [newAmount, setNewAmount] = React.useState<string>("");
+    const [isFormOpen, setIsFormOpen] = React.useState(false);
+    const [editingTransaction, setEditingTransaction] = React.useState<gastos_diarios | null>(null);
+    const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
+    const [isClient, setIsClient] = React.useState(false);
+
+    const [catalogs, setCatalogs] = React.useState({
+        impactos: [] as cat_tipo_gasto_impacto[],
+        areas: [] as cat_area_funcional[],
+        macros: [] as cat_categoria_macro[],
+        categorias: [] as cat_categoria[],
+        subcategorias: [] as cat_subcategoria[]
+    });
+
+    const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
+    const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
+
+    const [biConfig, setBiConfig] = React.useState({
+        contributionMargin: 40,
+        payrollTemplate: [
+            { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60 },
+            { label: 'Mayoreo', canal: 'MAYOREO', porcentaje: 30 },
+            { label: 'Físico', canal: 'FISICO', porcentaje: 10 }
+        ]
+    });
+
     const { toast } = useToast();
 
-    const loadMetas = React.useCallback(async () => {
-        setIsLoading(true);
-        try {
-            if (!supabase) return;
-            const mes = currentDate.getMonth() + 1;
-            const anio = currentDate.getFullYear();
-            
-            const { data, error } = await supabase.rpc('obtener_dashboard_financiero_v3', {
-                p_mes: mes,
-                p_anio: anio
-            });
-            
-            if (error) {
-                console.error("Error leyendo BD:", error);
-                return;
-            }
-
-            if (data) {
-                setBudgetData(data); 
-            }
-        } catch (error) {
-            console.error("Error cargando dashboard v3:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [currentDate]);
-
-    // REACTIVIDAD TOTAL: Refrescar metas cuando cambian las transacciones (gastos)
-    React.useEffect(() => {
-        loadMetas();
-    }, [loadMetas, transactions]);
-
-    const handleSaveBudget = async () => {
-        if (!selectedMacroId || !newAmount || !supabase) return;
-        setIsSaving(true);
-        
-        try {
-            const montoLimpio = parseFloat(String(newAmount).replace(/[^0-9.-]+/g, ""));
-            
-            if (isNaN(montoLimpio) || montoLimpio < 0) {
-                toast({ title: "Error", description: "Ingresa un monto válido", variant: "destructive" });
-                setIsSaving(false);
-                return;
-            }
-
-            const mesActual = currentDate.getMonth() + 1;
-            const anioActual = currentDate.getFullYear();
-
-            const { error } = await supabase.rpc('guardar_presupuesto_v3', {
-                p_macro_id: Number(selectedMacroId),
-                p_monto: montoLimpio,
-                p_mes: mesActual,
-                p_anio: anioActual
-            });
-
-            if (error) throw error;
-
-            await loadMetas(); 
-            
-            toast({ title: "Éxito", description: "Presupuesto asignado al período correctamente." });
-            
-            setIsAjustarOpen(false);
-            setNewAmount("");
-            setSelectedMacroId("");
-
-        } catch (e: any) {
-            console.error("Error al guardar presupuesto:", e);
-            toast({ title: "Error", description: "No se pudo guardar la asignación.", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleDeleteBudget = async (id: number) => {
-        try {
-            if (!supabase) return;
-            const mesActual = currentDate.getMonth() + 1;
-            const anioActual = currentDate.getFullYear();
-
-            const { error } = await supabase.rpc('guardar_presupuesto_v3', {
-                p_macro_id: Number(id),
-                p_monto: 0,
-                p_mes: mesActual,
-                p_anio: anioActual
-            });
-
-            if (error) throw error;
-
-            await loadMetas(); 
-            toast({ title: "Eliminado", description: "La asignación se ha puesto en $0.00" });
-        } catch (e: any) {
-            console.error("Error al eliminar:", e);
-            toast({ title: "Error", description: "No se pudo eliminar el presupuesto.", variant: "destructive" });
-        }
-    };
-
-    if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
-
-    return (
-        <div className="space-y-10 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
-                    <p className="text-xs font-bold uppercase text-slate-400 mt-1">Periodo: {format(currentDate, 'MMMM yyyy', { locale: es })}</p>
-                </div>
-                <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
-                            <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="rounded-[32px] border-none shadow-2xl">
-                        <DialogHeader>
-                            <DialogTitle className="text-2xl font-black uppercase tracking-tighter">GESTIONAR PRESUPUESTO</DialogTitle>
-                            <DialogDescription className="text-[10px] font-bold uppercase text-slate-400">Define el techo presupuestario para el mes de {format(currentDate, 'MMMM yyyy', { locale: es }).toUpperCase()}.</DialogDescription>
-                        </DialogHeader>
-                        <div className="py-6 space-y-6">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Macro</Label>
-                                <Select value={selectedMacroId} onValueChange={setSelectedMacroId}>
-                                    <SelectTrigger className="h-14 rounded-xl border-slate-100 bg-slate-50/50"><SelectValue placeholder="Seleccionar categoría..." /></SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()} className="uppercase text-xs font-bold">{m.nombre}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Monto Asignado ($)</Label>
-                                <Input 
-                                    type="number" 
-                                    value={newAmount} 
-                                    onChange={(e) => setNewAmount(e.target.value)} 
-                                    className="h-14 rounded-xl border-slate-100 bg-slate-50/50 font-black text-lg px-5" 
-                                    placeholder="0.00" 
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button 
-                                onClick={handleSaveBudget} 
-                                disabled={isSaving}
-                                className="w-full h-14 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-[0.98]"
-                            >
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'GUARDAR EN BASE DE DATOS'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {budgetData.length > 0 ? budgetData.map((item: DashboardPresupuestoV3) => (
-                    <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6 hover:shadow-md transition-shadow relative group">
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.nombre}</span>
-                            <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className={cn("font-black text-[10px] border-none px-2 py-0.5", item.progreso > 90 ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-500")}>
-                                    {item.progreso.toFixed(0)}%
-                                </Badge>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <MoreVertical className="h-3 w-3" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="rounded-xl">
-                                        <DropdownMenuItem onClick={() => { setSelectedMacroId(item.id.toString()); setNewAmount(item.presupuesto.toString()); setIsAjustarOpen(true); }} className="text-[10px] font-black uppercase cursor-pointer">
-                                            <Pencil className="mr-2 h-3 w-3" /> Editar Meta
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => handleDeleteBudget(item.id)} className="text-[10px] font-black uppercase text-destructive cursor-pointer">
-                                            <Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        </div>
-                        <div className="mb-6"><h3 className="text-3xl font-black text-slate-900">{money(item.ejecutado)}</h3></div>
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-end text-[9px] font-black uppercase tracking-tighter">
-                                <span className="text-slate-400">CONSUMO</span>
-                                <span className="text-slate-500">META: {money(item.presupuesto)}</span>
-                            </div>
-                            <Progress value={item.progreso} className="h-2 bg-slate-100" />
-                        </div>
-                    </Card>
-                )) : (
-                    <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-[32px]">
-                        <Info className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                        <p className="text-sm font-bold uppercase text-slate-400">No hay metas configuradas para este periodo.</p>
-                    </div>
-                )}
-            </div>
-            
-            {budgetData.length > 0 && (
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
-                    <CardHeader className="flex flex-row items-center gap-4 bg-muted/5 border-b">
-                        <FileText className="h-6 w-6 text-primary" />
-                        <div>
-                            <CardTitle className="text-lg font-black uppercase tracking-tight">Seguimiento de Presupuestos</CardTitle>
-                            <CardDescription className="text-xs font-bold uppercase">Auditoría detallada de ejecución por categoría macro.</CardDescription>
-                        </div>
-                    </CardHeader>
-                    <div className="table-responsive">
-                        <Table>
-                            <TableHeader className="bg-slate-50/50">
-                                <TableRow>
-                                    <TableHead className="font-black text-[10px] uppercase px-8">Categoría</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-right">Presupuesto</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-right">Ejecutado</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-right">Disponible</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase px-10">Estado</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {budgetData.map((item: DashboardPresupuestoV3) => (
-                                    <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
-                                        <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
-                                        <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>
-                                        <TableCell className="text-right font-black text-[#2D5A4C]">{money(item.ejecutado)}</TableCell>
-                                        <TableCell className={cn("text-right font-black", item.disponible < 0 ? "text-red-500" : "text-slate-800")}>
-                                            {money(item.disponible)}
-                                        </TableCell>
-                                        <TableCell className="w-[200px] px-10">
-                                            <div className="flex items-center gap-3">
-                                                <Progress value={item.progreso} className="h-1.5 flex-1" />
-                                                <span className="text-[9px] font-black text-slate-400 w-8">{item.progreso.toFixed(0)}%</span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </Card>
-            )}
-        </div>
-    );
-}
-
-function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
-    const { toast } = useToast();
-    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-    const [editingItem, setEditingItem] = React.useState<any>(null);
-    const [activeTab, setActiveTab] = React.useState('impactos');
-    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-    const TABLES = {
-        impactos: 'cat_tipo_gasto_impacto',
-        areas: 'cat_area_funcional',
-        macros: 'cat_categoria_macro',
-        categorias: 'cat_categoria',
-        subcategorias: 'cat_subcategoria'
-    };
-
-    const handleOpenDialog = (item: any = null) => {
-        if (item) {
-            setEditingItem(item);
-            const parentIdVal = activeTab === 'categorias' ? item.categoria_macro_id : activeTab === 'subcategorias' ? item.categoria_id : '';
-            setFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
-        } else {
-            setEditingItem(null);
-            setFormData({ nombre: '', parentId: '' });
-        }
-        setIsDialogOpen(true);
-    };
-
-    const handleSave = async () => {
-        if (!formData.nombre || !supabase) return;
-        setIsSubmitting(true);
-        try {
-            const tableName = TABLES[activeTab as keyof typeof TABLES];
-            const payload: any = { nombre: formData.nombre, activo: true };
-            
-            if (activeTab === 'categorias') {
-                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
-                payload.categoria_macro_id = Number(formData.parentId);
-            } else if (activeTab === 'subcategorias') {
-                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
-                payload.categoria_id = Number(formData.parentId);
-            }
-
-            let error;
-            if (editingItem) {
-                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
-                error = err;
-            } else {
-                const { error: err } = await supabase.from(tableName).insert([payload]);
-                error = err;
-            }
-
-            if (error) throw error;
-            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
-            setIsDialogOpen(false);
-            onRefresh();
-        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
-        finally { setIsSubmitting(false); }
-    };
-
-    const handleToggleStatus = async (item: any) => {
+    const fetchCatalogs = React.useCallback(async () => {
         if (!supabase) return;
         try {
-            const tableName = TABLES[activeTab as keyof typeof TABLES];
-            const { error } = await supabase.from(tableName).update({ activo: !item.activo }).eq('id', item.id);
+            const [imp, ar, mac, cat, sub] = await Promise.all([
+                supabase.from('cat_tipo_gasto_impacto').select('*').order('nombre'),
+                supabase.from('cat_area_funcional').select('*').order('nombre'),
+                supabase.from('cat_categoria_macro').select('*').order('nombre'),
+                supabase.from('cat_categoria').select('*').order('nombre'),
+                supabase.from('cat_subcategoria').select('*').order('nombre')
+            ]);
+            setCatalogs({
+                impactos: imp.data || [],
+                areas: ar.data || [],
+                macros: mac.data || [],
+                categorias: cat.data || [],
+                subcategorias: sub.data || []
+            });
+        } catch (e) { console.error('Error fetching catalogs:', e); }
+    }, []);
+
+    const fetchAllData = React.useCallback(async () => {
+        if (!supabase) return;
+        setIsLoading(true);
+        try {
+            let start, end;
+            switch (periodType) {
+                case 'day': start = startOfDay(currentDate); end = endOfDay(currentDate); break;
+                case 'six_months': start = startOfMonth(subMonths(currentDate, 5)); end = endOfMonth(currentDate); break;
+                case 'year': start = startOfYear(currentDate); end = endOfYear(currentDate); break;
+                default: start = startOfMonth(currentDate); end = endOfMonth(currentDate); break;
+            }
+
+            let query = supabase.from('gastos_diarios').select('*').gte('fecha', format(start, 'yyyy-MM-dd')).lte('fecha', format(end, 'yyyy-MM-dd'));
+            if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
+            const { data, error } = await query.order('fecha', { ascending: false });
             if (error) throw error;
-            toast({ title: "Éxito", description: "Estado del registro actualizado." });
-            onRefresh();
+            setTransactions(data || []);
+        } catch (e: any) { toast({ title: "Error", description: "No se pudieron cargar los movimientos.", variant: "destructive" }); }
+        finally { setIsLoading(false); }
+    }, [currentDate, periodType, filterCompany, toast]);
+
+    React.useEffect(() => { setIsClient(true); fetchCatalogs(); }, [fetchCatalogs]);
+    React.useEffect(() => { if (isClient) fetchAllData(); }, [fetchAllData, isClient]);
+
+    const handleSave = async (values: TransactionFormValues) => {
+        try {
+            const finalValues = { ...values };
+            const impact = catalogs.impactos.find(i => i.id === finalValues.tipo_gasto_impacto);
+            const isNominaImpact = impact?.nombre?.toUpperCase().includes('NOMINA');
+
+            if (isNominaImpact && finalValues.es_nomina_mixta && !editingTransaction) {
+                for (const dest of biConfig.payrollTemplate) {
+                    if (dest.porcentaje <= 0) continue;
+                    const fraccionado = {
+                        ...finalValues,
+                        monto: Number(finalValues.monto) * (dest.porcentaje / 100),
+                        canal_asociado: dest.canal as any,
+                        clasificacion_operativa: 'SEMI_DIRECTO' as any,
+                        notas: `${finalValues.notas || ''} [Sueldo fraccionado ${dest.porcentaje}% - Nómina Mixta BI]`.trim(),
+                        es_nomina_mixta: false 
+                    };
+                    const res = await addExpenseAction(fraccionado as any);
+                    if (res.error) throw new Error(res.error);
+                }
+            } else {
+                let result;
+                if (editingTransaction?.id) result = await updateExpenseAction(editingTransaction.id, finalValues as any);
+                else result = await addExpenseAction(finalValues as any);
+                if (result.error) throw new Error(result.error);
+            }
+
+            toast({ title: "Éxito", description: "Registro guardado correctamente." });
+            setIsFormOpen(false); setEditingTransaction(null); fetchAllData();
         } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     };
 
+    const handleDeleteTransaction = async (id: number) => {
+        const res = await deleteExpenseAction(id);
+        if (res.data) {
+            toast({ title: "Éxito", description: res.data });
+            fetchAllData();
+        } else {
+            toast({ title: "Error", description: res.error, variant: "destructive" });
+        }
+    };
+
+    if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+
     return (
-        <div className="space-y-10">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
-                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5 p-8">
-                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
-                        <div><CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription></div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
-                                <TabsList className="bg-transparent h-12 gap-8">
-                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
-                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
-                                    ))}
-                                </TabsList>
-                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
-                            </div>
+        <div className="flex h-screen flex-col bg-muted/20 min-w-0">
+            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm sm:px-6">
+                <div className="flex items-center gap-4 min-w-0">
+                    <SidebarTrigger />
+                    <h1 className="text-xl font-bold tracking-tight">Gastos financieros</h1>
+                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4 hidden md:block">
+                        <TabsList className="bg-muted/40 h-9 p-1 border">
+                            <TabsTrigger value="inicio" className="text-xs font-bold uppercase">Inicio</TabsTrigger>
+                            <TabsTrigger value="informes" className="text-xs font-bold uppercase">Informes</TabsTrigger>
+                            <TabsTrigger value="presupuestos" className="text-xs font-bold uppercase">Presupuestos</TabsTrigger>
+                            <TabsTrigger value="configuracion" className="text-xs font-bold uppercase">Configuración</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button size="sm" className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-9 shadow-sm" onClick={() => { setEditingTransaction(null); setIsFormOpen(true); }}><Plus className="mr-1.5 h-4 w-4" /> Nueva</Button>
+                </div>
+            </header>
 
-                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
-                                <TabsContent key={tab} value={tab} className="mt-0">
-                                    <ScrollArea className="h-[450px]">
-                                        <Table>
-                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
-                                                <TableRow className="border-b-0">
-                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
-                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
-                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
-                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
-                                                    <TableHead className="w-32"></TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
-                                                    <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
-                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
-                                                        <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
-                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
-                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
-                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
-                                                        <TableCell className="pr-8">
-                                                            <div className="flex justify-end gap-2">
-                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
-                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-4 w-4" /></Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </ScrollArea>
-                                </TabsContent>
-                            ))}
-                        </Tabs>
-                    </CardContent>
-                </Card>
-
-                <div className="space-y-8">
-                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
-                        <CardHeader className="flex flex-row items-center gap-3 bg-[#F0FDF4]/50 border-b p-6"><Hammer className="h-4 w-4 text-[#2D5A4C]" /><CardTitle className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Configuración Nómina</CardTitle></CardHeader>
-                        <CardContent className="p-6 space-y-6">
-                            <div className="space-y-5">
-                                {biConfig.payrollTemplate.map((item: any) => (
-                                    <div key={item.canal} className="space-y-2"><div className="flex justify-between text-[10px] font-black uppercase text-slate-500"><span>{item.label}</span><span>{item.porcentaje}%</span></div><Progress value={item.porcentaje} className="h-1.5" /></div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-2xl">
-                        <CardContent className="p-10 space-y-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Salud Financiera BI</p><CheckCircle2 className="h-5 w-5 text-emerald-400" /></div><h3 className="text-3xl font-black leading-tight">Arquitectura Dinámica Activa</h3><p className="text-xs text-white/70 leading-relaxed font-bold uppercase tracking-wide">Relaciones de 5 niveles sincronizadas para el análisis técnico profundo.</p></CardContent>
-                    </Card>
+            <div className="bg-white border-b px-4 py-3 sm:px-6">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                        <Select value={periodType} onValueChange={(v: any) => setPeriodType(v)}>
+                            <SelectTrigger className="h-8 w-[160px] text-xs font-bold uppercase border-slate-200"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="day" className="text-xs font-bold uppercase">Día Seleccionado</SelectItem>
+                                <SelectItem value="month" className="text-xs font-bold uppercase">Mes Actual</SelectItem>
+                                <SelectItem value="six_months" className="text-xs font-bold uppercase">Semestre (6 Meses)</SelectItem>
+                                <SelectItem value="year" className="text-xs font-bold uppercase">Año Fiscal</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <div className="flex items-center gap-1 ml-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => {
+                                let interval: any = { months: -1 };
+                                if (periodType === 'six_months') interval = { months: -6 };
+                                if (periodType === 'year') interval = { years: -1 };
+                                if (periodType === 'day') interval = { days: -1 };
+                                setCurrentDate((prev: Date) => add(prev, interval));
+                            }}><ChevronLeft className="h-4 w-4" /></Button>
+                            <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold uppercase border-slate-200 px-3" onClick={() => setCurrentDate(startOfDay(new Date()))}>Hoy</Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100" onClick={() => {
+                                let interval: any = { months: 1 };
+                                if (periodType === 'six_months') interval = { months: 6 };
+                                if (periodType === 'year') interval = { years: 1 };
+                                if (periodType === 'day') interval = { days: 1 };
+                                setCurrentDate((prev: Date) => add(prev, interval));
+                            }}><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-muted-foreground" />
+                        <Select value={filterCompany} onValueChange={setFilterCompany}>
+                            <SelectTrigger className="h-8 w-[130px] text-xs font-bold uppercase border-slate-200"><SelectValue placeholder="Empresa" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TODAS" className="text-xs font-bold uppercase">Todas</SelectItem>
+                                {EMPRESAS.map(e => <SelectItem key={e} value={e} className="text-xs font-bold uppercase">{e}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
             </div>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
-                    <div className="p-10 space-y-8">
-                        <DialogHeader>
-                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
-                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeTab}.</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-6">
-                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
-                            
-                            {activeTab === 'categorias' && (
-                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Macro Vinculada (Obligatorio)</Label>
-                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
-                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </div>
-                            )}
+            <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
+                {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
+                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
+                {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
+                {currentView === 'configuracion' && <SettingsView catalogs={catalogs} biConfig={biConfig} setBiConfig={setBiConfig} onRefresh={fetchCatalogs} />}
+            </main>
 
-                            {activeTab === 'subcategorias' && (
-                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Vinculada (Obligatorio)</Label>
-                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
-                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
-                                        <SelectContent className="rounded-xl">{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="p-8 bg-slate-50 border-t flex gap-4">
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
-                        <Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
-                    </div>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] border-none shadow-2xl">
+                    <TransactionForm transaction={editingTransaction} onSubmit={handleSave} catalogs={catalogs} />
                 </DialogContent>
             </Dialog>
         </div>
