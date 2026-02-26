@@ -14,7 +14,7 @@ import {
   Search, Filter, Activity,
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
-  FileDown, Wrench, Settings2, Hammer, HeartPulse
+  FileDown, Wrench, Settings2, Hammer, HeartPulse, AlertCircle
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -679,10 +679,12 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
 function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs: any, onRefresh: () => void, biConfig: any, setBiConfig: (val: any) => void }) {
     const { toast } = useToast();
     const [isCatalogDialogOpen, setIsCatalogDialogOpen] = React.useState(false);
+    const [isPayrollDialogOpen, setIsPayrollDialogOpen] = React.useState(false);
     const [editingCatalogItem, setEditingCatalogItem] = React.useState<any>(null);
     const [activeCatalogTab, setActiveCatalogTab] = React.useState('impactos');
     const [catalogFormData, setCatalogFormData] = React.useState({ nombre: '', parentId: '' });
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [tempPayroll, setTempPayroll] = React.useState(biConfig.payrollTemplate);
 
     const CATALOG_TABLES = {
         impactos: 'cat_tipo_gasto_impacto',
@@ -751,9 +753,26 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
         toast({ title: "Éxito", description: "Configuración de parámetros BI guardada correctamente." });
     };
 
+    const handleUpdatePayrollValue = (index: number, value: string) => {
+        const val = Number(value);
+        const next = [...tempPayroll];
+        next[index].porcentaje = val;
+        setTempPayroll(next);
+    };
+
+    const handleSavePayrollTemplate = () => {
+        const total = tempPayroll.reduce((sum: number, item: any) => sum + item.porcentaje, 0);
+        if (total !== 100) {
+            toast({ title: "Error", description: `El total debe ser 100% (actual: ${total}%)`, variant: "destructive" });
+            return;
+        }
+        setBiConfig({ ...biConfig, payrollTemplate: tempPayroll });
+        setIsPayrollDialogOpen(false);
+        toast({ title: "Éxito", description: "Plantilla de nómina actualizada correctamente." });
+    };
+
     return (
         <div className="space-y-10">
-            {/* PANEL DE PARÁMETROS BI Y NÓMINA MIXTA (IGUAL A LA IMAGEN) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                     <CardHeader className="flex flex-row items-center gap-4 border-b bg-slate-50/30 p-8">
@@ -819,7 +838,6 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
                 </Card>
 
                 <div className="space-y-8">
-                    {/* PANEL NÓMINA MIXTA */}
                     <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                         <CardHeader className="flex flex-row items-center gap-3 border-b bg-slate-50/10 p-6">
                             <Hammer className="h-4 w-4 text-[#2D5A4C]" />
@@ -838,11 +856,19 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
                                 </div>
                             ))}
 
-                            <Button variant="outline" className="w-full h-14 rounded-2xl border-slate-100 bg-white font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 text-slate-600">EDITAR PLANTILLA</Button>
+                            <Button 
+                                variant="outline" 
+                                className="w-full h-14 rounded-2xl border-slate-100 bg-white font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 text-slate-600 shadow-sm transition-all active:scale-[0.98]"
+                                onClick={() => {
+                                    setTempPayroll([...biConfig.payrollTemplate]);
+                                    setIsPayrollDialogOpen(true);
+                                }}
+                            >
+                                EDITAR PLANTILLA
+                            </Button>
                         </CardContent>
                     </Card>
 
-                    {/* PANEL ESTADO DE SALUD BI */}
                     <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-[24px]">
                         <CardContent className="p-8 space-y-6">
                             <div className="flex items-center justify-between">
@@ -856,7 +882,6 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
                 </div>
             </div>
 
-            {/* GESTIÓN DE CATÁLOGOS (DEBAJO DE LOS PARÁMETROS PRINCIPALES) */}
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                 <CardHeader className="flex flex-row items-center gap-4 border-b bg-slate-50/30 p-8">
                     <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
@@ -914,7 +939,6 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
                 </CardContent>
             </Card>
 
-            {/* DIALOG DE CATÁLOGOS */}
             <Dialog open={isCatalogDialogOpen} onOpenChange={setIsCatalogDialogOpen}>
                 <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
                     <div className="p-10 space-y-8">
@@ -947,6 +971,46 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
                     <div className="p-8 bg-slate-50 border-t flex gap-4">
                         <Button variant="outline" onClick={() => setIsCatalogDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
                         <Button onClick={handleSaveCatalog} disabled={isSubmitting || !catalogFormData.nombre || ((activeCatalogTab === 'categorias' || activeCatalogTab === 'subcategorias') && !catalogFormData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isPayrollDialogOpen} onOpenChange={setIsPayrollDialogOpen}>
+                <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
+                    <div className="p-10 space-y-8">
+                        <DialogHeader>
+                            <div className="flex items-center gap-3 mb-2">
+                                <Hammer className="h-6 w-6 text-[#2D5A4C]" />
+                                <DialogTitle className="text-2xl font-black uppercase tracking-tighter">EDITAR PLANTILLA DE NÓMINA</DialogTitle>
+                            </div>
+                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Ajusta el porcentaje de esfuerzo para cada canal. El total debe sumar exactamente 100%.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-6">
+                            {tempPayroll.map((item: any, i: number) => (
+                                <div key={i} className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                    <span className="text-[10px] font-black uppercase text-slate-600 tracking-tight">{item.label}</span>
+                                    <div className="flex items-center gap-2">
+                                        <Input 
+                                            type="number" 
+                                            className="w-20 h-10 text-center font-black rounded-xl border-slate-200" 
+                                            value={item.porcentaje}
+                                            onChange={(e) => handleUpdatePayrollValue(i, e.target.value)}
+                                        />
+                                        <span className="font-bold text-slate-400">%</span>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="pt-4 border-t flex justify-between items-center">
+                                <span className="text-[10px] font-black uppercase text-slate-400">Total acumulado:</span>
+                                <span className={cn("text-xl font-black", tempPayroll.reduce((s: number, i: any) => s + i.porcentaje, 0) === 100 ? "text-emerald-500" : "text-rose-500")}>
+                                    {tempPayroll.reduce((s: number, i: any) => s + i.porcentaje, 0)}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t flex gap-4">
+                        <Button variant="outline" onClick={() => setIsPayrollDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Descartar</Button>
+                        <Button onClick={handleSavePayrollTemplate} className="h-14 flex-1 bg-[#2D5A4C] hover:bg-[#24483D] rounded-2xl font-black uppercase text-[10px] shadow-xl text-white">Aplicar Cambios</Button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -1416,7 +1480,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || '-'}</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
                                 </div>
                             </div>
                         </div>
