@@ -456,6 +456,16 @@ export default function OperationsPage() {
         } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     };
 
+    const handleDeleteTransaction = async (id: number) => {
+        const res = await deleteExpenseAction(id);
+        if (res.data) {
+            toast({ title: "Éxito", description: res.data });
+            fetchAllData();
+        } else {
+            toast({ title: "Error", description: res.error, variant: "destructive" });
+        }
+    };
+
     if (!isClient) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
@@ -524,7 +534,7 @@ export default function OperationsPage() {
 
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
-                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={deleteExpenseAction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
+                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
                 {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} biConfig={biConfig} setBiConfig={setBiConfig} onRefresh={fetchCatalogs} />}
             </main>
@@ -1001,7 +1011,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || '-'}</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
                                 </div>
                             </div>
                         </div>
@@ -1063,9 +1073,10 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
         }
     }, [currentDate]);
 
+    // REACTIVIDAD TOTAL: Refrescar metas cuando cambian las transacciones (gastos)
     React.useEffect(() => {
         loadMetas();
-    }, [loadMetas, transactions]); // Re-fetch budget stats if transactions in parent change
+    }, [loadMetas, transactions]);
 
     const handleSaveBudget = async () => {
         if (!selectedMacroId || !newAmount || !supabase) return;
