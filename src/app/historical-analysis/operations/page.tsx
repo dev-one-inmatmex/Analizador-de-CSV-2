@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, RechartsCell, Cell, ComposedChart, Line, Area
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area
 } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -592,7 +592,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie data={[{ name: 'Ingresos', value: stats.totalIncome }, { name: 'Gastos', value: stats.totalExpense }]} innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
-                                        <RechartsCell fill="#3b82f6" stroke="none" /><RechartsCell fill="#f43f5e" stroke="none" />
+                                        <Cell fill="#3b82f6" stroke="none" /><Cell fill="#f43f5e" stroke="none" />
                                     </Pie>
                                     <Tooltip formatter={(v: number) => money(v)} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
                                 </PieChart>
@@ -699,6 +699,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
                                         <TableCell className="px-6"><Badge variant="secondary" className="text-[8px] font-black uppercase px-2 py-0.5 bg-slate-100 text-slate-500 border-none">{r.tipo_transaccion}</Badge></TableCell>
                                         <TableCell className="text-right font-black text-sm px-6 pr-10 text-[#2D5A4C]">{money(r.monto)}</TableCell>
                                     </TableRow>
+                                Forsyth
                                 ))}
                             </TableBody>
                         </Table>
@@ -1440,3 +1441,556 @@ function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
         </div>
     );
 }
+
+function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
+    const { toast } = useToast();
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [editingItem, setEditingItem] = React.useState<any>(null);
+    const [activeTab, setActiveTab] = React.useState('impactos');
+    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const TABLES = {
+        impactos: 'cat_tipo_gasto_impacto',
+        areas: 'cat_area_funcional',
+        macros: 'cat_categoria_macro',
+        categorias: 'cat_categoria',
+        subcategorias: 'cat_subcategoria'
+    };
+
+    const handleOpenDialog = (item: any = null) => {
+        if (item) {
+            setEditingItem(item);
+            const parentIdVal = activeTab === 'categorias' ? item.categoria_macro_id : activeTab === 'subcategorias' ? item.categoria_id : '';
+            setFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
+        } else {
+            setEditingItem(null);
+            setFormData({ nombre: '', parentId: '' });
+        }
+        setIsDialogOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!formData.nombre || !supabase) return;
+        setIsSubmitting(true);
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const payload: any = { nombre: formData.nombre, activo: true };
+            
+            if (activeTab === 'categorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
+                payload.categoria_macro_id = Number(formData.parentId);
+            } else if (activeTab === 'subcategorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
+                payload.categoria_id = Number(formData.parentId);
+            }
+
+            let error;
+            if (editingItem) {
+                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
+                error = err;
+            } else {
+                const { error: err } = await supabase.from(tableName).insert([payload]);
+                error = err;
+            }
+
+            if (error) throw error;
+            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
+            setIsDialogOpen(false);
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const handleToggleStatus = async (item: any) => {
+        if (!supabase) return;
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const { error } = await supabase.from(tableName).update({ activo: !item.activo }).eq('id', item.id);
+            if (error) throw error;
+            toast({ title: "Éxito", description: "Estado del registro actualizado." });
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    };
+
+    return (
+        <div className="space-y-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5 p-8">
+                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
+                        <div><CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription></div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
+                                <TabsList className="bg-transparent h-12 gap-8">
+                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                            </div>
+
+                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                <TabsContent key={tab} value={tab} className="mt-0">
+                                    <ScrollArea className="h-[450px]">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
+                                                <TableRow className="border-b-0">
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
+                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
+                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
+                                                    <TableHead className="w-32"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
+                                                    <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
+                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
+                                                        <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
+                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                        <TableCell className="pr-8">
+                                                            <div className="flex justify-end gap-2">
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-4 w-4" /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+                            ))}
+                        </Tabs>
+                    </CardContent>
+                </Card>
+
+                <div className="space-y-8">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                        <CardHeader className="flex flex-row items-center gap-3 bg-[#F0FDF4]/50 border-b p-6"><Hammer className="h-4 w-4 text-[#2D5A4C]" /><CardTitle className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Configuración Nómina</CardTitle></CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                            <div className="space-y-5">
+                                {biConfig.payrollTemplate.map((item: any) => (
+                                    <div key={item.canal} className="space-y-2"><div className="flex justify-between text-[10px] font-black uppercase text-slate-500"><span>{item.label}</span><span>{item.porcentaje}%</span></div><Progress value={item.porcentaje} className="h-1.5" /></div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-2xl">
+                        <CardContent className="p-10 space-y-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Salud Financiera BI</p><CheckCircle2 className="h-5 w-5 text-emerald-400" /></div><h3 className="text-3xl font-black leading-tight">Arquitectura Dinámica Activa</h3><p className="text-xs text-white/70 leading-relaxed font-bold uppercase tracking-wide">Relaciones de 5 niveles sincronizadas para el análisis técnico profundo.</p></CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
+                    <div className="p-10 space-y-8">
+                        <DialogHeader>
+                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeTab}.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-6">
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
+                            
+                            {activeTab === 'categorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Macro Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {activeTab === 'subcategorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t flex gap-4">
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
+                        <Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
+    const { toast } = useToast();
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [editingItem, setEditingItem] = React.useState<any>(null);
+    const [activeTab, setActiveTab] = React.useState('impactos');
+    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const TABLES = {
+        impactos: 'cat_tipo_gasto_impacto',
+        areas: 'cat_area_funcional',
+        macros: 'cat_categoria_macro',
+        categorias: 'cat_categoria',
+        subcategorias: 'cat_subcategoria'
+    };
+
+    const handleOpenDialog = (item: any = null) => {
+        if (item) {
+            setEditingItem(item);
+            const parentIdVal = activeTab === 'categorias' ? item.categoria_macro_id : activeTab === 'subcategorias' ? item.categoria_id : '';
+            setFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
+        } else {
+            setEditingItem(null);
+            setFormData({ nombre: '', parentId: '' });
+        }
+        setIsDialogOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!formData.nombre || !supabase) return;
+        setIsSubmitting(true);
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const payload: any = { nombre: formData.nombre, activo: true };
+            
+            if (activeTab === 'categorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
+                payload.categoria_macro_id = Number(formData.parentId);
+            } else if (activeTab === 'subcategorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
+                payload.categoria_id = Number(formData.parentId);
+            }
+
+            let error;
+            if (editingItem) {
+                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
+                error = err;
+            } else {
+                const { error: err } = await supabase.from(tableName).insert([payload]);
+                error = err;
+            }
+
+            if (error) throw error;
+            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
+            setIsDialogOpen(false);
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const handleToggleStatus = async (item: any) => {
+        if (!supabase) return;
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const { error } = await supabase.from(tableName).update({ activo: !item.activo }).eq('id', item.id);
+            if (error) throw error;
+            toast({ title: "Éxito", description: "Estado del registro actualizado." });
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    };
+
+    return (
+        <div className="space-y-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5 p-8">
+                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
+                        <div><CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription></div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
+                                <TabsList className="bg-transparent h-12 gap-8">
+                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                            </div>
+
+                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                <TabsContent key={tab} value={tab} className="mt-0">
+                                    <ScrollArea className="h-[450px]">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
+                                                <TableRow className="border-b-0">
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
+                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
+                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
+                                                    <TableHead className="w-32"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
+                                                    <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
+                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
+                                                        <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
+                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                        <TableCell className="pr-8">
+                                                            <div className="flex justify-end gap-2">
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-4 w-4" /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+                            ))}
+                        </Tabs>
+                    </CardContent>
+                </Card>
+
+                <div className="space-y-8">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                        <CardHeader className="flex flex-row items-center gap-3 bg-[#F0FDF4]/50 border-b p-6"><Hammer className="h-4 w-4 text-[#2D5A4C]" /><CardTitle className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Configuración Nómina</CardTitle></CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                            <div className="space-y-5">
+                                {biConfig.payrollTemplate.map((item: any) => (
+                                    <div key={item.canal} className="space-y-2"><div className="flex justify-between text-[10px] font-black uppercase text-slate-500"><span>{item.label}</span><span>{item.porcentaje}%</span></div><Progress value={item.porcentaje} className="h-1.5" /></div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-2xl">
+                        <CardContent className="p-10 space-y-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Salud Financiera BI</p><CheckCircle2 className="h-5 w-5 text-emerald-400" /></div><h3 className="text-3xl font-black leading-tight">Arquitectura Dinámica Activa</h3><p className="text-xs text-white/70 leading-relaxed font-bold uppercase tracking-wide">Relaciones de 5 niveles sincronizadas para el análisis técnico profundo.</p></CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
+                    <div className="p-10 space-y-8">
+                        <DialogHeader>
+                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeTab}.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-6">
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
+                            
+                            {activeTab === 'categorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Macro Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {activeTab === 'subcategorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t flex gap-4">
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
+                        <Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function SettingsView({ catalogs, biConfig, setBiConfig, onRefresh }: any) {
+    const { toast } = useToast();
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [editingItem, setEditingItem] = React.useState<any>(null);
+    const [activeTab, setActiveTab] = React.useState('impactos');
+    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+    const TABLES = {
+        impactos: 'cat_tipo_gasto_impacto',
+        areas: 'cat_area_funcional',
+        macros: 'cat_categoria_macro',
+        categorias: 'cat_categoria',
+        subcategorias: 'cat_subcategoria'
+    };
+
+    const handleOpenDialog = (item: any = null) => {
+        if (item) {
+            setEditingItem(item);
+            const parentIdVal = activeTab === 'categorias' ? item.categoria_macro_id : activeTab === 'subcategorias' ? item.categoria_id : '';
+            setFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
+        } else {
+            setEditingItem(null);
+            setFormData({ nombre: '', parentId: '' });
+        }
+        setIsDialogOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!formData.nombre || !supabase) return;
+        setIsSubmitting(true);
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const payload: any = { nombre: formData.nombre, activo: true };
+            
+            if (activeTab === 'categorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
+                payload.categoria_macro_id = Number(formData.parentId);
+            } else if (activeTab === 'subcategorias') {
+                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
+                payload.categoria_id = Number(formData.parentId);
+            }
+
+            let error;
+            if (editingItem) {
+                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
+                error = err;
+            } else {
+                const { error: err } = await supabase.from(tableName).insert([payload]);
+                error = err;
+            }
+
+            if (error) throw error;
+            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
+            setIsDialogOpen(false);
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const handleToggleStatus = async (item: any) => {
+        if (!supabase) return;
+        try {
+            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const { error } = await supabase.from(tableName).update({ activo: !item.activo }).eq('id', item.id);
+            if (error) throw error;
+            toast({ title: "Éxito", description: "Estado del registro actualizado." });
+            onRefresh();
+        } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+    };
+
+    return (
+        <div className="space-y-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5 p-8">
+                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
+                        <div><CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription></div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
+                                <TabsList className="bg-transparent h-12 gap-8">
+                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
+                                    ))}
+                                </TabsList>
+                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                            </div>
+
+                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                <TabsContent key={tab} value={tab} className="mt-0">
+                                    <ScrollArea className="h-[450px]">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
+                                                <TableRow className="border-b-0">
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
+                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
+                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
+                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
+                                                    <TableHead className="w-32"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
+                                                    <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
+                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
+                                                        <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
+                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
+                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                        <TableCell className="pr-8">
+                                                            <div className="flex justify-end gap-2">
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-4 w-4" /></Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </ScrollArea>
+                                </TabsContent>
+                            ))}
+                        </Tabs>
+                    </CardContent>
+                </Card>
+
+                <div className="space-y-8">
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
+                        <CardHeader className="flex flex-row items-center gap-3 bg-[#F0FDF4]/50 border-b p-6"><Hammer className="h-4 w-4 text-[#2D5A4C]" /><CardTitle className="text-[10px] font-black uppercase tracking-widest text-[#2D5A4C]">Configuración Nómina</CardTitle></CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                            <div className="space-y-5">
+                                {biConfig.payrollTemplate.map((item: any) => (
+                                    <div key={item.canal} className="space-y-2"><div className="flex justify-between text-[10px] font-black uppercase text-slate-500"><span>{item.label}</span><span>{item.porcentaje}%</span></div><Progress value={item.porcentaje} className="h-1.5" /></div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-2xl">
+                        <CardContent className="p-10 space-y-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Salud Financiera BI</p><CheckCircle2 className="h-5 w-5 text-emerald-400" /></div><h3 className="text-3xl font-black leading-tight">Arquitectura Dinámica Activa</h3><p className="text-xs text-white/70 leading-relaxed font-bold uppercase tracking-wide">Relaciones de 5 niveles sincronizadas para el análisis técnico profundo.</p></CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
+                    <div className="p-10 space-y-8">
+                        <DialogHeader>
+                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeTab}.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-6">
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
+                            
+                            {activeTab === 'categorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Macro Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {activeTab === 'subcategorias' && (
+                                <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Vinculada (Obligatorio)</Label>
+                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                        <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t flex gap-4">
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
+                        <Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+ Forsyth

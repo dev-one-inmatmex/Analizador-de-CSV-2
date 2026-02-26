@@ -229,17 +229,24 @@ export interface inventario_master {
 }
 
 // ============================================================================
-// --- TIPOS PARA PRESUPUESTOS FIREBASE (RESPETANDO REGLA DE ORO) ---
+// --- TIPOS PARA PRESUPUESTOS FIREBASE (V2) ---
 // ============================================================================
 
-export interface presupuestos_macro {
-  id?: string;                  // Formato estricto: `macro_${categoria_macro_id}_${mes}_${anio}`
-  categoria_macro_id: number;   // FK lógica a cat_categoria_macro.id
-  monto_asignado: number;       // La Meta
-  mes: number;                  // 1-12
-  anio: number;                 // Ej. 2024
-  created_at?: string | null; 
-  updated_at?: string | null; 
+export interface PresupuestoMensualFirebase {
+  categoria_macro_id: number;
+  mes: number;
+  anio: number;
+  monto: number;
+  updated_at: string;
+}
+
+export interface DashboardPresupuesto {
+  id: number;
+  nombre: string;
+  presupuesto: number;
+  ejecutado: number;
+  disponible: number;
+  progreso: number;
 }
 
 // Esta interfaz es idéntica a lo que tu UI ya pinta. No romperá tus columnas.
