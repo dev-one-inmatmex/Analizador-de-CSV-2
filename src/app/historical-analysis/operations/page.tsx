@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { 
   add, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, 
-  startOfDay, endOfDay, parseISO, isValid, isToday, subMonths, startOfYear, endOfYear
+  startOfDay, endOfDay, parseISO, isValid, subMonths, startOfYear, endOfYear
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useForm, useWatch } from 'react-hook-form';
@@ -37,7 +37,6 @@ import {
 } from './schemas';
 
 import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './actions';
-import { obtenerMetasFirebase, guardarPresupuestoFirebase, eliminarPresupuestoFirebase } from '@/lib/firebaseBudgetService';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -54,7 +53,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import type { gastos_diarios, cat_tipo_gasto_impacto, cat_area_funcional, cat_categoria_macro, cat_categoria, cat_subcategoria } from '@/types/database';
+import type { gastos_diarios, cat_tipo_gasto_impacto, cat_area_funcional, cat_categoria_macro, cat_categoria, cat_subcategoria, DashboardPresupuestoV3 } from '@/types/database';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -63,7 +62,6 @@ import { Separator } from '@/components/ui/separator';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
 
-// FORMULARIO DE TRANSACCIÓN CON TRIPLE CASCADA
 function TransactionForm({ transaction, onSubmit, catalogs }: any) {
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(expenseFormSchema),
@@ -371,7 +369,7 @@ export default function OperationsPage() {
     const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
 
-    const [biConfig, setBiConfig] = React.useState({
+    const [biConfig, setBiConfig] = React.setBiConfig] = React.useState({
         contributionMargin: 40,
         payrollTemplate: [
             { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60 },
@@ -607,7 +605,7 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
 
                 <Card className="border-none shadow-sm bg-white rounded-2xl">
                     <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Gasto Fijo Real</p><CardTitle className="text-3xl font-black text-[#2D5A4C] tabular-nums">{money(stats.fixedCosts)}</CardTitle></div>
+                        <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Gasto Fijo Real</p><CardTitle className="text-3xl font-black text-[#2D5A4C] tabular-nums">{money(stats.fixedCosts)}</Target.fixedCosts)}</CardTitle></div>
                         <Target className="h-6 w-6 text-[#2D5A4C] opacity-20" />
                     </CardHeader>
                     <CardContent className="pt-2">
@@ -1027,7 +1025,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 }
 
 function BudgetsView({ transactions, catalogs, currentDate }: any) {
-    const [metas, setMetas] = React.useState<Record<number, number>>({});
+    const [budgetData, setBudgetData] = React.useState<DashboardPresupuestoV3[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSaving, setIsSaving] = React.useState(false);
     const [isAjustarOpen, setIsAjustarOpen] = React.useState(false);
@@ -1035,69 +1033,72 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
     const [newAmount, setNewAmount] = React.useState<string>("");
     const { toast } = useToast();
 
-    const mes = React.useMemo(() => currentDate.getMonth() + 1, [currentDate]);
-    const anio = React.useMemo(() => currentDate.getFullYear(), [currentDate]);
-
-    // 1. Cargar metas de Firebase (Solo una vez por mes/anio)
     const loadMetas = React.useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await obtenerMetasFirebase(mes, anio);
-            setMetas(data);
-        } catch (e) {
-            console.error("Error cargando metas:", e);
+            const mes = currentDate.getMonth() + 1;
+            const anio = currentDate.getFullYear();
+            
+            const { data, error } = await supabase.rpc('obtener_dashboard_financiero_v3', {
+                p_mes: mes,
+                p_anio: anio
+            });
+            
+            if (error) {
+                console.error("Error leyendo BD:", error);
+                return;
+            }
+
+            if (data) {
+                setBudgetData(data); 
+            }
+        } catch (error) {
+            console.error("Error cargando dashboard v3:", error);
         } finally {
             setIsLoading(false);
         }
-    }, [mes, anio]);
+    }, [currentDate]);
 
     React.useEffect(() => {
         loadMetas();
     }, [loadMetas]);
 
-    // 2. Cálculo ultra-rápido en memoria del ejecutado
-    const budgetData = React.useMemo(() => {
-        if (!catalogs.macros) return [];
-
-        const ejecutadoPorCat: Record<number, number> = {};
-        transactions.forEach((t: any) => {
-            if (!t.fecha || !['GASTO', 'COMPRA'].includes(t.tipo_transaccion) || !t.categoria_macro) return;
-            
-            const parts = t.fecha.split('-');
-            if (parseInt(parts[0]) === anio && parseInt(parts[1]) === mes) {
-                const id = Number(t.categoria_macro);
-                ejecutadoPorCat[id] = (ejecutadoPorCat[id] || 0) + (Number(t.monto) || 0);
-            }
-        });
-
-        return catalogs.macros.map((cat: any) => {
-            const presupuesto = metas[cat.id] || 0;
-            const ejecutado = ejecutadoPorCat[cat.id] || 0;
-            return {
-                id: cat.id,
-                nombre: cat.nombre,
-                presupuesto,
-                ejecutado,
-                disponible: presupuesto - ejecutado,
-                progreso: presupuesto > 0 ? Math.min(100, (ejecutado / presupuesto) * 100) : 0
-            };
-        });
-    }, [catalogs.macros, transactions, metas, mes, anio]);
-
     const handleSaveBudget = async () => {
         if (!selectedMacroId || !newAmount) return;
         setIsSaving(true);
+        
         try {
-            const montoNum = parseFloat(newAmount);
-            await guardarPresupuestoFirebase(Number(selectedMacroId), montoNum, mes, anio);
+            const montoLimpio = parseFloat(String(newAmount).replace(/[^0-9.-]+/g, ""));
             
-            // Actualización local inmediata para feedback instantáneo
-            setMetas(prev => ({ ...prev, [Number(selectedMacroId)]: montoNum }));
+            if (isNaN(montoLimpio) || montoLimpio < 0) {
+                toast({ title: "Error", description: "Ingresa un monto válido", variant: "destructive" });
+                setIsSaving(false);
+                return;
+            }
+
+            const mesActual = currentDate.getMonth() + 1;
+            const anioActual = currentDate.getFullYear();
+
+            const { error } = await supabase.rpc('guardar_presupuesto_v3', {
+                p_macro_id: Number(selectedMacroId),
+                p_monto: montoLimpio,
+                p_mes: mesActual,
+                p_anio: anioActual
+            });
+
+            if (error) throw error;
+
+            await loadMetas(); 
             
-            toast({ title: "Éxito", description: "Presupuesto sincronizado." });
+            toast({ title: "Éxito", description: "Presupuesto asignado al período correctamente." });
+            
             setIsAjustarOpen(false);
-        } catch (e) {
-            toast({ title: "Error", description: "Fallo en Firebase.", variant: "destructive" });
+            setNewAmount("");
+            setSelectedMacroId("");
+
+        } catch (e: any) {
+            console.error("Error al guardar presupuesto:", e);
+            toast({ title: "Error", description: "No se pudo guardar la asignación.", variant: "destructive" });
         } finally {
             setIsSaving(false);
         }
@@ -1105,15 +1106,27 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
 
     const handleDeleteBudget = async (id: number) => {
         try {
-            await eliminarPresupuestoFirebase(id, mes, anio);
-            setMetas(prev => ({ ...prev, [id]: 0 }));
-            toast({ title: "Meta eliminada" });
-        } catch (e) {
-            toast({ title: "Error", variant: "destructive" });
+            const mesActual = currentDate.getMonth() + 1;
+            const anioActual = currentDate.getFullYear();
+
+            const { error } = await supabase.rpc('guardar_presupuesto_v3', {
+                p_macro_id: Number(id),
+                p_monto: 0,
+                p_mes: mesActual,
+                p_anio: anioActual
+            });
+
+            if (error) throw error;
+
+            await loadMetas(); 
+            toast({ title: "Eliminado", description: "La asignación se ha puesto en $0.00" });
+        } catch (e: any) {
+            console.error("Error al eliminar:", e);
+            toast({ title: "Error", description: "No se pudo eliminar el presupuesto.", variant: "destructive" });
         }
     };
 
-    if (isLoading && Object.keys(metas).length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <div className="space-y-10 animate-in fade-in duration-500">
@@ -1160,7 +1173,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                                 disabled={isSaving}
                                 className="w-full h-14 bg-[#2D5A4C] hover:bg-[#24483D] font-black uppercase text-xs rounded-2xl shadow-xl transition-all active:scale-[0.98]"
                             >
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'GUARDAR EN FIREBASE'}
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'GUARDAR EN BASE DE DATOS'}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -1168,7 +1181,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {budgetData.length > 0 ? budgetData.map((item: any) => (
+                {budgetData.length > 0 ? budgetData.map((item: DashboardPresupuestoV3) => (
                     <Card key={item.id} className="border-none shadow-sm bg-white overflow-hidden rounded-2xl p-6 hover:shadow-md transition-shadow relative group">
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item.nombre}</span>
@@ -1232,7 +1245,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: any) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {budgetData.map((item: any) => (
+                                {budgetData.map((item: DashboardPresupuestoV3) => (
                                     <TableRow key={item.id} className="h-14 hover:bg-slate-50/50 transition-colors border-slate-50">
                                         <TableCell className="font-bold text-xs uppercase px-8 text-slate-700">{item.nombre}</TableCell>
                                         <TableCell className="text-right font-medium text-slate-400">{money(item.presupuesto)}</TableCell>

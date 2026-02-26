@@ -229,28 +229,10 @@ export interface inventario_master {
 }
 
 // ============================================================================
-// --- TIPOS PARA PRESUPUESTOS FIREBASE (V2) ---
+// --- TIPOS PARA PRESUPUESTOS SUPABASE (V3 - PERÍODOS Y ASIGNACIONES) ---
 // ============================================================================
 
-export interface PresupuestoMensualFirebase {
-  categoria_macro_id: number;
-  mes: number;
-  anio: number;
-  monto: number;
-  updated_at: string;
-}
-
-export interface DashboardPresupuesto {
-  id: number;
-  nombre: string;
-  presupuesto: number;
-  ejecutado: number;
-  disponible: number;
-  progreso: number;
-}
-
-// Esta interfaz es idéntica a lo que tu UI ya pinta. No romperá tus columnas.
-export interface ResumenSeguimientoPresupuesto {
+export interface DashboardPresupuestoV3 {
   id: number;
   nombre: string;
   presupuesto: number;
