@@ -20,8 +20,8 @@ import {
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area
 } from 'recharts';
-import jsPDF from 'jsPDF';
-import autoTable from 'jsPDF-autotable';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -546,11 +546,11 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                             
                             {item.estado_registro !== 'SIN_REGISTRO' && item.ultima_actualizacion && (
                                 <div className="flex justify-end mt-1">
-                                    <p className={`text-[8px] font-bold uppercase tracking-widest ${
-                                        item.estado_registro === 'NUEVO' ? 'text-emerald-500' :
-                                        item.estado_registro === 'ACTUALIZADO' ? 'text-blue-500' :
-                                        item.estado_registro === 'BORRADO' ? 'text-rose-500' : 'text-slate-400'
-                                    }`}>
+                                    <p className={cn("text-[8px] font-bold uppercase tracking-widest",
+                                        item.estado_registro === 'NUEVO' ? "text-emerald-500" :
+                                        item.estado_registro === 'ACTUALIZADO' ? "text-blue-500" :
+                                        item.estado_registro === 'BORRADO' ? "text-rose-500" : "text-slate-400"
+                                    )}>
                                         {item.estado_registro === 'NUEVO' && 'Registro Nuevo: '}
                                         {item.estado_registro === 'ACTUALIZADO' && 'Actualización: '}
                                         {item.estado_registro === 'BORRADO' && 'Se Borró: '}
@@ -616,9 +616,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                                                         item.estado_registro === 'ACTUALIZADO' ? 'text-blue-500' :
                                                         item.estado_registro === 'BORRADO' ? 'text-rose-500' : 'text-slate-400'
                                                     )}>
-                                                        {item.estado_registro === 'NUEVO' && 'NUEVO'}
-                                                        {item.estado_registro === 'ACTUALIZADO' && 'ACTUALIZADO'}
-                                                        {item.estado_registro === 'BORRADO' && 'BORRADO'}
+                                                        {item.estado_registro}
                                                     </span>
                                                     <span className="text-[8px] font-bold text-slate-400 uppercase">
                                                         {format(new Date(item.ultima_actualizacion), "dd MMM, HH:mm", { locale: es })}
@@ -1179,7 +1177,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                                     <DropdownMenuItem onClick={() => downloadPDF(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><FileDown className="mr-2 h-3.5 w-3.5" /> Descargar PDF</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => onEditTransaction(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro</DropdownMenuItem>
                                                     <DropdownMenuSeparator className="my-1 bg-slate-50" />
-                                                    <DropdownMenuItem className="text-destructive font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5" onClick={() => handleDeleteTransaction(t.id)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-destructive font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5" onClick={() => onDeleteTransaction(t.id)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
