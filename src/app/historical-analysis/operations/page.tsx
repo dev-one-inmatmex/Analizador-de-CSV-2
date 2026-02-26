@@ -11,7 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   Loader2, MoreVertical, Pencil, Plus, Trash2, 
   Search, Filter, Activity,
-  Target, TrendingUp, Hammer, Save, CalendarDays, FileText,
+  Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
   FileDown
 } from 'lucide-react';
@@ -168,7 +168,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="empresa" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase">Empresa</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <Select onValueChange={field.onChange} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
                             </Select>
@@ -179,7 +179,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="tipo_transaccion" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase">Tipo</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <Select onValueChange={field.onChange} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{TIPOS_TRANSACCION.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                             </Select>
@@ -253,7 +253,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="canal_asociado" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase">Canal Asociado</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <Select onValueChange={field.onChange} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{CANALES_ASOCIADOS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                             </Select>
@@ -264,7 +264,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="clasificacion_operativa" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase">Clasificación Operativa</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <Select onValueChange={field.onChange} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{CLASIFICACIONES_OPERATIVAS.map(c => <SelectItem key={c} value={c}>{c.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                             </Select>
@@ -279,7 +279,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="metodo_pago" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase">Pago</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <Select onValueChange={field.onChange} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{METODOS_PAGO.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                             </Select>
@@ -290,7 +290,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="banco" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase">Banco</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <Select onValueChange={field.onChange} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{BANCOS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                             </Select>
@@ -301,7 +301,7 @@ function TransactionForm({ transaction, onSubmit, catalogs }: any) {
                     <FormField control={form.control} name="cuenta" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase">Cuenta</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                            <Select onValueChange={field.onChange} value={field.value?.toString()}>
                                 <FormControl><SelectTrigger className="h-11 border-slate-200 rounded-xl"><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                                 <SelectContent>{CUENTAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                             </Select>
@@ -543,7 +543,6 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                             </div>
                             <Progress value={item.progreso} className="h-2 bg-slate-100" />
                             
-                            {/* ==== ESTADO DEL REGISTRO Y FECHA DINÁMICA ==== */}
                             {item.estado_registro !== 'SIN_REGISTRO' && item.ultima_actualizacion && (
                                 <div className="flex justify-end mt-1">
                                     <p className={`text-[8px] font-bold uppercase tracking-widest ${
@@ -1281,13 +1280,13 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 }
 
 export default function OperationsPage() {
+    const [isClient, setIsClient] = React.useState(false);
     const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion'>('inicio');
     const [transactions, setTransactions] = React.useState<gastos_diarios[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingTransaction, setEditingTransaction] = React.useState<gastos_diarios | null>(null);
     const [currentDate, setCurrentDate] = React.useState<Date>(new Date());
-    const [isClient, setIsClient] = React.useState(false);
 
     const [catalogs, setCatalogs] = React.useState({
         impactos: [] as cat_tipo_gasto_impacto[],

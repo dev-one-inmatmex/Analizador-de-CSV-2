@@ -208,7 +208,6 @@ export interface publi_xsku {
 export interface inventario_master {
   sku: string;
   stock_maestro: number | null;
-  unidad: string | null;
   landed_cost_id: number | null;
   empaquetado_master: string | null;
   cod_siggo: string | null;
@@ -226,6 +225,7 @@ export interface inventario_master {
   esti_time: number | null;
   pz_empaquetado_master: number | null;
   bloque: string | null;
+  unidad: string | null;
 }
 
 // ============================================================================
@@ -240,5 +240,5 @@ export interface DashboardPresupuestoV3 {
   disponible: number;
   progreso: number;
   ultima_actualizacion: string | null;
-  estado_registro: string; // <-- NUEVA VARIABLE
+  estado_registro: string; 
 }
