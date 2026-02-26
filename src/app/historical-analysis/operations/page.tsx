@@ -13,7 +13,7 @@ import {
   Search, Filter, Activity,
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
-  FileDown, Wrench, Settings2, Hammer, HeartPulse, AlertCircle
+  FileDown, Wrench, Settings2, Hammer, HeartPulse, AlertCircle, Download
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -654,7 +654,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                                                         item.estado_registro === 'ACTUALIZADO' ? 'text-blue-500' :
                                                         item.estado_registro === 'BORRADO' ? 'text-rose-500' : 'text-slate-400'
                                                     )}>
-                                                        {item.estado_registro}
+                                                        {item.estado_registro === 'NUEVO' ? 'REGISTRO NUEVO' : item.estado_registro}
                                                     </span>
                                                     <span className="text-[8px] font-bold text-slate-400 uppercase">
                                                         {format(new Date(item.ultima_actualizacion), "dd MMM, HH:mm", { locale: es })}
@@ -1196,6 +1196,15 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     const [searchQuery, setSearchQuery] = React.useState('');
     const [viewDetail, setViewDetail] = React.useState<any>(null);
 
+    const macroChartData = React.useMemo(() => {
+        const counts: Record<string, number> = {};
+        transactions.filter((t: any) => ['GASTO', 'COMPRA'].includes(t.tipo_transaccion)).forEach((t: any) => {
+            const macro = catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || 'SIN CATEGORÍA';
+            counts[macro] = (counts[macro] || 0) + Number(t.monto);
+        });
+        return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
+    }, [transactions, catalogs.macros]);
+
     const downloadPDF = (t: any) => {
         const doc = new jsPDF();
         const macroName = catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-';
@@ -1272,6 +1281,29 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         doc.save(`reporte_movimiento_${t.id}_${t.fecha}.pdf`);
     };
 
+    const exportToCSV = () => {
+        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Monto", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Clasificacion", "Responsable", "Descripcion"];
+        const rows = transactions.map((t: any) => [
+            t.id, t.fecha, t.empresa, t.tipo_transaccion, t.monto,
+            catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '',
+            catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '',
+            catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '',
+            catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '',
+            catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '',
+            t.canal_asociado, t.clasificacion_operativa, t.responsable, t.descripcion
+        ]);
+        
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `movimientos_${format(new Date(), 'yyyy_MM_dd')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
     const filtered = transactions.filter((t: any) => {
@@ -1282,12 +1314,44 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     });
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white rounded-2xl overflow-hidden">
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-sm font-black uppercase">Distribución de Gastos por Macro</CardTitle>
+                            <CardDescription className="text-[10px] font-bold uppercase">Top 5 categorías con mayor impacto financiero.</CardDescription>
+                        </div>
+                        <TrendingUp className="h-5 w-5 text-primary opacity-20" />
+                    </CardHeader>
+                    <CardContent className="h-[250px] p-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RechartsBarChart data={macroChartData} layout="vertical" margin={{ left: 20, right: 40, top: 20, bottom: 20 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" fontSize={10} width={120} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontWeight: 800}} />
+                                <Tooltip formatter={(v: number) => money(v)} cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px', border: 'none'}} />
+                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={20} />
+                            </RechartsBarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+                <Card className="border-none shadow-sm bg-primary text-white rounded-2xl overflow-hidden p-8 space-y-6">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">ACCIONES DE AUDITORÍA</p>
+                    <div className="space-y-4">
+                        <Button onClick={exportToCSV} className="w-full h-14 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black uppercase text-[10px] rounded-2xl flex justify-between px-6 transition-all active:scale-[0.98]">
+                            Exportar Movimientos (CSV)
+                            <Download className="h-4 w-4" />
+                        </Button>
+                        <p className="text-[9px] font-medium text-white/50 leading-relaxed uppercase">Descarga la base de datos filtrada para análisis avanzado en herramientas externas como Excel o BI.</p>
+                    </div>
+                </Card>
+            </div>
+
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                 <CardHeader className="flex flex-col md:flex-row md:items-center justify-between pb-8 pt-10 px-10">
                     <div>
                         <CardTitle className="text-2xl font-black uppercase tracking-tighter">HISTORIAL DE MOVIMIENTOS</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase text-slate-400 mt-1">AUDITORÍA COMPLETA DEL PERIODO MENSUAL.</CardDescription>
+                        <CardDescription className="text-xs font-bold uppercase text-slate-400 mt-1">AUDITORÍA COMPLETA DEL PERIODO SELECCIONADO.</CardDescription>
                     </div>
                     <div className="relative w-full md:w-80 mt-4 md:mt-0">
                         <Input placeholder="BUSCAR POR CONCEPTO O ID..." className="h-12 pl-5 pr-12 border-slate-100 rounded-2xl bg-slate-50 font-bold uppercase text-[10px] focus:ring-primary/20" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -1296,7 +1360,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 </CardHeader>
                 <div className="border-t border-slate-50">
                     <ScrollArea className="w-full">
-                        <Table className="min-w-[1800px]">
+                        <Table className="min-w-[2500px]">
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow className="h-14 border-b-slate-100">
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ID</TableHead>
@@ -1307,6 +1371,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ÁREA (F2)</TableHead>
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MACRO (F3)</TableHead>
                                     <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CATEGORÍA (F4)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">SUBCATEGORÍA (F5)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CANAL (F6)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ATRIBUCIÓN (F7)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">RESPONSABLE</TableHead>
+                                    <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MONTO FINAL</TableHead>
                                     <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest sticky right-0 bg-white z-10">ACCIONES</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -1325,11 +1394,18 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                         <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-400">
                                             {catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}
                                         </TableCell>
+                                        <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-800">
+                                            {catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}
+                                        </TableCell>
+                                        <TableCell className="px-6 text-[10px] font-black uppercase text-slate-400">{String(t.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-medium text-slate-400">{String(t.clasificacion_operativa || '-').replace(/_/g, ' ')}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-bold text-slate-600">{t.responsable || '-'}</TableCell>
+                                        <TableCell className="px-6 text-right font-black text-sm text-[#2D5A4C]">{money(t.monto)}</TableCell>
                                         <TableCell className="text-center px-4 sticky right-0 bg-white group-hover:bg-slate-50/50 transition-colors">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100 group-hover:scale-110 transition-transform"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="rounded-2xl border-slate-100 shadow-2xl p-2 w-48">
-                                                    <DropdownMenuItem onClick={() => setViewDetail(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Eye className="mr-2 h-3.5 w-3.5" /> Ver Detalle</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setViewDetail(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Eye className="mr-2 h-3.5 w-3.5" /> Visualizar</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => downloadPDF(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><FileDown className="mr-2 h-3.5 w-3.5" /> Descargar PDF</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => onEditTransaction(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro</DropdownMenuItem>
                                                     <DropdownMenuSeparator className="my-1 bg-slate-50" />
@@ -1340,7 +1416,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="h-80 text-center">
+                                        <TableCell colSpan={14} className="h-80 text-center">
                                             <div className="flex flex-col items-center gap-4 opacity-20">
                                                 <FileText className="h-16 w-16" />
                                                 <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
@@ -1350,6 +1426,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 )}
                             </TableBody>
                         </Table>
+                        <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                 </div>
             </Card>
@@ -1429,7 +1506,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || '-'}</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
                                 </div>
                             </div>
                         </div>
@@ -1562,7 +1639,7 @@ export default function OperationsPage() {
         } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     };
 
-    const handleDeleteTransaction = async (id: number) => {
+    const onDeleteTransaction = async (id: number) => {
         const res = await deleteExpenseAction(id);
         if (res.data) {
             toast({ title: "Éxito", description: res.data });
@@ -1640,7 +1717,7 @@ export default function OperationsPage() {
 
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
-                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} />}
+                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={onDeleteTransaction} catalogs={catalogs} biConfig={biConfig} />}
                 {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} biConfig={biConfig} setBiConfig={setBiConfig} />}
             </main>
