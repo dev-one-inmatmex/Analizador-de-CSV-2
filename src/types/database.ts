@@ -239,4 +239,6 @@ export interface DashboardPresupuestoV3 {
   ejecutado: number;
   disponible: number;
   progreso: number;
+  ultima_actualizacion: string | null;
+  estado_registro: string; // <-- NUEVA VARIABLE
 }

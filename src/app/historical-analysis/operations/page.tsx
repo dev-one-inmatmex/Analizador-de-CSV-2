@@ -542,6 +542,25 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                                 <span className="text-slate-500">META: {money(item.presupuesto)}</span>
                             </div>
                             <Progress value={item.progreso} className="h-2 bg-slate-100" />
+                            
+                            {/* ==== ESTADO DEL REGISTRO Y FECHA DINÁMICA ==== */}
+                            {item.estado_registro !== 'SIN_REGISTRO' && item.ultima_actualizacion && (
+                                <div className="flex justify-end mt-1">
+                                    <p className={`text-[8px] font-bold uppercase tracking-widest ${
+                                        item.estado_registro === 'NUEVO' ? 'text-emerald-500' :
+                                        item.estado_registro === 'ACTUALIZADO' ? 'text-blue-500' :
+                                        item.estado_registro === 'BORRADO' ? 'text-rose-500' : 'text-slate-400'
+                                    }`}>
+                                        {item.estado_registro === 'NUEVO' && 'Registro Nuevo: '}
+                                        {item.estado_registro === 'ACTUALIZADO' && 'Actualización: '}
+                                        {item.estado_registro === 'BORRADO' && 'Se Borró: '}
+                                        
+                                        <span className="text-slate-400 font-medium ml-1">
+                                            {format(new Date(item.ultima_actualizacion), "dd MMM, HH:mm", { locale: es })}
+                                        </span>
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </Card>
                 )) : (
