@@ -13,8 +13,7 @@ import {
   Search, Filter, Activity,
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
-  FileDown,
-  History
+  FileDown
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -1320,7 +1319,7 @@ export default function OperationsPage() {
     const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
 
-    const [biConfig, setBiConfig] = React.useState({
+    const [biConfig] = React.useState({
         contributionMargin: 40,
         payrollTemplate: [
             { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60 },
