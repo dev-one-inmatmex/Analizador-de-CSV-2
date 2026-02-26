@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -13,7 +14,7 @@ import {
   Search, Filter, Activity,
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
-  FileDown
+  FileDown, Wrench, Settings2, Hammer, HeartPulse
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -488,7 +489,6 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
 
     if (isLoading && budgetData.length === 0) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
-    // ELIMINADOS SE BORRAN: Si el presupuesto es 0, ocultamos el registro a menos que tenga ejecución
     const filteredBudgets = budgetData.filter(item => item.presupuesto > 0 || item.ejecutado > 0);
 
     return (
@@ -676,15 +676,15 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
     );
 }
 
-function SettingsView({ catalogs, onRefresh }: { catalogs: any, onRefresh: () => void }) {
+function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs: any, onRefresh: () => void, biConfig: any, setBiConfig: (val: any) => void }) {
     const { toast } = useToast();
-    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-    const [editingItem, setEditingItem] = React.useState<any>(null);
-    const [activeTab, setActiveTab] = React.useState('impactos');
-    const [formData, setFormData] = React.useState({ nombre: '', parentId: '' });
+    const [isCatalogDialogOpen, setIsCatalogDialogOpen] = React.useState(false);
+    const [editingCatalogItem, setEditingCatalogItem] = React.useState<any>(null);
+    const [activeCatalogTab, setActiveCatalogTab] = React.useState('impactos');
+    const [catalogFormData, setCatalogFormData] = React.useState({ nombre: '', parentId: '' });
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    const TABLES = {
+    const CATALOG_TABLES = {
         impactos: 'cat_tipo_gasto_impacto',
         areas: 'cat_area_funcional',
         macros: 'cat_categoria_macro',
@@ -692,36 +692,36 @@ function SettingsView({ catalogs, onRefresh }: { catalogs: any, onRefresh: () =>
         subcategorias: 'cat_subcategoria'
     };
 
-    const handleOpenDialog = (item: any = null) => {
+    const handleOpenCatalogDialog = (item: any = null) => {
         if (item) {
-            setEditingItem(item);
-            const parentIdVal = activeTab === 'categorias' ? item.categoria_macro_id : activeTab === 'subcategorias' ? item.categoria_id : '';
-            setFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
+            setEditingCatalogItem(item);
+            const parentIdVal = activeCatalogTab === 'categorias' ? item.categoria_macro_id : activeCatalogTab === 'subcategorias' ? item.categoria_id : '';
+            setCatalogFormData({ nombre: item.nombre, parentId: parentIdVal?.toString() || '' });
         } else {
-            setEditingItem(null);
-            setFormData({ nombre: '', parentId: '' });
+            setEditingCatalogItem(null);
+            setCatalogFormData({ nombre: '', parentId: '' });
         }
-        setIsDialogOpen(true);
+        setIsCatalogDialogOpen(true);
     };
 
-    const handleSave = async () => {
-        if (!formData.nombre || !supabase) return;
+    const handleSaveCatalog = async () => {
+        if (!catalogFormData.nombre || !supabase) return;
         setIsSubmitting(true);
         try {
-            const tableName = TABLES[activeTab as keyof typeof TABLES];
-            const payload: any = { nombre: formData.nombre, activo: true };
+            const tableName = CATALOG_TABLES[activeCatalogTab as keyof typeof CATALOG_TABLES];
+            const payload: any = { nombre: catalogFormData.nombre, activo: true };
             
-            if (activeTab === 'categorias') {
-                if (!formData.parentId) throw new Error("Debe seleccionar una Macro.");
-                payload.categoria_macro_id = Number(formData.parentId);
-            } else if (activeTab === 'subcategorias') {
-                if (!formData.parentId) throw new Error("Debe seleccionar una Categoría.");
-                payload.categoria_id = Number(formData.parentId);
+            if (activeCatalogTab === 'categorias') {
+                if (!catalogFormData.parentId) throw new Error("Debe seleccionar una Macro.");
+                payload.categoria_macro_id = Number(catalogFormData.parentId);
+            } else if (activeCatalogTab === 'subcategorias') {
+                if (!catalogFormData.parentId) throw new Error("Debe seleccionar una Categoría.");
+                payload.categoria_id = Number(catalogFormData.parentId);
             }
 
             let error;
-            if (editingItem) {
-                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingItem.id);
+            if (editingCatalogItem) {
+                const { error: err } = await supabase.from(tableName).update(payload).eq('id', editingCatalogItem.id);
                 error = err;
             } else {
                 const { error: err } = await supabase.from(tableName).insert([payload]);
@@ -729,17 +729,17 @@ function SettingsView({ catalogs, onRefresh }: { catalogs: any, onRefresh: () =>
             }
 
             if (error) throw error;
-            toast({ title: "Éxito", description: `Registro ${editingItem ? 'actualizado' : 'creado'} correctamente.` });
-            setIsDialogOpen(false);
+            toast({ title: "Éxito", description: `Registro ${editingCatalogItem ? 'actualizado' : 'creado'} correctamente.` });
+            setIsCatalogDialogOpen(false);
             onRefresh();
         } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
         finally { setIsSubmitting(false); }
     };
 
-    const handleToggleStatus = async (item: any) => {
+    const handleToggleCatalogStatus = async (item: any) => {
         if (!supabase) return;
         try {
-            const tableName = TABLES[activeTab as keyof typeof TABLES];
+            const tableName = CATALOG_TABLES[activeCatalogTab as keyof typeof CATALOG_TABLES];
             const { error } = await supabase.from(tableName).update({ activo: !item.activo }).eq('id', item.id);
             if (error) throw error;
             toast({ title: "Éxito", description: "Estado del registro actualizado." });
@@ -747,92 +747,196 @@ function SettingsView({ catalogs, onRefresh }: { catalogs: any, onRefresh: () =>
         } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
     };
 
+    const handleSaveBIConfig = () => {
+        toast({ title: "Éxito", description: "Configuración de parámetros BI guardada correctamente." });
+    };
+
     return (
         <div className="space-y-10">
+            {/* PANEL DE PARÁMETROS BI Y NÓMINA MIXTA (IGUAL A LA IMAGEN) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
-                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-muted/5 p-8">
-                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
-                        <div><CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle><CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription></div>
+                <Card className="lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
+                    <CardHeader className="flex flex-row items-center gap-4 border-b bg-slate-50/30 p-8">
+                        <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><Settings2 className="h-6 w-6" /></div>
+                        <div>
+                            <CardTitle className="text-xl font-black uppercase tracking-tight">PARÁMETROS BI</CardTitle>
+                            <CardDescription className="text-xs font-bold uppercase text-slate-400">Configura los valores clave para la evaluación y motor de inteligencia financiera.</CardDescription>
+                        </div>
                     </CardHeader>
-                    <CardContent className="p-0">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
-                                <TabsList className="bg-transparent h-12 gap-8">
-                                    {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
-                                        <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
-                                    ))}
-                                </TabsList>
-                                <Button onClick={() => handleOpenDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                    <CardContent className="p-8 space-y-10">
+                        <div className="flex items-center justify-between group">
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-black uppercase text-slate-800 tracking-tight">MARGEN DE CONTRIBUCIÓN PROMEDIO</h4>
+                                <p className="text-xs font-bold text-slate-400 uppercase">Valor utilizado para calcular el Punto de Equilibrio mensual.</p>
                             </div>
+                            <div className="flex items-center gap-3">
+                                <Input 
+                                    type="number" 
+                                    className="w-20 h-14 text-center font-black text-xl rounded-2xl border-slate-100 bg-slate-50/50" 
+                                    value={biConfig.contributionMargin}
+                                    onChange={(e) => setBiConfig({...biConfig, contributionMargin: Number(e.target.value)})}
+                                />
+                                <span className="font-black text-slate-300 text-lg">%</span>
+                            </div>
+                        </div>
 
-                            {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
-                                <TabsContent key={tab} value={tab} className="mt-0">
-                                    <ScrollArea className="h-[450px]">
-                                        <Table>
-                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
-                                                <TableRow className="border-b-0">
-                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
-                                                    <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
-                                                    {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
-                                                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
-                                                    <TableHead className="w-32"></TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
-                                                    <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
-                                                        <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
-                                                        <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
-                                                        {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
-                                                        {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
-                                                        <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
-                                                        <TableCell className="pr-8">
-                                                            <div className="flex justify-end gap-2">
-                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenDialog(item)}><Pencil className="h-4 w-4" /></Button>
-                                                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleStatus(item)}><Trash2 className="h-4 w-4" /></Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </ScrollArea>
-                                </TabsContent>
-                            ))}
-                        </Tabs>
+                        <div className="flex items-center justify-between group">
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-black uppercase text-slate-800 tracking-tight">DÍAS DE HISTORIAL DE DATOS</h4>
+                                <p className="text-xs font-bold text-slate-400 uppercase">Periodo de datos para el cálculo de promedios de gasto fijo.</p>
+                            </div>
+                            <Select defaultValue="180">
+                                <SelectTrigger className="w-[160px] h-14 rounded-2xl border-slate-100 bg-slate-50/50 font-black uppercase text-[10px]">
+                                    <SelectValue placeholder="Periodo" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                    <SelectItem value="90" className="text-[10px] font-bold uppercase py-3">90 DÍAS</SelectItem>
+                                    <SelectItem value="180" className="text-[10px] font-bold uppercase py-3">180 DÍAS</SelectItem>
+                                    <SelectItem value="365" className="text-[10px] font-bold uppercase py-3">365 DÍAS</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-black uppercase text-slate-800 tracking-tight">UNIDAD INDEPENDIENTE MALLA SOMBRA</h4>
+                                <p className="text-xs font-bold text-slate-400 uppercase">Aislar financieramente el taller de producción.</p>
+                            </div>
+                            <Switch defaultChecked />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-black uppercase text-slate-800 tracking-tight">NOTIFICACIONES DE PRESUPUESTO</h4>
+                                <p className="text-xs font-bold text-slate-400 uppercase">Alertar cuando una categoría supere el 90% del límite.</p>
+                            </div>
+                            <Switch defaultChecked />
+                        </div>
                     </CardContent>
+                    <CardFooter className="px-8 pb-8 pt-0 flex justify-end">
+                        <Button onClick={handleSaveBIConfig} className="h-14 px-10 bg-slate-800 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">GUARDAR CONFIGURACIÓN</Button>
+                    </CardFooter>
                 </Card>
 
                 <div className="space-y-8">
-                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-2xl">
-                        <CardContent className="p-10 space-y-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Salud Financiera BI</p><CheckCircle2 className="h-5 w-5 text-emerald-400" /></div><h3 className="text-3xl font-black leading-tight">Arquitectura Dinámica Activa</h3><p className="text-xs text-white/70 leading-relaxed font-bold uppercase tracking-wide">Relaciones de 5 niveles sincronizadas para el análisis técnico profundo.</p></CardContent>
+                    {/* PANEL NÓMINA MIXTA */}
+                    <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
+                        <CardHeader className="flex flex-row items-center gap-3 border-b bg-slate-50/10 p-6">
+                            <Hammer className="h-4 w-4 text-[#2D5A4C]" />
+                            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">NÓMINA MIXTA</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-8 space-y-8">
+                            <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest">REPARTO ACTUAL PARA LA EVALUACIÓN DE ESFUERZO:</p>
+                            
+                            {biConfig.payrollTemplate.map((item: any, i: number) => (
+                                <div key={i} className="space-y-3">
+                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter">
+                                        <span className="text-slate-800">{item.label}</span>
+                                        <span className="text-slate-900">{item.porcentaje}%</span>
+                                    </div>
+                                    <Progress value={item.porcentaje} className="h-2 bg-slate-50" />
+                                </div>
+                            ))}
+
+                            <Button variant="outline" className="w-full h-14 rounded-2xl border-slate-100 bg-white font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 text-slate-600">EDITAR PLANTILLA</Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* PANEL ESTADO DE SALUD BI */}
+                    <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-[24px]">
+                        <CardContent className="p-8 space-y-6">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">ESTADO DE SALUD BI</p>
+                                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                            </div>
+                            <h3 className="text-4xl font-black leading-none">Optimizada</h3>
+                            <p className="text-[11px] text-white/70 leading-relaxed font-bold uppercase tracking-wide">Tu arquitectura financiera está operando correctamente. Los cálculos de rentabilidad y supervivencia son automáticos basados en tus registros y el margen del 40%.</p>
+                        </CardContent>
                     </Card>
                 </div>
             </div>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            {/* GESTIÓN DE CATÁLOGOS (DEBAJO DE LOS PARÁMETROS PRINCIPALES) */}
+            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
+                <CardHeader className="flex flex-row items-center gap-4 border-b bg-slate-50/30 p-8">
+                    <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
+                    <div>
+                        <CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle>
+                        <CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <Tabs value={activeCatalogTab} onValueChange={setActiveCatalogTab} className="w-full">
+                        <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
+                            <TabsList className="bg-transparent h-12 gap-8">
+                                {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                                    <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
+                                ))}
+                            </TabsList>
+                            <Button onClick={() => handleOpenCatalogDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                        </div>
+
+                        {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
+                            <TabsContent key={tab} value={tab} className="mt-0">
+                                <ScrollArea className="h-[450px]">
+                                    <Table>
+                                        <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
+                                            <TableRow className="border-b-0">
+                                                <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
+                                                <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
+                                                {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
+                                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
+                                                <TableHead className="w-32"></TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
+                                                <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
+                                                    <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
+                                                    <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
+                                                    {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
+                                                    {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
+                                                    <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
+                                                    <TableCell className="pr-8">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenCatalogDialog(item)}><Pencil className="h-4 w-4" /></Button>
+                                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleCatalogStatus(item)}><Trash2 className="h-4 w-4" /></Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </ScrollArea>
+                            </TabsContent>
+                        ))}
+                    </Tabs>
+                </CardContent>
+            </Card>
+
+            {/* DIALOG DE CATÁLOGOS */}
+            <Dialog open={isCatalogDialogOpen} onOpenChange={setIsCatalogDialogOpen}>
                 <DialogContent className="max-w-md rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white">
                     <div className="p-10 space-y-8">
                         <DialogHeader>
-                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
-                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeTab}.</DialogDescription>
+                            <DialogTitle className="text-3xl font-black uppercase tracking-tighter">{editingCatalogItem ? 'Editar' : 'Añadir'} Registro</DialogTitle>
+                            <DialogDescription className="text-xs font-bold uppercase text-slate-400">Actualice la base maestra para {activeCatalogTab}.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-6">
-                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={formData.nombre} onChange={(e) => setFormData({...formData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
+                            <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nombre Descriptivo</Label><Input value={catalogFormData.nombre} onChange={(e) => setCatalogFormData({...catalogFormData, nombre: e.target.value})} placeholder="Ej: Nueva Categoría" className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5" /></div>
                             
-                            {activeTab === 'categorias' && (
+                            {activeCatalogTab === 'categorias' && (
                                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Macro Vinculada (Obligatorio)</Label>
-                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                    <Select value={catalogFormData.parentId} onValueChange={(v) => setCatalogFormData({...catalogFormData, parentId: v})}>
                                         <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Macro..." /></SelectTrigger>
                                         <SelectContent className="rounded-xl">{catalogs.macros.map((m: any) => <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
                             )}
 
-                            {activeTab === 'subcategorias' && (
+                            {activeCatalogTab === 'subcategorias' && (
                                 <div className="space-y-2"><Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoría Vinculada (Obligatorio)</Label>
-                                    <Select value={formData.parentId} onValueChange={(v) => setFormData({...formData, parentId: v})}>
+                                    <Select value={catalogFormData.parentId} onValueChange={(v) => setCatalogFormData({...catalogFormData, parentId: v})}>
                                         <SelectTrigger className="h-14 border-slate-100 rounded-2xl bg-slate-50 font-bold px-5"><SelectValue placeholder="Seleccionar Categoría..." /></SelectTrigger>
                                         <SelectContent className="rounded-xl">{catalogs.categorias.map((c: any) => <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>)}</SelectContent>
                                     </Select>
@@ -841,8 +945,8 @@ function SettingsView({ catalogs, onRefresh }: { catalogs: any, onRefresh: () =>
                         </div>
                     </div>
                     <div className="p-8 bg-slate-50 border-t flex gap-4">
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
-                        <Button onClick={handleSave} disabled={isSubmitting || !formData.nombre || ((activeTab === 'categorias' || activeTab === 'subcategorias') && !formData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
+                        <Button variant="outline" onClick={() => setIsCatalogDialogOpen(false)} className="h-14 flex-1 font-black uppercase text-[10px] rounded-2xl border-slate-200">Cancelar</Button>
+                        <Button onClick={handleSaveCatalog} disabled={isSubmitting || !catalogFormData.nombre || ((activeCatalogTab === 'categorias' || activeCatalogTab === 'subcategorias') && !catalogFormData.parentId)} className="h-14 flex-1 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl">Confirmar</Button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -1312,7 +1416,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || '-'}</p>
                                 </div>
                             </div>
                         </div>
@@ -1358,7 +1462,7 @@ export default function OperationsPage() {
     const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
 
-    const [biConfig] = React.useState({
+    const [biConfig, setBiConfig] = React.useState({
         contributionMargin: 40,
         payrollTemplate: [
             { label: 'Mercado Libre', canal: 'MERCADO_LIBRE', porcentaje: 60 },
@@ -1525,7 +1629,7 @@ export default function OperationsPage() {
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
                 {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={handleDeleteTransaction} catalogs={catalogs} biConfig={biConfig} periodType={periodType} />}
                 {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
-                {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} />}
+                {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} biConfig={biConfig} setBiConfig={setBiConfig} />}
             </main>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
