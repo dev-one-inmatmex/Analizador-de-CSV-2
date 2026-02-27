@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area, AreaChart
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1192,18 +1192,33 @@ function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, ca
     );
 }
 
-function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction, catalogs, biConfig }: any) {
+function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTransaction, catalogs, currentDate }: any) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [viewDetail, setViewDetail] = React.useState<any>(null);
 
-    const macroChartData = React.useMemo(() => {
-        const counts: Record<string, number> = {};
-        transactions.filter((t: any) => ['GASTO', 'COMPRA'].includes(t.tipo_transaccion)).forEach((t: any) => {
-            const macro = catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || 'SIN CATEGORÍA';
-            counts[macro] = (counts[macro] || 0) + Number(t.monto);
+    const trendChartData = React.useMemo(() => {
+        const days = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
+        
+        let cumulativeActual = 0;
+        const totalBudget = 200000; // Valor de ejemplo para el techo presupuestario visual ($200k)
+        const dailyTarget = totalBudget / days.length;
+
+        return days.map((day, index) => {
+            const daySpending = transactions
+                .filter((t: any) => isSameDay(parseISO(t.fecha), day) && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
+                .reduce((sum: number, t: any) => sum + (Number(t.monto) || 0), 0);
+            
+            cumulativeActual += daySpending;
+            const cumulativeTarget = dailyTarget * (index + 1);
+
+            return {
+                name: format(day, 'd'),
+                actual: cumulativeActual,
+                target: cumulativeTarget,
+                budgetMax: totalBudget
+            };
         });
-        return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
-    }, [transactions, catalogs.macros]);
+    }, [transactions, currentDate]);
 
     const downloadPDF = (t: any) => {
         const doc = new jsPDF();
@@ -1273,24 +1288,19 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         doc.setFontSize(10);
         doc.text(t.descripcion || '-', 20, notesY + 10, { maxWidth: 170 });
 
-        doc.setFont('helvetica', 'bold');
-        doc.text('Notas adicionales:', 20, notesY + 30);
-        doc.setFont('helvetica', 'normal');
-        doc.text(t.notas || '-', 20, notesY + 40, { maxWidth: 170 });
-
         doc.save(`reporte_movimiento_${t.id}_${t.fecha}.pdf`);
     };
 
     const exportToCSV = () => {
-        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Monto", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Clasificacion", "Responsable", "Descripcion"];
+        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Clasificacion", "Responsable", "Monto"];
         const rows = transactions.map((t: any) => [
-            t.id, t.fecha, t.empresa, t.tipo_transaccion, t.monto,
+            t.id, t.fecha, t.empresa, t.tipo_transaccion,
             catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '',
             catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '',
             catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '',
             catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '',
             catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '',
-            t.canal_asociado, t.clasificacion_operativa, t.responsable, t.descripcion
+            t.canal_asociado, t.clasificacion_operativa, t.responsable, t.monto
         ]);
         
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -1315,37 +1325,40 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 border-none shadow-sm bg-white rounded-2xl overflow-hidden">
-                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="text-sm font-black uppercase">Distribución de Gastos por Macro</CardTitle>
-                            <CardDescription className="text-[10px] font-bold uppercase">Top 5 categorías con mayor impacto financiero.</CardDescription>
-                        </div>
-                        <TrendingUp className="h-5 w-5 text-primary opacity-20" />
-                    </CardHeader>
-                    <CardContent className="h-[250px] p-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <RechartsBarChart data={macroChartData} layout="vertical" margin={{ left: 20, right: 40, top: 20, bottom: 20 }}>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" fontSize={10} width={120} axisLine={false} tickLine={false} tick={{fill: '#64748b', fontWeight: 800}} />
-                                <Tooltip formatter={(v: number) => money(v)} cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px', border: 'none'}} />
-                                <RechartsBar dataKey="value" fill="#2D5A4C" radius={[0, 4, 4, 0]} barSize={20} />
-                            </RechartsBarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                <Card className="border-none shadow-sm bg-primary text-white rounded-2xl overflow-hidden p-8 space-y-6">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">ACCIONES DE AUDITORÍA</p>
-                    <div className="space-y-4">
-                        <Button onClick={exportToCSV} className="w-full h-14 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black uppercase text-[10px] rounded-2xl flex justify-between px-6 transition-all active:scale-[0.98]">
-                            Exportar Movimientos (CSV)
-                            <Download className="h-4 w-4" />
-                        </Button>
-                        <p className="text-[9px] font-medium text-white/50 leading-relaxed uppercase">Descarga la base de datos filtrada para análisis avanzado en herramientas externas como Excel o BI.</p>
+            <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
+                            <TrendingUp className="h-6 w-6 text-[#2D5A4C]" /> Tendencia de Ejecución vs Objetivo
+                        </CardTitle>
+                        <p className="text-xs font-bold uppercase text-slate-400 mt-1">Sincronización de gasto acumulado contra el techo presupuestario.</p>
                     </div>
-                </Card>
-            </div>
+                    <Button onClick={exportToCSV} variant="outline" className="h-11 rounded-xl border-slate-200 font-bold">
+                        <Download className="mr-2 h-4 w-4" /> Exportar Base (CSV)
+                    </Button>
+                </div>
+                <div className="h-[400px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={trendChartData}>
+                            <defs>
+                                <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" fontSize={10} axisLine={false} tick={{fill: '#94a3b8', fontWeight: 700}} tickFormatter={(v) => `D${v}`} />
+                            <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} tick={{fill: '#94a3b8', fontWeight: 700}} />
+                            <Tooltip 
+                                formatter={(v: number) => money(v)} 
+                                contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'}} 
+                            />
+                            <Area type="monotone" dataKey="target" stroke="#3b82f6" strokeWidth={3} fill="url(#colorTarget)" name="Techo Proyectado" dot={false} />
+                            <Line type="monotone" dataKey="actual" stroke="#f43f5e" strokeWidth={4} name="Gasto Real Acumulado" dot={{ r: 4, fill: '#f43f5e', strokeWidth: 2, stroke: '#fff' }} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </Card>
 
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                 <CardHeader className="flex flex-col md:flex-row md:items-center justify-between pb-8 pt-10 px-10">
@@ -1506,7 +1519,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notas || '-'}</p>
+                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || viewDetail?.notas || '-'}</p>
                                 </div>
                             </div>
                         </div>
@@ -1717,7 +1730,7 @@ export default function OperationsPage() {
 
             <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 no-scrollbar">
                 {currentView === 'inicio' && <InsightsView transactions={transactions} isLoading={isLoading} currentDate={currentDate} setCurrentDate={setCurrentDate} catalogs={catalogs} biConfig={biConfig} />}
-                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={onDeleteTransaction} catalogs={catalogs} biConfig={biConfig} />}
+                {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={onDeleteTransaction} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} biConfig={biConfig} setBiConfig={setBiConfig} />}
             </main>
