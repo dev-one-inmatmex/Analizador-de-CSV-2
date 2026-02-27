@@ -1489,28 +1489,50 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                                     </div>
                                     <div className="flex gap-2">
                                         {viewDetail?.es_recurrente && <Badge className="bg-blue-600 text-white font-black text-[8px] uppercase px-3 py-1">RECURRENTE</Badge>}
+                                        {viewDetail?.es_fijo && <Badge className="bg-[#2D5A4C] text-white font-black text-[8px] uppercase px-3 py-1">FIJO</Badge>}
                                     </div>
                                 </div>
                             </DialogHeader>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10">
                                 <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Fecha</p><p className="text-2xl font-black text-slate-800">{viewDetail?.fecha}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría (F5)</p><p className="text-2xl font-black text-slate-800 uppercase">{catalogs.subcategorias.find((s: any) => s.id === viewDetail?.subcategoria_especifica)?.nombre || '-'}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Empresa</p><p className="text-2xl font-black text-slate-800">{viewDetail?.empresa}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Método</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.metodo_pago?.replace(/_/g, ' ') || '-'}</p></div>
                                 <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Monto</p><p className="text-4xl font-black text-[#2D5A4C]">{money(viewDetail?.monto)}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Banco</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.banco || '-'}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</p><p className="text-2xl font-black text-slate-800">{viewDetail?.tipo_transaccion}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cuenta</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.cuenta || '-'}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto (F1)</p><p className="text-2xl font-black text-slate-800 uppercase">{catalogs.impactos.find((i: any) => i.id === viewDetail?.tipo_gasto_impacto)?.nombre || '-'}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Responsable</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.responsable || '-'}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Canal (F6)</p><p className="text-2xl font-black text-slate-800 uppercase">{String(viewDetail?.canal_asociado || '-').replace(/_/g, ' ')}</p></div>
-                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Clasificación (F7)</p><p className="text-2xl font-black text-slate-800 uppercase">{String(viewDetail?.clasificacion_operativa || '-').replace(/_/g, ' ')}</p></div>
+                                
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Empresa</p><p className="text-xl font-black text-slate-800 uppercase">{viewDetail?.empresa}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</p><p className="text-xl font-black text-slate-800 uppercase">{viewDetail?.tipo_transaccion}</p></div>
+                                
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto (F1)</p><p className="text-xl font-black text-slate-800 uppercase">{catalogs.impactos.find((i: any) => i.id === viewDetail?.tipo_gasto_impacto)?.nombre || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Área Funcional (F2)</p><p className="text-xl font-black text-slate-800 uppercase">{catalogs.areas.find((a: any) => a.id === viewDetail?.area_funcional)?.nombre || '-'}</p></div>
+                                
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Macro (F3)</p><p className="text-xl font-black text-slate-800 uppercase">{catalogs.macros.find((m: any) => m.id === viewDetail?.categoria_macro)?.nombre || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría (F4)</p><p className="text-xl font-black text-slate-800 uppercase">{catalogs.categorias.find((c: any) => c.id === viewDetail?.categoria)?.nombre || '-'}</p></div>
+                                
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría (F5)</p><p className="text-xl font-black text-slate-800 uppercase">{catalogs.subcategorias.find((s: any) => s.id === viewDetail?.subcategoria_especifica)?.nombre || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Canal (F6)</p><p className="text-xl font-black text-slate-800 uppercase">{String(viewDetail?.canal_asociado || '-').replace(/_/g, ' ')}</p></div>
+                                
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Clasificación (F7)</p><p className="text-xl font-black text-slate-800 uppercase">{String(viewDetail?.clasificacion_operativa || '-').replace(/_/g, ' ')}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Responsable</p><p className="text-xl font-black text-slate-800 uppercase">{viewDetail?.responsable || '-'}</p></div>
+                                
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Método de Pago</p><p className="text-xl font-black text-slate-800 uppercase">{viewDetail?.metodo_pago?.replace(/_/g, ' ') || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Banco</p><p className="text-xl font-black text-slate-800 uppercase">{viewDetail?.banco || '-'}</p></div>
+                                
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cuenta</p><p className="text-xl font-black text-slate-800 uppercase">{viewDetail?.cuenta || '-'}</p></div>
                             </div>
 
                             {(viewDetail?.descripcion || viewDetail?.notas) && (
                                 <div className="pt-8 border-t border-slate-50 space-y-6">
-                                    <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Descripción</p><p className="text-sm font-medium text-slate-600 leading-relaxed">{viewDetail?.descripcion || '-'}</p></div>
+                                    {viewDetail?.descripcion && (
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Descripción</p>
+                                            <p className="text-sm font-medium text-slate-600 leading-relaxed">{viewDetail?.descripcion}</p>
+                                        </div>
+                                    )}
+                                    {viewDetail?.notas && (
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas del Sistema</p>
+                                            <p className="text-xs italic font-medium text-slate-400 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">{viewDetail?.notas}</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1519,11 +1541,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                     <div className="px-10 sm:p-12 py-10 border-t bg-slate-50 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex gap-4">
                             <Button variant="outline" onClick={() => setViewDetail(null)} className="h-14 px-10 font-black uppercase text-[10px] rounded-2xl border-slate-200 bg-white">CERRAR</Button>
-                            <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-14 px-10 font-black uppercase text-[10px] rounded-2xl border-slate-200 bg-white flex gap-2">
+                            <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-14 px-10 font-black uppercase text-[10px] rounded-2xl border-slate-200 bg-white flex gap-2 shadow-sm transition-all hover:bg-slate-50">
                                 <FileDown className="h-4 w-4" /> DESCARGAR PDF
                             </Button>
                         </div>
-                        <Button onClick={() => { setViewDetail(null); onEditTransaction(viewDetail); }} className="h-14 px-12 font-black uppercase text-[10px] rounded-2xl bg-[#2D5A4C] hover:bg-[#24483D] shadow-xl text-white">EDITAR MOVIMIENTO</Button>
+                        <Button onClick={() => { setViewDetail(null); onEditTransaction(viewDetail); }} className="h-14 px-12 font-black uppercase text-[10px] rounded-2xl bg-[#2D5A4C] hover:bg-[#24483D] shadow-xl text-white transition-all active:scale-[0.98]">EDITAR MOVIMIENTO</Button>
                     </div>
                 </DialogContent>
             </Dialog>
