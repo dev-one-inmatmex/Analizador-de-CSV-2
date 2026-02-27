@@ -14,7 +14,7 @@ import {
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
   FileDown, Hammer, Settings2, ShieldCheck, Download,
-  BookOpen, Zap, LayoutGrid
+  BookOpen, Zap, LayoutGrid, Scale, Calculator, History
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -1023,140 +1023,189 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
 
 function ManualView() {
     return (
-        <div className="space-y-12 animate-in fade-in duration-500 max-w-6xl mx-auto pb-20">
-            <div className="text-center space-y-4">
-                <div className="inline-flex h-20 w-20 items-center justify-center bg-[#2D5A4C]/10 rounded-[32px] text-[#2D5A4C] mb-4">
-                    <BookOpen className="h-10 w-10" />
+        <div className="space-y-16 animate-in fade-in duration-700 max-w-6xl mx-auto pb-32">
+            {/* Cabecera Hero */}
+            <div className="text-center space-y-6 pt-10">
+                <div className="inline-flex h-24 w-24 items-center justify-center bg-[#2D5A4C]/10 rounded-[40px] text-[#2D5A4C] mb-4 shadow-inner">
+                    <BookOpen className="h-12 w-12" />
                 </div>
-                <h2 className="text-5xl font-black uppercase tracking-tighter text-slate-900">Manual Maestro de Operaciones</h2>
-                <p className="text-slate-500 font-bold uppercase text-xs tracking-[0.3em]">Sistema de Inteligencia Financiera BI - v3.0</p>
+                <div className="space-y-2">
+                    <h2 className="text-6xl font-black uppercase tracking-tighter text-slate-900 leading-none">MANUAL MAESTRO</h2>
+                    <p className="text-slate-500 font-bold uppercase text-xs tracking-[0.4em]">SISTEMA DE INTELIGENCIA FINANCIERA BI v3.0</p>
+                </div>
+                <div className="flex justify-center gap-2">
+                    <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-100 font-black text-[9px] px-4 py-1.5 rounded-full uppercase tracking-widest">Documentación Técnica</Badge>
+                    <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-100 font-black text-[9px] px-4 py-1.5 rounded-full uppercase tracking-widest">Guía de Auditoría</Badge>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-blue-500">
-                    <div className="flex items-center gap-5">
-                        <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner"><LayoutGrid className="h-6 w-6" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-2xl">1. Arquitectura de 5 Niveles</h3>
-                    </div>
-                    <p className="text-sm font-medium text-slate-600 leading-relaxed uppercase">
-                        Para una auditoría precisa, cada gasto debe clasificarse siguiendo nuestra jerarquía técnica:
-                    </p>
-                    <div className="space-y-4">
-                        {[
-                            { f: 'F1 - Impacto', d: 'Define si el gasto es Operativo, Administrativo o de Venta.' },
-                            { f: 'F2 - Área', d: 'Identifica el departamento responsable (Logística, RRHH, etc).' },
-                            { f: 'F3 - Macro', d: 'Categoría principal para la asignación de presupuestos.' },
-                            { f: 'F4 - Categoría', d: 'Desglose específico del rubro de gasto.' },
-                            { f: 'F5 - Subcategoría', d: 'El nivel más bajo para análisis de costos unitarios.' }
-                        ].map((item, i) => (
-                            <div key={i} className="flex gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:bg-white transition-colors">
-                                <span className="font-black text-[#2D5A4C] text-xs whitespace-nowrap">{item.f}:</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase leading-tight">{item.d}</span>
+            {/* Grid de Módulos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                {/* 1. Arquitectura de Datos */}
+                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-blue-500">
+                    <CardHeader className="p-10 pb-6">
+                        <div className="flex items-center gap-6">
+                            <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><LayoutGrid className="h-8 w-8" /></div>
+                            <div>
+                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">1. Arquitectura</h3>
+                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">Jerarquía de 5 Niveles</p>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-10 pt-0 space-y-8">
+                        <p className="text-sm font-bold text-slate-500 leading-relaxed uppercase">Para garantizar una trazabilidad del 100%, cada movimiento debe clasificarse en nuestro motor relacional:</p>
+                        <div className="space-y-4">
+                            {[
+                                { f: 'F1 - IMPACTO', d: 'Define la naturaleza del flujo (Operativo, Administrativo, Venta).', c: 'bg-slate-50' },
+                                { f: 'F2 - ÁREA', d: 'Identifica el departamento responsable (Logística, RRHH, Sistemas).', c: 'bg-slate-50' },
+                                { f: 'F3 - MACRO', d: 'Categoría principal para la asignación de metas presupuestarias.', c: 'bg-blue-50/30' },
+                                { f: 'F4 - CATEGORÍA', d: 'Desglose específico del rubro de gasto (Depende de Macro).', c: 'bg-slate-50' },
+                                { f: 'F5 - SUBCATEGORÍA', d: 'El nivel más bajo de detalle para análisis de costos unitarios.', c: 'bg-slate-50' }
+                            ].map((item, i) => (
+                                <div key={i} className={cn("flex gap-5 p-5 rounded-[24px] border border-slate-100 transition-colors", item.c)}>
+                                    <span className="font-black text-blue-600 text-xs whitespace-nowrap pt-0.5">{item.f}:</span>
+                                    <span className="text-[11px] font-bold text-slate-400 uppercase leading-snug">{item.d}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-emerald-500">
-                    <div className="flex items-center gap-5">
-                        <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner"><Hammer className="h-6 w-6" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-2xl">2. Automatización de Nómina</h3>
-                    </div>
-                    <p className="text-sm font-medium text-slate-600 leading-relaxed uppercase">
-                        El sistema integra un motor de **Fraccionamiento Inteligente** para la nómina compartida entre canales:
-                    </p>
-                    <div className="bg-emerald-50/50 p-6 rounded-2xl space-y-4 border border-emerald-100">
-                        <div className="flex items-center gap-3 text-emerald-700">
-                            <Zap className="h-5 w-5" />
-                            <span className="font-black text-xs uppercase">¿Cómo funciona?</span>
+                {/* 2. Flujo de Registro y Nómina */}
+                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-emerald-500">
+                    <CardHeader className="p-10 pb-6">
+                        <div className="flex items-center gap-6">
+                            <div className="h-16 w-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><Hammer className="h-8 w-8" /></div>
+                            <div>
+                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">2. Registro</h3>
+                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">Flujo y Automatización</p>
+                            </div>
                         </div>
-                        <p className="text-[11px] font-bold text-emerald-900/70 leading-relaxed uppercase">
-                            Al registrar un sueldo con el interruptor **"NÓMINA MIXTA BI"** activo, el sistema dividirá el monto total en 3 registros independientes para Mercado Libre, Mayoreo y Físico, basándose en los porcentajes definidos en la pestaña de Configuración.
-                        </p>
-                        <div className="pt-2">
-                            <Badge className="bg-emerald-600 text-[9px] font-black px-3 py-1">TRAZABILIDAD AUTOMÁTICA</Badge>
+                    </CardHeader>
+                    <CardContent className="p-10 pt-0 space-y-10">
+                        <div className="space-y-4">
+                            <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-2"><Zap className="h-4 w-4 text-amber-500" /> NÓMINA MIXTA (Motor BI)</h4>
+                            <div className="p-8 rounded-[32px] bg-emerald-50/50 border border-emerald-100 space-y-6">
+                                <p className="text-[11px] font-bold text-emerald-900/70 leading-relaxed uppercase">Al activar el interruptor <span className="text-emerald-700 font-black">"NÓMINA MIXTA BI"</span> durante el registro de un sueldo, el sistema realiza lo siguiente:</p>
+                                <ul className="space-y-4">
+                                    <li className="flex gap-3 text-[10px] font-black uppercase text-emerald-800/60"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> Calcula el monto proporcional para cada canal (ML, Mayoreo, Físico).</li>
+                                    <li className="flex gap-3 text-[10px] font-black uppercase text-emerald-800/60"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> Crea 3 registros independientes con trazabilidad técnica.</li>
+                                    <li className="flex gap-3 text-[10px] font-black uppercase text-emerald-800/60"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> Etiqueta el esfuerzo para análisis de rentabilidad real.</li>
+                                </ul>
+                            </div>
                         </div>
-                    </div>
+                        <div className="pt-4 border-t border-slate-50">
+                            <h4 className="text-xs font-black uppercase text-slate-800 mb-4">Gasto Fijo vs Recurrente</h4>
+                            <p className="text-[11px] font-bold text-slate-400 leading-relaxed uppercase">Marcar un gasto como <span className="text-slate-900">FIJO</span> es crítico: esto alimenta el cálculo automático del <span className="text-[#2D5A4C]">PUNTO DE EQUILIBRIO</span> mensual necesario para la supervivencia operativa.</p>
+                        </div>
+                    </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-orange-500">
-                    <div className="flex items-center gap-5">
-                        <div className="h-12 w-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner"><Target className="h-6 w-6" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-2xl">3. Metas Presupuestarias V3</h3>
-                    </div>
-                    <p className="text-sm font-medium text-slate-600 leading-relaxed uppercase">
-                        El seguimiento presupuestario utiliza estados dinámicos para una auditoría infalible:
-                    </p>
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                            <span className="text-[10px] font-black text-emerald-700 uppercase">NUEVO</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">ASIGNACIÓN INICIAL DEL MES</span>
+                {/* 3. Metas Presupuestarias V3 */}
+                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-orange-500">
+                    <CardHeader className="p-10 pb-6">
+                        <div className="flex items-center gap-6">
+                            <div className="h-16 w-16 bg-orange-50 text-orange-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><History className="h-8 w-8" /></div>
+                            <div>
+                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">3. Presupuestos</h3>
+                                <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">Trazabilidad V3 Pro</p>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50 border border-blue-100">
-                            <span className="text-[10px] font-black text-blue-700 uppercase">ACTUALIZADO</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">MODIFICACIÓN DE MONTO MANUAL</span>
+                    </CardHeader>
+                    <CardContent className="p-10 pt-0 space-y-8">
+                        <p className="text-sm font-bold text-slate-500 leading-relaxed uppercase">El sistema audita el historial de asignaciones presupuestarias para evitar fraudes o errores de captura:</p>
+                        <div className="space-y-3">
+                            {[
+                                { s: 'NUEVO', d: 'Asignación inicial de fondos para el periodo.', c: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+                                { s: 'ACTUALIZADO', d: 'Modificación del monto después de la creación.', c: 'bg-blue-50 text-blue-700 border-blue-100' },
+                                { s: 'BORRADO', d: 'Registro desactivado o llevado a $0.00.', c: 'bg-rose-50 text-rose-700 border-rose-100' }
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center justify-between p-5 rounded-[24px] bg-slate-50 border border-slate-100">
+                                    <Badge className={cn("text-[9px] font-black px-3 py-1 border shadow-none uppercase", item.c)}>{item.s}</Badge>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">{item.d}</span>
+                                </div>
+                            ))}
                         </div>
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50 border border-rose-100">
-                            <span className="text-[10px] font-black text-rose-700 uppercase">BORRADO</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">REGISTRO ELIMINADO ($0.00)</span>
+                        <div className="p-6 bg-slate-900 rounded-[24px] text-white space-y-3">
+                            <div className="flex items-center gap-2"><Calculator className="h-4 w-4 text-orange-400" /><span className="text-[10px] font-black uppercase">Fórmula de Supervivencia</span></div>
+                            <p className="text-[18px] font-black tracking-tighter text-orange-100 font-mono">META = Σ GASTO FIJO / 0.40</p>
+                            <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest leading-relaxed">Calculado automáticamente usando el 40% de Margen de Contribución configurado.</p>
                         </div>
-                    </div>
-                    <p className="text-[10px] font-black text-slate-400 text-center uppercase tracking-widest">Las barras de progreso se recalculan en tiempo real con cada gasto.</p>
+                    </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-purple-500">
-                    <div className="flex items-center gap-5">
-                        <div className="h-12 w-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shadow-inner"><FileDown className="h-6 w-6" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-2xl">4. Herramientas de Auditoría</h3>
-                    </div>
-                    <div className="space-y-6">
-                        <div className="flex gap-4">
-                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Download className="h-4 w-4 text-slate-600" /></div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-black text-slate-800 uppercase">Exportar Reporte Maestro</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Genera un libro Excel (.xlsx) estructurado con toda la base de datos para análisis profundo.</p>
+                {/* 4. Auditoría y Exportación */}
+                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-purple-500">
+                    <CardHeader className="p-10 pb-6">
+                        <div className="flex items-center gap-6">
+                            <div className="h-16 w-16 bg-purple-50 text-purple-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><FileDown className="h-8 w-8" /></div>
+                            <div>
+                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">4. Auditoría</h3>
+                                <p className="text-[10px] font-black text-purple-500 uppercase tracking-[0.2em]">Herramientas de Control</p>
                             </div>
                         </div>
-                        <div className="flex gap-4">
-                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><FileText className="h-4 w-4 text-slate-600" /></div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-black text-slate-800 uppercase">Comprobantes PDF Individuales</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Descarga una ficha técnica formal de 19 columnas de cualquier movimiento para validación fiscal.</p>
+                    </CardHeader>
+                    <CardContent className="p-10 pt-0 space-y-8">
+                        <div className="space-y-6">
+                            <div className="flex gap-5 group/item">
+                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 group-hover/item:bg-purple-600 group-hover/item:text-white transition-colors duration-300"><Download className="h-5 w-5" /></div>
+                                <div className="space-y-1">
+                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Reporte Maestro Excel</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Genera un libro estructurado con las 20 columnas técnicas para análisis en PowerBI o Excel.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-5 group/item">
+                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors duration-300"><FileText className="h-5 w-5" /></div>
+                                <div className="space-y-1">
+                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Fichas PDF Individuales</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Documentos formales de 19 columnas con sellos de tiempo para validación de gastos uno a uno.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-5 group/item">
+                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 group-hover/item:bg-blue-600 group-hover/item:text-white transition-colors duration-300"><Search className="h-5 w-5" /></div>
+                                <div className="space-y-1">
+                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Filtros Avanzados</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Segmenta por Empresa, Tipo de Transacción (Ingresos/Gastos) y Periodo para conciliar saldos.</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex gap-4">
-                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Search className="h-4 w-4 text-slate-600" /></div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-black text-slate-800 uppercase">Filtros Inteligentes</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Segmenta instantáneamente entre Ingresos y Gastos para conciliar tu flujo de caja.</p>
-                            </div>
+                        <div className="pt-6 border-t border-slate-50 flex items-center justify-center">
+                            <Badge variant="outline" className="font-black text-[9px] uppercase tracking-widest border-slate-200 text-slate-400 px-6 py-2 rounded-full">Sistema Certificado para Auditoría BI</Badge>
                         </div>
-                    </div>
+                    </CardContent>
                 </Card>
             </div>
 
-            <Card className="border-none shadow-2xl bg-[#2D5A4C] text-white overflow-hidden rounded-[40px] p-16 relative">
-                <div className="absolute top-0 right-0 p-10 opacity-10"><ShieldCheck className="h-64 w-64" /></div>
-                <div className="relative z-10 flex flex-col md:flex-row items-center gap-16">
-                    <div className="space-y-8 flex-1">
-                        <h3 className="text-4xl font-black uppercase tracking-tighter leading-none">Punto de Equilibrio Dinámico</h3>
-                        <p className="text-sm font-bold text-white/70 leading-relaxed uppercase tracking-[0.1em]">
-                            El sistema monitorea tu **Gasto Fijo Real** acumulado contra tus **Ingresos Netos**. Utilizando el Margen de Contribución configurado (Ej: 40%), el motor calcula instantáneamente la meta de supervivencia necesaria para cubrir los costos fijos antes de generar utilidad operativa real.
+            {/* Banner Final de Punto de Equilibrio */}
+            <Card className="border-none shadow-2xl bg-[#2D5A4C] text-white overflow-hidden rounded-[56px] p-20 relative">
+                <div className="absolute top-0 right-0 p-16 opacity-10 pointer-events-none"><ShieldCheck className="h-80 w-80" /></div>
+                <div className="relative z-10 flex flex-col lg:flex-row items-center gap-20">
+                    <div className="space-y-10 flex-1">
+                        <div className="space-y-4">
+                            <Badge className="bg-white/10 text-emerald-300 border-emerald-400/20 font-black text-[10px] px-5 py-1.5 rounded-full uppercase tracking-[0.3em]">Concepto Clave BI</Badge>
+                            <h3 className="text-5xl font-black uppercase tracking-tighter leading-[0.9]">PUNTO DE EQUILIBRIO DINÁMICO</h3>
+                        </div>
+                        <p className="text-lg font-bold text-white/70 leading-relaxed uppercase tracking-[0.05em]">
+                            NUESTRO MOTOR NO SOLO REGISTRA GASTOS; MONITOREA TU <span className="text-emerald-400 font-black">SUPERVIVENCIA EMPRESARIAL</span> EN TIEMPO REAL. AL IDENTIFICAR EL GASTO FIJO ACUMULADO Y CRUZARLO CON EL MARGEN BI DEL 40%, EL SISTEMA TE INDICA EXACTAMENTE CUÁNTO INGRESO NETO NECESITAS CADA DÍA PARA SALIR DE LA ZONA DE RIESGO Y ENTRAR EN LA ZONA DE RENTABILIDAD OPERATIVA.
                         </p>
-                        <div className="flex gap-4">
-                            <div className="px-6 py-3 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md">
-                                <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Actualización</p>
-                                <p className="text-xl font-black tabular-nums">TIEMPO REAL</p>
+                        <div className="flex flex-wrap gap-6">
+                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl group hover:bg-white/10 transition-colors">
+                                <p className="text-[10px] font-black uppercase text-emerald-400 tracking-widest mb-1">Margen Base</p>
+                                <p className="text-3xl font-black tabular-nums">40% NETO</p>
                             </div>
-                            <div className="px-6 py-3 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md">
-                                <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Margen Base</p>
-                                <p className="text-xl font-black tabular-nums">BI 40%</p>
+                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl group hover:bg-white/10 transition-colors">
+                                <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-1">Cálculo</p>
+                                <p className="text-3xl font-black tabular-nums">TIEMPO REAL</p>
+                            </div>
+                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl group hover:bg-white/10 transition-colors">
+                                <p className="text-[10px] font-black uppercase text-amber-400 tracking-widest mb-1">Estado</p>
+                                <p className="text-3xl font-black tabular-nums">AUTOMÁTICO</p>
                             </div>
                         </div>
                     </div>
                     <div className="flex-shrink-0">
-                        <div className="h-40 w-40 border-8 border-white/10 rounded-[48px] flex items-center justify-center bg-white/5 backdrop-blur-xl shadow-2xl">
-                            <TrendingUp className="h-20 w-20 text-emerald-400" />
+                        <div className="h-56 w-56 border-[12px] border-white/5 rounded-[64px] flex items-center justify-center bg-white/5 backdrop-blur-2xl shadow-3xl transform -rotate-6 hover:rotate-0 transition-transform duration-700">
+                            <Scale className="h-24 w-24 text-emerald-400 drop-shadow-2xl" />
                         </div>
                     </div>
                 </div>
