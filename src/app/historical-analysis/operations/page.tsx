@@ -13,12 +13,12 @@ import {
   Search, Filter, Activity,
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
-  FileDown, Wrench, Settings2, Hammer, HeartPulse, AlertCircle, Download,
-  BookOpen, Lightbulb, Zap, ShieldCheck, ArrowRight, LayoutGrid, BarChart3, ListTree
+  FileDown, Hammer, Settings2, ShieldCheck, Download,
+  BookOpen, Zap, LayoutGrid
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area, AreaChart
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, Line, Area, AreaChart
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -41,7 +41,7 @@ import { addExpenseAction, updateExpenseAction, deleteExpenseAction } from './ac
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage, FormLabel } from '@/components/ui/form';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -480,7 +480,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
             head: [['Categoría Macro', 'Presupuesto', 'Ejecutado', 'Disponible', 'Progreso', 'Historial']],
             body: tableData,
             theme: 'striped',
-            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255] },
+            headStyles: { fillColor: [45, 90, 76] as [number, number, number], textColor: [255, 255, 255] as [number, number, number] },
             styles: { fontSize: 9 }
         });
 
@@ -1379,10 +1379,8 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const catName = catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-';
         const subName = catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-';
 
-        // Estilos de color institucional
-        const primaryColor = [45, 90, 76]; // #2D5A4C
+        const primaryColor: [number, number, number] = [45, 90, 76]; // #2D5A4C
 
-        // Cabecera Formal
         doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.rect(0, 0, 210, 45, 'F');
         doc.setTextColor(255, 255, 255);
@@ -1395,15 +1393,14 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         doc.setFont('helvetica', 'normal');
         doc.text(`REGISTRO ÚNICO: #${t.id}  |  EMISIÓN: ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 20, 35);
 
-        // Cuerpo de Datos - Formato Tabla Vertical Formal
         autoTable(doc, {
             startY: 55,
             theme: 'striped',
-            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
-            bodyStyles: { fontSize: 9, cellPadding: 4, textColor: [40, 40, 40] },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
+            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold', fontSize: 10 },
+            bodyStyles: { fontSize: 9, cellPadding: 4, textColor: [40, 40, 40] as [number, number, number] },
+            alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
             columnStyles: { 
-                0: { fontStyle: 'bold', width: 60, textColor: [100, 116, 139] },
+                0: { fontStyle: 'bold', cellWidth: 60, textColor: [100, 116, 139] as [number, number, number] },
                 1: { fontStyle: 'normal' }
             },
             head: [['CONCEPTO TÉCNICO', 'VALOR REGISTRADO']],
@@ -1430,7 +1427,6 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             ],
         });
 
-        // Pie de Página Elegante
         const finalY = (doc as any).lastAutoTable.finalY || 200;
         doc.setFontSize(8);
         doc.setTextColor(160, 160, 160);
@@ -1591,7 +1587,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10">
                                 <div className="space-y-1.5">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Fecha</p>
-                                    <p className="text-2xl font-black text-slate-800">{viewDetail?.fecha}</p>
+                                    <p className="text-xl font-black text-slate-800">{viewDetail?.fecha}</p>
                                 </div>
                                 <div className="space-y-1.5">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Monto</p>
