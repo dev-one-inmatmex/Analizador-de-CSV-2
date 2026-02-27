@@ -1371,36 +1371,66 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     const downloadPDF = (t: any) => {
         const doc = new jsPDF();
+        
+        // Resolve names from IDs
+        const impactName = catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-';
+        const areaName = catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-';
         const macroName = catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-';
         const catName = catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-';
         const subName = catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-';
-        const areaName = catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-';
-        const impactName = catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-';
 
+        // Header
         doc.setFillColor(45, 90, 76);
-        doc.rect(0, 0, 210, 40, 'F');
+        doc.rect(0, 0, 210, 45, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
-        doc.text('REPORTE DE MOVIMIENTO FINANCIERO', 20, 20);
+        doc.text('AUDITORÍA TÉCNICA DE MOVIMIENTO', 20, 25);
         doc.setFontSize(10);
-        doc.text(`ID REGISTRO: #${t.id} | FECHA: ${t.fecha}`, 20, 30);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`ID REGISTRO: #${t.id} | EMISIÓN: ${new Date().toLocaleString('es-MX')}`, 20, 35);
 
+        // Body Table with all columns
         autoTable(doc, {
-            startY: 60,
+            startY: 55,
             theme: 'striped',
-            headStyles: { fillColor: [45, 90, 76] },
+            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 3 },
+            columnStyles: { 0: { fontStyle: 'bold', width: 50 } },
             body: [
-                ['Concepto', subName], ['Monto', money(t.monto)], ['Tipo', t.tipo_transaccion], ['Empresa', t.empresa],
-                ['Impacto', impactName], ['Área', areaName], ['Macro', macroName], ['Canal', String(t.canal_asociado || 'GENERAL').replace(/_/g, ' ')],
-                ['Responsable', t.responsable || '-']
+                ['FECHA DE REGISTRO', t.fecha],
+                ['MONTO TOTAL', money(t.monto)],
+                ['EMPRESA / ENTIDAD', t.empresa],
+                ['TIPO DE MOVIMIENTO', t.tipo_transaccion],
+                ['IMPACTO (F1)', impactName],
+                ['ÁREA FUNCIONAL (F2)', areaName],
+                ['CATEGORÍA MACRO (F3)', macroName],
+                ['CATEGORÍA (F4)', catName],
+                ['SUBCATEGORÍA ESPECÍFICA (F5)', subName],
+                ['CANAL ASOCIADO (F6)', String(t.canal_asociado || '-').replace(/_/g, ' ')],
+                ['CLASIFICACIÓN (F7)', String(t.clasificacion_operativa || '-').replace(/_/g, ' ')],
+                ['MÉTODO DE PAGO', String(t.metodo_pago || '-').replace(/_/g, ' ')],
+                ['INSTITUCIÓN BANCARIA', t.banco || '-'],
+                ['CUENTA DE ORIGEN', t.cuenta || '-'],
+                ['RESPONSABLE', t.responsable || '-'],
+                ['CARÁCTER FIJO', t.es_fijo ? 'SÍ' : 'NO'],
+                ['CARÁCTER RECURRENTE', t.es_recurrente ? 'SÍ' : 'NO'],
+                ['DESCRIPCIÓN', t.descripcion || '-'],
+                ['NOTAS DEL SISTEMA', t.notas || '-']
             ],
         });
-        doc.save(`movimiento_${t.id}.pdf`);
+
+        // Footer
+        const finalY = (doc as any).lastAutoTable.finalY || 200;
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Documento generado automáticamente por el Sistema de Inteligencia Financiera BI v3.0', 20, finalY + 20);
+
+        doc.save(`movimiento_auditoria_${t.id}.pdf`);
     };
 
     const exportToCSV = () => {
-        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Monto"];
+        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Clasificacion", "Monto", "Responsable", "Fijo", "Recurrente"];
         const rows = transactions.map((t: any) => [
             t.id, t.fecha, t.empresa, t.tipo_transaccion,
             catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '',
@@ -1408,7 +1438,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '',
             catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '',
             catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '',
-            t.canal_asociado, t.monto
+            t.canal_asociado, t.clasificacion_operativa, t.monto, t.responsable, t.es_fijo, t.es_recurrente
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
