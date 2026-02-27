@@ -14,8 +14,7 @@ import {
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
   FileDown, Hammer, Settings2, ShieldCheck, Download,
-  BookOpen, Zap, LayoutGrid, Scale, Calculator, History, ClipboardCheck,
-  TrendingDown, Landmark, ArrowRight, X
+  BookOpen, Zap, LayoutGrid, Scale, Calculator, History
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -1807,9 +1806,11 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
     );
 }
 
+type ViewType = 'inicio' | 'informes' | 'presupuestos' | 'configuracion' | 'manual';
+
 export default function OperationsPage() {
     const [isClient, setIsClient] = React.useState(false);
-    const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion' | 'manual'>('inicio');
+    const [currentView, setCurrentView] = React.useState<ViewType>('inicio');
     const [transactions, setTransactions] = React.useState<gastos_diarios[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -1836,6 +1837,14 @@ export default function OperationsPage() {
             { label: 'Físico', canal: 'FISICO', porcentaje: 10 }
         ]
     });
+
+    const navItems = [
+        { id: 'inicio', label: 'Inicio', icon: LayoutGrid },
+        { id: 'informes', label: 'Informes', icon: Activity },
+        { id: 'presupuestos', label: 'Metas', icon: Target },
+        { id: 'configuracion', label: 'Configuración', icon: Settings2 },
+        { id: 'manual', label: 'Manual', icon: BookOpen },
+    ];
 
     const { toast } = useToast();
 
@@ -1941,7 +1950,7 @@ export default function OperationsPage() {
                 <div className="flex items-center gap-4 min-w-0">
                     <SidebarTrigger />
                     <h1 className="text-xl font-bold tracking-tight">Gastos financieros</h1>
-                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as any)} className="ml-4 hidden md:block">
+                    <Tabs value={currentView} onValueChange={(v) => setCurrentView(v as ViewType)} className="ml-4 hidden md:block">
                         <TabsList className="bg-muted/40 h-9 p-1 border">
                             <TabsTrigger value="inicio" className="text-xs font-bold uppercase">Inicio</TabsTrigger>
                             <TabsTrigger value="informes" className="text-xs font-bold uppercase">Informes</TabsTrigger>
@@ -2018,6 +2027,34 @@ export default function OperationsPage() {
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} biConfig={biConfig} setBiConfig={setBiConfig} />}
                 {currentView === 'manual' && <ManualView />}
             </main>
+
+            {/* ==== NUEVA BARRA DE NAVEGACIÓN MÓVIL (Solo visible en md:hidden) ==== */}
+            <nav className="md:hidden flex-none bg-white border-t border-slate-200 z-50 w-full pb-safe">
+                <div className="flex justify-between items-center px-1 py-2">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentView === item.id;
+                        // Abreviamos la palabra configuración para que no se amontone en pantallas pequeñas
+                        const labelStr = item.id === 'configuracion' ? 'Ajustes' : item.label;
+                        
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setCurrentView(item.id as ViewType)}
+                                className={`flex flex-col items-center justify-center w-full transition-all duration-300 ${isActive ? 'text-black' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <div className={`p-1.5 rounded-xl mb-1 transition-colors ${isActive ? 'bg-slate-100 shadow-sm scale-110' : ''}`}>
+                                    <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                                </div>
+                                <span className={`text-[8px] font-black uppercase tracking-tighter ${isActive ? 'text-black' : 'text-slate-400'}`}>
+                                    {labelStr}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </nav>
+            {/* ================================================================= */}
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] border-none shadow-2xl">
