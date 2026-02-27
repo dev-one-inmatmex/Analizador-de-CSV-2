@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -62,6 +63,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Separator } from '@/components/ui/separator';
 
 const money = (v?: number | null) => v === null || v === undefined ? '$0.00' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(v);
+
+const PRIMARY_COLOR_RGB: [number, number, number] = [45, 90, 76];
 
 function TransactionForm({ transaction, onSubmit, catalogs }: any) {
     const form = useForm<TransactionFormValues>({
@@ -455,7 +458,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
 
     const downloadBudgetPDF = () => {
         const doc = new jsPDF();
-        doc.setFillColor(45, 90, 76);
+        doc.setFillColor(...PRIMARY_COLOR_RGB);
         doc.rect(0, 0, 210, 40, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
@@ -480,7 +483,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
             head: [['Categoría Macro', 'Presupuesto', 'Ejecutado', 'Disponible', 'Progreso', 'Historial']],
             body: tableData,
             theme: 'striped',
-            headStyles: { fillColor: [45, 90, 76] as [number, number, number], textColor: [255, 255, 255] as [number, number, number] },
+            headStyles: { fillColor: PRIMARY_COLOR_RGB, textColor: [255, 255, 255] as [number, number, number] },
             styles: { fontSize: 9 }
         });
 
@@ -1110,22 +1113,22 @@ function ManualView() {
                         <div className="flex gap-4">
                             <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Download className="h-4 w-4 text-slate-600" /></div>
                             <div className="space-y-1">
-                                <p className="text-xs font-black text-slate-800 uppercase">Exportar a CSV</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Descarga toda la base de datos filtrada para análisis en Excel o PowerBI.</p>
+                                <p className="text-xs font-black text-slate-800 uppercase">Exportar Reporte Maestro</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Genera un libro Excel (.xlsx) estructurado con toda la base de datos para análisis profundo.</p>
                             </div>
                         </div>
                         <div className="flex gap-4">
                             <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><FileText className="h-4 w-4 text-slate-600" /></div>
                             <div className="space-y-1">
-                                <p className="text-xs font-black text-slate-800 uppercase">Comprobantes PDF</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Genera un reporte individual de cada movimiento desde el visor de detalles.</p>
+                                <p className="text-xs font-black text-slate-800 uppercase">Comprobantes PDF Individuales</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Descarga una ficha técnica formal de 19 columnas de cualquier movimiento para validación fiscal.</p>
                             </div>
                         </div>
                         <div className="flex gap-4">
                             <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Search className="h-4 w-4 text-slate-600" /></div>
                             <div className="space-y-1">
-                                <p className="text-xs font-black text-slate-800 uppercase">Visor de Detalles</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Accede a las 13+ columnas técnicas de cada registro mediante el botón "Visualizar".</p>
+                                <p className="text-xs font-black text-slate-800 uppercase">Filtros Inteligentes</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Segmenta instantáneamente entre Ingresos y Gastos para conciliar tu flujo de caja.</p>
                             </div>
                         </div>
                     </div>
@@ -1371,89 +1374,115 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     const downloadPDF = (t: any) => {
         const doc = new jsPDF();
-        
-        // Resolve names from IDs
         const impactName = catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-';
         const areaName = catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-';
         const macroName = catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-';
         const catName = catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-';
         const subName = catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-';
 
-        const primaryColor: [number, number, number] = [45, 90, 76]; // #2D5A4C
-
-        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setFillColor(...PRIMARY_COLOR_RGB);
         doc.rect(0, 0, 210, 45, 'F');
         doc.setTextColor(255, 255, 255);
-        
         doc.setFontSize(24);
         doc.setFont('helvetica', 'bold');
         doc.text('AUDITORÍA TÉCNICA DE MOVIMIENTO', 20, 25);
-        
         doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`REGISTRO ÚNICO: #${t.id}  |  EMISIÓN: ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 20, 35);
+        doc.text(`REGISTRO ÚNICO: #${t.id}  |  EMISIÓN: ${new Date().toLocaleString('es-MX')}`, 20, 35);
 
         autoTable(doc, {
             startY: 55,
             theme: 'striped',
-            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold', fontSize: 10 },
-            bodyStyles: { fontSize: 9, cellPadding: 4, textColor: [40, 40, 40] as [number, number, number] },
-            alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
-            columnStyles: { 
-                0: { fontStyle: 'bold', cellWidth: 60, textColor: [100, 116, 139] as [number, number, number] },
-                1: { fontStyle: 'normal' }
-            },
+            headStyles: { fillColor: PRIMARY_COLOR_RGB, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold', fontSize: 10 },
+            bodyStyles: { fontSize: 9, cellPadding: 4 },
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60, textColor: [100, 116, 139] as [number, number, number] } },
             head: [['CONCEPTO TÉCNICO', 'VALOR REGISTRADO']],
             body: [
                 ['FECHA DE REGISTRO', format(parseISO(t.fecha), "dd 'de' MMMM, yyyy", { locale: es }).toUpperCase()],
-                ['MONTO TOTAL (DIVISA)', money(t.monto)],
-                ['EMPRESA / ENTIDAD', t.empresa],
-                ['TIPO DE MOVIMIENTO', t.tipo_transaccion],
+                ['MONTO TOTAL', money(t.monto)],
+                ['EMPRESA', t.empresa],
+                ['TIPO', t.tipo_transaccion],
                 ['IMPACTO (F1)', impactName],
-                ['ÁREA FUNCIONAL (F2)', areaName],
-                ['CATEGORÍA MACRO (F3)', macroName],
+                ['ÁREA (F2)', areaName],
+                ['MACRO (F3)', macroName],
                 ['CATEGORÍA (F4)', catName],
-                ['SUBCATEGORÍA ESPECÍFICA (F5)', subName],
-                ['CANAL ASOCIADO (F6)', String(t.canal_asociado || '-').replace(/_/g, ' ')],
+                ['SUBCATEGORÍA (F5)', subName],
+                ['CANAL (F6)', String(t.canal_asociado || '-').replace(/_/g, ' ')],
                 ['CLASIFICACIÓN (F7)', String(t.clasificacion_operativa || '-').replace(/_/g, ' ')],
-                ['MÉTODO DE PAGO', String(t.metodo_pago || '-').replace(/_/g, ' ')],
-                ['INSTITUCIÓN BANCARIA', t.banco || '-'],
-                ['CUENTA DE ORIGEN', t.cuenta || '-'],
+                ['MÉTODO PAGO', t.metodo_pago],
+                ['BANCO', t.banco || '-'],
+                ['CUENTA', t.cuenta || '-'],
                 ['RESPONSABLE', t.responsable || '-'],
-                ['CARÁCTER FIJO', t.es_fijo ? 'SÍ (RECURRENTE)' : 'NO (PUNTUAL)'],
-                ['CARÁCTER RECURRENTE', t.es_recurrente ? 'SÍ' : 'NO'],
-                ['DESCRIPCIÓN OPERATIVA', t.descripcion || '-'],
-                ['NOTAS DEL SISTEMA BI', t.notas || '-']
+                ['ES FIJO', t.es_fijo ? 'SÍ' : 'NO'],
+                ['ES RECURRENTE', t.es_recurrente ? 'SÍ' : 'NO'],
+                ['DESCRIPCIÓN', t.descripcion || '-'],
+                ['NOTAS', t.notas || '-']
             ],
         });
-
-        const finalY = (doc as any).lastAutoTable.finalY || 200;
-        doc.setFontSize(8);
-        doc.setTextColor(160, 160, 160);
-        doc.text('_______________________________________________________________________________________________________', 20, finalY + 15);
-        doc.text('DOCUMENTO GENERADO POR EL MOTOR DE INTELIGENCIA FINANCIERA BI v3.0 - ANÁLISIS PRO ERP', 20, finalY + 22);
-        doc.text('LA ALTERACIÓN DE ESTE DOCUMENTO INVALIDA LA AUDITORÍA DIGITAL.', 20, finalY + 27);
-
         doc.save(`movimiento_auditoria_${t.id}.pdf`);
     };
 
-    const exportToCSV = () => {
-        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Clasificacion", "Monto", "Responsable", "Fijo", "Recurrente"];
-        const rows = transactions.map((t: any) => [
-            t.id, t.fecha, t.empresa, t.tipo_transaccion,
-            catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '',
-            catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '',
-            catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '',
-            catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '',
-            catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '',
-            t.canal_asociado, t.clasificacion_operativa, t.monto, t.responsable, t.es_fijo, t.es_recurrente
+    const exportToExcel = () => {
+        const data = transactions.map((t: any) => ({
+            "ID REGISTRO": t.id,
+            "FECHA": t.fecha,
+            "EMPRESA": t.empresa,
+            "TIPO": t.tipo_transaccion,
+            "IMPACTO (F1)": catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '',
+            "ÁREA (F2)": catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '',
+            "MACRO (F3)": catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '',
+            "CATEGORÍA (F4)": catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '',
+            "SUBCATEGORÍA (F5)": catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '',
+            "CANAL (F6)": String(t.canal_asociado || '').replace(/_/g, ' '),
+            "CLASIFICACIÓN (F7)": String(t.clasificacion_operativa || '').replace(/_/g, ' '),
+            "MONTO FINAL": t.monto,
+            "RESPONSABLE": t.responsable || '',
+            "MÉTODO PAGO": t.metodo_pago || '',
+            "BANCO": t.banco || '',
+            "CUENTA": t.cuenta || '',
+            "ES FIJO": t.es_fijo ? 'SÍ' : 'NO',
+            "ES RECURRENTE": t.es_recurrente ? 'SÍ' : 'NO',
+            "DESCRIPCIÓN": t.descripcion || '',
+            "NOTAS": t.notas || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
+        ws["!cols"] = [{ wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 40 }, { wch: 40 }];
+        XLSX.writeFile(wb, `Reporte_Maestro_Movimientos_${format(new Date(), 'yyyy_MM_dd')}.xlsx`);
+    };
+
+    const downloadMasterPDF = () => {
+        const doc = new jsPDF('l', 'mm', 'a4'); 
+        doc.setFillColor(...PRIMARY_COLOR_RGB);
+        doc.rect(0, 0, 297, 30, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPORTE MAESTRO DE MOVIMIENTOS - AUDITORÍA BI', 15, 20);
+
+        const tableHeaders = [["ID", "FECHA", "EMPRESA", "TIPO", "MACRO", "SUBCATEGORÍA", "CANAL", "MONTO"]];
+        const tableBody = transactions.map((t: any) => [
+            `#${t.id}`,
+            t.fecha,
+            t.empresa,
+            t.tipo_transaccion,
+            catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-',
+            catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-',
+            String(t.canal_asociado || '').replace(/_/g, ' '),
+            money(t.monto)
         ]);
-        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `movimientos_${format(new Date(), 'yyyy_MM_dd')}.csv`;
-        link.click();
+
+        autoTable(doc, {
+            startY: 40,
+            head: tableHeaders,
+            body: tableBody,
+            theme: 'striped',
+            headStyles: { fillColor: PRIMARY_COLOR_RGB, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' },
+            styles: { fontSize: 8, cellPadding: 2 },
+            columnStyles: { 7: { halign: 'right', fontStyle: 'bold' } }
+        });
+        doc.save(`reporte_auditoria_maestro_${format(new Date(), 'yyyy_MM')}.pdf`);
     };
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -1512,8 +1541,9 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <CardTitle className="text-2xl font-black uppercase tracking-tighter text-slate-800">HISTORIAL DE MOVIMIENTOS</CardTitle>
                         <CardDescription className="text-xs font-bold uppercase text-slate-400 mt-1">AUDITORÍA COMPLETA DEL PERIODO SELECCIONADO.</CardDescription>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <Button onClick={exportToCSV} variant="outline" className="h-11 rounded-xl border-slate-200 font-bold"><Download className="mr-2 h-4 w-4" /> Exportar CSV</Button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button onClick={exportToExcel} variant="outline" className="h-11 rounded-xl border-slate-200 font-bold bg-[#F8FAFC]"><Download className="mr-2 h-4 w-4" /> Exportar Reporte Maestro</Button>
+                        <Button onClick={downloadMasterPDF} variant="outline" className="h-11 rounded-xl border-slate-200 font-bold bg-[#F8FAFC]"><FileText className="mr-2 h-4 w-4" /> Informe Maestro PDF</Button>
                         <div className="relative w-64"><Input placeholder="BUSCAR..." className="h-11 pl-5 pr-10 border-slate-100 rounded-2xl bg-slate-50 font-bold uppercase text-[10px]" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /><Search className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" /></div>
                     </div>
                 </CardHeader>
