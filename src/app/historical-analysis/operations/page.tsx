@@ -498,17 +498,17 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
         <div className="space-y-10 animate-in fade-in duration-500">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
-                    <p className="text-xs font-bold uppercase text-slate-400 mt-1">Periodo: {format(currentDate, 'MMMM yyyy', { locale: es })}</p>
+                    <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-800">METAS PRESUPUESTARIAS</h2>
+                    <p className="text-[10px] sm:text-xs font-bold uppercase text-slate-400 mt-1">Periodo: {format(currentDate, 'MMMM yyyy', { locale: es })}</p>
                 </div>
-                <div className="flex gap-3">
-                    <Button variant="outline" className="h-11 px-6 rounded-xl border-slate-200 font-bold" onClick={downloadBudgetPDF}>
-                        <FileDown className="mr-2 h-4 w-4" /> Exportar Seguimiento
+                <div className="flex gap-2 sm:gap-3">
+                    <Button variant="outline" className="h-9 sm:h-11 px-3 sm:px-6 rounded-xl border-slate-200 font-bold text-[9px] sm:text-sm" onClick={downloadBudgetPDF}>
+                        <FileDown className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden xs:inline">Exportar</span>
                     </Button>
                     <Dialog open={isAjustarOpen} onOpenChange={setIsAjustarOpen}>
                         <DialogTrigger asChild>
-                            <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-11 px-6 rounded-xl shadow-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
-                                <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto
+                            <Button className="bg-[#2D5A4C] hover:bg-[#24483D] font-bold h-9 sm:h-11 px-3 sm:px-6 rounded-xl shadow-sm text-[9px] sm:text-sm" onClick={() => { setSelectedMacroId(""); setNewAmount(""); }}>
+                                <Plus className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="xs:inline">Nuevo</span>
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="rounded-[32px] border-none shadow-2xl">
@@ -885,56 +885,72 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
                 </div>
             </div>
 
-            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
-                <CardHeader className="flex flex-row items-center gap-4 border-b bg-slate-50/30 p-8">
-                    <div className="h-12 w-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-6 w-6" /></div>
+            <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] sm:rounded-[32px]">
+                <CardHeader className="flex flex-row items-center gap-4 border-b bg-slate-50/30 p-6 sm:p-8">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 bg-white rounded-xl sm:rounded-2xl shadow-sm flex items-center justify-center text-[#2D5A4C]"><SlidersHorizontal className="h-5 w-5 sm:h-6 sm:w-6" /></div>
                     <div>
-                        <CardTitle className="text-xl font-black uppercase tracking-tight">Gestión de Catálogos Relacionales</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription>
+                        <CardTitle className="text-lg sm:text-xl font-black uppercase tracking-tight">Gestión de Catálogos</CardTitle>
+                        <CardDescription className="text-[10px] sm:text-xs font-bold uppercase text-slate-400">CRUD de bases maestras para la arquitectura de 5 niveles.</CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Tabs value={activeCatalogTab} onValueChange={setActiveCatalogTab} className="w-full">
-                        <div className="px-8 pt-6 border-b bg-slate-50/50 flex justify-between items-end">
-                            <TabsList className="bg-transparent h-12 gap-8">
+                        <div className="px-4 sm:px-8 pt-4 sm:pt-6 border-b bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                            <TabsList className="bg-transparent h-auto sm:h-12 flex overflow-x-auto no-scrollbar gap-4 sm:gap-8 pb-2 sm:pb-0 w-full sm:w-auto">
                                 {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
-                                    <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-12 px-0 tracking-widest">{tab}</TabsTrigger>
+                                    <TabsTrigger key={tab} value={tab} className="font-black uppercase text-[9px] sm:text-[10px] border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-none h-10 sm:h-12 px-0 tracking-widest whitespace-nowrap">{tab}</TabsTrigger>
                                 ))}
                             </TabsList>
-                            <Button onClick={() => handleOpenCatalogDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
+                            <Button onClick={() => handleOpenCatalogDialog()} className="mb-3 bg-[#2D5A4C] hover:bg-[#24483D] h-9 text-[10px] font-black uppercase rounded-xl px-5 shadow-lg w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> Agregar Nuevo</Button>
                         </div>
 
                         {['impactos', 'areas', 'macros', 'categorias', 'subcategorias'].map(tab => (
                             <TabsContent key={tab} value={tab} className="mt-0">
                                 <ScrollArea className="h-[450px]">
-                                    <Table>
-                                        <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b-0">
-                                            <TableRow className="border-b-0">
-                                                <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">ID</TableHead>
-                                                <TableHead className="font-black text-[10px] uppercase px-8 py-4 tracking-widest text-slate-400">Nombre del Registro</TableHead>
-                                                {(tab === 'categorias' || tab === 'subcategorias') && <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Relación Jerárquica</TableHead>}
-                                                <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 text-right pr-16">Estado</TableHead>
-                                                <TableHead className="w-32"></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
+                                    <div className="min-w-full">
+                                        <div className="hidden md:grid md:grid-cols-12 gap-4 p-4 border-b border-slate-50 bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <div className="col-span-1 px-4">ID</div>
+                                            <div className="col-span-5 px-4">Nombre del Registro</div>
+                                            {(tab === 'categorias' || tab === 'subcategorias') && <div className="col-span-3">Relación Jerárquica</div>}
+                                            <div className="col-span-2 text-right">Estado</div>
+                                            <div className="col-span-1"></div>
+                                        </div>
+                                        
+                                        <div className="divide-y divide-slate-50">
                                             {(catalogs[tab as keyof typeof catalogs] || []).map((item: any) => (
-                                                <TableRow key={item.id} className={cn("h-16 hover:bg-slate-50/50 transition-colors border-slate-50", !item.activo && "opacity-50 grayscale")}>
-                                                    <TableCell className="px-8 font-mono text-[10px] text-slate-400">#{item.id}</TableCell>
-                                                    <TableCell className="px-8 font-bold text-xs uppercase text-slate-700">{item.nombre}</TableCell>
-                                                    {tab === 'categorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">{catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}</Badge></TableCell>}
-                                                    {tab === 'subcategorias' && <TableCell><Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">{catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}</Badge></TableCell>}
-                                                    <TableCell className="text-right pr-16"><Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>{item.activo ? 'Activo' : 'Inactivo'}</Badge></TableCell>
-                                                    <TableCell className="pr-8">
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100" onClick={() => handleOpenCatalogDialog(item)}><Pencil className="h-4 w-4" /></Button>
-                                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleCatalogStatus(item)}><Trash2 className="h-4 w-4" /></Button>
+                                                <div key={item.id} className={cn("flex flex-col md:grid md:grid-cols-12 gap-2 md:gap-4 p-4 hover:bg-slate-50/50 transition-colors relative group", !item.activo && "opacity-50 grayscale")}>
+                                                    <div className="md:col-span-1 font-mono text-[10px] text-slate-400 md:px-4">#{item.id}</div>
+                                                    <div className="md:col-span-5 font-bold text-sm uppercase text-slate-700 md:px-4">{item.nombre}</div>
+                                                    
+                                                    {tab === 'categorias' && (
+                                                        <div className="md:col-span-3">
+                                                            <Badge variant="outline" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none px-3">
+                                                                {catalogs.macros.find((m: any) => m.id === item.categoria_macro_id)?.nombre || '-'}
+                                                            </Badge>
                                                         </div>
-                                                    </TableCell>
-                                                </TableRow>
+                                                    )}
+                                                    {tab === 'subcategorias' && (
+                                                        <div className="md:col-span-3">
+                                                            <Badge variant="outline" className="text-[9px] font-black uppercase bg-blue-50 text-blue-700 border-none px-3">
+                                                                {catalogs.categorias.find((c: any) => c.id === item.categoria_id)?.nombre || '-'}
+                                                            </Badge>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <div className={cn("md:col-span-2 md:text-right", (tab === 'categorias' || tab === 'subcategorias') ? "" : "md:col-start-10")}>
+                                                        <Badge variant={item.activo ? 'default' : 'secondary'} className={cn("text-[8px] font-black uppercase px-2 py-0.5", item.activo ? "bg-[#2D5A4C]" : "bg-slate-200")}>
+                                                            {item.activo ? 'Activo' : 'Inactivo'}
+                                                        </Badge>
+                                                    </div>
+
+                                                    <div className="absolute top-2 right-2 md:relative md:top-auto md:right-auto md:col-span-1 flex justify-end gap-1">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-slate-100" onClick={() => handleOpenCatalogDialog(item)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-red-50 text-destructive" onClick={() => handleToggleCatalogStatus(item)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                                    </div>
+                                                </div>
                                             ))}
-                                        </TableBody>
-                                    </Table>
+                                        </div>
+                                    </div>
                                 </ScrollArea>
                             </TabsContent>
                         ))}
