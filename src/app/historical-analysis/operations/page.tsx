@@ -14,11 +14,12 @@ import {
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
   FileDown, Hammer, Settings2, ShieldCheck, Download,
-  BookOpen, Zap, LayoutGrid, Scale, Calculator, History
+  BookOpen, Zap, LayoutGrid, Scale, Calculator, History, ClipboardCheck,
+  TrendingDown, Landmark, ArrowRight
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
-  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, Line, Area, AreaChart
+  ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, Line, Area, AreaChart, ComposedChart
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1022,9 +1023,98 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
 }
 
 function ManualView() {
+    const [selectedModule, setSelectedModule] = React.useState<any>(null);
+
+    const manualModules = [
+        {
+            id: 'arch',
+            title: 'Arquitectura de Datos',
+            icon: LayoutGrid,
+            color: 'blue',
+            shortDesc: 'Jerarquía técnica de 5 niveles para una trazabilidad del 100%.',
+            fullDesc: 'Nuestro motor financiero opera bajo una estructura relacional estricta para garantizar auditorías impecables. Cada movimiento debe fluir a través de:',
+            points: [
+                'F1 IMPACTO: Naturaleza del flujo (Operativo, Administrativo).',
+                'F2 ÁREA: Departamento responsable del presupuesto.',
+                'F3 MACRO: Categoría principal para metas mensuales.',
+                'F4 CATEGORÍA: Desglose específico del rubro de gasto.',
+                'F5 SUBCATEGORÍA: Nivel de detalle para análisis de costos unitarios.'
+            ]
+        },
+        {
+            id: 'reg',
+            title: 'Flujo de Registro',
+            icon: Zap,
+            color: 'emerald',
+            shortDesc: 'Captura técnica de movimientos y automatización de nómina.',
+            fullDesc: 'El registro de transacciones es el corazón del sistema BI. Al ingresar un nuevo movimiento:',
+            points: [
+                'Clasificación por tipo (Ingreso, Gasto, Compra, Venta).',
+                'Asignación de canal (ML, Mayoreo, Shopify, Físico).',
+                'Interruptor de Gasto Fijo: Vital para el Punto de Equilibrio.',
+                'Nómina Mixta: Distribución automática del sueldo por canales.'
+            ]
+        },
+        {
+            id: 'budget',
+            title: 'Control Presupuestario V3',
+            icon: History,
+            color: 'orange',
+            shortDesc: 'Trazabilidad de asignaciones y estados de ejecución.',
+            fullDesc: 'El motor V3 audita cada cambio en los techos financieros para evitar fraudes o errores:',
+            points: [
+                'Estado NUEVO: Asignación inicial del periodo.',
+                'Estado ACTUALIZADO: Modificaciones registradas con marca de tiempo.',
+                'Disponible Dinámico: Cálculo en tiempo real (Presupuesto - Ejecutado).',
+                'Alertas de Consumo: Indicadores visuales cuando se supera el 90%.'
+            ]
+        },
+        {
+            id: 'cashflow',
+            title: 'Flujo de Caja Mensual',
+            icon: Activity,
+            color: 'indigo',
+            shortDesc: 'Análisis comparativo diario de ingresos y egresos.',
+            fullDesc: 'Visualización detallada del comportamiento diario de la tesorería:',
+            points: [
+                'Gráfico de Barras: Comparativa instantánea de entrada vs salida.',
+                'Auditoría por Día: Haz clic en cualquier barra para ver el detalle técnico.',
+                'Balance Neto: Cálculo automático de rentabilidad del periodo.',
+                'Tendencia Acumulativa: Monitoreo del ritmo de gasto contra el objetivo.'
+            ]
+        },
+        {
+            id: 'audit',
+            title: 'Auditoría y Exportaciones',
+            icon: FileDown,
+            color: 'purple',
+            shortDesc: 'Generación de reportes maestros en Excel y PDF.',
+            fullDesc: 'Herramientas de control para validar la integridad de la base de datos:',
+            points: [
+                'Reporte Excel (.xlsx): Libro estructurado con las 20 columnas técnicas.',
+                'Ficha PDF Individual: Documento formal de auditoría para cada registro.',
+                'Informe Maestro PDF: Resumen horizontal elegante de todo el periodo.',
+                'Filtros Avanzados: Segmentación por empresa, tipo y rango de fecha.'
+            ]
+        },
+        {
+            id: 'bi',
+            title: 'Parámetros BI Pro',
+            icon: ShieldCheck,
+            color: 'teal',
+            shortDesc: 'Inteligencia financiera y motor de punto de equilibrio.',
+            fullDesc: 'Configura el cerebro de la plataforma para obtener análisis precisos:',
+            points: [
+                'Margen de Contribución: Define el % neto para el Punto de Equilibrio.',
+                'Supervivencia: Monto diario necesario basado en el gasto fijo acumulado.',
+                'Plantilla de Nómina: % de esfuerzo predefinido para fraccionamientos.',
+                'Historial de Datos: Días de ventana para promedios operativos.'
+            ]
+        }
+    ];
+
     return (
         <div className="space-y-16 animate-in fade-in duration-700 max-w-6xl mx-auto pb-32">
-            {/* Cabecera Hero */}
             <div className="text-center space-y-6 pt-10">
                 <div className="inline-flex h-24 w-24 items-center justify-center bg-[#2D5A4C]/10 rounded-[40px] text-[#2D5A4C] mb-4 shadow-inner">
                     <BookOpen className="h-12 w-12" />
@@ -1039,144 +1129,39 @@ function ManualView() {
                 </div>
             </div>
 
-            {/* Grid de Módulos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                {/* 1. Arquitectura de Datos */}
-                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-blue-500">
-                    <CardHeader className="p-10 pb-6">
-                        <div className="flex items-center gap-6">
-                            <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><LayoutGrid className="h-8 w-8" /></div>
-                            <div>
-                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">1. Arquitectura</h3>
-                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em]">Jerarquía de 5 Niveles</p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-10 pt-0 space-y-8">
-                        <p className="text-sm font-bold text-slate-500 leading-relaxed uppercase">Para garantizar una trazabilidad del 100%, cada movimiento debe clasificarse en nuestro motor relacional:</p>
-                        <div className="space-y-4">
-                            {[
-                                { f: 'F1 - IMPACTO', d: 'Define la naturaleza del flujo (Operativo, Administrativo, Venta).', c: 'bg-slate-50' },
-                                { f: 'F2 - ÁREA', d: 'Identifica el departamento responsable (Logística, RRHH, Sistemas).', c: 'bg-slate-50' },
-                                { f: 'F3 - MACRO', d: 'Categoría principal para la asignación de metas presupuestarias.', c: 'bg-blue-50/30' },
-                                { f: 'F4 - CATEGORÍA', d: 'Desglose específico del rubro de gasto (Depende de Macro).', c: 'bg-slate-50' },
-                                { f: 'F5 - SUBCATEGORÍA', d: 'El nivel más bajo de detalle para análisis de costos unitarios.', c: 'bg-slate-50' }
-                            ].map((item, i) => (
-                                <div key={i} className={cn("flex gap-5 p-5 rounded-[24px] border border-slate-100 transition-colors", item.c)}>
-                                    <span className="font-black text-blue-600 text-xs whitespace-nowrap pt-0.5">{item.f}:</span>
-                                    <span className="text-[11px] font-bold text-slate-400 uppercase leading-snug">{item.d}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {manualModules.map((module) => (
+                    <Card key={module.id} className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-slate-100 flex flex-col h-full">
+                        <CardHeader className="p-8 pb-4">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className={cn(
+                                    "h-14 w-14 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform",
+                                    module.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                                    module.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                    module.color === 'orange' ? 'bg-orange-50 text-orange-600' :
+                                    module.color === 'indigo' ? 'bg-indigo-50 text-indigo-600' :
+                                    module.color === 'purple' ? 'bg-purple-50 text-purple-600' :
+                                    'bg-teal-50 text-teal-600'
+                                )}>
+                                    <module.icon className="h-7 w-7" />
                                 </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* 2. Flujo de Registro y Nómina */}
-                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-emerald-500">
-                    <CardHeader className="p-10 pb-6">
-                        <div className="flex items-center gap-6">
-                            <div className="h-16 w-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><Hammer className="h-8 w-8" /></div>
-                            <div>
-                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">2. Registro</h3>
-                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">Flujo y Automatización</p>
+                                <h3 className="font-black uppercase tracking-tight text-xl text-slate-800 leading-tight">{module.title}</h3>
                             </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-10 pt-0 space-y-10">
-                        <div className="space-y-4">
-                            <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-2"><Zap className="h-4 w-4 text-amber-500" /> NÓMINA MIXTA (Motor BI)</h4>
-                            <div className="p-8 rounded-[32px] bg-emerald-50/50 border border-emerald-100 space-y-6">
-                                <p className="text-[11px] font-bold text-emerald-900/70 leading-relaxed uppercase">Al activar el interruptor <span className="text-emerald-700 font-black">"NÓMINA MIXTA BI"</span> durante el registro de un sueldo, el sistema realiza lo siguiente:</p>
-                                <ul className="space-y-4">
-                                    <li className="flex gap-3 text-[10px] font-black uppercase text-emerald-800/60"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> Calcula el monto proporcional para cada canal (ML, Mayoreo, Físico).</li>
-                                    <li className="flex gap-3 text-[10px] font-black uppercase text-emerald-800/60"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> Crea 3 registros independientes con trazabilidad técnica.</li>
-                                    <li className="flex gap-3 text-[10px] font-black uppercase text-emerald-800/60"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> Etiqueta el esfuerzo para análisis de rentabilidad real.</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div className="pt-4 border-t border-slate-50">
-                            <h4 className="text-xs font-black uppercase text-slate-800 mb-4">Gasto Fijo vs Recurrente</h4>
-                            <p className="text-[11px] font-bold text-slate-400 leading-relaxed uppercase">Marcar un gasto como <span className="text-slate-900">FIJO</span> es crítico: esto alimenta el cálculo automático del <span className="text-[#2D5A4C]">PUNTO DE EQUILIBRIO</span> mensual necesario para la supervivencia operativa.</p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* 3. Metas Presupuestarias V3 */}
-                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-orange-500">
-                    <CardHeader className="p-10 pb-6">
-                        <div className="flex items-center gap-6">
-                            <div className="h-16 w-16 bg-orange-50 text-orange-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><History className="h-8 w-8" /></div>
-                            <div>
-                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">3. Presupuestos</h3>
-                                <p className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">Trazabilidad V3 Pro</p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-10 pt-0 space-y-8">
-                        <p className="text-sm font-bold text-slate-500 leading-relaxed uppercase">El sistema audita el historial de asignaciones presupuestarias para evitar fraudes o errores de captura:</p>
-                        <div className="space-y-3">
-                            {[
-                                { s: 'NUEVO', d: 'Asignación inicial de fondos para el periodo.', c: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-                                { s: 'ACTUALIZADO', d: 'Modificación del monto después de la creación.', c: 'bg-blue-50 text-blue-700 border-blue-100' },
-                                { s: 'BORRADO', d: 'Registro desactivado o llevado a $0.00.', c: 'bg-rose-50 text-rose-700 border-rose-100' }
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center justify-between p-5 rounded-[24px] bg-slate-50 border border-slate-100">
-                                    <Badge className={cn("text-[9px] font-black px-3 py-1 border shadow-none uppercase", item.c)}>{item.s}</Badge>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tight">{item.d}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="p-6 bg-slate-900 rounded-[24px] text-white space-y-3">
-                            <div className="flex items-center gap-2"><Calculator className="h-4 w-4 text-orange-400" /><span className="text-[10px] font-black uppercase">Fórmula de Supervivencia</span></div>
-                            <p className="text-[18px] font-black tracking-tighter text-orange-100 font-mono">META = Σ GASTO FIJO / 0.40</p>
-                            <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest leading-relaxed">Calculado automáticamente usando el 40% de Margen de Contribución configurado.</p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* 4. Auditoría y Exportación */}
-                <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[40px] group hover:shadow-2xl transition-all duration-500 border-t-8 border-t-purple-500">
-                    <CardHeader className="p-10 pb-6">
-                        <div className="flex items-center gap-6">
-                            <div className="h-16 w-16 bg-purple-50 text-purple-600 rounded-3xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform"><FileDown className="h-8 w-8" /></div>
-                            <div>
-                                <h3 className="font-black uppercase tracking-tight text-3xl text-slate-800">4. Auditoría</h3>
-                                <p className="text-[10px] font-black text-purple-500 uppercase tracking-[0.2em]">Herramientas de Control</p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-10 pt-0 space-y-8">
-                        <div className="space-y-6">
-                            <div className="flex gap-5 group/item">
-                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 group-hover/item:bg-purple-600 group-hover/item:text-white transition-colors duration-300"><Download className="h-5 w-5" /></div>
-                                <div className="space-y-1">
-                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Reporte Maestro Excel</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Genera un libro estructurado con las 20 columnas técnicas para análisis en PowerBI o Excel.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-5 group/item">
-                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-600 group-hover/item:text-white transition-colors duration-300"><FileText className="h-5 w-5" /></div>
-                                <div className="space-y-1">
-                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Fichas PDF Individuales</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Documentos formales de 19 columnas con sellos de tiempo para validación de gastos uno a uno.</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-5 group/item">
-                                <div className="h-10 w-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 group-hover/item:bg-blue-600 group-hover/item:text-white transition-colors duration-300"><Search className="h-5 w-5" /></div>
-                                <div className="space-y-1">
-                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">Filtros Avanzados</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">Segmenta por Empresa, Tipo de Transacción (Ingresos/Gastos) y Periodo para conciliar saldos.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="pt-6 border-t border-slate-50 flex items-center justify-center">
-                            <Badge variant="outline" className="font-black text-[9px] uppercase tracking-widest border-slate-200 text-slate-400 px-6 py-2 rounded-full">Sistema Certificado para Auditoría BI</Badge>
-                        </div>
-                    </CardContent>
-                </Card>
+                            <p className="text-xs font-bold text-slate-400 uppercase leading-relaxed">{module.shortDesc}</p>
+                        </CardHeader>
+                        <CardContent className="px-8 pb-8 pt-4 mt-auto">
+                            <Button 
+                                onClick={() => setSelectedModule(module)}
+                                variant="outline" 
+                                className="w-full h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest border-slate-100 hover:bg-slate-50"
+                            >
+                                CONSULTAR DETALLE TÉCNICO
+                            </Button>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
-            {/* Banner Final de Punto de Equilibrio */}
             <Card className="border-none shadow-2xl bg-[#2D5A4C] text-white overflow-hidden rounded-[56px] p-20 relative">
                 <div className="absolute top-0 right-0 p-16 opacity-10 pointer-events-none"><ShieldCheck className="h-80 w-80" /></div>
                 <div className="relative z-10 flex flex-col lg:flex-row items-center gap-20">
@@ -1186,30 +1171,65 @@ function ManualView() {
                             <h3 className="text-5xl font-black uppercase tracking-tighter leading-[0.9]">PUNTO DE EQUILIBRIO DINÁMICO</h3>
                         </div>
                         <p className="text-lg font-bold text-white/70 leading-relaxed uppercase tracking-[0.05em]">
-                            NUESTRO MOTOR NO SOLO REGISTRA GASTOS; MONITOREA TU <span className="text-emerald-400 font-black">SUPERVIVENCIA EMPRESARIAL</span> EN TIEMPO REAL. AL IDENTIFICAR EL GASTO FIJO ACUMULADO Y CRUZARLO CON EL MARGEN BI DEL 40%, EL SISTEMA TE INDICA EXACTAMENTE CUÁNTO INGRESO NETO NECESITAS CADA DÍA PARA SALIR DE LA ZONA DE RIESGO Y ENTRAR EN LA ZONA DE RENTABILIDAD OPERATIVA.
+                            NUESTRO MOTOR NO SOLO REGISTRA GASTOS; MONITOREA TU <span className="text-emerald-400 font-black">SUPERVIVENCIA EMPRESARIAL</span> EN TIEMPO REAL. AL IDENTIFICAR EL GASTO FIJO ACUMULADO Y CRUZARLO CON EL MARGEN BI DEL 40%, EL SISTEMA TE INDICA EXACTAMENTE CUÁNTO INGRESO NETO NECESITAS CADA DÍA PARA SALIR DE LA ZONA DE RIESGO.
                         </p>
                         <div className="flex flex-wrap gap-6">
-                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl group hover:bg-white/10 transition-colors">
+                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl">
                                 <p className="text-[10px] font-black uppercase text-emerald-400 tracking-widest mb-1">Margen Base</p>
                                 <p className="text-3xl font-black tabular-nums">40% NETO</p>
                             </div>
-                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl group hover:bg-white/10 transition-colors">
+                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl">
                                 <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-1">Cálculo</p>
                                 <p className="text-3xl font-black tabular-nums">TIEMPO REAL</p>
-                            </div>
-                            <div className="px-8 py-5 bg-white/5 rounded-[28px] border border-white/10 backdrop-blur-xl group hover:bg-white/10 transition-colors">
-                                <p className="text-[10px] font-black uppercase text-amber-400 tracking-widest mb-1">Estado</p>
-                                <p className="text-3xl font-black tabular-nums">AUTOMÁTICO</p>
                             </div>
                         </div>
                     </div>
                     <div className="flex-shrink-0">
-                        <div className="h-56 w-56 border-[12px] border-white/5 rounded-[64px] flex items-center justify-center bg-white/5 backdrop-blur-2xl shadow-3xl transform -rotate-6 hover:rotate-0 transition-transform duration-700">
+                        <div className="h-56 w-56 border-[12px] border-white/5 rounded-[64px] flex items-center justify-center bg-white/5 backdrop-blur-2xl shadow-3xl transform -rotate-6">
                             <Scale className="h-24 w-24 text-emerald-400 drop-shadow-2xl" />
                         </div>
                     </div>
                 </div>
             </Card>
+
+            <Dialog open={!!selectedModule} onOpenChange={() => setSelectedModule(null)}>
+                <DialogContent className="max-w-3xl rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
+                    <div className="p-12 space-y-10">
+                        <DialogHeader>
+                            <div className="flex items-center gap-6 mb-4">
+                                <div className="h-16 w-16 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-800 shadow-sm">
+                                    {selectedModule?.icon && <selectedModule.icon className="h-8 w-8" />}
+                                </div>
+                                <div>
+                                    <DialogTitle className="text-4xl font-black uppercase tracking-tighter text-slate-900 leading-none">{selectedModule?.title}</DialogTitle>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Módulo Técnico Operativo</p>
+                                </div>
+                            </div>
+                        </DialogHeader>
+
+                        <div className="space-y-8">
+                            <p className="text-lg font-bold text-slate-600 leading-relaxed uppercase">{selectedModule?.fullDesc}</p>
+                            
+                            <div className="grid grid-cols-1 gap-4">
+                                {selectedModule?.points.map((point: string, i: number) => (
+                                    <div key={i} className="flex gap-5 p-6 rounded-[24px] bg-slate-50 border border-slate-100 transition-colors hover:bg-slate-100/50">
+                                        <div className="h-6 w-6 rounded-full bg-[#2D5A4C] flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-0.5">{i+1}</div>
+                                        <span className="text-[13px] font-black text-slate-700 uppercase leading-snug">{point}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-10 bg-slate-50 border-t flex justify-end">
+                        <Button 
+                            onClick={() => setSelectedModule(null)}
+                            className="h-14 px-12 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl text-white tracking-widest"
+                        >
+                            ENTENDIDO
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -1654,7 +1674,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
             <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
                 <DialogContent className="max-w-3xl w-[95vw] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
-                    <ScrollArea className="max-h-[80vh] no-scrollbar">
+                    <ScrollArea className="max-h-[85vh] no-scrollbar">
                         <div className="p-10 sm:p-12 space-y-12">
                             <DialogHeader>
                                 <div className="flex flex-col text-left">
