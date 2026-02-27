@@ -15,7 +15,7 @@ import {
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
   FileDown, Hammer, Settings2, ShieldCheck, Download,
   BookOpen, Zap, LayoutGrid, Scale, Calculator, History, ClipboardCheck,
-  TrendingDown, Landmark, ArrowRight
+  TrendingDown, Landmark, ArrowRight, X
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -1034,11 +1034,11 @@ function ManualView() {
             shortDesc: 'Jerarquía técnica de 5 niveles para una trazabilidad del 100%.',
             fullDesc: 'Nuestro motor financiero opera bajo una estructura relacional estricta para garantizar auditorías impecables. Cada movimiento debe fluir a través de:',
             points: [
-                'F1 IMPACTO: Naturaleza del flujo (Operativo, Administrativo).',
-                'F2 ÁREA: Departamento responsable del presupuesto.',
-                'F3 MACRO: Categoría principal para metas mensuales.',
-                'F4 CATEGORÍA: Desglose específico del rubro de gasto.',
-                'F5 SUBCATEGORÍA: Nivel de detalle para análisis de costos unitarios.'
+                'F1 IMPACTO: Define la naturaleza del flujo (Estratégico, Operativo, Administrativo).',
+                'F2 ÁREA: Identifica el departamento responsable de la ejecución del presupuesto.',
+                'F3 MACRO: Categoría principal utilizada para la asignación de metas mensuales.',
+                'F4 CATEGORÍA: Desglose específico del rubro de gasto para análisis departamental.',
+                'F5 SUBCATEGORÍA: Nivel máximo de detalle para el análisis de costos unitarios y control de insumos.'
             ]
         },
         {
@@ -1047,12 +1047,12 @@ function ManualView() {
             icon: Zap,
             color: 'emerald',
             shortDesc: 'Captura técnica de movimientos y automatización de nómina.',
-            fullDesc: 'El registro de transacciones es el corazón del sistema BI. Al ingresar un nuevo movimiento:',
+            fullDesc: 'El registro de transacciones es el corazón del sistema BI. Al ingresar un nuevo movimiento se activan múltiples motores:',
             points: [
-                'Clasificación por tipo (Ingreso, Gasto, Compra, Venta).',
-                'Asignación de canal (ML, Mayoreo, Shopify, Físico).',
-                'Interruptor de Gasto Fijo: Vital para el Punto de Equilibrio.',
-                'Nómina Mixta: Distribución automática del sueldo por canales.'
+                'CLASIFICACIÓN TÉCNICA: Selección obligatoria de los 5 niveles jerárquicos.',
+                'INTERRUPTOR DE GASTO FIJO: Vital para el cálculo automático del Punto de Equilibrio diario.',
+                'CANALES ASOCIADOS: Vinculación del costo directamente con el canal de venta (ML, Shopify, etc).',
+                'NÓMINA MIXTA: Distribución automática del sueldo base entre los canales configurados en la plantilla BI.'
             ]
         },
         {
@@ -1061,12 +1061,12 @@ function ManualView() {
             icon: History,
             color: 'orange',
             shortDesc: 'Trazabilidad de asignaciones y estados de ejecución.',
-            fullDesc: 'El motor V3 audita cada cambio en los techos financieros para evitar fraudes o errores:',
+            fullDesc: 'El motor V3 audita cada cambio en los techos financieros para evitar fraudes o errores humanos:',
             points: [
-                'Estado NUEVO: Asignación inicial del periodo.',
-                'Estado ACTUALIZADO: Modificaciones registradas con marca de tiempo.',
-                'Disponible Dinámico: Cálculo en tiempo real (Presupuesto - Ejecutado).',
-                'Alertas de Consumo: Indicadores visuales cuando se supera el 90%.'
+                'ESTADO NUEVO: Indica la asignación presupuestaria inicial configurada para el periodo.',
+                'ESTADO ACTUALIZADO: Registra cualquier modificación posterior con marca de tiempo precisa.',
+                'DISPONIBLE DINÁMICO: Cálculo en tiempo real restando el gasto ejecutado del presupuesto asignado.',
+                'ALERTAS DE CONSUMO: Indicadores visuales automáticos cuando una categoría supera el 90% del límite.'
             ]
         },
         {
@@ -1075,12 +1075,12 @@ function ManualView() {
             icon: Activity,
             color: 'indigo',
             shortDesc: 'Análisis comparativo diario de ingresos y egresos.',
-            fullDesc: 'Visualización detallada del comportamiento diario de la tesorería:',
+            fullDesc: 'Visualización detallada del comportamiento diario de la tesorería corporativa:',
             points: [
-                'Gráfico de Barras: Comparativa instantánea de entrada vs salida.',
-                'Auditoría por Día: Haz clic en cualquier barra para ver el detalle técnico.',
-                'Balance Neto: Cálculo automático de rentabilidad del periodo.',
-                'Tendencia Acumulativa: Monitoreo del ritmo de gasto contra el objetivo.'
+                'GRÁFICO DE BARRAS: Comparativa visual instantánea entre entradas (Azul) y salidas (Rojo).',
+                'AUDITORÍA POR DÍA: Haz clic en cualquier barra del gráfico para abrir el desglose técnico de ese día.',
+                'BALANCE NETO: Cálculo automático de la rentabilidad operativa del periodo seleccionado.',
+                'TENDENCIA ACUMULATIVA: Monitoreo gráfico del ritmo de gasto real contra el techo presupuestario.'
             ]
         },
         {
@@ -1088,13 +1088,13 @@ function ManualView() {
             title: 'Auditoría y Exportaciones',
             icon: FileDown,
             color: 'purple',
-            shortDesc: 'Generación de reportes maestros en Excel y PDF.',
-            fullDesc: 'Herramientas de control para validar la integridad de la base de datos:',
+            shortDesc: 'Generación de reportes maestros en Excel y PDF de alta gama.',
+            fullDesc: 'Herramientas de control para validar la integridad de la base de datos y presentar informes formales:',
             points: [
-                'Reporte Excel (.xlsx): Libro estructurado con las 20 columnas técnicas.',
-                'Ficha PDF Individual: Documento formal de auditoría para cada registro.',
-                'Informe Maestro PDF: Resumen horizontal elegante de todo el periodo.',
-                'Filtros Avanzados: Segmentación por empresa, tipo y rango de fecha.'
+                'REPORTE EXCEL (.XLSX): Libro estructurado con las 20 columnas técnicas para análisis profundo.',
+                'FICHA PDF INDIVIDUAL: Documento formal de auditoría generado desde el visor de detalles.',
+                'INFORME MAESTRO PDF: Resumen horizontal elegante con encabezados institucionales verdes.',
+                'FILTROS AVANZADOS: Segmentación instantánea por empresa, tipo de flujo y rangos de fecha.'
             ]
         },
         {
@@ -1103,12 +1103,12 @@ function ManualView() {
             icon: ShieldCheck,
             color: 'teal',
             shortDesc: 'Inteligencia financiera y motor de punto de equilibrio.',
-            fullDesc: 'Configura el cerebro de la plataforma para obtener análisis precisos:',
+            fullDesc: 'Configura el cerebro de la plataforma para obtener análisis predictivos precisos:',
             points: [
-                'Margen de Contribución: Define el % neto para el Punto de Equilibrio.',
-                'Supervivencia: Monto diario necesario basado en el gasto fijo acumulado.',
-                'Plantilla de Nómina: % de esfuerzo predefinido para fraccionamientos.',
-                'Historial de Datos: Días de ventana para promedios operativos.'
+                'MARGEN DE CONTRIBUCIÓN: Define el porcentaje neto promedio para el cálculo de supervivencia.',
+                'META DE SUPERVIVENCIA: Monto diario necesario basado en el gasto fijo acumulado del mes.',
+                'PLANTILLA DE NÓMINA: Porcentajes de esfuerzo predefinidos para el fraccionamiento de sueldos.',
+                'HISTORIAL DE DATOS: Define la ventana de tiempo para el cálculo de promedios operativos.'
             ]
         }
     ];
@@ -1194,39 +1194,44 @@ function ManualView() {
 
             <Dialog open={!!selectedModule} onOpenChange={() => setSelectedModule(null)}>
                 <DialogContent className="max-w-3xl rounded-[40px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
-                    <div className="p-12 space-y-10">
-                        <DialogHeader>
-                            <div className="flex items-center gap-6 mb-4">
-                                <div className="h-16 w-16 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-800 shadow-sm">
-                                    {selectedModule?.icon && <selectedModule.icon className="h-8 w-8" />}
-                                </div>
-                                <div>
-                                    <DialogTitle className="text-4xl font-black uppercase tracking-tighter text-slate-900 leading-none">{selectedModule?.title}</DialogTitle>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Módulo Técnico Operativo</p>
-                                </div>
-                            </div>
-                        </DialogHeader>
-
-                        <div className="space-y-8">
-                            <p className="text-lg font-bold text-slate-600 leading-relaxed uppercase">{selectedModule?.fullDesc}</p>
-                            
-                            <div className="grid grid-cols-1 gap-4">
-                                {selectedModule?.points.map((point: string, i: number) => (
-                                    <div key={i} className="flex gap-5 p-6 rounded-[24px] bg-slate-50 border border-slate-100 transition-colors hover:bg-slate-100/50">
-                                        <div className="h-6 w-6 rounded-full bg-[#2D5A4C] flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-0.5">{i+1}</div>
-                                        <span className="text-[13px] font-black text-slate-700 uppercase leading-snug">{point}</span>
+                    <div className="flex flex-col h-[85vh]">
+                        <div className="p-12 pb-6 flex-shrink-0">
+                            <DialogHeader>
+                                <div className="flex items-center gap-6 mb-4">
+                                    <div className="h-16 w-16 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-800 shadow-sm">
+                                        {selectedModule?.icon && <selectedModule.icon className="h-8 w-8" />}
                                     </div>
-                                ))}
-                            </div>
+                                    <div>
+                                        <DialogTitle className="text-4xl font-black uppercase tracking-tighter text-slate-900 leading-none">{selectedModule?.title}</DialogTitle>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Módulo Técnico Operativo</p>
+                                    </div>
+                                </div>
+                            </DialogHeader>
                         </div>
-                    </div>
-                    <div className="p-10 bg-slate-50 border-t flex justify-end">
-                        <Button 
-                            onClick={() => setSelectedModule(null)}
-                            className="h-14 px-12 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl text-white tracking-widest"
-                        >
-                            ENTENDIDO
-                        </Button>
+
+                        <ScrollArea className="flex-1 px-12 pb-6">
+                            <div className="space-y-8 pr-4">
+                                <p className="text-lg font-bold text-slate-600 leading-relaxed uppercase">{selectedModule?.fullDesc}</p>
+                                
+                                <div className="grid grid-cols-1 gap-4">
+                                    {selectedModule?.points.map((point: string, i: number) => (
+                                        <div key={i} className="flex gap-5 p-6 rounded-[24px] bg-slate-50 border border-slate-100 transition-colors hover:bg-slate-100/50">
+                                            <div className="h-6 w-6 rounded-full bg-[#2D5A4C] flex items-center justify-center text-white text-[10px] font-black shrink-0 mt-0.5">{i+1}</div>
+                                            <span className="text-[13px] font-black text-slate-700 uppercase leading-snug">{point}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </ScrollArea>
+
+                        <div className="p-10 bg-slate-50 border-t flex justify-end flex-shrink-0">
+                            <Button 
+                                onClick={() => setSelectedModule(null)}
+                                className="h-14 px-12 bg-slate-900 hover:bg-black rounded-2xl font-black uppercase text-[10px] shadow-xl text-white tracking-widest"
+                            >
+                                ENTENDIDO
+                            </Button>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
