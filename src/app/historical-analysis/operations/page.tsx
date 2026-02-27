@@ -14,7 +14,7 @@ import {
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
   FileDown, Wrench, Settings2, Hammer, HeartPulse, AlertCircle, Download,
-  BookOpen, Lightbulb, Zap, ShieldCheck
+  BookOpen, Lightbulb, Zap, ShieldCheck, ArrowRight, LayoutGrid, BarChart3, ListTree
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
@@ -1020,82 +1020,140 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
 
 function ManualView() {
     return (
-        <div className="space-y-10 animate-in fade-in duration-500 max-w-5xl mx-auto">
+        <div className="space-y-12 animate-in fade-in duration-500 max-w-6xl mx-auto pb-20">
             <div className="text-center space-y-4">
-                <div className="inline-flex h-16 w-16 items-center justify-center bg-[#2D5A4C]/10 rounded-[24px] text-[#2D5A4C] mb-4">
-                    <BookOpen className="h-8 w-8" />
+                <div className="inline-flex h-20 w-20 items-center justify-center bg-[#2D5A4C]/10 rounded-[32px] text-[#2D5A4C] mb-4">
+                    <BookOpen className="h-10 w-10" />
                 </div>
-                <h2 className="text-4xl font-black uppercase tracking-tighter text-slate-900">Manual de Operaciones Financieras</h2>
-                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Guía Maestra para el Control de Gastos y Presupuestos</p>
+                <h2 className="text-5xl font-black uppercase tracking-tighter text-slate-900">Manual Maestro de Operaciones</h2>
+                <p className="text-slate-500 font-bold uppercase text-xs tracking-[0.3em]">Sistema de Inteligencia Financiera BI - v3.0</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Activity className="h-5 w-5" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-lg">1. Panel de Inicio</h3>
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-blue-500">
+                    <div className="flex items-center gap-5">
+                        <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner"><LayoutGrid className="h-6 w-6" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-2xl">1. Arquitectura de 5 Niveles</h3>
                     </div>
-                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
-                        Visualiza la salud financiera inmediata. Compara ingresos vs egresos y monitorea el **Gasto Fijo Real** contra la **Meta de Supervivencia**. 
-                        Utiliza el calendario interactivo para auditar días específicos de operación.
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed uppercase">
+                        Para una auditoría precisa, cada gasto debe clasificarse siguiendo nuestra jerarquía técnica:
                     </p>
-                    <div className="bg-slate-50 p-4 rounded-xl space-y-2">
-                        <div className="flex items-center gap-2 text-[9px] font-black text-blue-600 uppercase"><Zap className="h-3 w-3" /> Tip Técnico</div>
-                        <p className="text-[10px] font-bold text-slate-400 leading-tight uppercase">Haz clic en las barras del gráfico diario para abrir el visor de auditoría instantánea.</p>
+                    <div className="space-y-4">
+                        {[
+                            { f: 'F1 - Impacto', d: 'Define si el gasto es Operativo, Administrativo o de Venta.' },
+                            { f: 'F2 - Área', d: 'Identifica el departamento responsable (Logística, RRHH, etc).' },
+                            { f: 'F3 - Macro', d: 'Categoría principal para la asignación de presupuestos.' },
+                            { f: 'F4 - Categoría', d: 'Desglose específico del rubro de gasto.' },
+                            { f: 'F5 - Subcategoría', d: 'El nivel más bajo para análisis de costos unitarios.' }
+                        ].map((item, i) => (
+                            <div key={i} className="flex gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:bg-white transition-colors">
+                                <span className="font-black text-[#2D5A4C] text-xs whitespace-nowrap">{item.f}:</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase leading-tight">{item.d}</span>
+                            </div>
+                        ))}
                     </div>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><FileText className="h-5 w-5" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-lg">2. Informes y Auditoría</h3>
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-emerald-500">
+                    <div className="flex items-center gap-5">
+                        <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner"><Hammer className="h-6 w-6" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-2xl">2. Automatización de Nómina</h3>
                     </div>
-                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
-                        Gestión total de la base de datos de movimientos. Filtra por empresa, rango de fecha o responsable. 
-                        Exporta toda la tabla a **CSV** o descarga comprobantes individuales en **PDF**.
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed uppercase">
+                        El sistema integra un motor de **Fraccionamiento Inteligente** para la nómina compartida entre canales:
                     </p>
-                    <div className="bg-slate-50 p-4 rounded-xl space-y-2">
-                        <div className="flex items-center gap-2 text-[9px] font-black text-emerald-600 uppercase"><ShieldCheck className="h-3 w-3" /> Auditoría</div>
-                        <p className="text-[10px] font-bold text-slate-400 leading-tight uppercase">Utiliza el botón "Visualizar" para validar los 13 campos técnicos de cada registro.</p>
+                    <div className="bg-emerald-50/50 p-6 rounded-2xl space-y-4 border border-emerald-100">
+                        <div className="flex items-center gap-3 text-emerald-700">
+                            <Zap className="h-5 w-5" />
+                            <span className="font-black text-xs uppercase">¿Cómo funciona?</span>
+                        </div>
+                        <p className="text-[11px] font-bold text-emerald-900/70 leading-relaxed uppercase">
+                            Al registrar un sueldo con el interruptor **"NÓMINA MIXTA BI"** activo, el sistema dividirá el monto total en 3 registros independientes para Mercado Libre, Mayoreo y Físico, basándose en los porcentajes definidos en la pestaña de Configuración.
+                        </p>
+                        <div className="pt-2">
+                            <Badge className="bg-emerald-600 text-[9px] font-black px-3 py-1">TRAZABILIDAD AUTOMÁTICA</Badge>
+                        </div>
                     </div>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><Target className="h-5 w-5" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-lg">3. Metas Presupuestarias</h3>
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-orange-500">
+                    <div className="flex items-center gap-5">
+                        <div className="h-12 w-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner"><Target className="h-6 w-6" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-2xl">3. Metas Presupuestarias V3</h3>
                     </div>
-                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
-                        Define techos de gasto por Categoría Macro. El sistema utiliza **Arquitectura V3** para rastrear estados:
-                        <span className="block mt-2 font-black text-emerald-500">• NUEVO: Asignación inicial.</span>
-                        <span className="block font-black text-blue-500">• ACTUALIZADO: Cambio de monto.</span>
-                        <span className="block font-black text-rose-500">• BORRADO: Meta restablecida.</span>
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed uppercase">
+                        El seguimiento presupuestario utiliza estados dinámicos para una auditoría infalible:
                     </p>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-100">
+                            <span className="text-[10px] font-black text-emerald-700 uppercase">NUEVO</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">ASIGNACIÓN INICIAL DEL MES</span>
+                        </div>
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50 border border-blue-100">
+                            <span className="text-[10px] font-black text-blue-700 uppercase">ACTUALIZADO</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">MODIFICACIÓN DE MONTO MANUAL</span>
+                        </div>
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50 border border-rose-100">
+                            <span className="text-[10px] font-black text-rose-700 uppercase">BORRADO</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">REGISTRO ELIMINADO ($0.00)</span>
+                        </div>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 text-center uppercase tracking-widest">Las barras de progreso se recalculan en tiempo real con cada gasto.</p>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-slate-50 text-slate-600 rounded-xl flex items-center justify-center"><Settings2 className="h-5 w-5" /></div>
-                        <h3 className="font-black uppercase tracking-tight text-lg">4. Configuración BI</h3>
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[32px] p-10 space-y-8 hover:shadow-xl transition-all border-l-8 border-l-purple-500">
+                    <div className="flex items-center gap-5">
+                        <div className="h-12 w-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shadow-inner"><FileDown className="h-6 w-6" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-2xl">4. Herramientas de Auditoría</h3>
                     </div>
-                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
-                        El motor de inteligencia financiera. Configura el **Margen de Contribución** y la plantilla de **Nómina Mixta**. 
-                        Administra los catálogos relacionales de 5 niveles para mantener la integridad de los datos.
-                    </p>
+                    <div className="space-y-6">
+                        <div className="flex gap-4">
+                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Download className="h-4 w-4 text-slate-600" /></div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-black text-slate-800 uppercase">Exportar a CSV</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Descarga toda la base de datos filtrada para análisis en Excel o PowerBI.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><FileText className="h-4 w-4 text-slate-600" /></div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-black text-slate-800 uppercase">Comprobantes PDF</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Genera un reporte individual de cada movimiento desde el visor de detalles.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Search className="h-4 w-4 text-slate-600" /></div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-black text-slate-800 uppercase">Visor de Detalles</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Accede a las 13+ columnas técnicas de cada registro mediante el botón "Visualizar".</p>
+                            </div>
+                        </div>
+                    </div>
                 </Card>
             </div>
 
-            <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-[24px] p-10">
-                <div className="flex flex-col md:flex-row items-center gap-10">
-                    <div className="space-y-4 flex-1">
-                        <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Flujo Contable Automatizado</h3>
-                        <p className="text-[11px] font-bold text-white/70 leading-relaxed uppercase tracking-wider">
-                            Cada que registras un gasto con el interruptor "NÓMINA MIXTA" encendido, el sistema fracciona el monto automáticamente basándose en los porcentajes de configuración, generando 3 asientos contables vinculados a sus respectivos canales de venta.
+            <Card className="border-none shadow-2xl bg-[#2D5A4C] text-white overflow-hidden rounded-[40px] p-16 relative">
+                <div className="absolute top-0 right-0 p-10 opacity-10"><ShieldCheck className="h-64 w-64" /></div>
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-16">
+                    <div className="space-y-8 flex-1">
+                        <h3 className="text-4xl font-black uppercase tracking-tighter leading-none">Punto de Equilibrio Dinámico</h3>
+                        <p className="text-sm font-bold text-white/70 leading-relaxed uppercase tracking-[0.1em]">
+                            El sistema monitorea tu **Gasto Fijo Real** acumulado contra tus **Ingresos Netos**. Utilizando el Margen de Contribución configurado (Ej: 40%), el motor calcula instantáneamente la meta de supervivencia necesaria para cubrir los costos fijos antes de generar utilidad operativa real.
                         </p>
+                        <div className="flex gap-4">
+                            <div className="px-6 py-3 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md">
+                                <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Actualización</p>
+                                <p className="text-xl font-black tabular-nums">TIEMPO REAL</p>
+                            </div>
+                            <div className="px-6 py-3 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md">
+                                <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Margen Base</p>
+                                <p className="text-xl font-black tabular-nums">BI 40%</p>
+                            </div>
+                        </div>
                     </div>
                     <div className="flex-shrink-0">
-                        <div className="h-24 w-24 border-4 border-white/20 rounded-full flex items-center justify-center">
-                            <Lightbulb className="h-10 w-10 text-emerald-400" />
+                        <div className="h-40 w-40 border-8 border-white/10 rounded-[48px] flex items-center justify-center bg-white/5 backdrop-blur-xl shadow-2xl">
+                            <TrendingUp className="h-20 w-20 text-emerald-400" />
                         </div>
                     </div>
                 </div>
@@ -1479,7 +1537,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
             <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
                 <DialogContent className="max-w-3xl w-[95vw] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
-                    <ScrollArea className="max-h-[85vh] no-scrollbar">
+                    <ScrollArea className="max-h-[80vh] no-scrollbar">
                         <div className="p-10 sm:p-12 space-y-12">
                             <DialogHeader>
                                 <div className="flex flex-col text-left">
