@@ -20,7 +20,7 @@ import {
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area, AreaChart
 } from 'recharts';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { useToast } from '@/hooks/use-toast';
@@ -472,7 +472,7 @@ function BudgetsView({ transactions, catalogs, currentDate }: { transactions: ga
                 money(item.ejecutado),
                 money(item.disponible),
                 `${item.progreso.toFixed(1)}%`,
-                item.estado_registro === 'SIN_REGISTRO' ? '-' : `${item.estado_registro} (${item.ultima_actualizacion ? format(new Date(item.ultima_actualizacion), 'dd MMM HH:mm', { locale: es }) : '-'})`
+                item.estado_registro === 'SIN_REGISTRO' ? '-' : `${item.estado_registro === 'NUEVO' ? 'REGISTRO NUEVO' : item.estado_registro} (${item.ultima_actualizacion ? format(new Date(item.ultima_actualizacion), 'dd MMM HH:mm', { locale: es }) : '-'})`
             ]);
 
         autoTable(doc, {
@@ -1626,6 +1626,7 @@ export default function OperationsPage() {
 
     const [periodType, setPeriodType] = React.useState<'day' | 'month' | 'six_months' | 'year' | 'custom'>('month');
     const [filterCompany, setFilterCompany] = React.useState<string>('TODAS');
+    const [filterType, setFilterType] = React.useState<string>('TODOS');
 
     const [biConfig, setBiConfig] = React.useState({
         contributionMargin: 40,
@@ -1671,13 +1672,21 @@ export default function OperationsPage() {
             }
 
             let query = supabase.from('gastos_diarios').select('*').gte('fecha', format(start, 'yyyy-MM-dd')).lte('fecha', format(end, 'yyyy-MM-dd'));
+            
             if (filterCompany !== 'TODAS') query = query.eq('empresa', filterCompany);
+            
+            if (filterType === 'INGRESOS') {
+                query = query.in('tipo_transaccion', ['INGRESO', 'VENTA']);
+            } else if (filterType === 'GASTOS') {
+                query = query.in('tipo_transaccion', ['GASTO', 'COMPRA']);
+            }
+
             const { data, error } = await query.order('fecha', { ascending: false });
             if (error) throw error;
             setTransactions(data || []);
         } catch (e: any) { toast({ title: "Error", description: "No se pudieron cargar los movimientos.", variant: "destructive" }); }
         finally { setIsLoading(false); }
-    }, [currentDate, periodType, filterCompany, toast]);
+    }, [currentDate, periodType, filterCompany, filterType, toast]);
 
     React.useEffect(() => { setIsClient(true); fetchCatalogs(); }, [fetchCatalogs]);
     React.useEffect(() => { if (isClient) fetchAllData(); }, [fetchAllData, isClient]);
@@ -1785,6 +1794,17 @@ export default function OperationsPage() {
                             <SelectContent>
                                 <SelectItem value="TODAS" className="text-xs font-bold uppercase">Todas</SelectItem>
                                 {EMPRESAS.map(e => <SelectItem key={e} value={e} className="text-xs font-bold uppercase">{e}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-muted-foreground" />
+                        <Select value={filterType} onValueChange={setFilterType}>
+                            <SelectTrigger className="h-8 w-[130px] text-xs font-bold uppercase border-slate-200"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="TODOS" className="text-xs font-bold uppercase">Todos</SelectItem>
+                                <SelectItem value="INGRESOS" className="text-xs font-bold uppercase">Ingresos</SelectItem>
+                                <SelectItem value="GASTOS" className="text-xs font-bold uppercase">Gastos</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
