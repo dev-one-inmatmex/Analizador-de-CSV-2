@@ -13,13 +13,14 @@ import {
   Search, Filter, Activity,
   Target, TrendingUp, Save, CalendarDays, FileText,
   SlidersHorizontal, CheckCircle2, ChevronLeft, ChevronRight, Info, Eye,
-  FileDown, Wrench, Settings2, Hammer, HeartPulse, AlertCircle, Download
+  FileDown, Wrench, Settings2, Hammer, HeartPulse, AlertCircle, Download,
+  BookOpen, Lightbulb, Zap, ShieldCheck
 } from 'lucide-react';
 import { 
   Bar as RechartsBar, BarChart as RechartsBarChart, CartesianGrid, Legend, Pie, PieChart, 
   ResponsiveContainer, Tooltip, XAxis, YAxis, Cell, ComposedChart, Line, Area, AreaChart
 } from 'recharts';
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { useToast } from '@/hooks/use-toast';
@@ -1017,6 +1018,92 @@ function SettingsView({ catalogs, onRefresh, biConfig, setBiConfig }: { catalogs
     );
 }
 
+function ManualView() {
+    return (
+        <div className="space-y-10 animate-in fade-in duration-500 max-w-5xl mx-auto">
+            <div className="text-center space-y-4">
+                <div className="inline-flex h-16 w-16 items-center justify-center bg-[#2D5A4C]/10 rounded-[24px] text-[#2D5A4C] mb-4">
+                    <BookOpen className="h-8 w-8" />
+                </div>
+                <h2 className="text-4xl font-black uppercase tracking-tighter text-slate-900">Manual de Operaciones Financieras</h2>
+                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Guía Maestra para el Control de Gastos y Presupuestos</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Activity className="h-5 w-5" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-lg">1. Panel de Inicio</h3>
+                    </div>
+                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
+                        Visualiza la salud financiera inmediata. Compara ingresos vs egresos y monitorea el **Gasto Fijo Real** contra la **Meta de Supervivencia**. 
+                        Utiliza el calendario interactivo para auditar días específicos de operación.
+                    </p>
+                    <div className="bg-slate-50 p-4 rounded-xl space-y-2">
+                        <div className="flex items-center gap-2 text-[9px] font-black text-blue-600 uppercase"><Zap className="h-3 w-3" /> Tip Técnico</div>
+                        <p className="text-[10px] font-bold text-slate-400 leading-tight uppercase">Haz clic en las barras del gráfico diario para abrir el visor de auditoría instantánea.</p>
+                    </div>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><FileText className="h-5 w-5" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-lg">2. Informes y Auditoría</h3>
+                    </div>
+                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
+                        Gestión total de la base de datos de movimientos. Filtra por empresa, rango de fecha o responsable. 
+                        Exporta toda la tabla a **CSV** o descarga comprobantes individuales en **PDF**.
+                    </p>
+                    <div className="bg-slate-50 p-4 rounded-xl space-y-2">
+                        <div className="flex items-center gap-2 text-[9px] font-black text-emerald-600 uppercase"><ShieldCheck className="h-3 w-3" /> Auditoría</div>
+                        <p className="text-[10px] font-bold text-slate-400 leading-tight uppercase">Utiliza el botón "Visualizar" para validar los 13 campos técnicos de cada registro.</p>
+                    </div>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><Target className="h-5 w-5" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-lg">3. Metas Presupuestarias</h3>
+                    </div>
+                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
+                        Define techos de gasto por Categoría Macro. El sistema utiliza **Arquitectura V3** para rastrear estados:
+                        <span className="block mt-2 font-black text-emerald-500">• NUEVO: Asignación inicial.</span>
+                        <span className="block font-black text-blue-500">• ACTUALIZADO: Cambio de monto.</span>
+                        <span className="block font-black text-rose-500">• BORRADO: Meta restablecida.</span>
+                    </p>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px] p-8 space-y-6">
+                    <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-slate-50 text-slate-600 rounded-xl flex items-center justify-center"><Settings2 className="h-5 w-5" /></div>
+                        <h3 className="font-black uppercase tracking-tight text-lg">4. Configuración BI</h3>
+                    </div>
+                    <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase">
+                        El motor de inteligencia financiera. Configura el **Margen de Contribución** y la plantilla de **Nómina Mixta**. 
+                        Administra los catálogos relacionales de 5 niveles para mantener la integridad de los datos.
+                    </p>
+                </Card>
+            </div>
+
+            <Card className="border-none shadow-lg bg-[#2D5A4C] text-white overflow-hidden rounded-[24px] p-10">
+                <div className="flex flex-col md:flex-row items-center gap-10">
+                    <div className="space-y-4 flex-1">
+                        <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Flujo Contable Automatizado</h3>
+                        <p className="text-[11px] font-bold text-white/70 leading-relaxed uppercase tracking-wider">
+                            Cada que registras un gasto con el interruptor "NÓMINA MIXTA" encendido, el sistema fracciona el monto automáticamente basándose en los porcentajes de configuración, generando 3 asientos contables vinculados a sus respectivos canales de venta.
+                        </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                        <div className="h-24 w-24 border-4 border-white/20 rounded-full flex items-center justify-center">
+                            <Lightbulb className="h-10 w-10 text-emerald-400" />
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        </div>
+    );
+}
+
 function InsightsView({ transactions, isLoading, currentDate, setCurrentDate, catalogs, biConfig }: any) {
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
     const [selectedDayData, setSelectedDayData] = React.useState<any>(null);
@@ -1446,7 +1533,7 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
 export default function OperationsPage() {
     const [isClient, setIsClient] = React.useState(false);
-    const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion'>('inicio');
+    const [currentView, setCurrentView] = React.useState<'inicio' | 'informes' | 'presupuestos' | 'configuracion' | 'manual'>('inicio');
     const [transactions, setTransactions] = React.useState<gastos_diarios[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -1575,6 +1662,7 @@ export default function OperationsPage() {
                             <TabsTrigger value="informes" className="text-xs font-bold uppercase">Informes</TabsTrigger>
                             <TabsTrigger value="presupuestos" className="text-xs font-bold uppercase">Presupuestos</TabsTrigger>
                             <TabsTrigger value="configuracion" className="text-xs font-bold uppercase">Configuración</TabsTrigger>
+                            <TabsTrigger value="manual" className="text-xs font-bold uppercase">Manual</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
@@ -1632,6 +1720,7 @@ export default function OperationsPage() {
                 {currentView === 'informes' && <ReportsView transactions={transactions} isLoading={isLoading} onEditTransaction={(t: any) => { setEditingTransaction(t); setIsFormOpen(true); }} onDeleteTransaction={onDeleteTransaction} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'presupuestos' && <BudgetsView transactions={transactions} catalogs={catalogs} currentDate={currentDate} />}
                 {currentView === 'configuracion' && <SettingsView catalogs={catalogs} onRefresh={fetchCatalogs} biConfig={biConfig} setBiConfig={setBiConfig} />}
+                {currentView === 'manual' && <ManualView />}
             </main>
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
