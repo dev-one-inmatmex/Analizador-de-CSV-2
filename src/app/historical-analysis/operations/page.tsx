@@ -1379,27 +1379,37 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
         const catName = catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-';
         const subName = catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-';
 
-        // Header
-        doc.setFillColor(45, 90, 76);
+        // Estilos de color institucional
+        const primaryColor = [45, 90, 76]; // #2D5A4C
+
+        // Cabecera Formal
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.rect(0, 0, 210, 45, 'F');
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
+        
+        doc.setFontSize(24);
         doc.setFont('helvetica', 'bold');
         doc.text('AUDITORÍA TÉCNICA DE MOVIMIENTO', 20, 25);
-        doc.setFontSize(10);
+        
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`ID REGISTRO: #${t.id} | EMISIÓN: ${new Date().toLocaleString('es-MX')}`, 20, 35);
+        doc.text(`REGISTRO ÚNICO: #${t.id}  |  EMISIÓN: ${new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, 20, 35);
 
-        // Body Table with all columns
+        // Cuerpo de Datos - Formato Tabla Vertical Formal
         autoTable(doc, {
             startY: 55,
             theme: 'striped',
-            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255], fontStyle: 'bold' },
-            styles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: { 0: { fontStyle: 'bold', width: 50 } },
+            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10 },
+            bodyStyles: { fontSize: 9, cellPadding: 4, textColor: [40, 40, 40] },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: { 
+                0: { fontStyle: 'bold', width: 60, textColor: [100, 116, 139] },
+                1: { fontStyle: 'normal' }
+            },
+            head: [['CONCEPTO TÉCNICO', 'VALOR REGISTRADO']],
             body: [
-                ['FECHA DE REGISTRO', t.fecha],
-                ['MONTO TOTAL', money(t.monto)],
+                ['FECHA DE REGISTRO', format(parseISO(t.fecha), "dd 'de' MMMM, yyyy", { locale: es }).toUpperCase()],
+                ['MONTO TOTAL (DIVISA)', money(t.monto)],
                 ['EMPRESA / ENTIDAD', t.empresa],
                 ['TIPO DE MOVIMIENTO', t.tipo_transaccion],
                 ['IMPACTO (F1)', impactName],
@@ -1413,18 +1423,20 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                 ['INSTITUCIÓN BANCARIA', t.banco || '-'],
                 ['CUENTA DE ORIGEN', t.cuenta || '-'],
                 ['RESPONSABLE', t.responsable || '-'],
-                ['CARÁCTER FIJO', t.es_fijo ? 'SÍ' : 'NO'],
+                ['CARÁCTER FIJO', t.es_fijo ? 'SÍ (RECURRENTE)' : 'NO (PUNTUAL)'],
                 ['CARÁCTER RECURRENTE', t.es_recurrente ? 'SÍ' : 'NO'],
-                ['DESCRIPCIÓN', t.descripcion || '-'],
-                ['NOTAS DEL SISTEMA', t.notas || '-']
+                ['DESCRIPCIÓN OPERATIVA', t.descripcion || '-'],
+                ['NOTAS DEL SISTEMA BI', t.notas || '-']
             ],
         });
 
-        // Footer
+        // Pie de Página Elegante
         const finalY = (doc as any).lastAutoTable.finalY || 200;
         doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text('Documento generado automáticamente por el Sistema de Inteligencia Financiera BI v3.0', 20, finalY + 20);
+        doc.setTextColor(160, 160, 160);
+        doc.text('_______________________________________________________________________________________________________', 20, finalY + 15);
+        doc.text('DOCUMENTO GENERADO POR EL MOTOR DE INTELIGENCIA FINANCIERA BI v3.0 - ANÁLISIS PRO ERP', 20, finalY + 22);
+        doc.text('LA ALTERACIÓN DE ESTE DOCUMENTO INVALIDA LA AUDITORÍA DIGITAL.', 20, finalY + 27);
 
         doc.save(`movimiento_auditoria_${t.id}.pdf`);
     };
