@@ -1198,25 +1198,29 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     const trendChartData = React.useMemo(() => {
         const days = eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
-        
         let cumulativeActual = 0;
-        const totalBudget = 200000; // Valor de ejemplo para el techo presupuestario visual ($200k)
+        const totalBudget = 200000;
         const dailyTarget = totalBudget / days.length;
 
         return days.map((day, index) => {
             const daySpending = transactions
                 .filter((t: any) => isSameDay(parseISO(t.fecha), day) && ['GASTO', 'COMPRA'].includes(t.tipo_transaccion))
                 .reduce((sum: number, t: any) => sum + (Number(t.monto) || 0), 0);
-            
             cumulativeActual += daySpending;
             const cumulativeTarget = dailyTarget * (index + 1);
+            return { name: format(day, 'd'), actual: cumulativeActual, target: cumulativeTarget };
+        });
+    }, [transactions, currentDate]);
 
-            return {
-                name: format(day, 'd'),
-                actual: cumulativeActual,
-                target: cumulativeTarget,
-                budgetMax: totalBudget
-            };
+    const barChartData = React.useMemo(() => {
+        return eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) }).map(day => {
+            const dayT = transactions.filter((t: any) => isSameDay(parseISO(t.fecha), day));
+            let exp = 0, inc = 0;
+            dayT.forEach((t: any) => {
+                const m = Number(t.monto) || 0;
+                if (['GASTO', 'COMPRA'].includes(t.tipo_transaccion)) exp += m; else inc += m;
+            });
+            return { name: format(day, 'd'), Ingresos: inc, Gastos: exp };
         });
     }, [transactions, currentDate]);
 
@@ -1230,69 +1234,28 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
         doc.setFillColor(45, 90, 76);
         doc.rect(0, 0, 210, 40, 'F');
-
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
         doc.text('REPORTE DE MOVIMIENTO FINANCIERO', 20, 20);
-        
         doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
         doc.text(`ID REGISTRO: #${t.id} | FECHA: ${t.fecha}`, 20, 30);
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('RESUMEN GENERAL', 20, 55);
 
         autoTable(doc, {
             startY: 60,
             theme: 'striped',
-            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255], fontStyle: 'bold' },
-            bodyStyles: { fontSize: 10 },
-            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 60 } },
+            headStyles: { fillColor: [45, 90, 76] },
             body: [
-                ['Concepto', subName],
-                ['Monto', money(t.monto)],
-                ['Tipo', t.tipo_transaccion],
-                ['Empresa', t.empresa],
-                ['Impacto (F1)', impactName],
-                ['Área (F2)', areaName],
-                ['Categoría Macro (F3)', macroName],
-                ['Categoría (F4)', catName],
-                ['Canal Asociado (F6)', String(t.canal_asociado || 'GENERAL').replace(/_/g, ' ')],
-                ['Atribución (F7)', String(t.clasificacion_operativa || 'DIRECTO').replace(/_/g, ' ')],
-                ['Responsable', t.responsable || '-'],
-                ['Propiedades', `${t.es_fijo ? '[FIJO]' : ''} ${t.es_recurrente ? '[RECURRENTE]' : ''}`.trim() || 'N/A'],
+                ['Concepto', subName], ['Monto', money(t.monto)], ['Tipo', t.tipo_transaccion], ['Empresa', t.empresa],
+                ['Impacto', impactName], ['Área', areaName], ['Macro', macroName], ['Canal', String(t.canal_asociado || 'GENERAL').replace(/_/g, ' ')],
+                ['Responsable', t.responsable || '-']
             ],
         });
-
-        const nextY = (doc as any).lastAutoTable.finalY + 15;
-        doc.setFontSize(14);
-        doc.text('DETALLES DE PAGO', 20, nextY);
-
-        autoTable(doc, {
-            startY: nextY + 5,
-            theme: 'grid',
-            headStyles: { fillColor: [45, 90, 76], textColor: [255, 255, 255], fontStyle: 'bold' },
-            body: [
-                [String(t.metodo_pago || '-').replace(/_/g, ' '), t.banco || '-', t.cuenta || '-'],
-            ],
-            head: [['Método', 'Banco', 'Cuenta']],
-        });
-
-        const notesY = (doc as any).lastAutoTable.finalY + 15;
-        doc.setFontSize(12);
-        doc.text('DESCRIPCIÓN Y NOTAS:', 20, notesY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text(t.descripcion || '-', 20, notesY + 10, { maxWidth: 170 });
-
-        doc.save(`reporte_movimiento_${t.id}_${t.fecha}.pdf`);
+        doc.save(`movimiento_${t.id}.pdf`);
     };
 
     const exportToCSV = () => {
-        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Clasificacion", "Responsable", "Monto"];
+        const headers = ["ID", "Fecha", "Empresa", "Tipo", "Impacto", "Area", "Macro", "Categoria", "Subcategoria", "Canal", "Monto"];
         const rows = transactions.map((t: any) => [
             t.id, t.fecha, t.empresa, t.tipo_transaccion,
             catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '',
@@ -1300,18 +1263,14 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '',
             catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '',
             catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '',
-            t.canal_asociado, t.clasificacion_operativa, t.responsable, t.monto
+            t.canal_asociado, t.monto
         ]);
-        
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `movimientos_${format(new Date(), 'yyyy_MM_dd')}.csv`);
-        document.body.appendChild(link);
+        link.href = URL.createObjectURL(blob);
+        link.download = `movimientos_${format(new Date(), 'yyyy_MM_dd')}.csv`;
         link.click();
-        document.body.removeChild(link);
     };
 
     if (isLoading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -1325,50 +1284,54 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden p-8">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
-                            <TrendingUp className="h-6 w-6 text-[#2D5A4C]" /> Tendencia de Ejecución vs Objetivo
-                        </CardTitle>
-                        <p className="text-xs font-bold uppercase text-slate-400 mt-1">Sincronización de gasto acumulado contra el techo presupuestario.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden p-8">
+                    <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-8">
+                        <TrendingUp className="h-6 w-6 text-[#2D5A4C]" /> Tendencia de Ejecución
+                    </CardTitle>
+                    <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={trendChartData}>
+                                <defs><linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" fontSize={10} axisLine={false} tick={{fill: '#94a3b8', fontWeight: 700}} />
+                                <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                                <Tooltip formatter={(v: number) => money(v)} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'}} />
+                                <Area type="monotone" dataKey="target" stroke="#3b82f6" strokeWidth={3} fill="url(#colorTarget)" name="Techo" dot={false} />
+                                <Line type="monotone" dataKey="actual" stroke="#f43f5e" strokeWidth={4} name="Real" dot={{ r: 4, fill: '#f43f5e' }} />
+                            </AreaChart>
+                        </ResponsiveContainer>
                     </div>
-                    <Button onClick={exportToCSV} variant="outline" className="h-11 rounded-xl border-slate-200 font-bold">
-                        <Download className="mr-2 h-4 w-4" /> Exportar Base (CSV)
-                    </Button>
-                </div>
-                <div className="h-[400px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={trendChartData}>
-                            <defs>
-                                <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" fontSize={10} axisLine={false} tick={{fill: '#94a3b8', fontWeight: 700}} tickFormatter={(v) => `D${v}`} />
-                            <YAxis fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v/1000}k`} tick={{fill: '#94a3b8', fontWeight: 700}} />
-                            <Tooltip 
-                                formatter={(v: number) => money(v)} 
-                                contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'}} 
-                            />
-                            <Area type="monotone" dataKey="target" stroke="#3b82f6" strokeWidth={3} fill="url(#colorTarget)" name="Techo Proyectado" dot={false} />
-                            <Line type="monotone" dataKey="actual" stroke="#f43f5e" strokeWidth={4} name="Gasto Real Acumulado" dot={{ r: 4, fill: '#f43f5e', strokeWidth: 2, stroke: '#fff' }} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            </Card>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden p-8">
+                    <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-8">
+                        <Activity className="h-6 w-6 text-[#2D5A4C]" /> Flujo de Caja Mensual
+                    </CardTitle>
+                    <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RechartsBarChart data={barChartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" fontSize={10} axisLine={false} />
+                                <YAxis fontSize={10} axisLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                                <Tooltip formatter={(v: number) => money(v)} cursor={{fill: '#f8fafc'}} />
+                                <RechartsBar dataKey="Ingresos" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={15} />
+                                <RechartsBar dataKey="Gastos" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={15} />
+                            </RechartsBarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
+            </div>
 
             <Card className="border-none shadow-sm bg-white overflow-hidden rounded-[24px]">
                 <CardHeader className="flex flex-col md:flex-row md:items-center justify-between pb-8 pt-10 px-10">
                     <div>
-                        <CardTitle className="text-2xl font-black uppercase tracking-tighter">HISTORIAL DE MOVIMIENTOS</CardTitle>
+                        <CardTitle className="text-2xl font-black uppercase tracking-tighter text-slate-800">HISTORIAL DE MOVIMIENTOS</CardTitle>
                         <CardDescription className="text-xs font-bold uppercase text-slate-400 mt-1">AUDITORÍA COMPLETA DEL PERIODO SELECCIONADO.</CardDescription>
                     </div>
-                    <div className="relative w-full md:w-80 mt-4 md:mt-0">
-                        <Input placeholder="BUSCAR POR CONCEPTO O ID..." className="h-12 pl-5 pr-12 border-slate-100 rounded-2xl bg-slate-50 font-bold uppercase text-[10px] focus:ring-primary/20" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                    <div className="flex items-center gap-4">
+                        <Button onClick={exportToCSV} variant="outline" className="h-11 rounded-xl border-slate-200 font-bold"><Download className="mr-2 h-4 w-4" /> Exportar CSV</Button>
+                        <div className="relative w-64"><Input placeholder="BUSCAR..." className="h-11 pl-5 pr-10 border-slate-100 rounded-2xl bg-slate-50 font-bold uppercase text-[10px]" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /><Search className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" /></div>
                     </div>
                 </CardHeader>
                 <div className="border-t border-slate-50">
@@ -1376,67 +1339,50 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
                         <Table className="min-w-[2500px]">
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow className="h-14 border-b-slate-100">
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ID</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">FECHA</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">EMPRESA</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">TIPO</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">IMPACTO (F1)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ÁREA (F2)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MACRO (F3)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CATEGORÍA (F4)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">SUBCATEGORÍA (F5)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">CANAL (F6)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">ATRIBUCIÓN (F7)</TableHead>
-                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">RESPONSABLE</TableHead>
-                                    <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 px-6 tracking-widest">MONTO FINAL</TableHead>
-                                    <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 tracking-widest sticky right-0 bg-white z-10">ACCIONES</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">ID</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">FECHA</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">EMPRESA</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">TIPO</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">IMPACTO (F1)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">ÁREA (F2)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">MACRO (F3)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">CATEGORÍA (F4)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">SUBCATEGORÍA (F5)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">CANAL (F6)</TableHead>
+                                    <TableHead className="font-black text-[10px] uppercase text-slate-400 px-6">RESPONSABLE</TableHead>
+                                    <TableHead className="text-right font-black text-[10px] uppercase text-slate-400 px-6">MONTO FINAL</TableHead>
+                                    <TableHead className="w-[100px] text-center font-black text-[10px] uppercase text-slate-400 sticky right-0 bg-white z-10">ACCIONES</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filtered.length > 0 ? filtered.map((t: any) => (
-                                    <TableRow key={t.id} className="h-20 hover:bg-slate-50/50 transition-all duration-200 border-slate-50 group">
+                                    <TableRow key={t.id} className="h-20 hover:bg-slate-50/50 transition-all border-slate-50 group">
                                         <TableCell className="px-6 font-mono text-[10px] text-slate-400">#{t.id}</TableCell>
-                                        <TableCell className="px-6 text-[10px] font-bold text-slate-600 whitespace-nowrap">{t.fecha}</TableCell>
+                                        <TableCell className="px-6 text-[10px] font-bold text-slate-600">{t.fecha}</TableCell>
                                         <TableCell className="px-6"><Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200">{t.empresa}</Badge></TableCell>
                                         <TableCell className="px-6"><Badge variant="secondary" className="text-[9px] font-black uppercase bg-slate-100 text-slate-500 border-none">{t.tipo_transaccion}</Badge></TableCell>
                                         <TableCell className="px-6 text-[10px] font-medium text-slate-500 uppercase">{catalogs.impactos.find((i: any) => i.id === t.tipo_gasto_impacto)?.nombre || '-'}</TableCell>
                                         <TableCell className="px-6 text-[10px] font-medium text-slate-500 uppercase">{catalogs.areas.find((a: any) => a.id === t.area_funcional)?.nombre || '-'}</TableCell>
-                                        <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">
-                                            {catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}
-                                        </TableCell>
-                                        <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-400">
-                                            {catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}
-                                        </TableCell>
-                                        <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-800">
-                                            {catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}
-                                        </TableCell>
+                                        <TableCell className="px-6 font-black text-[11px] uppercase text-[#2D5A4C]">{catalogs.macros.find((m: any) => m.id === t.categoria_macro)?.nombre || '-'}</TableCell>
+                                        <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-400">{catalogs.categorias.find((c: any) => c.id === t.categoria)?.nombre || '-'}</TableCell>
+                                        <TableCell className="px-6 font-bold text-[10px] uppercase text-slate-800">{catalogs.subcategorias.find((s: any) => s.id === t.subcategoria_especifica)?.nombre || '-'}</TableCell>
                                         <TableCell className="px-6 text-[10px] font-black uppercase text-slate-400">{String(t.canal_asociado || '-').replace(/_/g, ' ')}</TableCell>
-                                        <TableCell className="px-6 text-[10px] font-medium text-slate-400">{String(t.clasificacion_operativa || '-').replace(/_/g, ' ')}</TableCell>
                                         <TableCell className="px-6 text-[10px] font-bold text-slate-600">{t.responsable || '-'}</TableCell>
                                         <TableCell className="px-6 text-right font-black text-sm text-[#2D5A4C]">{money(t.monto)}</TableCell>
-                                        <TableCell className="text-center px-4 sticky right-0 bg-white group-hover:bg-slate-50/50 transition-colors">
+                                        <TableCell className="text-center px-4 sticky right-0 bg-white group-hover:bg-slate-50/50">
                                             <DropdownMenu>
-                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100 group-hover:scale-110 transition-transform"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="rounded-2xl border-slate-100 shadow-2xl p-2 w-48">
-                                                    <DropdownMenuItem onClick={() => setViewDetail(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Eye className="mr-2 h-3.5 w-3.5" /> Visualizar</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => downloadPDF(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><FileDown className="mr-2 h-3.5 w-3.5" /> Descargar PDF</DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => onEditTransaction(t)} className="font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5"><Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setViewDetail(t)} className="font-black text-[10px] uppercase cursor-pointer py-2.5"><Eye className="mr-2 h-3.5 w-3.5" /> Visualizar</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => downloadPDF(t)} className="font-black text-[10px] uppercase cursor-pointer py-2.5"><FileDown className="mr-2 h-3.5 w-3.5" /> Descargar PDF</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => onEditTransaction(t)} className="font-black text-[10px] uppercase cursor-pointer py-2.5"><Pencil className="mr-2 h-3.5 w-3.5" /> Editar Registro</DropdownMenuItem>
                                                     <DropdownMenuSeparator className="my-1 bg-slate-50" />
-                                                    <DropdownMenuItem className="text-destructive font-black text-[10px] uppercase cursor-pointer rounded-lg py-2.5" onClick={() => onDeleteTransaction(t.id)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-destructive font-black text-[10px] uppercase cursor-pointer py-2.5" onClick={() => onDeleteTransaction(t.id)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Eliminar</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
-                                )) : (
-                                    <TableRow>
-                                        <TableCell colSpan={14} className="h-80 text-center">
-                                            <div className="flex flex-col items-center gap-4 opacity-20">
-                                                <FileText className="h-16 w-16" />
-                                                <p className="font-black uppercase text-[10px] tracking-[0.2em]">Sin movimientos registrados en este periodo</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
+                                )) : <TableRow><TableCell colSpan={13} className="h-80 text-center opacity-20"><FileText className="h-16 w-16 mx-auto mb-4" /><p className="font-black uppercase text-[10px]">Sin movimientos registrados</p></TableCell></TableRow>}
                             </TableBody>
                         </Table>
                         <ScrollBar orientation="horizontal" />
@@ -1445,99 +1391,52 @@ function ReportsView({ transactions, isLoading, onEditTransaction, onDeleteTrans
             </Card>
 
             <Dialog open={!!viewDetail} onOpenChange={() => setViewDetail(null)}>
-                <DialogContent className="max-w-2xl w-[95vw] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
+                <DialogContent className="max-w-3xl w-[95vw] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden bg-white animate-in zoom-in-95 duration-300">
                     <ScrollArea className="max-h-[85vh] no-scrollbar">
-                        <div className="p-8 sm:p-10 space-y-10">
+                        <div className="p-10 sm:p-12 space-y-12">
                             <DialogHeader>
                                 <div className="flex items-center justify-between">
-                                    <DialogTitle className="text-3xl font-black uppercase tracking-tighter text-slate-900">Detalle del Movimiento</DialogTitle>
+                                    <div>
+                                        <DialogTitle className="text-4xl font-black uppercase tracking-tighter text-slate-900 leading-none">DETALLE DEL MOVIMIENTO</DialogTitle>
+                                        <p className="text-xs font-bold uppercase text-slate-400 tracking-widest mt-2">ID REGISTRO: #{viewDetail?.id}</p>
+                                    </div>
                                     <div className="flex gap-2">
-                                        {viewDetail?.es_fijo && <Badge className="bg-slate-900 text-white font-black text-[8px] uppercase">FIJO</Badge>}
-                                        {viewDetail?.es_recurrente && <Badge className="bg-blue-600 text-white font-black text-[8px] uppercase">RECURRENTE</Badge>}
+                                        {viewDetail?.es_recurrente && <Badge className="bg-blue-600 text-white font-black text-[8px] uppercase px-3 py-1">RECURRENTE</Badge>}
                                     </div>
                                 </div>
-                                <DialogDescription className="text-xs font-bold uppercase text-slate-400 tracking-widest">ID Registro: #{viewDetail?.id}</DialogDescription>
                             </DialogHeader>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-8">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Fecha</p>
-                                    <p className="text-lg font-black text-slate-800">{viewDetail?.fecha}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría (F5)</p>
-                                    <p className="text-lg font-black text-slate-800">{catalogs.subcategorias.find((s: any) => s.id === viewDetail?.subcategoria_especifica)?.nombre || '-'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Empresa</p>
-                                    <p className="text-lg font-black text-slate-800">{viewDetail?.empresa}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Método</p>
-                                    <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.metodo_pago?.replace(/_/g, ' ') || '-'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Monto</p>
-                                    <p className="text-2xl font-black text-[#2D5A4C]">{money(viewDetail?.monto)}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Banco</p>
-                                    <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.banco || '-'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</p>
-                                    <p className="text-lg font-black text-slate-800">{viewDetail?.tipo_transaccion}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cuenta</p>
-                                    <p className="text-lg font-black text-slate-800 uppercase">{viewDetail?.cuenta || '-'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto (F1)</p>
-                                    <p className="text-lg font-black text-slate-800">{catalogs.impactos.find((i: any) => i.id === viewDetail?.tipo_gasto_impacto)?.nombre || '-'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Responsable</p>
-                                    <p className="text-lg font-black text-slate-800">{viewDetail?.responsable || '-'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Canal (F6)</p>
-                                    <p className="text-lg font-black text-slate-800 uppercase">{String(viewDetail?.canal_asociado || '-').replace(/_/g, ' ')}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Clasificación (F7)</p>
-                                    <p className="text-lg font-black text-slate-800 uppercase">{String(viewDetail?.clasificacion_operativa || '-').replace(/_/g, ' ')}</p>
-                                </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10">
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Fecha</p><p className="text-2xl font-black text-slate-800">{viewDetail?.fecha}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subcategoría (F5)</p><p className="text-2xl font-black text-slate-800 uppercase">{catalogs.subcategorias.find((s: any) => s.id === viewDetail?.subcategoria_especifica)?.nombre || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Empresa</p><p className="text-2xl font-black text-slate-800">{viewDetail?.empresa}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Método</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.metodo_pago?.replace(/_/g, ' ') || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Monto</p><p className="text-4xl font-black text-[#2D5A4C]">{money(viewDetail?.monto)}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Banco</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.banco || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo</p><p className="text-2xl font-black text-slate-800">{viewDetail?.tipo_transaccion}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Cuenta</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.cuenta || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Impacto (F1)</p><p className="text-2xl font-black text-slate-800 uppercase">{catalogs.impactos.find((i: any) => i.id === viewDetail?.tipo_gasto_impacto)?.nombre || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Responsable</p><p className="text-2xl font-black text-slate-800 uppercase">{viewDetail?.responsable || '-'}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Canal (F6)</p><p className="text-2xl font-black text-slate-800 uppercase">{String(viewDetail?.canal_asociado || '-').replace(/_/g, ' ')}</p></div>
+                                <div className="space-y-1.5"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Clasificación (F7)</p><p className="text-2xl font-black text-slate-800 uppercase">{String(viewDetail?.clasificacion_operativa || '-').replace(/_/g, ' ')}</p></div>
                             </div>
 
-                            <Separator className="bg-slate-100" />
-
-                            <div className="space-y-6">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Descripción</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed">{viewDetail?.descripcion || '-'}</p>
+                            {(viewDetail?.descripcion || viewDetail?.notas) && (
+                                <div className="pt-8 border-t border-slate-50 space-y-6">
+                                    <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Descripción</p><p className="text-sm font-medium text-slate-600 leading-relaxed">{viewDetail?.descripcion || '-'}</p></div>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Notas Adicionales</p>
-                                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">{viewDetail?.notes || viewDetail?.notas || '-'}</p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </ScrollArea>
 
-                    <div className="px-8 sm:p-10 py-8 border-t bg-slate-50 flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex gap-3">
-                            <Button variant="outline" onClick={() => setViewDetail(null)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200">Cerrar</Button>
-                            <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-12 px-6 font-black uppercase text-[10px] rounded-xl border-slate-200 flex gap-2">
-                                <FileDown className="h-4 w-4" /> Descargar PDF
+                    <div className="px-10 sm:p-12 py-10 border-t bg-slate-50 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex gap-4">
+                            <Button variant="outline" onClick={() => setViewDetail(null)} className="h-14 px-10 font-black uppercase text-[10px] rounded-2xl border-slate-200 bg-white">CERRAR</Button>
+                            <Button variant="outline" onClick={() => downloadPDF(viewDetail)} className="h-14 px-10 font-black uppercase text-[10px] rounded-2xl border-slate-200 bg-white flex gap-2">
+                                <FileDown className="h-4 w-4" /> DESCARGAR PDF
                             </Button>
                         </div>
-                        <Button 
-                            onClick={() => { setViewDetail(null); onEditTransaction(viewDetail); }} 
-                            className="h-12 px-8 font-black uppercase text-[10px] rounded-xl bg-[#2D5A4C] hover:bg-[#24483D] shadow-lg shadow-emerald-900/10"
-                        >
-                            Editar Movimiento
-                        </Button>
+                        <Button onClick={() => { setViewDetail(null); onEditTransaction(viewDetail); }} className="h-14 px-12 font-black uppercase text-[10px] rounded-2xl bg-[#2D5A4C] hover:bg-[#24483D] shadow-xl text-white">EDITAR MOVIMIENTO</Button>
                     </div>
                 </DialogContent>
             </Dialog>
